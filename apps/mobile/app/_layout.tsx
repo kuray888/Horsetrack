@@ -12,8 +12,8 @@ import { BadgeCelebration } from "@/components/BadgeCelebration";
 export default function RootLayout() {
   return (
     <SubscriptionProvider>
-      <ProgressProvider>
-        <HorsesProvider>
+      <HorsesProvider>
+        <ProgressProvider>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
@@ -24,8 +24,8 @@ export default function RootLayout() {
             <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
           </Stack>
           <BadgeCelebration />
-        </HorsesProvider>
-      </ProgressProvider>
+        </ProgressProvider>
+      </HorsesProvider>
     </SubscriptionProvider>
   );
 }

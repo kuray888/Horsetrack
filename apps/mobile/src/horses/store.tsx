@@ -18,6 +18,11 @@ import type { Discipline, HorseLevel } from "@/onboarding/store";
  */
 
 const STORAGE_KEY = "horses_v1";
+const SELECTED_KEY = "selected_horse_id_v1";
+
+/** Id du cheval pré-rempli au premier lancement — utilisé par progress/store.tsx
+ * pour décider quel cheval reçoit les séances passées pré-cochées (démo). */
+export const SEED_HORSE_ID = "h1";
 
 export type Horse = {
   id: string;
@@ -59,6 +64,10 @@ type HorsesContextValue = {
   loading: boolean;
   horses: Horse[];
   addHorse: (horse: NewHorse) => void;
+  /** Cheval actuellement sélectionné (cf. sélecteur sur Today) — pilote la
+   * progression/programme affichés ailleurs dans l'app. */
+  selectedHorse: Horse | null;
+  selectHorse: (id: string) => void;
 };
 
 const HorsesContext = createContext<HorsesContextValue | null>(null);
@@ -66,12 +75,17 @@ const HorsesContext = createContext<HorsesContextValue | null>(null);
 export function HorsesProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [horses, setHorses] = useState<Horse[]>(DEFAULT_HORSES);
+  const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null);
 
   useEffect(() => {
-    SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
-      if (raw) setHorses(JSON.parse(raw));
-      setLoading(false);
-    });
+    Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)]).then(
+      ([rawHorses, rawSelected]) => {
+        const loaded: Horse[] = rawHorses ? JSON.parse(rawHorses) : DEFAULT_HORSES;
+        setHorses(loaded);
+        setSelectedHorseId(rawSelected ?? loaded.find((h) => h.isPrimary)?.id ?? loaded[0]?.id ?? null);
+        setLoading(false);
+      }
+    );
   }, []);
 
   const persist = useCallback((next: Horse[]) => {
@@ -89,9 +103,19 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const selectHorse = useCallback((id: string) => {
+    setSelectedHorseId(id);
+    SecureStore.setItemAsync(SELECTED_KEY, id);
+  }, []);
+
+  const selectedHorse = useMemo(
+    () => horses.find((h) => h.id === selectedHorseId) ?? horses.find((h) => h.isPrimary) ?? horses[0] ?? null,
+    [horses, selectedHorseId]
+  );
+
   const value = useMemo<HorsesContextValue>(
-    () => ({ loading, horses, addHorse }),
-    [loading, horses, addHorse]
+    () => ({ loading, horses, addHorse, selectedHorse, selectHorse }),
+    [loading, horses, addHorse, selectedHorse, selectHorse]
   );
 
   return <HorsesContext.Provider value={value}>{children}</HorsesContext.Provider>;

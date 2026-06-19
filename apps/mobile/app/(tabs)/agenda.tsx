@@ -240,8 +240,7 @@ const emptyApptForm = {
 const emptyDocForm = { category: "facture" as DocumentCategory, name: "", date: null as Date | null };
 
 export default function AgendaScreen() {
-  const { horses } = useHorses();
-  const horse = horses.find((h) => h.isPrimary) ?? horses[0];
+  const { selectedHorse: horse } = useHorses();
   const [section, setSection] = useState<"appointments" | "documents">("appointments");
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
   const [loaded, setLoaded] = useState(false);

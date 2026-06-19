@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { CircularProgress } from "@/components/CircularProgress";
 import { FadeInView } from "@/components/FadeInView";
 import { WeekStreak } from "@/components/WeekStreak";
@@ -61,8 +61,8 @@ function weeklyRecapMessage(done: number, total: number): string {
 
 export default function TodayScreen() {
   const { isDone, xp, xpIntoLevel, xpGoal, level, weekStreak, bestWeekStreak } = useProgress();
-  const { horses } = useHorses();
-  const horse = horses.find((h) => h.isPrimary) ?? horses[0];
+  const { horses, selectedHorse, selectHorse } = useHorses();
+  const horse = selectedHorse;
   const xpAnimated = useCountUp(xp);
   const precisionTarget = Math.round((precision.done / precision.target) * 100);
   const precisionPct = useCountUp(precisionTarget);
@@ -89,6 +89,41 @@ export default function TodayScreen() {
           </View>
         </View>
       </FadeInView>
+
+      {/* Sélecteur de cheval — visible seulement à partir de 2 chevaux dans l'écurie */}
+      {horses.length > 1 ? (
+        <FadeInView delay={40}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 pr-2">
+            {horses.map((h) => {
+              const isSelected = h.id === horse?.id;
+              return (
+                <TouchableOpacity
+                  key={h.id}
+                  onPress={() => selectHorse(h.id)}
+                  activeOpacity={0.8}
+                  className="items-center gap-1"
+                >
+                  <View
+                    className={`h-14 w-14 items-center justify-center rounded-full ${
+                      isSelected ? "border-2 border-primary bg-highlight" : "border border-border bg-surface"
+                    }`}
+                  >
+                    <Text className="text-2xl">{h.emoji}</Text>
+                  </View>
+                  <Text
+                    className={`max-w-[64px] text-center text-xs font-semibold ${
+                      isSelected ? "text-primary" : "text-muted"
+                    }`}
+                    numberOfLines={1}
+                  >
+                    {h.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </FadeInView>
+      ) : null}
 
       {/* CTA rapide */}
       <FadeInView delay={80}>
