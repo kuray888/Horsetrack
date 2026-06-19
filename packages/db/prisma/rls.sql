@@ -27,12 +27,16 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.users (id, email, name, "avatarUrl")
+  -- "updatedAt" n'a pas de DEFAULT Postgres (@updatedAt est une convention
+  -- Prisma Client, pas un trigger DB) : il faut le fournir explicitement, sinon
+  -- l'insert échoue (NOT NULL) et aucune ligne public.users n'est jamais créée.
+  insert into public.users (id, email, name, "avatarUrl", "updatedAt")
   values (
     new.id::text,
     new.email,
     new.raw_user_meta_data ->> 'name',
-    new.raw_user_meta_data ->> 'avatar_url'
+    new.raw_user_meta_data ->> 'avatar_url',
+    now()
   )
   on conflict (id) do nothing;
   return new;
