@@ -11,6 +11,7 @@ import { colors } from "@/theme/colors";
 import { isBiometricsAvailable, authenticateWithBiometrics, getBiometricType } from "@/lib/biometrics";
 import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
 import { useProgress } from "@/progress/store";
+import { useHorses } from "@/horses/store";
 import { BADGES } from "@/program/badges";
 import {
   DISCIPLINES,
@@ -19,28 +20,15 @@ import {
   RIDE_FREQUENCIES,
   HORSE_LEVELS,
 } from "@/onboarding/options";
-import type { Discipline, HorseLevel, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
+import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
 
-// --- Données mock (à brancher sur l'onboarding persisté plus tard) ---
+// --- Profil cavalier mock (à brancher sur l'onboarding persisté plus tard) ---
 const riderProfile = {
   level: "AMATEUR" as RiderLevel,
   mainDiscipline: "SHOW_JUMPING" as Discipline,
   rideFrequency: "SEVERAL_PER_WEEK" as RideFrequency,
   primaryGoal: "COMPETE" as RiderGoal,
 };
-
-const horses = [
-  {
-    id: "h1",
-    name: "Tornado",
-    emoji: "🐴",
-    discipline: "SHOW_JUMPING" as Discipline,
-    level: "CLUB" as HorseLevel,
-    isPrimary: true,
-    strengths: ["Saut", "Mental"],
-    weaknesses: ["Impulsion"],
-  },
-];
 
 const BIOMETRICS_KEY = "biometric_lock_enabled_v1";
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -104,6 +92,7 @@ export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
   const { status, plan, trialEndsAt, isPremium, loading: subLoading } = useSubscription();
   const { unlockedBadges } = useProgress();
+  const { horses } = useHorses();
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
@@ -220,10 +209,11 @@ export default function ProfileScreen() {
       <FadeInView delay={220}>
         <TouchableOpacity
           activeOpacity={0.8}
+          onPress={() => router.push("/add-horse-modal")}
           className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
         >
           <Text className="text-lg font-bold text-primary">＋</Text>
-          <Text className="text-base font-semibold text-primary">Ajouter un cheval (bientôt)</Text>
+          <Text className="text-base font-semibold text-primary">Ajouter un cheval</Text>
         </TouchableOpacity>
       </FadeInView>
 
