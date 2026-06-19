@@ -3,16 +3,22 @@
 -- Idempotent : peut être relancé sans risque.
 -- Colonnes en camelCase entre guillemets : ce sont les noms de colonnes réels
 -- générés par Prisma (pas de @map sur les champs scalaires dans schema.prisma).
+--
+-- Réécrit le 2026-06-19 pour matcher le schéma actuel (users / rider_profiles
+-- / horses / horse_traits / goals / sessions / payments). L'ancienne version
+-- visait un schéma différent (programs / weeks / training_sessions / ...) qui
+-- n'existe plus dans schema.prisma.
+--
+-- Détail important : `User.id` est `String @id @default(cuid())` côté Prisma,
+-- donc la colonne Postgres est `text`, pas `uuid`. `auth.uid()` renvoie un
+-- `uuid`. On ne peut donc pas créer de contrainte FOREIGN KEY directe entre
+-- `public.users.id` et `auth.users.id` (types incompatibles, Postgres refuse).
+-- On compare donc partout avec un cast explicite `auth.uid()::text`, et le
+-- lien entre les deux se fait uniquement via le trigger ci-dessous (qui
+-- recopie l'UUID Supabase Auth en texte dans `public.users.id`), sans FK.
 -- ============================================================================
 
--- 1. Lier public.users à auth.users (id == auth.uid()) ----------------------
-
-alter table public.users
-  drop constraint if exists users_id_fkey;
-alter table public.users
-  add constraint users_id_fkey foreign key (id) references auth.users (id) on delete cascade;
-
--- 2. Création automatique du profil à l'inscription Supabase Auth -----------
+-- 1. Création automatique du profil à l'inscription Supabase Auth -----------
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -23,7 +29,7 @@ as $$
 begin
   insert into public.users (id, email, name, "avatarUrl")
   values (
-    new.id,
+    new.id::text,
     new.email,
     new.raw_user_meta_data ->> 'name',
     new.raw_user_meta_data ->> 'avatar_url'
@@ -38,9 +44,24 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- 3. Fonctions utilitaires pour les policies (évite de répéter les EXISTS) --
+-- 2. Fonctions utilitaires pour les policies (évite de répéter les EXISTS) --
+-- horses."ownerId" pointe vers rider_profiles.id (pas directement vers
+-- users.id) : il faut remonter par rider_profiles pour vérifier le
+-- propriétaire réel (auth.uid()).
 
-create or replace function public.owns_horse(_horse_id uuid)
+create or replace function public.owns_rider_profile(_rider_profile_id text)
+returns boolean
+language sql
+security invoker
+stable
+as $$
+  select exists (
+    select 1 from public.rider_profiles rp
+    where rp.id = _rider_profile_id and rp."userId" = auth.uid()::text
+  );
+$$;
+
+create or replace function public.owns_horse(_horse_id text)
 returns boolean
 language sql
 security invoker
@@ -48,133 +69,64 @@ stable
 as $$
   select exists (
     select 1 from public.horses h
-    where h.id = _horse_id and h."userId" = auth.uid()
+    join public.rider_profiles rp on rp.id = h."ownerId"
+    where h.id = _horse_id and rp."userId" = auth.uid()::text
   );
 $$;
 
-create or replace function public.owns_program(_program_id uuid)
-returns boolean
-language sql
-security invoker
-stable
-as $$
-  select exists (
-    select 1 from public.programs p
-    join public.horses h on h.id = p."horseId"
-    where p.id = _program_id and h."userId" = auth.uid()
-  );
-$$;
+-- 3. Activer RLS sur toutes les tables --------------------------------------
 
-create or replace function public.owns_session(_session_id uuid)
-returns boolean
-language sql
-security invoker
-stable
-as $$
-  select exists (
-    select 1 from public.training_sessions s
-    join public.horses h on h.id = s."horseId"
-    where s.id = _session_id and h."userId" = auth.uid()
-  );
-$$;
+alter table public.users          enable row level security;
+alter table public.rider_profiles enable row level security;
+alter table public.horses         enable row level security;
+alter table public.horse_traits   enable row level security;
+alter table public.goals          enable row level security;
+alter table public.sessions       enable row level security;
+alter table public.payments       enable row level security;
 
--- 4. Activer RLS sur toutes les tables --------------------------------------
+-- 4. Policies -----------------------------------------------------------
 
-alter table public.users             enable row level security;
-alter table public.auth_sessions     enable row level security;
-alter table public.payments          enable row level security;
-alter table public.horses            enable row level security;
-alter table public.programs          enable row level security;
-alter table public.weeks             enable row level security;
-alter table public.training_sessions enable row level security;
-alter table public.exercises         enable row level security;
-alter table public.debriefs          enable row level security;
-alter table public.events            enable row level security;
-alter table public.documents         enable row level security;
-alter table public.media_entries     enable row level security;
-alter table public.xp_logs           enable row level security;
-alter table public.achievements      enable row level security;
-alter table public.user_achievements enable row level security;
-
--- 5. Policies -----------------------------------------------------------
-
--- users : chacun voit/modifie sa propre ligne (création gérée par le trigger)
+-- users : chacun voit/modifie sa propre ligne (création gérée par le trigger,
+-- pas d'insert policy : un insert direct via supabase-js reste bloqué)
 drop policy if exists "users_select_own" on public.users;
 create policy "users_select_own" on public.users
-  for select using (id = auth.uid());
+  for select using (id = auth.uid()::text);
 
 drop policy if exists "users_update_own" on public.users;
 create policy "users_update_own" on public.users
-  for update using (id = auth.uid()) with check (id = auth.uid());
+  for update using (id = auth.uid()::text) with check (id = auth.uid()::text);
 
--- auth_sessions : legacy, lecture de ses propres tokens uniquement
-drop policy if exists "auth_sessions_select_own" on public.auth_sessions;
-create policy "auth_sessions_select_own" on public.auth_sessions
-  for select using ("userId" = auth.uid());
+-- rider_profiles : 1-1 avec users, CRUD complet sur son propre profil
+-- (c'est ici que l'onboarding écrira une fois branché sur Supabase)
+drop policy if exists "rider_profiles_all_own" on public.rider_profiles;
+create policy "rider_profiles_all_own" on public.rider_profiles
+  for all using ("userId" = auth.uid()::text) with check ("userId" = auth.uid()::text);
+
+-- horses : CRUD via le rider_profile parent
+drop policy if exists "horses_all_own" on public.horses;
+create policy "horses_all_own" on public.horses
+  for all using (public.owns_rider_profile("ownerId")) with check (public.owns_rider_profile("ownerId"));
+
+-- horse_traits : via le cheval parent
+drop policy if exists "horse_traits_all_own" on public.horse_traits;
+create policy "horse_traits_all_own" on public.horse_traits
+  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
+
+-- goals : rattaché au rider_profile (et parfois à un cheval, mais le
+-- propriétaire de référence reste toujours le rider_profile)
+drop policy if exists "goals_all_own" on public.goals;
+create policy "goals_all_own" on public.goals
+  for all using (public.owns_rider_profile("riderId")) with check (public.owns_rider_profile("riderId"));
 
 -- payments : lecture de ses propres paiements seulement (écriture = API
 -- backend uniquement, via connexion directe DATABASE_URL qui bypass RLS)
 drop policy if exists "payments_select_own" on public.payments;
 create policy "payments_select_own" on public.payments
-  for select using ("userId" = auth.uid());
+  for select using ("userId" = auth.uid()::text);
 
--- horses : CRUD complet sur ses propres chevaux
-drop policy if exists "horses_all_own" on public.horses;
-create policy "horses_all_own" on public.horses
-  for all using ("userId" = auth.uid()) with check ("userId" = auth.uid());
-
--- programs : via le cheval parent
-drop policy if exists "programs_all_own" on public.programs;
-create policy "programs_all_own" on public.programs
-  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
-
--- weeks : via le programme parent
-drop policy if exists "weeks_all_own" on public.weeks;
-create policy "weeks_all_own" on public.weeks
-  for all using (public.owns_program("programId")) with check (public.owns_program("programId"));
-
--- training_sessions : via le cheval parent
-drop policy if exists "training_sessions_all_own" on public.training_sessions;
-create policy "training_sessions_all_own" on public.training_sessions
-  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
-
--- exercises : via la séance parente
-drop policy if exists "exercises_all_own" on public.exercises;
-create policy "exercises_all_own" on public.exercises
-  for all using (public.owns_session("sessionId")) with check (public.owns_session("sessionId"));
-
--- debriefs : via la séance parente
-drop policy if exists "debriefs_all_own" on public.debriefs;
-create policy "debriefs_all_own" on public.debriefs
-  for all using (public.owns_session("sessionId")) with check (public.owns_session("sessionId"));
-
--- events : via le cheval parent
-drop policy if exists "events_all_own" on public.events;
-create policy "events_all_own" on public.events
-  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
-
--- documents : via le cheval parent
-drop policy if exists "documents_all_own" on public.documents;
-create policy "documents_all_own" on public.documents
-  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
-
--- media_entries : via la séance parente
-drop policy if exists "media_entries_all_own" on public.media_entries;
-create policy "media_entries_all_own" on public.media_entries
-  for all using (public.owns_session("sessionId")) with check (public.owns_session("sessionId"));
-
--- xp_logs : propriétaire direct, lecture/écriture de ses propres logs
-drop policy if exists "xp_logs_all_own" on public.xp_logs;
-create policy "xp_logs_all_own" on public.xp_logs
-  for all using ("userId" = auth.uid()) with check ("userId" = auth.uid());
-
--- achievements : catalogue public en lecture pour tout utilisateur connecté
--- (écriture réservée à l'admin / service role, qui bypass RLS)
-drop policy if exists "achievements_select_all" on public.achievements;
-create policy "achievements_select_all" on public.achievements
-  for select using (auth.role() = 'authenticated');
-
--- user_achievements : chacun voit/débloque ses propres badges
-drop policy if exists "user_achievements_all_own" on public.user_achievements;
-create policy "user_achievements_all_own" on public.user_achievements
-  for all using ("userId" = auth.uid()) with check ("userId" = auth.uid());
+-- sessions : table de jetons d'auth « legacy », non utilisée par le code
+-- actuel (le mobile passe par Supabase Auth, pas par ce modèle Prisma —
+-- aucune référence à `db.session` trouvée dans apps/api ou apps/mobile).
+-- RLS activée sans aucune policy = personne ne peut y toucher via
+-- supabase-js (le rôle service/Prisma bypass RLS de toute façon).
+-- Candidate à la suppression du schéma si elle reste inutilisée.
