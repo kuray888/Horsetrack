@@ -65,7 +65,7 @@ export default function Summary() {
       <View className="px-5 pb-2 pt-3">
         <PrimaryButton
           label="Voir mon programme"
-          onPress={() => router.push("/(onboarding)/account")}
+          onPress={() => router.push("/(onboarding)/paywall")}
         />
       </View>
     </SafeAreaView>
