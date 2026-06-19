@@ -24,7 +24,7 @@ export default function Horses() {
       title="Ton écurie"
       subtitle="Ajoute autant de chevaux que tu veux — c'est inclus, sans supplément."
       ctaLabel="C'est tout, continuer"
-      onNext={() => router.push("/(onboarding)/building")}
+      onNext={() => router.push("/(onboarding)/extra-info")}
     >
       <View className="gap-3">
         {namedHorses.map((h, i) => (

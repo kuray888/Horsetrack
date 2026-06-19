@@ -47,6 +47,9 @@ export type RiderDraft = {
   mainDiscipline: Discipline | null;
   rideFrequency: RideFrequency | null;
   primaryGoal: RiderGoal | null;
+  /** Contexte libre donné par le cavalier (dernière question d'onboarding) —
+   * destiné à nourrir la personnalisation du programme par le Coach IA. */
+  additionalInfo: string;
 };
 
 type OnboardingState = {
@@ -86,7 +89,7 @@ type OnboardingContextValue = OnboardingState & {
 };
 
 const initialState: OnboardingState = {
-  rider: { level: null, mainDiscipline: null, rideFrequency: null, primaryGoal: null },
+  rider: { level: null, mainDiscipline: null, rideFrequency: null, primaryGoal: null, additionalInfo: "" },
   horses: [newHorse(true)],
   editingIndex: 0,
 };

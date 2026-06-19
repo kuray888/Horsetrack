@@ -55,6 +55,15 @@ export default function Summary() {
           <PlanRow text={`Toute ton écurie (${horses.length} cheval${horses.length > 1 ? "x" : ""}) suivie`} />
         </View>
 
+        {rider.additionalInfo.trim() ? (
+          <View className="rounded-card bg-surface p-5 shadow-card">
+            <Text className="mb-1 text-sm font-bold uppercase tracking-wide text-accent">
+              On a bien pris note 📝
+            </Text>
+            <Text className="text-base text-text">{rider.additionalInfo.trim()}</Text>
+          </View>
+        ) : null}
+
         <View className="rounded-card border border-border bg-highlight/40 p-4">
           <Text className="text-center text-base font-semibold text-primary">
             Essaie tout gratuitement pendant 7 jours.

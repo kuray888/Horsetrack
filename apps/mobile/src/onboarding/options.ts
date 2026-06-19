@@ -8,7 +8,7 @@ import type {
 } from "./store";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 7;
+export const TOTAL_STEPS = 8;
 
 /** Libellés FR affichés à l'utilisateur, indexés par la valeur d'enum (= valeur Prisma). */
 export type Option<T extends string> = { value: T; label: string; emoji?: string };
