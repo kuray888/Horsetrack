@@ -6,9 +6,11 @@ import { supabase } from "@/lib/supabase";
 import { isOnboardingCompleted } from "@/onboarding/completion";
 
 /**
- * Écran de démarrage : pas de session Supabase → (auth)/login. Sinon,
- * l'onboarding est la première chose vue tant qu'il n'est pas terminé,
- * ensuite on entre dans l'app.
+ * Écran de démarrage : l'onboarding est la première chose vue tant qu'il
+ * n'est pas terminé (le compte se crée lui-même au milieu de ce parcours,
+ * cf. (onboarding)/account.tsx — pas besoin de session avant). Une fois
+ * l'onboarding fait, on a forcément un compte : s'il n'y a plus de session
+ * (déconnexion), on renvoie vers le login plutôt que de relancer l'onboarding.
  */
 export default function Index() {
   const [hasSession, setHasSession] = useState<boolean | null>(null);
@@ -27,9 +29,9 @@ export default function Index() {
     );
   }
 
-  if (!hasSession) {
-    return <Redirect href="/(auth)/login" />;
+  if (!done) {
+    return <Redirect href="/(onboarding)/welcome" />;
   }
 
-  return <Redirect href={done ? "/(tabs)/today" : "/(onboarding)/welcome"} />;
+  return <Redirect href={hasSession ? "/(tabs)/today" : "/(auth)/login"} />;
 }
