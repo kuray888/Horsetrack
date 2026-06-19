@@ -29,6 +29,8 @@ type Appointment = {
   reminder: ReminderOption;
   /** Id de la notification locale programmée, pour pouvoir l'annuler. Null si pas de rappel programmé. */
   reminderNotificationId: string | null;
+  /** Résultat saisi après l'épreuve (concours uniquement). Null si pas encore renseigné. */
+  result: string | null;
 };
 
 type Doc = {
@@ -86,6 +88,7 @@ const initialAppointments: Appointment[] = [
     notes: "Rappel grippe + tétanos",
     reminder: "none",
     reminderNotificationId: null,
+    result: null,
   },
   {
     id: "a2",
@@ -97,6 +100,7 @@ const initialAppointments: Appointment[] = [
     notes: "",
     reminder: "1d",
     reminderNotificationId: null,
+    result: null,
   },
   {
     id: "a3",
@@ -108,6 +112,7 @@ const initialAppointments: Appointment[] = [
     notes: "",
     reminder: "1d",
     reminderNotificationId: null,
+    result: null,
   },
   {
     id: "a4",
@@ -119,6 +124,19 @@ const initialAppointments: Appointment[] = [
     notes: "Épreuve à 9h15",
     reminder: "1w",
     reminderNotificationId: null,
+    result: null,
+  },
+  {
+    id: "a5",
+    type: "concours",
+    title: "Concours CSO Club 1",
+    date: daysFromNow(-15),
+    time: "08h00",
+    location: "Centre équestre de Bois-Joli",
+    notes: "",
+    reminder: "none",
+    reminderNotificationId: null,
+    result: null,
   },
 ];
 
@@ -226,7 +244,7 @@ export default function AgendaScreen() {
       ]);
       if (apptRaw) {
         const parsed: Appointment[] = JSON.parse(apptRaw);
-        setAppointments(parsed.map((a) => ({ ...a, date: new Date(a.date) })));
+        setAppointments(parsed.map((a) => ({ ...a, date: new Date(a.date), result: a.result ?? null })));
       }
       if (docRaw) {
         const parsed: Doc[] = JSON.parse(docRaw);
@@ -277,6 +295,7 @@ export default function AgendaScreen() {
         notes: "",
         reminder: apptForm.reminder,
         reminderNotificationId,
+        result: null,
       },
     ]);
     setApptForm(emptyApptForm);
@@ -286,6 +305,10 @@ export default function AgendaScreen() {
   function handleDeleteAppointment(appt: Appointment) {
     cancelReminder(appt.reminderNotificationId);
     setAppointments((list) => list.filter((a) => a.id !== appt.id));
+  }
+
+  function handleSaveResult(apptId: string, result: string) {
+    setAppointments((list) => list.map((a) => (a.id === apptId ? { ...a, result } : a)));
   }
 
   function handleAddDocument() {
@@ -451,6 +474,7 @@ export default function AgendaScreen() {
                   expanded={expandedApptId === appt.id}
                   onToggleExpand={() => setExpandedApptId(expandedApptId === appt.id ? null : appt.id)}
                   onDelete={() => handleDeleteAppointment(appt)}
+                  onSaveResult={(result) => handleSaveResult(appt.id, result)}
                 />
               </FadeInView>
             ))
@@ -475,6 +499,7 @@ export default function AgendaScreen() {
                     expanded={expandedApptId === appt.id}
                     onToggleExpand={() => setExpandedApptId(expandedApptId === appt.id ? null : appt.id)}
                     onDelete={() => handleDeleteAppointment(appt)}
+                    onSaveResult={(result) => handleSaveResult(appt.id, result)}
                   />
                 </View>
               </FadeInView>
@@ -571,13 +596,25 @@ function AppointmentCard({
   expanded,
   onToggleExpand,
   onDelete,
+  onSaveResult,
 }: {
   appt: Appointment;
   expanded: boolean;
   onToggleExpand: () => void;
   onDelete: () => void;
+  onSaveResult: (result: string) => void;
 }) {
   const meta = APPT_META[appt.type];
+  const [editingResult, setEditingResult] = useState(false);
+  const [draftResult, setDraftResult] = useState(appt.result ?? "");
+  const isPastConcours = appt.type === "concours" && appt.date < daysFromNow(0);
+
+  function handleSaveResult() {
+    if (!draftResult.trim()) return;
+    onSaveResult(draftResult.trim());
+    setEditingResult(false);
+  }
+
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onToggleExpand} className={CARD}>
       <View className="flex-row items-center gap-3">
@@ -601,6 +638,46 @@ function AppointmentCard({
           <Text className="text-sm text-muted">
             🔔 Rappel : {REMINDER_META[appt.reminder].label}
           </Text>
+
+          {isPastConcours ? (
+            <View className="mt-2 gap-2 border-t border-border pt-3">
+              {editingResult ? (
+                <>
+                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">
+                    Résultat de l'épreuve
+                  </Text>
+                  <TextInput
+                    className={INPUT}
+                    placeholder="Ex : 3ème, parcours sans faute"
+                    value={draftResult}
+                    onChangeText={setDraftResult}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    onPress={handleSaveResult}
+                    disabled={!draftResult.trim()}
+                    activeOpacity={0.85}
+                    className={`items-center rounded-full p-3 ${draftResult.trim() ? "bg-primary" : "border border-border"}`}
+                  >
+                    <Text className={`text-sm font-bold ${draftResult.trim() ? "text-on-primary" : "text-muted"}`}>
+                      Enregistrer
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : appt.result ? (
+                <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-1">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">🏆 Résultat</Text>
+                  <Text className="text-sm text-text">{appt.result}</Text>
+                  <Text className="text-xs font-semibold text-accent">Modifier</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7}>
+                  <Text className="text-sm font-semibold text-accent">+ Ajouter le résultat</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
             <Text className="text-sm font-semibold text-danger">Supprimer ce rendez-vous</Text>
           </TouchableOpacity>

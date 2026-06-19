@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { ProgressBar } from "@/components/onboarding";
-import { useProgress } from "@/progress/store";
+import { useProgress, type Debrief, type Mood } from "@/progress/store";
 import {
   ALL_SESSIONS,
   CURRENT_WEEK_NUMBER,
@@ -20,19 +20,40 @@ import {
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
+const MOOD_META: Record<Mood, { emoji: string; label: string }> = {
+  great: { emoji: "🤩", label: "Top" },
+  good: { emoji: "🙂", label: "Bien" },
+  okay: { emoji: "😐", label: "Moyen" },
+  hard: { emoji: "😣", label: "Difficile" },
+};
+
 function SessionCard({
   session,
   expanded,
   done,
+  debrief,
   onToggleExpand,
   onToggleDone,
+  onSaveDebrief,
 }: {
   session: PlannedSession;
   expanded: boolean;
   done: boolean;
+  debrief: Debrief | null;
   onToggleExpand: () => void;
   onToggleDone: () => void;
+  onSaveDebrief: (debrief: Debrief) => void;
 }) {
+  const [editingDebrief, setEditingDebrief] = useState(false);
+  const [draftMood, setDraftMood] = useState<Mood | null>(debrief?.mood ?? null);
+  const [draftNote, setDraftNote] = useState(debrief?.note ?? "");
+
+  function handleSaveDebrief() {
+    if (!draftMood) return;
+    onSaveDebrief({ mood: draftMood, note: draftNote.trim() });
+    setEditingDebrief(false);
+  }
+
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onToggleExpand} className={CARD}>
       <View className="flex-row items-center gap-3">
@@ -74,6 +95,71 @@ function SessionCard({
               {done ? "Marquer comme à faire" : "Marquer comme fait ✓"}
             </Text>
           </TouchableOpacity>
+
+          {done ? (
+            <View className="gap-3 border-t border-border pt-3">
+              {editingDebrief ? (
+                <>
+                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">
+                    Comment ça s'est passé ?
+                  </Text>
+                  <View className="flex-row gap-2">
+                    {(Object.entries(MOOD_META) as [Mood, { emoji: string; label: string }][]).map(
+                      ([mood, meta]) => (
+                        <TouchableOpacity
+                          key={mood}
+                          onPress={() => setDraftMood(mood)}
+                          activeOpacity={0.8}
+                          className={`flex-1 items-center gap-1 rounded-card border p-2.5 ${
+                            draftMood === mood ? "border-primary bg-highlight" : "border-border bg-surface"
+                          }`}
+                        >
+                          <Text className="text-xl">{meta.emoji}</Text>
+                          <Text
+                            className={`text-xs font-semibold ${
+                              draftMood === mood ? "text-primary" : "text-muted"
+                            }`}
+                          >
+                            {meta.label}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+                  <TextInput
+                    className="rounded-card border border-border bg-surface p-3 text-sm text-text"
+                    placeholder="Ce qui s'est bien passé, ce qu'on peut améliorer…"
+                    value={draftNote}
+                    onChangeText={setDraftNote}
+                    multiline
+                    numberOfLines={3}
+                  />
+                  <TouchableOpacity
+                    onPress={handleSaveDebrief}
+                    disabled={!draftMood}
+                    activeOpacity={0.85}
+                    className={`items-center rounded-full p-3 ${draftMood ? "bg-primary" : "border border-border"}`}
+                  >
+                    <Text className={`text-sm font-bold ${draftMood ? "text-on-primary" : "text-muted"}`}>
+                      Enregistrer
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : debrief ? (
+                <TouchableOpacity onPress={() => setEditingDebrief(true)} activeOpacity={0.7} className="gap-1.5">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">
+                    {MOOD_META[debrief.mood].emoji} Ressenti : {MOOD_META[debrief.mood].label}
+                  </Text>
+                  {debrief.note ? <Text className="text-sm text-text">{debrief.note}</Text> : null}
+                  <Text className="text-xs font-semibold text-accent">Modifier</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => setEditingDebrief(true)} activeOpacity={0.7}>
+                  <Text className="text-sm font-semibold text-accent">+ Ajouter mon ressenti</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
         </View>
       ) : null}
     </TouchableOpacity>
@@ -81,7 +167,7 @@ function SessionCard({
 }
 
 export default function PlanningScreen() {
-  const { isDone, toggleSession, completedCount } = useProgress();
+  const { isDone, toggleSession, completedCount, getDebrief, saveDebrief } = useProgress();
   const [selectedWeek, setSelectedWeek] = useState(CURRENT_WEEK_NUMBER);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -228,8 +314,10 @@ export default function PlanningScreen() {
               session={session}
               expanded={expandedId === session.id}
               done={isDone(session.id)}
+              debrief={getDebrief(session.id)}
               onToggleExpand={() => setExpandedId(expandedId === session.id ? null : session.id)}
               onToggleDone={() => toggleSession(session.id)}
+              onSaveDebrief={(debrief) => saveDebrief(session.id, debrief)}
             />
           </FadeInView>
         ))

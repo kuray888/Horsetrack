@@ -22,9 +22,13 @@ const STORAGE_KEY = "training_progress_v1";
 const XP_PER_SESSION = 20;
 const XP_PER_LEVEL = 250;
 
+export type Mood = "great" | "good" | "okay" | "hard";
+export type Debrief = { mood: Mood; note: string };
+
 type Persisted = {
   completed: Record<string, boolean>;
   bestWeekStreak: number;
+  debriefs: Record<string, Debrief>;
 };
 
 function defaultCompleted(): Record<string, boolean> {
@@ -64,6 +68,8 @@ type ProgressContextValue = {
   unlockedBadges: Badge[];
   celebrationBadge: Badge | null;
   dismissCelebration: () => void;
+  getDebrief: (sessionId: string) => Debrief | null;
+  saveDebrief: (sessionId: string, debrief: Debrief) => void;
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -72,12 +78,15 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [bestWeekStreak, setBestWeekStreak] = useState(0);
+  const [debriefs, setDebriefs] = useState<Record<string, Debrief>>({});
   const [celebrationBadge, setCelebrationBadge] = useState<Badge | null>(null);
   const prevUnlockedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
-      const initial: Persisted = raw ? JSON.parse(raw) : { completed: defaultCompleted(), bestWeekStreak: 0 };
+      const initial: Persisted = raw
+        ? { debriefs: {}, ...JSON.parse(raw) }
+        : { completed: defaultCompleted(), bestWeekStreak: 0, debriefs: {} };
       prevUnlockedRef.current = new Set(
         unlockedBadgeIds({
           completedCount: Object.values(initial.completed).filter(Boolean).length,
@@ -88,6 +97,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       );
       setCompleted(initial.completed);
       setBestWeekStreak(initial.bestWeekStreak);
+      setDebriefs(initial.debriefs);
       setLoading(false);
     });
   }, []);
@@ -114,13 +124,24 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
       setCompleted(next);
       if (nextBest !== bestWeekStreak) setBestWeekStreak(nextBest);
-      persist({ completed: next, bestWeekStreak: nextBest });
+      persist({ completed: next, bestWeekStreak: nextBest, debriefs });
     },
-    [completed, bestWeekStreak, persist]
+    [completed, bestWeekStreak, debriefs, persist]
   );
 
   const isDone = useCallback((sessionId: string) => !!completed[sessionId], [completed]);
   const dismissCelebration = useCallback(() => setCelebrationBadge(null), []);
+
+  const getDebrief = useCallback((sessionId: string) => debriefs[sessionId] ?? null, [debriefs]);
+
+  const saveDebrief = useCallback(
+    (sessionId: string, debrief: Debrief) => {
+      const next = { ...debriefs, [sessionId]: debrief };
+      setDebriefs(next);
+      persist({ completed, bestWeekStreak, debriefs: next });
+    },
+    [debriefs, completed, bestWeekStreak, persist]
+  );
 
   const value = useMemo<ProgressContextValue>(() => {
     const completedCount = Object.values(completed).filter(Boolean).length;
@@ -143,8 +164,20 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       unlockedBadges: BADGES.filter((b) => b.isUnlocked({ completedCount, totalSessions, weekStreak, bestWeekStreak })),
       celebrationBadge,
       dismissCelebration,
+      getDebrief,
+      saveDebrief,
     };
-  }, [completed, loading, isDone, toggleSession, bestWeekStreak, celebrationBadge, dismissCelebration]);
+  }, [
+    completed,
+    loading,
+    isDone,
+    toggleSession,
+    bestWeekStreak,
+    celebrationBadge,
+    dismissCelebration,
+    getDebrief,
+    saveDebrief,
+  ]);
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
 }
