@@ -15,3 +15,8 @@ export async function isOnboardingCompleted(): Promise<boolean> {
 export async function markOnboardingCompleted(): Promise<void> {
   await SecureStore.setItemAsync(KEY, "true");
 }
+
+/** Outil de dev/test : efface le flag pour repasser par l'onboarding complet. */
+export async function resetOnboardingCompleted(): Promise<void> {
+  await SecureStore.deleteItemAsync(KEY);
+}

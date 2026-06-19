@@ -12,6 +12,7 @@ import {
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricsAvailable } from "@/lib/biometrics";
+import { resetOnboardingCompleted } from "@/onboarding/completion";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -67,6 +68,16 @@ export default function LoginScreen() {
 
         <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
           <Text style={styles.link}>Pas encore de compte ? S'inscrire</Text>
+        </TouchableOpacity>
+
+        {/* Outil de dev/test — à retirer avant publication */}
+        <TouchableOpacity
+          onPress={async () => {
+            await resetOnboardingCompleted();
+            router.replace("/(onboarding)/welcome");
+          }}
+        >
+          <Text style={[styles.link, { color: "#b00" }]}>(dev) Réinitialiser l'onboarding</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
