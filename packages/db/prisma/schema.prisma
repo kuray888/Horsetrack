@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments     Payment[]
+  sessions     Session[]
+  riderProfile RiderProfile?
+
+  @@map("users")
+}
+
+// ───────────────────────── Onboarding & domaine équestre ─────────────────────────
+
+/// Profil cavalier — 1-1 avec User. Données collectées à l'onboarding + entitlement abo.
+model RiderProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Profil cavalier (onboarding)
+  level          RiderLevel?
+  mainDiscipline Discipline?
+  rideFrequency  RideFrequency?
+  primaryGoal    RiderGoal?
+
+  // Entitlement abonnement (source de vérité côté store = RevenueCat)
+  subscriptionStatus SubscriptionStatus @default(TRIALING)
+  subscriptionPlan   SubscriptionPlan?
+  trialEndsAt        DateTime?
+  revenuecatId       String?            @unique
+
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  horses Horse[]
+  goals  Goal[]
+
+  @@map("rider_profiles")
+}
+
+/// Cheval — N par cavalier (multi-cheval natif et illimité).
+model Horse {
+  id      String       @id @default(cuid())
+  ownerId String
+  owner   RiderProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name      String
+  photoUrl  String?
+  birthYear Int?
+  sex       HorseSex?
+  breed     String?
+  coat      String?
+
+  discipline Discipline?
+  level      HorseLevel?
+
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  traits HorseTrait[]
+  goals  Goal[]
+
+  @@index([ownerId])
+  @@map("horses")
+}
+
+/// Points forts / points faibles d'un cheval — N par cheval (multi-select onboarding).
+model HorseTrait {
+  id      String    @id @default(cuid())
+  horseId String
+  horse   Horse     @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  tag     String
+  kind    TraitKind
+
+  @@unique([horseId, tag, kind])
+  @@index([horseId])
+  @@map("horse_traits")
+}
+
+/// Objectif — rattaché au cavalier et optionnellement à un cheval précis.
+model Goal {
+  id      String       @id @default(cuid())
+  riderId String
+  rider   RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  horseId String?
+  horse   Horse?       @relation(fields: [horseId], references: [id], onDelete: SetNull)
+
+  title      String
+  type       RiderGoal?
+  targetDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riderId])
+  @@map("goals")
+}
+
+enum RiderLevel {
+  BEGINNER // débutant
+  GALOP_1_4
+  GALOP_5_7
+  AMATEUR
+  PRO
+
+  @@map("rider_level")
+}
+
+enum RideFrequency {
+  DAILY
+  SEVERAL_PER_WEEK
+  WEEKEND
+  OCCASIONAL
+
+  @@map("ride_frequency")
+}
+
+enum Discipline {
+  SHOW_JUMPING // CSO
+  DRESSAGE
+  EVENTING // complet
+  WESTERN
+  ENDURANCE
+  LEISURE // loisir / balade
+  ETHOLOGY // éthologie
+
+  @@map("discipline")
+}
+
+enum RiderGoal {
+  COMPETE // progresser en concours
+  BONDING // renforcer la complicité
+  FITNESS // remettre en forme
+  EVENT_PREP // préparer un événement daté
+  CONFIDENCE // reprendre en confiance
+
+  @@map("rider_goal")
+}
+
+enum HorseSex {
+  GELDING // hongre
+  MARE // jument
+  STALLION // entier
+
+  @@map("horse_sex")
+}
+
+enum HorseLevel {
+  UNTRAINED
+  CLUB
+  AMATEUR
+  PRO
+
+  @@map("horse_level")
+}
+
+enum TraitKind {
+  STRENGTH
+  WEAKNESS
+
+  @@map("trait_kind")
+}
+
+enum SubscriptionStatus {
+  TRIALING // essai 7j actif (accès complet)
+  ACTIVE // abonné payant
+  EXPIRED // trial/abo terminé → app verrouillée
+  CANCELLED
+
+  @@map("subscription_status")
+}
+
+enum SubscriptionPlan {
+  MONTHLY // 16,99€/mois
+  ANNUAL // 129€/an
+
+  @@map("subscription_plan")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id])
+  amount                Int
+  currency              String        @default("EUR")
+  status                PaymentStatus @default(PENDING)
+  method                PaymentMethod
+  stripePaymentIntentId String?       @unique
+  metadata              Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  APPLE_PAY
+  CARD
+  OTHER
+}
