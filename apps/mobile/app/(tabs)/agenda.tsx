@@ -18,6 +18,8 @@ import {
 type AppointmentType = "veto" | "osteo" | "marechal" | "dentiste" | "concours" | "autre";
 type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
 
+type ChecklistItem = { id: string; label: string; checked: boolean };
+
 type Appointment = {
   id: string;
   type: AppointmentType;
@@ -31,6 +33,8 @@ type Appointment = {
   reminderNotificationId: string | null;
   /** Résultat saisi après l'épreuve (concours uniquement). Null si pas encore renseigné. */
   result: string | null;
+  /** Checklist de préparation (concours uniquement). Vide pour les autres types. */
+  checklist: ChecklistItem[];
 };
 
 type Doc = {
@@ -77,6 +81,22 @@ function daysFromNow(offset: number): Date {
   return d;
 }
 
+const CHECKLIST_LABELS = [
+  "Papiers d'identité du cheval (passeport)",
+  "Carnet de vaccination à jour",
+  "Licence FFE / engagement",
+  "Matériel de pansage",
+  "Tapis de selle + couvertures",
+  "Protections (guêtres, cloches)",
+  "Casque",
+  "Gilet de protection",
+  "Eau et nourriture pour la journée",
+];
+
+function defaultChecklist(): ChecklistItem[] {
+  return CHECKLIST_LABELS.map((label, i) => ({ id: `c${i}`, label, checked: false }));
+}
+
 const initialAppointments: Appointment[] = [
   {
     id: "a1",
@@ -89,6 +109,7 @@ const initialAppointments: Appointment[] = [
     reminder: "none",
     reminderNotificationId: null,
     result: null,
+    checklist: [],
   },
   {
     id: "a2",
@@ -101,6 +122,7 @@ const initialAppointments: Appointment[] = [
     reminder: "1d",
     reminderNotificationId: null,
     result: null,
+    checklist: [],
   },
   {
     id: "a3",
@@ -113,6 +135,7 @@ const initialAppointments: Appointment[] = [
     reminder: "1d",
     reminderNotificationId: null,
     result: null,
+    checklist: [],
   },
   {
     id: "a4",
@@ -125,6 +148,7 @@ const initialAppointments: Appointment[] = [
     reminder: "1w",
     reminderNotificationId: null,
     result: null,
+    checklist: defaultChecklist(),
   },
   {
     id: "a5",
@@ -137,6 +161,7 @@ const initialAppointments: Appointment[] = [
     reminder: "none",
     reminderNotificationId: null,
     result: null,
+    checklist: defaultChecklist().map((c) => ({ ...c, checked: true })),
   },
 ];
 
@@ -244,7 +269,14 @@ export default function AgendaScreen() {
       ]);
       if (apptRaw) {
         const parsed: Appointment[] = JSON.parse(apptRaw);
-        setAppointments(parsed.map((a) => ({ ...a, date: new Date(a.date), result: a.result ?? null })));
+        setAppointments(
+          parsed.map((a) => ({
+            ...a,
+            date: new Date(a.date),
+            result: a.result ?? null,
+            checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
+          }))
+        );
       }
       if (docRaw) {
         const parsed: Doc[] = JSON.parse(docRaw);
@@ -296,6 +328,7 @@ export default function AgendaScreen() {
         reminder: apptForm.reminder,
         reminderNotificationId,
         result: null,
+        checklist: apptForm.type === "concours" ? defaultChecklist() : [],
       },
     ]);
     setApptForm(emptyApptForm);
@@ -309,6 +342,16 @@ export default function AgendaScreen() {
 
   function handleSaveResult(apptId: string, result: string) {
     setAppointments((list) => list.map((a) => (a.id === apptId ? { ...a, result } : a)));
+  }
+
+  function handleToggleChecklistItem(apptId: string, itemId: string) {
+    setAppointments((list) =>
+      list.map((a) =>
+        a.id === apptId
+          ? { ...a, checklist: a.checklist.map((c) => (c.id === itemId ? { ...c, checked: !c.checked } : c)) }
+          : a
+      )
+    );
   }
 
   function handleAddDocument() {
@@ -475,6 +518,7 @@ export default function AgendaScreen() {
                   onToggleExpand={() => setExpandedApptId(expandedApptId === appt.id ? null : appt.id)}
                   onDelete={() => handleDeleteAppointment(appt)}
                   onSaveResult={(result) => handleSaveResult(appt.id, result)}
+                  onToggleChecklistItem={(itemId) => handleToggleChecklistItem(appt.id, itemId)}
                 />
               </FadeInView>
             ))
@@ -500,6 +544,7 @@ export default function AgendaScreen() {
                     onToggleExpand={() => setExpandedApptId(expandedApptId === appt.id ? null : appt.id)}
                     onDelete={() => handleDeleteAppointment(appt)}
                     onSaveResult={(result) => handleSaveResult(appt.id, result)}
+                    onToggleChecklistItem={(itemId) => handleToggleChecklistItem(appt.id, itemId)}
                   />
                 </View>
               </FadeInView>
@@ -597,17 +642,20 @@ function AppointmentCard({
   onToggleExpand,
   onDelete,
   onSaveResult,
+  onToggleChecklistItem,
 }: {
   appt: Appointment;
   expanded: boolean;
   onToggleExpand: () => void;
   onDelete: () => void;
   onSaveResult: (result: string) => void;
+  onToggleChecklistItem: (itemId: string) => void;
 }) {
   const meta = APPT_META[appt.type];
   const [editingResult, setEditingResult] = useState(false);
   const [draftResult, setDraftResult] = useState(appt.result ?? "");
-  const isPastConcours = appt.type === "concours" && appt.date < daysFromNow(0);
+  const isConcours = appt.type === "concours";
+  const isPastConcours = isConcours && appt.date < daysFromNow(0);
 
   function handleSaveResult() {
     if (!draftResult.trim()) return;
@@ -638,6 +686,35 @@ function AppointmentCard({
           <Text className="text-sm text-muted">
             🔔 Rappel : {REMINDER_META[appt.reminder].label}
           </Text>
+
+          {isConcours && appt.checklist.length > 0 ? (
+            <View className="mt-2 gap-2 border-t border-border pt-3">
+              <Text className="text-xs font-bold uppercase tracking-wide text-accent">
+                Checklist ({appt.checklist.filter((c) => c.checked).length}/{appt.checklist.length} prêt)
+              </Text>
+              <View className="gap-1.5">
+                {appt.checklist.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => onToggleChecklistItem(item.id)}
+                    activeOpacity={0.7}
+                    className="flex-row items-center gap-2.5 py-1"
+                  >
+                    <View
+                      className={`h-5 w-5 items-center justify-center rounded-full border ${
+                        item.checked ? "border-success bg-success" : "border-border"
+                      }`}
+                    >
+                      {item.checked ? <Text className="text-xs text-on-primary">✓</Text> : null}
+                    </View>
+                    <Text className={`flex-1 text-sm ${item.checked ? "text-muted line-through" : "text-text"}`}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {isPastConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
