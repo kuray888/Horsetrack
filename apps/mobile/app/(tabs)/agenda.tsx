@@ -354,6 +354,22 @@ export default function AgendaScreen() {
     );
   }
 
+  function handleAddChecklistItem(apptId: string, label: string) {
+    setAppointments((list) =>
+      list.map((a) =>
+        a.id === apptId
+          ? { ...a, checklist: [...a.checklist, { id: `c${Date.now()}`, label, checked: false }] }
+          : a
+      )
+    );
+  }
+
+  function handleRemoveChecklistItem(apptId: string, itemId: string) {
+    setAppointments((list) =>
+      list.map((a) => (a.id === apptId ? { ...a, checklist: a.checklist.filter((c) => c.id !== itemId) } : a))
+    );
+  }
+
   function handleAddDocument() {
     const date = docForm.date;
     if (!docForm.name.trim() || !date) return;
@@ -519,6 +535,8 @@ export default function AgendaScreen() {
                   onDelete={() => handleDeleteAppointment(appt)}
                   onSaveResult={(result) => handleSaveResult(appt.id, result)}
                   onToggleChecklistItem={(itemId) => handleToggleChecklistItem(appt.id, itemId)}
+                  onAddChecklistItem={(label) => handleAddChecklistItem(appt.id, label)}
+                  onRemoveChecklistItem={(itemId) => handleRemoveChecklistItem(appt.id, itemId)}
                 />
               </FadeInView>
             ))
@@ -545,6 +563,8 @@ export default function AgendaScreen() {
                     onDelete={() => handleDeleteAppointment(appt)}
                     onSaveResult={(result) => handleSaveResult(appt.id, result)}
                     onToggleChecklistItem={(itemId) => handleToggleChecklistItem(appt.id, itemId)}
+                    onAddChecklistItem={(label) => handleAddChecklistItem(appt.id, label)}
+                    onRemoveChecklistItem={(itemId) => handleRemoveChecklistItem(appt.id, itemId)}
                   />
                 </View>
               </FadeInView>
@@ -643,6 +663,8 @@ function AppointmentCard({
   onDelete,
   onSaveResult,
   onToggleChecklistItem,
+  onAddChecklistItem,
+  onRemoveChecklistItem,
 }: {
   appt: Appointment;
   expanded: boolean;
@@ -650,10 +672,13 @@ function AppointmentCard({
   onDelete: () => void;
   onSaveResult: (result: string) => void;
   onToggleChecklistItem: (itemId: string) => void;
+  onAddChecklistItem: (label: string) => void;
+  onRemoveChecklistItem: (itemId: string) => void;
 }) {
   const meta = APPT_META[appt.type];
   const [editingResult, setEditingResult] = useState(false);
   const [draftResult, setDraftResult] = useState(appt.result ?? "");
+  const [newItemLabel, setNewItemLabel] = useState("");
   const isConcours = appt.type === "concours";
   const isPastConcours = isConcours && appt.date < daysFromNow(0);
 
@@ -661,6 +686,13 @@ function AppointmentCard({
     if (!draftResult.trim()) return;
     onSaveResult(draftResult.trim());
     setEditingResult(false);
+  }
+
+  function handleAddChecklistItem() {
+    const label = newItemLabel.trim();
+    if (!label) return;
+    onAddChecklistItem(label);
+    setNewItemLabel("");
   }
 
   return (
@@ -687,31 +719,70 @@ function AppointmentCard({
             🔔 Rappel : {REMINDER_META[appt.reminder].label}
           </Text>
 
-          {isConcours && appt.checklist.length > 0 ? (
+          {isConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
               <Text className="text-xs font-bold uppercase tracking-wide text-accent">
-                Checklist ({appt.checklist.filter((c) => c.checked).length}/{appt.checklist.length} prêt)
+                Checklist
+                {appt.checklist.length > 0
+                  ? ` (${appt.checklist.filter((c) => c.checked).length}/${appt.checklist.length} prêt)`
+                  : ""}
               </Text>
-              <View className="gap-1.5">
-                {appt.checklist.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => onToggleChecklistItem(item.id)}
-                    activeOpacity={0.7}
-                    className="flex-row items-center gap-2.5 py-1"
-                  >
-                    <View
-                      className={`h-5 w-5 items-center justify-center rounded-full border ${
-                        item.checked ? "border-success bg-success" : "border-border"
-                      }`}
-                    >
-                      {item.checked ? <Text className="text-xs text-on-primary">✓</Text> : null}
+
+              {appt.checklist.length > 0 ? (
+                <View className="gap-1.5">
+                  {appt.checklist.map((item) => (
+                    <View key={item.id} className="flex-row items-center gap-2.5 py-1">
+                      <TouchableOpacity
+                        onPress={() => onToggleChecklistItem(item.id)}
+                        activeOpacity={0.7}
+                        className="flex-1 flex-row items-center gap-2.5"
+                      >
+                        <View
+                          className={`h-5 w-5 items-center justify-center rounded-full border ${
+                            item.checked ? "border-success bg-success" : "border-border"
+                          }`}
+                        >
+                          {item.checked ? <Text className="text-xs text-on-primary">✓</Text> : null}
+                        </View>
+                        <Text
+                          className={`flex-1 text-sm ${item.checked ? "text-muted line-through" : "text-text"}`}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => onRemoveChecklistItem(item.id)}
+                        activeOpacity={0.7}
+                        hitSlop={8}
+                      >
+                        <Text className="text-sm text-muted">✕</Text>
+                      </TouchableOpacity>
                     </View>
-                    <Text className={`flex-1 text-sm ${item.checked ? "text-muted line-through" : "text-text"}`}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                  ))}
+                </View>
+              ) : null}
+
+              <View className="mt-1 flex-row items-center gap-2">
+                <TextInput
+                  className="flex-1 rounded-card border border-border bg-surface px-3 py-2.5 text-sm text-text"
+                  placeholder="Ajouter un élément…"
+                  value={newItemLabel}
+                  onChangeText={setNewItemLabel}
+                  onSubmitEditing={handleAddChecklistItem}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  onPress={handleAddChecklistItem}
+                  disabled={!newItemLabel.trim()}
+                  activeOpacity={0.8}
+                  className={`h-9 w-9 items-center justify-center rounded-full ${
+                    newItemLabel.trim() ? "bg-primary" : "bg-border"
+                  }`}
+                >
+                  <Text className={`text-base font-bold ${newItemLabel.trim() ? "text-on-primary" : "text-muted"}`}>
+                    +
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           ) : null}
