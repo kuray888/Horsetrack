@@ -7,11 +7,10 @@ import { Locked } from "@/components/Locked";
 import { useCountUp } from "@/hooks/useCountUp";
 import { colors } from "@/theme/colors";
 import { useProgress } from "@/progress/store";
+import { useHorses } from "@/horses/store";
 import { PROGRAM, SESSION_TEMPLATES, getCurrentWeek } from "@/program/data";
 
 // --- Données mock (à brancher sur l'API plus tard) ---
-const horse = { name: "Tornado", emoji: "🐴" };
-
 const precision = { done: 18, target: 24 };
 
 const TIPS = [
@@ -62,6 +61,8 @@ function weeklyRecapMessage(done: number, total: number): string {
 
 export default function TodayScreen() {
   const { isDone, xp, xpIntoLevel, xpGoal, level, weekStreak, bestWeekStreak } = useProgress();
+  const { horses } = useHorses();
+  const horse = horses.find((h) => h.isPrimary) ?? horses[0];
   const xpAnimated = useCountUp(xp);
   const precisionTarget = Math.round((precision.done / precision.target) * 100);
   const precisionPct = useCountUp(precisionTarget);
@@ -81,10 +82,10 @@ export default function TodayScreen() {
         <View className="flex-row items-center justify-between">
           <View className="gap-0.5">
             <Text className="text-2xl font-extrabold tracking-tight text-text">{greeting()} 👋</Text>
-            <Text className="text-base text-muted">Prêt pour une séance avec {horse.name} ?</Text>
+            <Text className="text-base text-muted">Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?</Text>
           </View>
           <View className="h-14 w-14 items-center justify-center rounded-full bg-highlight">
-            <Text className="text-2xl">{horse.emoji}</Text>
+            <Text className="text-2xl">{horse?.emoji ?? "🐴"}</Text>
           </View>
         </View>
       </FadeInView>

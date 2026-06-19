@@ -14,6 +14,7 @@ import {
   scheduleReminder,
   type ReminderOption,
 } from "@/lib/notifications";
+import { useHorses } from "@/horses/store";
 
 type AppointmentType = "veto" | "osteo" | "marechal" | "dentiste" | "concours" | "autre";
 type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
@@ -43,8 +44,6 @@ type Doc = {
   name: string;
   date: Date;
 };
-
-const horse = { name: "Tornado" };
 
 const APPT_META: Record<AppointmentType, { label: string; icon: string; chip: string; tag: string }> = {
   veto: { label: "Vétérinaire", icon: "💉", chip: "bg-warning/15", tag: "text-warning" },
@@ -241,6 +240,8 @@ const emptyApptForm = {
 const emptyDocForm = { category: "facture" as DocumentCategory, name: "", date: null as Date | null };
 
 export default function AgendaScreen() {
+  const { horses } = useHorses();
+  const horse = horses.find((h) => h.isPrimary) ?? horses[0];
   const [section, setSection] = useState<"appointments" | "documents">("appointments");
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -386,7 +387,7 @@ export default function AgendaScreen() {
       <FadeInView>
         <View className="gap-1">
           <Text className="text-3xl font-extrabold tracking-tight text-text">Agenda</Text>
-          <Text className="text-base text-muted">Rendez-vous et documents de {horse.name}</Text>
+          <Text className="text-base text-muted">Rendez-vous et documents de {horse?.name ?? "ton cheval"}</Text>
         </View>
       </FadeInView>
 
