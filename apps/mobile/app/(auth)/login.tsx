@@ -33,7 +33,7 @@ export default function LoginScreen() {
       await authenticateWithBiometrics("Confirmer avec Face ID");
     }
 
-    router.replace("/(tabs)/home");
+    router.replace("/(tabs)/today");
   }
 
   return (
