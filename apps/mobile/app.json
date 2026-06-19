@@ -29,7 +29,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cheval a besoin d'accéder à tes photos pour ajouter une photo de cheval."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

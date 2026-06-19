@@ -1,4 +1,4 @@
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { CircularProgress } from "@/components/CircularProgress";
 import { FadeInView } from "@/components/FadeInView";
 import { WeekStreak } from "@/components/WeekStreak";
@@ -84,8 +84,12 @@ export default function TodayScreen() {
             <Text className="text-2xl font-extrabold tracking-tight text-text">{greeting()} 👋</Text>
             <Text className="text-base text-muted">Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?</Text>
           </View>
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-highlight">
-            <Text className="text-2xl">{horse?.emoji ?? "🐴"}</Text>
+          <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-highlight">
+            {horse?.photoUrl ? (
+              <Image source={{ uri: horse.photoUrl }} className="h-14 w-14" />
+            ) : (
+              <Text className="text-2xl">{horse?.emoji ?? "🐴"}</Text>
+            )}
           </View>
         </View>
       </FadeInView>
@@ -104,11 +108,15 @@ export default function TodayScreen() {
                   className="items-center gap-1"
                 >
                   <View
-                    className={`h-14 w-14 items-center justify-center rounded-full ${
+                    className={`h-14 w-14 items-center justify-center overflow-hidden rounded-full ${
                       isSelected ? "border-2 border-primary bg-highlight" : "border border-border bg-surface"
                     }`}
                   >
-                    <Text className="text-2xl">{h.emoji}</Text>
+                    {h.photoUrl ? (
+                      <Image source={{ uri: h.photoUrl }} className="h-14 w-14" />
+                    ) : (
+                      <Text className="text-2xl">{h.emoji}</Text>
+                    )}
                   </View>
                   <Text
                     className={`max-w-[64px] text-center text-xs font-semibold ${

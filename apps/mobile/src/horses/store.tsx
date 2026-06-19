@@ -28,6 +28,9 @@ export type Horse = {
   id: string;
   name: string;
   emoji: string;
+  /** URI locale de la photo (copiée dans le stockage persistant de l'app via
+   * lib/imagePicker.ts) — null tant qu'aucune photo n'a été ajoutée. */
+  photoUrl: string | null;
   discipline: Discipline;
   level: HorseLevel;
   isPrimary: boolean;
@@ -37,6 +40,7 @@ export type Horse = {
 
 export type NewHorse = {
   name: string;
+  photoUrl: string | null;
   discipline: Discipline;
   level: HorseLevel;
   strengths: string[];
@@ -48,6 +52,7 @@ const DEFAULT_HORSES: Horse[] = [
     id: "h1",
     name: "Tornado",
     emoji: "🐴",
+    photoUrl: null,
     discipline: "SHOW_JUMPING",
     level: "CLUB",
     isPrimary: true,
@@ -64,6 +69,7 @@ type HorsesContextValue = {
   loading: boolean;
   horses: Horse[];
   addHorse: (horse: NewHorse) => void;
+  updateHorsePhoto: (id: string, photoUrl: string) => void;
   /** Cheval actuellement sélectionné (cf. sélecteur sur Today) — pilote la
    * progression/programme affichés ailleurs dans l'app. */
   selectedHorse: Horse | null;
@@ -103,6 +109,17 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const updateHorsePhoto = useCallback(
+    (id: string, photoUrl: string) => {
+      setHorses((prev) => {
+        const next = prev.map((h) => (h.id === id ? { ...h, photoUrl } : h));
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
+
   const selectHorse = useCallback((id: string) => {
     setSelectedHorseId(id);
     SecureStore.setItemAsync(SELECTED_KEY, id);
@@ -114,8 +131,8 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<HorsesContextValue>(
-    () => ({ loading, horses, addHorse, selectedHorse, selectHorse }),
-    [loading, horses, addHorse, selectedHorse, selectHorse]
+    () => ({ loading, horses, addHorse, updateHorsePhoto, selectedHorse, selectHorse }),
+    [loading, horses, addHorse, updateHorsePhoto, selectedHorse, selectHorse]
   );
 
   return <HorsesContext.Provider value={value}>{children}</HorsesContext.Provider>;

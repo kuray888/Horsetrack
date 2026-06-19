@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Switch, Text, TouchableOpacity, View } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import type { User } from "@supabase/supabase-js";
@@ -10,6 +10,7 @@ import { useSubscription } from "@/subscription/store";
 import { colors } from "@/theme/colors";
 import { isBiometricsAvailable, authenticateWithBiometrics, getBiometricType } from "@/lib/biometrics";
 import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
+import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useProgress } from "@/progress/store";
 import { useHorses } from "@/horses/store";
 import { BADGES } from "@/program/badges";
@@ -92,7 +93,7 @@ export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
   const { status, plan, trialEndsAt, isPremium, loading: subLoading } = useSubscription();
   const { unlockedBadges } = useProgress();
-  const { horses } = useHorses();
+  const { horses, updateHorsePhoto } = useHorses();
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
@@ -187,9 +188,20 @@ export default function ProfileScreen() {
       {horses.map((horse, i) => (
         <FadeInView key={horse.id} delay={160 + i * 60}>
           <View className={`${CARD} flex-row items-center gap-3`}>
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-highlight">
-              <Text className="text-2xl">{horse.emoji}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={async () => {
+                const uri = await pickAndPersistImage();
+                if (uri) updateHorsePhoto(horse.id, uri);
+              }}
+              activeOpacity={0.8}
+              className="h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-highlight"
+            >
+              {horse.photoUrl ? (
+                <Image source={{ uri: horse.photoUrl }} className="h-12 w-12" />
+              ) : (
+                <Text className="text-2xl">{horse.emoji}</Text>
+              )}
+            </TouchableOpacity>
             <View className="flex-1 gap-0.5">
               <Text className="text-base font-bold text-text">
                 {horse.name}

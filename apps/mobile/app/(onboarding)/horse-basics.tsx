@@ -1,9 +1,10 @@
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
 import { router } from "expo-router";
 import { OnboardingShell, SingleSelect } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { useOnboarding } from "@/onboarding/store";
 import { HORSE_SEXES, TOTAL_STEPS } from "@/onboarding/options";
+import { pickAndPersistImage } from "@/lib/imagePicker";
 
 const INPUT =
   "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -11,6 +12,11 @@ const INPUT =
 export default function HorseBasics() {
   const { editingHorse, updateEditingHorse } = useOnboarding();
   const currentYear = new Date().getFullYear();
+
+  async function pickPhoto() {
+    const uri = await pickAndPersistImage();
+    if (uri) updateEditingHorse({ photoUrl: uri });
+  }
 
   return (
     <OnboardingShell
@@ -21,15 +27,22 @@ export default function HorseBasics() {
       ctaDisabled={editingHorse.name.trim().length === 0}
       onNext={() => router.push("/(onboarding)/horse-profile")}
     >
-      {/* Photo (placeholder — TODO: brancher expo-image-picker) */}
+      {/* Photo */}
       <View className="items-center">
         <TouchableOpacity
+          onPress={pickPhoto}
           activeOpacity={0.8}
-          className="h-24 w-24 items-center justify-center rounded-full border border-dashed border-border bg-surface"
+          className="h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-dashed border-border bg-surface"
         >
-          <Text className="text-3xl">🐴</Text>
+          {editingHorse.photoUrl ? (
+            <Image source={{ uri: editingHorse.photoUrl }} className="h-24 w-24" />
+          ) : (
+            <Text className="text-3xl">🐴</Text>
+          )}
         </TouchableOpacity>
-        <Text className="mt-2 text-xs text-muted">Ajouter une photo (bientôt)</Text>
+        <Text className="mt-2 text-xs text-muted">
+          {editingHorse.photoUrl ? "Changer la photo" : "Ajouter une photo"}
+        </Text>
       </View>
 
       <Field label="Nom du cheval">
