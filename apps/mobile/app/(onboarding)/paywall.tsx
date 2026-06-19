@@ -4,14 +4,16 @@ import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
 import { useSubscription, type SubscriptionPlan } from "@/subscription/store";
 import { markOnboardingCompleted } from "@/onboarding/completion";
+import { useOnboarding } from "@/onboarding/store";
+import { persistOnboarding } from "@/onboarding/persist";
 
 export default function OnboardingPaywall() {
   const { startTrial } = useSubscription();
+  const { rider, horses } = useOnboarding();
   const [submitting, setSubmitting] = useState(false);
 
   async function finish() {
-    // TODO: persister rider_profiles + horses + horse_traits dans Supabase (RLS) —
-    // débranché pour simplifier les tests d'onboarding, cf. onboarding/persist.ts.
+    await persistOnboarding(rider, horses);
     await markOnboardingCompleted();
     router.replace("/(tabs)/today");
   }
@@ -30,8 +32,15 @@ export default function OnboardingPaywall() {
   }
 
   // « Plus tard » : entre dans l'app en mode gaté (visuels/stats verrouillés).
-  function onClose() {
-    finish();
+  async function onClose() {
+    setSubmitting(true);
+    try {
+      await finish();
+    } catch {
+      Alert.alert("Oups", "Impossible d'enregistrer ton profil. Réessaie.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return <PaywallView onSubscribe={onSubscribe} onClose={onClose} submitting={submitting} />;

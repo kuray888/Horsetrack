@@ -39,6 +39,7 @@ export async function persistOnboarding(rider: RiderDraft, horses: HorseDraft[])
     mainDiscipline: rider.mainDiscipline,
     rideFrequency: rider.rideFrequency,
     primaryGoal: rider.primaryGoal,
+    additionalInfo: rider.additionalInfo.trim() || null,
     onboardingCompletedAt: now,
     updatedAt: now,
   };

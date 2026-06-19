@@ -36,6 +36,9 @@ model RiderProfile {
   mainDiscipline Discipline?
   rideFrequency  RideFrequency?
   primaryGoal    RiderGoal?
+  /// Contexte libre donné par le cavalier en fin d'onboarding — destiné à
+  /// nourrir la personnalisation du programme par le Coach IA.
+  additionalInfo String?
 
   // Entitlement abonnement (source de vérité côté store = RevenueCat)
   subscriptionStatus SubscriptionStatus @default(TRIALING)
