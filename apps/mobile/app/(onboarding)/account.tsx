@@ -5,37 +5,37 @@ import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
-import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
-export default function LoginScreen() {
+export default function OnboardingAccount() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function signIn() {
+  async function createAccount() {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+    setLoading(false);
 
     if (error) {
-      setLoading(false);
       Alert.alert("Erreur", error.message);
       return;
     }
 
-    if (await isBiometricLockEnabled()) {
-      const confirmed = await authenticateWithBiometrics("Confirmer avec Face ID");
-      if (!confirmed) {
-        await supabase.auth.signOut();
-        setLoading(false);
-        Alert.alert("Connexion annulée", "Confirme ton identité pour te connecter.");
-        return;
-      }
+    // Si le projet Supabase exige une confirmation par email, signUp() ne renvoie
+    // pas de session tout de suite. On continue malgré tout vers le paywall (au
+    // lieu de renvoyer vers le login) pour ne pas perdre les réponses d'onboarding :
+    // elles sont sauvegardées en local à l'étape paywall quoi qu'il arrive, et la
+    // synchronisation Supabase se fera dès qu'une session existera.
+    if (!data.session) {
+      Alert.alert(
+        "Vérifie tes emails",
+        "Un lien de confirmation t'a été envoyé. Tu peux continuer dès maintenant."
+      );
     }
 
-    setLoading(false);
-    router.replace("/(tabs)/today");
+    router.push("/(onboarding)/paywall");
   }
 
   return (
@@ -43,9 +43,11 @@ export default function LoginScreen() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-extrabold tracking-tight text-text">
-            Connecte-toi à ton compte
+            Crée ton compte pour sauvegarder ton programme
           </Text>
-          <Text className="text-base text-muted">Retrouve ton programme et ton suivi.</Text>
+          <Text className="text-base text-muted">
+            Tes réponses et ton programme seront liés à ce compte.
+          </Text>
         </View>
 
         <Field label="Email">
@@ -56,33 +58,29 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
-            autoComplete="email"
-            textContentType="emailAddress"
           />
         </Field>
 
         <Field label="Mot de passe">
           <TextInput
             className={INPUT}
-            placeholder="Ton mot de passe"
+            placeholder="6 caractères minimum"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            autoComplete="password"
-            textContentType="password"
           />
         </Field>
       </View>
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
-          label={loading ? "Connexion..." : "Se connecter"}
-          disabled={loading || !email.trim() || !password}
-          onPress={signIn}
+          label={loading ? "Création..." : "Créer mon compte"}
+          disabled={loading || !email.trim() || password.length < 6}
+          onPress={createAccount}
         />
-        <TouchableOpacity onPress={() => router.push("/(onboarding)/welcome")}>
+        <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
           <Text className="text-center text-sm font-semibold text-accent">
-            Pas encore de compte ? S'inscrire
+            Déjà un compte ? Se connecter
           </Text>
         </TouchableOpacity>
       </View>

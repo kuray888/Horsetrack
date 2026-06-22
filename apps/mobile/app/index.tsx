@@ -2,27 +2,26 @@ import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { Redirect } from "expo-router";
 import { colors } from "@/theme/colors";
+import { supabase } from "@/lib/supabase";
 import { isOnboardingCompleted } from "@/onboarding/completion";
 
 /**
  * Écran de démarrage : l'onboarding est la première chose vue tant qu'il
- * n'est pas terminé, ensuite on entre dans l'app.
- *
- * Le check de session Supabase est temporairement retiré ici pour explorer
- * l'app librement sans repasser par login à chaque rechargement — (auth)/login.tsx
- * et la création de compte dans l'onboarding restent fonctionnels, juste plus
- * imposés au démarrage. À réactiver avant publication (cf. historique du repo,
- * ce check a déjà été écrit et retiré plusieurs fois : juste remettre
- * `supabase.auth.getSession()` + redirect vers /(auth)/login si pas de session).
+ * n'est pas terminé (le compte se crée lui-même au milieu de ce parcours,
+ * cf. (onboarding)/account.tsx — pas besoin de session avant). Une fois
+ * l'onboarding fait, on a forcément un compte : s'il n'y a plus de session
+ * (déconnexion), on renvoie vers le login plutôt que de relancer l'onboarding.
  */
 export default function Index() {
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [done, setDone] = useState<boolean | null>(null);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
     isOnboardingCompleted().then(setDone);
   }, []);
 
-  if (done === null) {
+  if (hasSession === null || done === null) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator color={colors.primary} />
@@ -30,5 +29,9 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={done ? "/(tabs)/today" : "/(onboarding)/welcome"} />;
+  if (!done) {
+    return <Redirect href="/(onboarding)/welcome" />;
+  }
+
+  return <Redirect href={hasSession ? "/(tabs)/today" : "/(auth)/login"} />;
 }

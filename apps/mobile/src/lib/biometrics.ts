@@ -1,4 +1,16 @@
 import * as LocalAuthentication from "expo-local-authentication";
+import * as SecureStore from "expo-secure-store";
+
+const BIOMETRIC_LOCK_KEY = "biometric_lock_enabled_v1";
+
+/** Préférence utilisateur (activée depuis Profil) — distincte de la dispo matérielle. */
+export async function isBiometricLockEnabled(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(BIOMETRIC_LOCK_KEY)) === "true";
+}
+
+export async function setBiometricLockEnabled(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(BIOMETRIC_LOCK_KEY, String(enabled));
+}
 
 export async function isBiometricsAvailable(): Promise<boolean> {
   const compatible = await LocalAuthentication.hasHardwareAsync();

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Alert, Image, Switch, Text, TouchableOpacity, View } from "react-native";
-import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -8,7 +7,13 @@ import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { useSubscription } from "@/subscription/store";
 import { colors } from "@/theme/colors";
-import { isBiometricsAvailable, authenticateWithBiometrics, getBiometricType } from "@/lib/biometrics";
+import {
+  isBiometricsAvailable,
+  authenticateWithBiometrics,
+  getBiometricType,
+  isBiometricLockEnabled,
+  setBiometricLockEnabled,
+} from "@/lib/biometrics";
 import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useProgress } from "@/progress/store";
@@ -23,7 +28,6 @@ import {
   HORSE_LEVELS,
 } from "@/onboarding/options";
 
-const BIOMETRICS_KEY = "biometric_lock_enabled_v1";
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
 function labelOf<T extends string>(options: { value: T; label: string }[], value: T | null): string {
@@ -99,7 +103,7 @@ export default function ProfileScreen() {
     getNotificationStatus().then(setNotifEnabled);
     isBiometricsAvailable().then(setBioAvailable);
     getBiometricType().then((t) => setBioLabel(t === "face" ? "Face ID" : t === "fingerprint" ? "Empreinte digitale" : "Biométrie"));
-    SecureStore.getItemAsync(BIOMETRICS_KEY).then((v) => setBioEnabled(v === "true"));
+    isBiometricLockEnabled().then(setBioEnabled);
   }, []);
 
   async function handleToggleNotif(next: boolean) {
@@ -113,7 +117,7 @@ export default function ProfileScreen() {
       const ok = await authenticateWithBiometrics("Active le verrouillage biométrique de Cheval");
       if (!ok) return;
     }
-    await SecureStore.setItemAsync(BIOMETRICS_KEY, String(next));
+    await setBiometricLockEnabled(next);
     setBioEnabled(next);
   }
 

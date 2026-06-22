@@ -18,8 +18,10 @@ export default function OnboardingPaywall() {
     // réimposée au démarrage (cf. commentaire dans app/index.tsx).
     setRiderProfile(rider);
     replaceHorses(horses);
-    // Best-effort : suppose une session déjà ouverte (l'onboarding n'impose plus
-    // de créer un compte avant le paywall) — échoue silencieusement sinon.
+    // Best-effort : le compte créé juste avant (cf. account.tsx) donne une session
+    // dans le cas standard. Si la confirmation par email est activée côté Supabase,
+    // la session n'existe pas encore et cet appel échoue silencieusement — la
+    // synchronisation se fera à la prochaine connexion.
     persistOnboarding(rider, horses).catch(() => {});
 
     await markOnboardingCompleted();
