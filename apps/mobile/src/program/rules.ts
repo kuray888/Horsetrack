@@ -10,7 +10,15 @@ import type {
 } from "@/onboarding/store";
 import type { Horse, Injury } from "@/horses/store";
 import type { RiderProfile } from "@/rider/store";
-import type { GeneratedProgram, ProgramPhase, SessionIntensity, SessionTemplate, SessionType } from "./types";
+import type {
+  ExerciseStep,
+  GeneratedProgram,
+  ProgramPhase,
+  SessionIntensity,
+  SessionStepPhase,
+  SessionTemplate,
+  SessionType,
+} from "./types";
 
 /**
  * Moteur de règles V1 — première version volontairement transparente
@@ -91,19 +99,64 @@ const GOAL_THEME: Record<RiderGoal, string> = {
   CONFIDENCE: "Reprendre confiance, sans pression.",
 };
 
+type ExerciseStepDraft = { phase: SessionStepPhase; title: string; description: string };
+
 /** 2 variantes par type pour qu'une même séance ne soit pas identique à
- * chaque occurrence dans le programme. */
+ * chaque occurrence dans le programme. Chaque exercice porte une description
+ * (comment le faire / à quoi veiller) et une phase d'affichage. */
 const SESSION_META: Record<
   SessionType,
-  { title: string; focus: string; baseDurationMin: number; exerciseVariants: string[][] }
+  { title: string; focus: string; baseDurationMin: number; exerciseVariants: ExerciseStepDraft[][] }
 > = {
   DRESSAGE_BASICS: {
     title: "Dressage — bases",
     focus: "Engagement & rectitude",
     baseDurationMin: 45,
     exerciseVariants: [
-      ["Échauffement progressif au pas/trot", "Transitions trot-galop", "Travail sur le cercle, incurvation", "Retour au calme au pas"],
-      ["Échauffement avec changements de direction", "Transitions descendantes répétées", "Travail en serpentine", "Étirements en fin de séance"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Échauffement progressif au pas/trot",
+          description: "Mets le cheval en mouvement en douceur, pas puis trot, pour préparer muscles et articulations avant le travail technique.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Transitions trot-galop",
+          description: "Enchaîne des transitions nettes entre trot et galop pour développer l'engagement des postérieurs et la réactivité aux aides.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail sur le cercle, incurvation",
+          description: "Trace des cercles réguliers en cherchant une incurvation homogène du cheval autour de ta jambe intérieure.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au calme au pas",
+          description: "Termine au pas, rênes longues, pour faire redescendre la fréquence cardiaque et étirer le dos du cheval.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Échauffement avec changements de direction",
+          description: "Alterne les changements de direction au pas et au trot pour réveiller l'attention du cheval avant d'aborder le travail plus précis.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Transitions descendantes répétées",
+          description: "Répète des transitions descendantes (galop-trot, trot-pas) en cherchant à garder l'équilibre et la rectitude à chaque fois.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail en serpentine",
+          description: "Enchaîne des serpentines au trot pour travailler la souplesse latérale et l'écoute aux aides de direction.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Étirements en fin de séance",
+          description: "Termine par quelques minutes au pas en étirant l'encolure vers le bas pour relâcher le dos.",
+        },
+      ],
     ],
   },
   ASSOUPLISSEMENT: {
@@ -111,8 +164,50 @@ const SESSION_META: Record<
     focus: "Souplesse & écoute",
     baseDurationMin: 45,
     exerciseVariants: [
-      ["Étirements à pied avant le travail monté", "Épaule en dedans au pas", "Appuyers au trot", "Reculer et immobilité"],
-      ["Travail sur des courbes variées", "Cession à la jambe", "Transitions au sein de l'allure", "Pas allongé en fin de séance"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Étirements à pied avant le travail monté",
+          description: "Quelques minutes de marche en main avec étirements doux pour préparer le cheval avant de monter.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Épaule en dedans au pas",
+          description: "Demande un léger épaule en dedans au pas pour travailler la mobilité des épaules et l'engagement de l'arrière-main.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Appuyers au trot",
+          description: "Travaille des appuyers au trot sur quelques mètres pour développer la dissociation avant/arrière et la décontraction.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Reculer et immobilité",
+          description: "Termine par des reculers calmes suivis d'un temps d'immobilité pour renforcer l'écoute et la patience.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Travail sur des courbes variées",
+          description: "Varie les courbes (grands cercles, voltes) au pas et au trot pour assouplir progressivement le cheval.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Cession à la jambe",
+          description: "Travaille la cession à la jambe au pas puis au trot pour affiner la réactivité aux aides latérales.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Transitions au sein de l'allure",
+          description: "Alterne les amplitudes au sein d'une même allure (trot rassemblé/trot moyen) pour développer l'élasticité du dos.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Pas allongé en fin de séance",
+          description: "Termine par du pas allongé, rênes longues, pour détendre le cheval après le travail technique.",
+        },
+      ],
     ],
   },
   BARRES_AU_SOL: {
@@ -120,8 +215,50 @@ const SESSION_META: Record<
     focus: "Précision & équilibre",
     baseDurationMin: 40,
     exerciseVariants: [
-      ["Échauffement avec barres au sol", "Ligne de barres, distances variées", "Travail sans étriers", "Retour au calme"],
-      ["Barres en éventail", "Travail sur la régularité de l'allure", "Cavalettis au trot", "Retour au pas, étirements"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Échauffement avec barres au sol",
+          description: "Passe sur une barre isolée au pas puis au trot pour réveiller la précision des postérieurs avant l'exercice principal.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Ligne de barres, distances variées",
+          description: "Enchaîne une ligne de barres avec des distances variées pour travailler la régularité de la foulée.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail sans étriers",
+          description: "Reprends quelques minutes de trot sans étriers pour renforcer ton assiette et ta stabilité.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au calme",
+          description: "Termine au pas en laissant le cheval s'étirer, en valorisant le travail accompli.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Barres en éventail",
+          description: "Aborde des barres en éventail pour travailler la précision sur des distances qui se resserrent ou s'élargissent.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail sur la régularité de l'allure",
+          description: "Maintiens une cadence stable au trot entre les barres pour développer la régularité et l'équilibre du cheval.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Cavalettis au trot",
+          description: "Enchaîne quelques cavalettis bas au trot pour développer la technique des membres sans la contrainte du saut.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au pas, étirements",
+          description: "Reviens au pas, rênes longues, et laisse le cheval s'étirer encolure basse pour décontracter le dos.",
+        },
+      ],
     ],
   },
   OBSTACLE: {
@@ -129,8 +266,50 @@ const SESSION_META: Record<
     focus: "Technique de saut",
     baseDurationMin: 45,
     exerciseVariants: [
-      ["Échauffement avec barres au sol", "Petits sauts techniques", "Ligne d'obstacles à enchaîner", "Retour au calme"],
-      ["Échauffement progressif", "Travail de la foulée avant l'obstacle", "Enchaînement avec changements de main", "Retour au calme"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Échauffement avec barres au sol",
+          description: "Commence par des barres au sol au trot pour affiner la précision avant d'introduire le saut.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Petits sauts techniques",
+          description: "Travaille quelques petits obstacles isolés en variant les abords pour développer la technique de saut.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Ligne d'obstacles à enchaîner",
+          description: "Enchaîne une ligne de 2-3 obstacles bas pour travailler le rythme et la régularité entre les efforts.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au calme",
+          description: "Termine au pas, en valorisant le cheval, pour redescendre progressivement l'intensité.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Échauffement progressif",
+          description: "Échauffe le cheval au pas puis au trot avec quelques transitions pour le préparer mentalement et physiquement au saut.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail de la foulée avant l'obstacle",
+          description: "Travaille l'ajustement de la foulée à l'approche d'un obstacle isolé pour affiner ton sens du rythme.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Enchaînement avec changements de main",
+          description: "Enchaîne plusieurs obstacles avec des changements de main pour travailler la maniabilité et l'anticipation.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au calme",
+          description: "Termine par un retour au pas calme, en récompensant le cheval pour le travail fourni.",
+        },
+      ],
     ],
   },
   SORTIE_EXTERIEURE: {
@@ -138,8 +317,50 @@ const SESSION_META: Record<
     focus: "Endurance & mental",
     baseDurationMin: 60,
     exerciseVariants: [
-      ["Marche en extérieur", "Trot enlevé sur terrain plat", "Galop sur ligne droite sécurisée", "Retour au pas, étirements"],
-      ["Marche en terrain varié", "Trot assis sur de longues lignes", "Franchissement d'obstacles naturels (fossé, talus)", "Retour au calme"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Marche en extérieur",
+          description: "Démarre par une marche tranquille en extérieur pour mettre le cheval en confiance et chauffer les muscles progressivement.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Trot enlevé sur terrain plat",
+          description: "Enchaîne du trot enlevé sur terrain plat pour travailler l'endurance sans solliciter excessivement le dos.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Galop sur ligne droite sécurisée",
+          description: "Si le terrain le permet, propose un galop tranquille sur une ligne droite dégagée et sécurisée.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au pas, étirements",
+          description: "Termine au pas en laissant le cheval s'étirer pour bien récupérer avant le retour.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Marche en terrain varié",
+          description: "Marche sur un terrain varié (montées, descentes légères) pour solliciter en douceur différents groupes musculaires.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Trot assis sur de longues lignes",
+          description: "Travaille le trot assis sur de longues lignes pour développer ton équilibre et l'endurance du cheval.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Franchissement d'obstacles naturels (fossé, talus)",
+          description: "Aborde calmement un obstacle naturel (fossé, talus) pour développer la confiance et l'aisance en extérieur.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au calme",
+          description: "Termine par une marche calme pour permettre une bonne récupération avant le retour à l'écurie.",
+        },
+      ],
     ],
   },
   TRAVAIL_A_PIED: {
@@ -147,8 +368,50 @@ const SESSION_META: Record<
     focus: "Complicité & écoute",
     baseDurationMin: 30,
     exerciseVariants: [
-      ["Pansage et observation du cheval", "Exercices de respect des distances", "Travail en longe ou en liberté", "Moment de détente ensemble"],
-      ["Désensibilisation à des objets nouveaux", "Exercices de mène en main", "Travail des transitions à pied", "Temps calme partagé"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Pansage et observation du cheval",
+          description: "Profite du pansage pour observer l'état général du cheval (locomotion, moral, sensibilités) avant de commencer.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Exercices de respect des distances",
+          description: "Travaille le respect de l'espace personnel en menant le cheval avec des arrêts/départs nets.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail en longe ou en liberté",
+          description: "Propose un temps de longe ou de liberté pour observer les allures et renforcer la communication par la voix/le corps.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Moment de détente ensemble",
+          description: "Termine par un moment calme, sans exigence, pour renforcer simplement la relation.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Désensibilisation à des objets nouveaux",
+          description: "Présente calmement un objet nouveau (bâche, plot, ballon) en laissant le cheval l'explorer à son rythme.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Exercices de mène en main",
+          description: "Travaille les changements de direction et d'allure en main pour affiner l'écoute du cheval.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail des transitions à pied",
+          description: "Demande des transitions (arrêt/marche/reculer) en main pour renforcer la précision des réponses.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Temps calme partagé",
+          description: "Termine par un moment sans exercice, juste présence et calme partagés.",
+        },
+      ],
     ],
   },
   RENFORCEMENT: {
@@ -156,8 +419,50 @@ const SESSION_META: Record<
     focus: "Tonicité & équilibre",
     baseDurationMin: 40,
     exerciseVariants: [
-      ["Échauffement progressif", "Transitions fréquentes pour l'engagement", "Travail sur terrain varié si possible", "Étirements en fin de séance"],
-      ["Travail en côte si le terrain le permet", "Exercices de reculer", "Cercles resserrés au pas et au trot", "Retour au calme"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Échauffement progressif",
+          description: "Échauffe le cheval au pas puis au trot, en augmentant progressivement l'amplitude avant le travail de fond.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Transitions fréquentes pour l'engagement",
+          description: "Multiplie les transitions (pas-trot-pas) pour développer l'engagement des postérieurs et la tonicité générale.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Travail sur terrain varié si possible",
+          description: "Si le terrain le permet, intègre des passages en légère pente pour solliciter davantage la musculature.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Étirements en fin de séance",
+          description: "Termine par des étirements au pas pour relâcher les muscles sollicités pendant la séance.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Travail en côte si le terrain le permet",
+          description: "Utilise une côte douce pour renforcer l'arrière-main, au pas puis éventuellement au trot.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Exercices de reculer",
+          description: "Travaille le reculer en ligne droite pour développer la force et la coordination de l'arrière-main.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Cercles resserrés au pas et au trot",
+          description: "Propose des cercles plus resserrés pour solliciter l'engagement et l'équilibre latéral.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Retour au calme",
+          description: "Termine par un pas détendu pour permettre une bonne récupération musculaire.",
+        },
+      ],
     ],
   },
   RECUPERATION: {
@@ -165,10 +470,65 @@ const SESSION_META: Record<
     focus: "Détente & observation",
     baseDurationMin: 30,
     exerciseVariants: [
-      ["Marche en main", "Étirements doux", "Observation de la locomotion", "Pas de travail monté tant que la forme n'est pas meilleure"],
-      ["Pansage prolongé", "Marche en liberté au paddock", "Observation du comportement", "Bilan avec le vétérinaire/ostéopathe si besoin"],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Marche en main",
+          description: "Sors le cheval en marche en main, sans monter, pour favoriser une circulation douce sans charge.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Étirements doux",
+          description: "Propose des étirements doux de l'encolure si le cheval est à l'aise, sans forcer.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Observation de la locomotion",
+          description: "Observe attentivement la façon dont le cheval se déplace pour repérer toute gêne ou amélioration.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Pas de travail monté tant que la forme n'est pas meilleure",
+          description: "Laisse le travail monté de côté jusqu'à ce que la forme du cheval le permette à nouveau — la prudence prime.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Pansage prolongé",
+          description: "Prends le temps d'un pansage complet et minutieux, bon moment de contact sans aucune exigence physique.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Marche en liberté au paddock",
+          description: "Laisse le cheval se mouvoir librement au paddock pour un mouvement naturel et non contraint.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Observation du comportement",
+          description: "Observe le comportement général (appétit, moral, façon de se déplacer) pour suivre l'évolution de sa forme.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Bilan avec le vétérinaire/ostéopathe si besoin",
+          description: "Si un doute persiste sur la récupération, un point avec le vétérinaire ou l'ostéopathe est recommandé avant de reprendre le travail.",
+        },
+      ],
     ],
   },
+};
+
+/** Matériel typiquement nécessaire selon le type de séance — déduit
+ * automatiquement, affiché au cavalier pour préparer la séance en amont. */
+const SESSION_EQUIPMENT: Record<SessionType, string[]> = {
+  DRESSAGE_BASICS: ["Aucun matériel particulier"],
+  ASSOUPLISSEMENT: ["Aucun matériel particulier"],
+  BARRES_AU_SOL: ["4 à 6 barres au sol", "Plots ou soucoupes pour matérialiser les distances"],
+  OBSTACLE: ["Barres au sol", "2 à 3 obstacles bas (cavalettis ou croisillons)", "Plots de matérialisation"],
+  SORTIE_EXTERIEURE: ["Protections de travail (guêtres ou protège-boulets)", "Tenue adaptée à la météo"],
+  TRAVAIL_A_PIED: ["Licol et longe (ou caveçon)", "Stick ou chambrière si besoin", "Objet de désensibilisation selon l'exercice du jour"],
+  RENFORCEMENT: ["Aucun matériel obligatoire", "Terrain varié en option (côte, sol meuble)"],
+  RECUPERATION: ["Aucun matériel — privilégier le confort du cheval"],
 };
 
 /** Restrictions spécifiques par condition de santé déclarée — seules les
@@ -374,7 +734,7 @@ function rotate<T>(list: T[], index: number): T | undefined {
   return list[index % list.length];
 }
 
-function buildExercises(type: SessionType, weekIndex: number, horse: Horse): string[] {
+function buildExercises(type: SessionType, weekIndex: number, horse: Horse): ExerciseStep[] {
   const meta = SESSION_META[type];
   const variant = rotate(meta.exerciseVariants, weekIndex) ?? meta.exerciseVariants[0];
 
@@ -383,7 +743,14 @@ function buildExercises(type: SessionType, weekIndex: number, horse: Horse): str
 
   const weakness = rotate(horse.weaknesses, weekIndex);
   if (!weakness) return variant;
-  return [...variant, `Travail ciblé sur le point faible signalé : ${weakness.toLowerCase()}`];
+  return [
+    ...variant,
+    {
+      phase: "CORPS_DE_SEANCE",
+      title: `Travail ciblé : ${weakness.toLowerCase()}`,
+      description: `Accorde une attention particulière à ce point faible signalé pendant la séance, sans le forcer.`,
+    },
+  ];
 }
 
 function buildPersonalizationNotes(rider: RiderProfile, horse: Horse): string[] {
@@ -471,6 +838,7 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
         durationMin: scaleDuration(meta.baseDurationMin, weekIntensity),
         focus: meta.focus,
         intensity: weekIntensity,
+        equipment: SESSION_EQUIPMENT[type],
         exercises: buildExercises(type, weekNumber - 1, horse),
       };
     });

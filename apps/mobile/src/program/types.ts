@@ -14,6 +14,16 @@ export type SessionIntensity = "LOW" | "MEDIUM" | "HIGH";
  * que de répéter la même semaine du début à la fin. */
 export type ProgramPhase = "REPRISE" | "DEVELOPPEMENT" | "AFFIRMATION";
 
+/** Phase d'une séance — sert à regrouper les exercices à l'affichage
+ * (échauffement / corps de séance / retour au calme), pas à varier l'intensité. */
+export type SessionStepPhase = "ECHAUFFEMENT" | "CORPS_DE_SEANCE" | "RETOUR_AU_CALME";
+
+export type ExerciseStep = {
+  phase: SessionStepPhase;
+  title: string;
+  description: string;
+};
+
 export type SessionTemplate = {
   dayOffset: number; // 0 = lundi ... 6 = dimanche
   time: string;
@@ -22,7 +32,8 @@ export type SessionTemplate = {
   durationMin: number;
   focus: string;
   intensity: SessionIntensity;
-  exercises: string[];
+  equipment: string[];
+  exercises: ExerciseStep[];
 };
 
 export type ProgramWeek = {

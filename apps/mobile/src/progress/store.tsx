@@ -18,8 +18,13 @@ import { useHorses } from "@/horses/store";
  * pour CHAQUE cheval (cf. sélecteur sur Today). Today/Planning/Profil lisent
  * toujours la tranche correspondant au cheval actuellement sélectionné dans
  * horses/store.tsx. S'appuie sur le programme réel généré (program/store.tsx)
- * plutôt que sur une trame statique : un programme tout juste généré démarre
- * toujours à la semaine 1, sans séance déjà faite.
+ * plutôt que sur une trame statique.
+ *
+ * Quand le programme est régénéré (changement important détecté par
+ * program/store.tsx, ou bouton "Nouveau programme"), les ids de séance ne
+ * représentent plus forcément la même chose qu'avant : on détecte ce
+ * changement via `programGeneratedAt` et on repart à zéro pour CE cheval,
+ * plutôt que de garder des "séances faites" qui ne correspondent à rien.
  */
 
 const STORAGE_KEY = "training_progress_v2";
@@ -33,11 +38,16 @@ type PersistedForHorse = {
   completed: Record<string, boolean>;
   bestWeekStreak: number;
   debriefs: Record<string, Debrief>;
+  /** generatedAt du programme contre lequel cette progression a été
+   * calculée — sert à détecter une régénération depuis la dernière visite. */
+  programGeneratedAt: string | null;
 };
 
 type PersistedAll = Record<string, PersistedForHorse>;
 
-const EMPTY_PERSISTED: PersistedForHorse = { completed: {}, bestWeekStreak: 0, debriefs: {} };
+function emptyPersisted(programGeneratedAt: string | null): PersistedForHorse {
+  return { completed: {}, bestWeekStreak: 0, debriefs: {}, programGeneratedAt };
+}
 
 /** Semaines complètes d'affilée, en partant de la semaine actuelle vers le passé. */
 function computeWeekStreak(
@@ -82,14 +92,15 @@ const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const { selectedHorse } = useHorses();
-  const { weeks, allSessions, currentWeekNumber } = useProgram();
+  const { program, weeks, allSessions, currentWeekNumber } = useProgram();
   const horseId = selectedHorse?.id ?? null;
+  const generatedAt = program?.generatedAt ?? null;
 
   const [loading, setLoading] = useState(true);
   const [allData, setAllData] = useState<PersistedAll>({});
   const [celebrationBadge, setCelebrationBadge] = useState<Badge | null>(null);
   const prevUnlockedRef = useRef<Set<string>>(new Set());
-  const prevHorseIdRef = useRef<string | null>(null);
+  const prevEpochRef = useRef<string | null>(null);
 
   useEffect(() => {
     SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
@@ -98,16 +109,24 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const current = useMemo<PersistedForHorse>(
-    () => (horseId ? allData[horseId] ?? EMPTY_PERSISTED : EMPTY_PERSISTED),
-    [allData, horseId]
-  );
+  // Si le programme de ce cheval a été régénéré depuis la dernière visite,
+  // les anciens ids de séance ne représentent plus la même chose : on repart
+  // à zéro pour ce cheval plutôt que de garder une progression incohérente.
+  const current = useMemo<PersistedForHorse>(() => {
+    if (!horseId) return emptyPersisted(generatedAt);
+    const stored = allData[horseId];
+    if (!stored || stored.programGeneratedAt === generatedAt) return stored ?? emptyPersisted(generatedAt);
+    return emptyPersisted(generatedAt);
+  }, [allData, horseId, generatedAt]);
 
-  // Recalcule le tracker "badges déjà vus" quand on change de cheval, pour ne
-  // pas déclencher de célébration sur des badges déjà débloqués avant.
+  const epoch = horseId ? `${horseId}:${generatedAt ?? ""}` : null;
+
+  // Recalcule le tracker "badges déjà vus" quand on change de cheval ou que
+  // son programme est régénéré, pour ne pas déclencher de célébration sur
+  // des badges déjà débloqués avant (ou sur un reset qui vient d'avoir lieu).
   useEffect(() => {
-    if (loading || prevHorseIdRef.current === horseId) return;
-    prevHorseIdRef.current = horseId;
+    if (loading || prevEpochRef.current === epoch) return;
+    prevEpochRef.current = epoch;
     prevUnlockedRef.current = new Set(
       unlockedBadgeIds({
         completedCount: Object.values(current.completed).filter(Boolean).length,
@@ -116,7 +135,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         bestWeekStreak: current.bestWeekStreak,
       })
     );
-  }, [horseId, loading, current, allSessions.length, weeks, currentWeekNumber]);
+  }, [epoch, loading, current, allSessions.length, weeks, currentWeekNumber]);
 
   const persist = useCallback(
     (next: PersistedForHorse) => {
@@ -146,9 +165,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       prevUnlockedRef.current = new Set(nowUnlocked);
       if (newlyId) setCelebrationBadge(BADGES.find((b) => b.id === newlyId) ?? null);
 
-      persist({ completed: next, bestWeekStreak: nextBest, debriefs: current.debriefs });
+      persist({ completed: next, bestWeekStreak: nextBest, debriefs: current.debriefs, programGeneratedAt: generatedAt });
     },
-    [current, persist, weeks, currentWeekNumber, allSessions.length]
+    [current, persist, weeks, currentWeekNumber, allSessions.length, generatedAt]
   );
 
   const isDone = useCallback((sessionId: string) => !!current.completed[sessionId], [current]);
@@ -158,9 +177,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const saveDebrief = useCallback(
     (sessionId: string, debrief: Debrief) => {
-      persist({ ...current, debriefs: { ...current.debriefs, [sessionId]: debrief } });
+      persist({ ...current, debriefs: { ...current.debriefs, [sessionId]: debrief }, programGeneratedAt: generatedAt });
     },
-    [current, persist]
+    [current, persist, generatedAt]
   );
 
   const value = useMemo<ProgressContextValue>(() => {
