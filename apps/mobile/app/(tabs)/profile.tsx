@@ -13,6 +13,7 @@ import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notif
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useProgress } from "@/progress/store";
 import { useHorses } from "@/horses/store";
+import { useRiderProfile } from "@/rider/store";
 import { BADGES } from "@/program/badges";
 import {
   DISCIPLINES,
@@ -21,20 +22,12 @@ import {
   RIDE_FREQUENCIES,
   HORSE_LEVELS,
 } from "@/onboarding/options";
-import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
-
-// --- Profil cavalier mock (à brancher sur l'onboarding persisté plus tard) ---
-const riderProfile = {
-  level: "AMATEUR" as RiderLevel,
-  mainDiscipline: "SHOW_JUMPING" as Discipline,
-  rideFrequency: "SEVERAL_PER_WEEK" as RideFrequency,
-  primaryGoal: "COMPETE" as RiderGoal,
-};
 
 const BIOMETRICS_KEY = "biometric_lock_enabled_v1";
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
-function labelOf<T extends string>(options: { value: T; label: string }[], value: T): string {
+function labelOf<T extends string>(options: { value: T; label: string }[], value: T | null): string {
+  if (value === null) return "—";
   return options.find((o) => o.value === value)?.label ?? value;
 }
 
@@ -94,6 +87,7 @@ export default function ProfileScreen() {
   const { status, plan, trialEndsAt, isPremium, loading: subLoading } = useSubscription();
   const { unlockedBadges } = useProgress();
   const { horses, updateHorsePhoto } = useHorses();
+  const { riderProfile } = useRiderProfile();
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
@@ -214,6 +208,9 @@ export default function ProfileScreen() {
                 <Text className="text-xs text-success">💪 {horse.strengths.join(", ")}</Text>
               ) : null}
             </View>
+            <TouchableOpacity onPress={() => router.push(`/edit-horse-modal?id=${horse.id}`)} hitSlop={8}>
+              <Text className="px-1 text-sm font-semibold text-accent">Modifier</Text>
+            </TouchableOpacity>
           </View>
         </FadeInView>
       ))}
@@ -233,8 +230,8 @@ export default function ProfileScreen() {
       <FadeInView delay={260}>
         <View className="flex-row items-center justify-between">
           <SectionTitle>Mon profil cavalier</SectionTitle>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text className="text-sm font-semibold text-accent">Modifier (bientôt)</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => router.push("/edit-rider-modal")}>
+            <Text className="text-sm font-semibold text-accent">Modifier</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
@@ -247,6 +244,15 @@ export default function ProfileScreen() {
           <InfoRow label="Objectif principal" value={labelOf(RIDER_GOALS, riderProfile.primaryGoal)} />
         </View>
       </FadeInView>
+
+      {riderProfile.additionalInfo.trim() ? (
+        <FadeInView delay={320}>
+          <View className={`${CARD} gap-1`}>
+            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Pour ton Coach IA</Text>
+            <Text className="text-sm text-text">{riderProfile.additionalInfo.trim()}</Text>
+          </View>
+        </FadeInView>
+      ) : null}
 
       {/* Mes succès */}
       <FadeInView delay={340}>

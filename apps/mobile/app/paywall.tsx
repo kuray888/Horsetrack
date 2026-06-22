@@ -1,25 +1,13 @@
-import { useState } from "react";
-import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
-import { useSubscription, type SubscriptionPlan } from "@/subscription/store";
+import { useSubscribeFlow, type SubscriptionPlan } from "@/subscription/store";
 
 /** Paywall plein écran déclenché depuis l'app par un bouton « Débloquer » (<Locked>). */
 export default function AppPaywall() {
-  const { startTrial } = useSubscription();
-  const [submitting, setSubmitting] = useState(false);
+  const { submitting, subscribe } = useSubscribeFlow();
 
   async function onSubscribe(plan: SubscriptionPlan) {
-    setSubmitting(true);
-    try {
-      // TODO: achat réel RevenueCat avant de marquer l'essai.
-      await startTrial(plan);
-      router.back();
-    } catch {
-      Alert.alert("Oups", "Impossible de démarrer l'essai. Réessaie.");
-    } finally {
-      setSubmitting(false);
-    }
+    await subscribe(plan, () => router.back());
   }
 
   return (

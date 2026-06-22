@@ -68,8 +68,12 @@ export async function persistOnboarding(rider: RiderDraft, horses: HorseDraft[])
       sex: horse.sex,
       breed: horse.breed,
       coat: horse.coat,
+      heightCm: horse.heightCm,
+      weightKg: horse.weightKg,
       discipline: horse.discipline,
       level: horse.level,
+      fitnessLevel: horse.fitnessLevel,
+      workload: horse.workload,
       isPrimary: horse.isPrimary,
       updatedAt: now,
     });
@@ -78,12 +82,29 @@ export async function persistOnboarding(rider: RiderDraft, horses: HorseDraft[])
     const traits = [
       ...horse.strengths.map((tag) => ({ tag, kind: "STRENGTH" as const })),
       ...horse.weaknesses.map((tag) => ({ tag, kind: "WEAKNESS" as const })),
+      ...horse.temperament.map((tag) => ({ tag, kind: "TEMPERAMENT" as const })),
+      ...horse.healthConditions.map((tag) => ({ tag, kind: "HEALTH_CONDITION" as const })),
     ];
-    if (traits.length === 0) continue;
+    if (traits.length > 0) {
+      const { error: traitsError } = await supabase
+        .from("horse_traits")
+        .insert(traits.map((t) => ({ id: generateId(), horseId, tag: t.tag, kind: t.kind })));
+      if (traitsError) throw traitsError;
+    }
 
-    const { error: traitsError } = await supabase
-      .from("horse_traits")
-      .insert(traits.map((t) => ({ id: generateId(), horseId, tag: t.tag, kind: t.kind })));
-    if (traitsError) throw traitsError;
+    if (horse.injuries.length === 0) continue;
+
+    const { error: injuriesError } = await supabase.from("horse_injuries").insert(
+      horse.injuries.map((injury) => ({
+        id: generateId(),
+        horseId,
+        type: injury.type,
+        occurredAt: injury.occurredAt?.toISOString() ?? null,
+        recoveryStatus: injury.recoveryStatus,
+        note: injury.note.trim() || null,
+        updatedAt: now,
+      }))
+    );
+    if (injuriesError) throw injuriesError;
   }
 }

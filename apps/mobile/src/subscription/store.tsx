@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from "react";
+import { Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 
 /**
@@ -83,4 +84,32 @@ export function useSubscription() {
   const ctx = useContext(SubscriptionContext);
   if (!ctx) throw new Error("useSubscription doit être utilisé dans <SubscriptionProvider>");
   return ctx;
+}
+
+/**
+ * Logique d'achat partagée par les deux écrans paywall (onboarding et celui
+ * déclenché par <Locked>) — pour qu'un futur branchement RevenueCat se fasse
+ * à un seul endroit plutôt que dans deux copies qui risquent de diverger.
+ */
+export function useSubscribeFlow() {
+  const { startTrial } = useSubscription();
+  const [submitting, setSubmitting] = useState(false);
+
+  const subscribe = useCallback(
+    async (plan: SubscriptionPlan, onSuccess: () => void | Promise<void>) => {
+      setSubmitting(true);
+      try {
+        // TODO: déclencher l'achat réel via RevenueCat (StoreKit/Play) avant de marquer l'essai.
+        await startTrial(plan);
+        await onSuccess();
+      } catch {
+        Alert.alert("Oups", "Impossible de démarrer l'essai. Réessaie.");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [startTrial]
+  );
+
+  return { submitting, subscribe };
 }

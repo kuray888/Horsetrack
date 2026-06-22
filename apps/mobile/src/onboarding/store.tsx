@@ -25,6 +25,18 @@ export type Discipline =
 export type RiderGoal = "COMPETE" | "BONDING" | "FITNESS" | "EVENT_PREP" | "CONFIDENCE";
 export type HorseSex = "GELDING" | "MARE" | "STALLION";
 export type HorseLevel = "UNTRAINED" | "CLUB" | "AMATEUR" | "PRO";
+export type HorseFitnessLevel = "RESTING" | "REOPENING" | "GOOD" | "PEAK";
+export type HorseWorkload = "NONE" | "ONE_TO_TWO" | "THREE_TO_FOUR" | "FIVE_TO_SIX" | "DAILY";
+export type HorseRecoveryStatus = "RECOVERED" | "IN_PROGRESS" | "ONGOING";
+
+export type InjuryDraft = {
+  /** id local le temps de l'onboarding, remplacé en base */
+  localId: string;
+  type: string;
+  occurredAt: Date | null;
+  recoveryStatus: HorseRecoveryStatus | null;
+  note: string;
+};
 
 export type HorseDraft = {
   /** id local (uuid temporaire) le temps de l'onboarding, remplacé en base */
@@ -35,10 +47,17 @@ export type HorseDraft = {
   sex: HorseSex | null;
   breed: string | null;
   coat: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
   discipline: Discipline | null;
   level: HorseLevel | null;
+  fitnessLevel: HorseFitnessLevel | null;
+  workload: HorseWorkload | null;
   strengths: string[];
   weaknesses: string[];
+  temperament: string[];
+  healthConditions: string[];
+  injuries: InjuryDraft[];
   isPrimary: boolean;
 };
 
@@ -67,10 +86,17 @@ function newHorse(isPrimary: boolean): HorseDraft {
     sex: null,
     breed: null,
     coat: null,
+    heightCm: null,
+    weightKg: null,
     discipline: null,
     level: null,
+    fitnessLevel: null,
+    workload: null,
     strengths: [],
     weaknesses: [],
+    temperament: [],
+    healthConditions: [],
+    injuries: [],
     isPrimary,
   };
 }
@@ -85,6 +111,9 @@ type OnboardingContextValue = OnboardingState & {
   /** Sélectionne un cheval existant pour le rééditer. */
   editHorse: (index: number) => void;
   removeHorse: (localId: string) => void;
+  /** Ajoute une blessure à l'historique du cheval en cours d'édition. */
+  addInjury: (injury: Omit<InjuryDraft, "localId">) => void;
+  removeInjury: (localId: string) => void;
   reset: () => void;
 };
 
@@ -131,6 +160,25 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const addInjury = useCallback((injury: Omit<InjuryDraft, "localId">) => {
+    setState((s) => {
+      const horses = s.horses.slice();
+      const horse = horses[s.editingIndex];
+      const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      horses[s.editingIndex] = { ...horse, injuries: [...horse.injuries, { ...injury, localId }] };
+      return { ...s, horses };
+    });
+  }, []);
+
+  const removeInjury = useCallback((localId: string) => {
+    setState((s) => {
+      const horses = s.horses.slice();
+      const horse = horses[s.editingIndex];
+      horses[s.editingIndex] = { ...horse, injuries: horse.injuries.filter((i) => i.localId !== localId) };
+      return { ...s, horses };
+    });
+  }, []);
+
   const reset = useCallback(() => setState(initialState), []);
 
   const value = useMemo<OnboardingContextValue>(
@@ -142,9 +190,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       startNewHorse,
       editHorse,
       removeHorse,
+      addInjury,
+      removeInjury,
       reset,
     }),
-    [state, setRider, updateEditingHorse, startNewHorse, editHorse, removeHorse, reset]
+    [state, setRider, updateEditingHorse, startNewHorse, editHorse, removeHorse, addInjury, removeInjury, reset]
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

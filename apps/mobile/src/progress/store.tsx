@@ -9,15 +9,17 @@ import {
   type ReactNode,
 } from "react";
 import * as SecureStore from "expo-secure-store";
-import { ALL_SESSIONS, CURRENT_WEEK_NUMBER, PROGRAM_WEEKS } from "@/program/data";
 import { BADGES, unlockedBadgeIds, type Badge } from "@/program/badges";
-import { SEED_HORSE_ID, useHorses } from "@/horses/store";
+import { useProgram, type ProgramWeekView } from "@/program/store";
+import { useHorses } from "@/horses/store";
 
 /**
  * Progression d'entraînement — persistée localement, suivie indépendamment
  * pour CHAQUE cheval (cf. sélecteur sur Today). Today/Planning/Profil lisent
  * toujours la tranche correspondant au cheval actuellement sélectionné dans
- * horses/store.tsx.
+ * horses/store.tsx. S'appuie sur le programme réel généré (program/store.tsx)
+ * plutôt que sur une trame statique : un programme tout juste généré démarre
+ * toujours à la semaine 1, sans séance déjà faite.
  */
 
 const STORAGE_KEY = "training_progress_v2";
@@ -35,32 +37,22 @@ type PersistedForHorse = {
 
 type PersistedAll = Record<string, PersistedForHorse>;
 
-/** Marque les séances passées comme déjà faites, uniquement pour le cheval de
- * démo (h1) — un cheval ajouté plus tard démarre sa progression à zéro. */
-function defaultCompletedForSeedHorse(): Record<string, boolean> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Object.fromEntries(ALL_SESSIONS.filter((s) => s.date < today).map((s) => [s.id, true]));
-}
-
-function emptyPersistedFor(horseId: string): PersistedForHorse {
-  return {
-    completed: horseId === SEED_HORSE_ID ? defaultCompletedForSeedHorse() : {},
-    bestWeekStreak: 0,
-    debriefs: {},
-  };
-}
+const EMPTY_PERSISTED: PersistedForHorse = { completed: {}, bestWeekStreak: 0, debriefs: {} };
 
 /** Semaines complètes d'affilée, en partant de la semaine actuelle vers le passé. */
-function computeWeekStreak(completed: Record<string, boolean>): number {
+function computeWeekStreak(
+  completed: Record<string, boolean>,
+  weeks: ProgramWeekView[],
+  currentWeekNumber: number
+): number {
   let streak = 0;
-  for (let w = CURRENT_WEEK_NUMBER; w >= 1; w--) {
-    const week = PROGRAM_WEEKS.find((pw) => pw.weekNumber === w);
+  for (let w = currentWeekNumber; w >= 1; w--) {
+    const week = weeks.find((pw) => pw.weekNumber === w);
     if (!week || week.sessions.length === 0) continue;
     const allDone = week.sessions.every((s) => completed[s.id]);
     if (allDone) {
       streak++;
-    } else if (w !== CURRENT_WEEK_NUMBER) {
+    } else if (w !== currentWeekNumber) {
       break;
     }
   }
@@ -90,7 +82,8 @@ const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const { selectedHorse } = useHorses();
-  const horseId = selectedHorse?.id ?? SEED_HORSE_ID;
+  const { weeks, allSessions, currentWeekNumber } = useProgram();
+  const horseId = selectedHorse?.id ?? null;
 
   const [loading, setLoading] = useState(true);
   const [allData, setAllData] = useState<PersistedAll>({});
@@ -106,7 +99,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const current = useMemo<PersistedForHorse>(
-    () => allData[horseId] ?? emptyPersistedFor(horseId),
+    () => (horseId ? allData[horseId] ?? EMPTY_PERSISTED : EMPTY_PERSISTED),
     [allData, horseId]
   );
 
@@ -118,15 +111,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     prevUnlockedRef.current = new Set(
       unlockedBadgeIds({
         completedCount: Object.values(current.completed).filter(Boolean).length,
-        totalSessions: ALL_SESSIONS.length,
-        weekStreak: computeWeekStreak(current.completed),
+        totalSessions: allSessions.length,
+        weekStreak: computeWeekStreak(current.completed, weeks, currentWeekNumber),
         bestWeekStreak: current.bestWeekStreak,
       })
     );
-  }, [horseId, loading, current]);
+  }, [horseId, loading, current, allSessions.length, weeks, currentWeekNumber]);
 
   const persist = useCallback(
     (next: PersistedForHorse) => {
+      if (!horseId) return;
       setAllData((all) => {
         const nextAll = { ...all, [horseId]: next };
         SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(nextAll));
@@ -139,12 +133,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const toggleSession = useCallback(
     (sessionId: string) => {
       const next = { ...current.completed, [sessionId]: !current.completed[sessionId] };
-      const weekStreak = computeWeekStreak(next);
+      const weekStreak = computeWeekStreak(next, weeks, currentWeekNumber);
       const nextBest = Math.max(weekStreak, current.bestWeekStreak);
 
       const nowUnlocked = unlockedBadgeIds({
         completedCount: Object.values(next).filter(Boolean).length,
-        totalSessions: ALL_SESSIONS.length,
+        totalSessions: allSessions.length,
         weekStreak,
         bestWeekStreak: nextBest,
       });
@@ -154,7 +148,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
       persist({ completed: next, bestWeekStreak: nextBest, debriefs: current.debriefs });
     },
-    [current, persist]
+    [current, persist, weeks, currentWeekNumber, allSessions.length]
   );
 
   const isDone = useCallback((sessionId: string) => !!current.completed[sessionId], [current]);
@@ -171,8 +165,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ProgressContextValue>(() => {
     const completedCount = Object.values(current.completed).filter(Boolean).length;
-    const totalSessions = ALL_SESSIONS.length;
-    const weekStreak = computeWeekStreak(current.completed);
+    const totalSessions = allSessions.length;
+    const weekStreak = computeWeekStreak(current.completed, weeks, currentWeekNumber);
     const xp = completedCount * XP_PER_SESSION;
 
     return {
@@ -195,7 +189,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       getDebrief,
       saveDebrief,
     };
-  }, [current, loading, isDone, toggleSession, celebrationBadge, dismissCelebration, getDebrief, saveDebrief]);
+  }, [current, loading, isDone, toggleSession, celebrationBadge, dismissCelebration, getDebrief, saveDebrief, allSessions.length, weeks, currentWeekNumber]);
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
 }

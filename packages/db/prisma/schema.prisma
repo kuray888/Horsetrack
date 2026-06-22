@@ -68,17 +68,22 @@ model Horse {
   sex       HorseSex?
   breed     String?
   coat      String?
+  heightCm  Int?
+  weightKg  Int?
 
-  discipline Discipline?
-  level      HorseLevel?
+  discipline   Discipline?
+  level        HorseLevel?
+  fitnessLevel HorseFitnessLevel?
+  workload     HorseWorkload?
 
   isPrimary Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  traits HorseTrait[]
-  goals  Goal[]
+  traits   HorseTrait[]
+  injuries HorseInjury[]
+  goals    Goal[]
 
   @@index([ownerId])
   @@map("horses")
@@ -95,6 +100,26 @@ model HorseTrait {
   @@unique([horseId, tag, kind])
   @@index([horseId])
   @@map("horse_traits")
+}
+
+/// Historique de blessures / problèmes de santé passés d'un cheval — N par
+/// cheval, saisi en onboarding (liste structurée, cf. horse-health.tsx).
+model HorseInjury {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  /// Libellé libre (issu d'une liste suggérée + "Autre" côté UI) — trop variable pour un enum.
+  type           String
+  occurredAt     DateTime?
+  recoveryStatus HorseRecoveryStatus
+  note           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("horse_injuries")
 }
 
 /// Objectif — rattaché au cavalier et optionnellement à un cheval précis.
@@ -174,9 +199,38 @@ enum HorseLevel {
   @@map("horse_level")
 }
 
+enum HorseFitnessLevel {
+  RESTING // au repos
+  REOPENING // reprise en main
+  GOOD // bonne forme
+  PEAK // forme optimale / compétition
+
+  @@map("horse_fitness_level")
+}
+
+enum HorseWorkload {
+  NONE // aucun travail actuellement
+  ONE_TO_TWO // 1-2 jours / semaine
+  THREE_TO_FOUR // 3-4 jours / semaine
+  FIVE_TO_SIX // 5-6 jours / semaine
+  DAILY // tous les jours
+
+  @@map("horse_workload")
+}
+
+enum HorseRecoveryStatus {
+  RECOVERED // complètement rétabli
+  IN_PROGRESS // récupération en cours
+  ONGOING // séquelle/limitation à surveiller
+
+  @@map("horse_recovery_status")
+}
+
 enum TraitKind {
   STRENGTH
   WEAKNESS
+  TEMPERAMENT
+  HEALTH_CONDITION
 
   @@map("trait_kind")
 }

@@ -1,6 +1,7 @@
 import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
 import { router } from "expo-router";
 import { OnboardingShell, SingleSelect } from "@/components/onboarding";
+import { BreedField } from "@/components/BreedField";
 import { Field } from "@/components/Field";
 import { useOnboarding } from "@/onboarding/store";
 import { HORSE_SEXES, TOTAL_STEPS } from "@/onboarding/options";
@@ -77,15 +78,40 @@ export default function HorseBasics() {
         />
       </Field>
 
-      <Field label="Race (optionnel)">
-        <TextInput
-          className={INPUT}
-          placeholder="Ex : Selle Français"
-          value={editingHorse.breed ?? ""}
-          onChangeText={(breed) => updateEditingHorse({ breed: breed || null })}
-          autoCapitalize="words"
-        />
-      </Field>
+      <BreedField value={editingHorse.breed} onChange={(breed) => updateEditingHorse({ breed })} />
+
+      <View className="flex-row gap-3">
+        <View className="flex-1">
+          <Field label="Taille au garrot (cm)">
+            <TextInput
+              className={INPUT}
+              placeholder="Ex : 165"
+              keyboardType="number-pad"
+              maxLength={3}
+              value={editingHorse.heightCm ? String(editingHorse.heightCm) : ""}
+              onChangeText={(t) => {
+                const n = parseInt(t, 10);
+                updateEditingHorse({ heightCm: Number.isNaN(n) ? null : n });
+              }}
+            />
+          </Field>
+        </View>
+        <View className="flex-1">
+          <Field label="Poids (kg)">
+            <TextInput
+              className={INPUT}
+              placeholder="Ex : 550"
+              keyboardType="number-pad"
+              maxLength={4}
+              value={editingHorse.weightKg ? String(editingHorse.weightKg) : ""}
+              onChangeText={(t) => {
+                const n = parseInt(t, 10);
+                updateEditingHorse({ weightKg: Number.isNaN(n) ? null : n });
+              }}
+            />
+          </Field>
+        </View>
+      </View>
     </OnboardingShell>
   );
 }

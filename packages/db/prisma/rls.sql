@@ -84,6 +84,7 @@ alter table public.users          enable row level security;
 alter table public.rider_profiles enable row level security;
 alter table public.horses         enable row level security;
 alter table public.horse_traits   enable row level security;
+alter table public.horse_injuries enable row level security;
 alter table public.goals          enable row level security;
 alter table public.sessions       enable row level security;
 alter table public.payments       enable row level security;
@@ -114,6 +115,11 @@ create policy "horses_all_own" on public.horses
 -- horse_traits : via le cheval parent
 drop policy if exists "horse_traits_all_own" on public.horse_traits;
 create policy "horse_traits_all_own" on public.horse_traits
+  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
+
+-- horse_injuries : via le cheval parent (même logique que horse_traits)
+drop policy if exists "horse_injuries_all_own" on public.horse_injuries;
+create policy "horse_injuries_all_own" on public.horse_injuries
   for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
 
 -- goals : rattaché au rider_profile (et parfois à un cheval, mais le

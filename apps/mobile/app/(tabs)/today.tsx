@@ -8,7 +8,7 @@ import { useCountUp } from "@/hooks/useCountUp";
 import { colors } from "@/theme/colors";
 import { useProgress } from "@/progress/store";
 import { useHorses } from "@/horses/store";
-import { PROGRAM, SESSION_TEMPLATES, getCurrentWeek } from "@/program/data";
+import { useProgram } from "@/program/store";
 
 // --- Données mock (à brancher sur l'API plus tard) ---
 const precision = { done: 18, target: 24 };
@@ -62,12 +62,12 @@ function weeklyRecapMessage(done: number, total: number): string {
 export default function TodayScreen() {
   const { isDone, xp, xpIntoLevel, xpGoal, level, weekStreak, bestWeekStreak } = useProgress();
   const { horses, selectedHorse, selectHorse } = useHorses();
+  const { program, currentWeek } = useProgram();
   const horse = selectedHorse;
   const xpAnimated = useCountUp(xp);
   const precisionTarget = Math.round((precision.done / precision.target) * 100);
   const precisionPct = useCountUp(precisionTarget);
 
-  const currentWeek = getCurrentWeek();
   const weekSessions = currentWeek?.sessions ?? [];
   const weekDoneCount = weekSessions.filter((s) => isDone(s.id)).length;
   const weekStreakDots = Array.from({ length: 7 }, (_, i) => {
@@ -152,7 +152,7 @@ export default function TodayScreen() {
             <Text className="text-[15px] leading-5 text-text">
               {weeklyRecapMessage(weekDoneCount, weekSessions.length)}
             </Text>
-            <Text className="mt-1 text-xs text-muted">Focus : {PROGRAM.theme}</Text>
+            <Text className="mt-1 text-xs text-muted">Focus : {program?.theme ?? "Ton programme arrive…"}</Text>
           </View>
         </View>
       </FadeInView>
@@ -217,7 +217,7 @@ export default function TodayScreen() {
             <View className="flex-row gap-4">
               <View className={`${CARD} flex-1 gap-1`}>
                 <Text className="text-3xl font-extrabold tracking-tight text-text">
-                  {SESSION_TEMPLATES.length}
+                  {program?.sessionsPerWeek ?? 0}
                 </Text>
                 <Text className="text-sm font-semibold text-muted">Séances/sem</Text>
               </View>

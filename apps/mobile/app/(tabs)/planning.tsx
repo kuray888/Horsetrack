@@ -1,22 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { ProgressBar } from "@/components/onboarding";
 import { useProgress, type Debrief, type Mood } from "@/progress/store";
-import {
-  ALL_SESSIONS,
-  CURRENT_WEEK_NUMBER,
-  PROGRAM,
-  PROGRAM_WEEKS,
-  SESSION_TEMPLATES,
-  WEEK_DAYS_FULL,
-  WEEK_DAYS_SHORT,
-  formatDuration,
-  getWeekDates,
-  isSameDate,
-  type PlannedSession,
-} from "@/program/data";
+import { useProgram, type PlannedSession } from "@/program/store";
+import { DAY_LABELS as WEEK_DAYS_SHORT, WEEK_DAYS_FULL, formatDuration, isSameDate } from "@/lib/dateFormat";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -168,15 +157,20 @@ function SessionCard({
 
 export default function PlanningScreen() {
   const { isDone, toggleSession, completedCount, getDebrief, saveDebrief } = useProgress();
-  const [selectedWeek, setSelectedWeek] = useState(CURRENT_WEEK_NUMBER);
+  const { program, weeks, allSessions, currentWeekNumber, getWeekDates } = useProgram();
+  const [selectedWeek, setSelectedWeek] = useState(currentWeekNumber);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    setSelectedWeek(currentWeekNumber);
+  }, [currentWeekNumber]);
+
   const today = new Date();
-  const progressPct = Math.round((completedCount / ALL_SESSIONS.length) * 100);
+  const progressPct = allSessions.length > 0 ? Math.round((completedCount / allSessions.length) * 100) : 0;
 
   const weekDates = getWeekDates(selectedWeek);
-  const weekSessions = PROGRAM_WEEKS.find((w) => w.weekNumber === selectedWeek)?.sessions ?? [];
+  const weekSessions = weeks.find((w) => w.weekNumber === selectedWeek)?.sessions ?? [];
   const weekTotalMin = weekSessions.reduce((sum, s) => sum + s.durationMin, 0);
   const visibleSessions =
     selectedDay === null ? weekSessions : weekSessions.filter((s) => s.dayIndex === selectedDay);
@@ -191,41 +185,59 @@ export default function PlanningScreen() {
         <View className={`${CARD} gap-3`}>
           <View className="gap-1">
             <Text className="text-sm font-bold uppercase tracking-wide text-accent">
-              🎯 {PROGRAM.title}
+              🎯 {program?.title ?? "Programme en préparation…"}
             </Text>
-            <Text className="text-sm text-muted">{PROGRAM.theme}</Text>
+            <Text className="text-sm text-muted">{program?.theme ?? ""}</Text>
           </View>
 
           <View className="gap-1.5">
-            <ProgressBar step={completedCount} total={ALL_SESSIONS.length} />
+            <ProgressBar step={completedCount} total={allSessions.length} />
             <Text className="text-sm font-semibold text-text">{progressPct}% du programme complété</Text>
           </View>
 
           <View className="flex-row justify-between border-t border-border pt-3">
             <View className="items-center gap-0.5">
               <Text className="text-base font-extrabold text-text">
-                {CURRENT_WEEK_NUMBER}/{PROGRAM.totalWeeks}
+                {currentWeekNumber}/{program?.totalWeeks ?? "—"}
               </Text>
               <Text className="text-xs text-muted">Semaine</Text>
             </View>
             <View className="items-center gap-0.5">
-              <Text className="text-base font-extrabold text-text">{SESSION_TEMPLATES.length}</Text>
+              <Text className="text-base font-extrabold text-text">{program?.sessionsPerWeek ?? 0}</Text>
               <Text className="text-xs text-muted">Séances/sem</Text>
             </View>
             <View className="items-center gap-0.5">
-              <Text className="text-base font-extrabold text-text">{PROGRAM.totalWeeks} sem.</Text>
+              <Text className="text-base font-extrabold text-text">{program?.totalWeeks ?? 0} sem.</Text>
               <Text className="text-xs text-muted">Durée totale</Text>
             </View>
           </View>
         </View>
       </FadeInView>
 
+      {program && (program.personalizationNotes.length > 0 || program.safetyNotes.length > 0) ? (
+        <FadeInView delay={90}>
+          <View className={`${CARD} gap-2`}>
+            <Text className="text-sm font-bold uppercase tracking-wide text-accent">Pourquoi ce programme</Text>
+            {program.personalizationNotes.map((note, i) => (
+              <Text key={`p${i}`} className="text-sm leading-5 text-text">
+                💡 {note}
+              </Text>
+            ))}
+            {program.safetyNotes.map((note, i) => (
+              <Text key={`s${i}`} className="text-sm leading-5 text-warning">
+                ⚠️ {note}
+              </Text>
+            ))}
+          </View>
+        </FadeInView>
+      ) : null}
+
       <FadeInView delay={120}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2 pr-2">
-          {PROGRAM_WEEKS.map((week) => {
+          {weeks.map((week) => {
             const weekDone = week.sessions.every((s) => isDone(s.id));
             const isSelected = week.weekNumber === selectedWeek;
-            const isCurrent = week.weekNumber === CURRENT_WEEK_NUMBER;
+            const isCurrent = week.weekNumber === currentWeekNumber;
             return (
               <TouchableOpacity
                 key={week.weekNumber}

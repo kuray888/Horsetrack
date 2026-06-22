@@ -5,10 +5,16 @@ import type {
   RiderGoal,
   HorseSex,
   HorseLevel,
+  HorseFitnessLevel,
+  HorseWorkload,
+  HorseRecoveryStatus,
 } from "./store";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 8;
+export const TOTAL_STEPS = 10;
+
+/** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
+export const OTHER_OPTION = "__OTHER__";
 
 /** Libellés FR affichés à l'utilisateur, indexés par la valeur d'enum (= valeur Prisma). */
 export type Option<T extends string> = { value: T; label: string; emoji?: string };
@@ -71,4 +77,91 @@ export const HORSE_TRAITS: string[] = [
   "Concentration",
   "Endurance",
   "Souplesse",
+];
+
+/** Races courantes proposées en dropdown — `OTHER_OPTION` ouvre un champ libre. */
+export const HORSE_BREEDS: { value: string; label: string }[] = [
+  { value: "Selle Français", label: "Selle Français" },
+  { value: "Pur-sang anglais", label: "Pur-sang anglais" },
+  { value: "Anglo-arabe", label: "Anglo-arabe" },
+  { value: "KWPN", label: "KWPN (Hollandais)" },
+  { value: "Hanovrien", label: "Hanovrien" },
+  { value: "Lusitanien", label: "Lusitanien" },
+  { value: "Pure race espagnole", label: "Pure race espagnole (PRE)" },
+  { value: "Frison", label: "Frison" },
+  { value: "Quarter Horse", label: "Quarter Horse" },
+  { value: "Camargue", label: "Camargue" },
+  { value: "Comtois", label: "Comtois" },
+  { value: "Trait", label: "Cheval de trait" },
+  { value: "Connemara", label: "Connemara" },
+  { value: "Welsh", label: "Welsh" },
+  { value: "Shetland", label: "Shetland" },
+  { value: "Arabe", label: "Pur-sang arabe" },
+  { value: OTHER_OPTION, label: "Autre / je ne sais pas" },
+];
+
+export const HORSE_FITNESS_LEVELS: Option<HorseFitnessLevel>[] = [
+  { value: "RESTING", label: "Au repos", emoji: "🌙" },
+  { value: "REOPENING", label: "Reprise en main", emoji: "🌱" },
+  { value: "GOOD", label: "Bonne forme", emoji: "👍" },
+  { value: "PEAK", label: "Forme optimale / compétition", emoji: "🔥" },
+];
+
+export const HORSE_WORKLOADS: Option<HorseWorkload>[] = [
+  { value: "NONE", label: "Aucun travail actuellement" },
+  { value: "ONE_TO_TWO", label: "1-2 jours / semaine" },
+  { value: "THREE_TO_FOUR", label: "3-4 jours / semaine" },
+  { value: "FIVE_TO_SIX", label: "5-6 jours / semaine" },
+  { value: "DAILY", label: "Tous les jours" },
+];
+
+/** Tempérament — multi-select libre, pas de notion de force/faiblesse. */
+export const HORSE_TEMPERAMENTS: string[] = [
+  "Calme",
+  "Sensible",
+  "Joueur",
+  "Craintif",
+  "Téméraire",
+  "Affectueux",
+  "Dominant",
+  "Sociable",
+  "Indépendant",
+  "Méfiant",
+  "Curieux",
+  "Têtu",
+];
+
+/** Sentinelle d'exclusion mutuelle pour les conditions de santé. */
+export const NO_HEALTH_CONDITION = "Aucun problème connu";
+
+export const HEALTH_CONDITIONS: string[] = [
+  NO_HEALTH_CONDITION,
+  "Arthrose",
+  "Souffle / problème respiratoire",
+  "Problème de dos",
+  "Fourbure",
+  "Tendinite chronique",
+  "Coliques récurrentes",
+  "Allergies cutanées",
+  "Problème de pieds / sabots",
+  "Problème de vue",
+];
+
+/** Types de blessures suggérés pour l'historique — `OTHER_OPTION` réutilisé comme sentinelle "Autre". */
+export const INJURY_TYPES: { value: string; label: string }[] = [
+  { value: "Tendinite", label: "Tendinite" },
+  { value: "Entorse", label: "Entorse" },
+  { value: "Fracture", label: "Fracture" },
+  { value: "Fourbure", label: "Fourbure" },
+  { value: "Colique", label: "Colique" },
+  { value: "Problème de dos", label: "Problème de dos" },
+  { value: "Problème respiratoire", label: "Problème respiratoire" },
+  { value: "Plaie / blessure superficielle", label: "Plaie / blessure superficielle" },
+  { value: OTHER_OPTION, label: "Autre" },
+];
+
+export const RECOVERY_STATUSES: Option<HorseRecoveryStatus>[] = [
+  { value: "RECOVERED", label: "Complètement rétabli" },
+  { value: "IN_PROGRESS", label: "Récupération en cours" },
+  { value: "ONGOING", label: "Séquelle à surveiller" },
 ];
