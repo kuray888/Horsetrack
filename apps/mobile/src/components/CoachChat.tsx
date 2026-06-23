@@ -11,42 +11,26 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FadeInView } from "@/components/FadeInView";
+import { askCoach, CoachError, type CoachHistoryEntry } from "@/lib/coach";
+import { useHorses } from "@/horses/store";
+import { useRiderProfile } from "@/rider/store";
+import { DISCIPLINES, HORSE_LEVELS, RIDER_LEVELS, RIDER_GOALS } from "@/onboarding/options";
 
 type Message = { id: string; role: "user" | "coach"; text: string };
-
-const GREETING =
-  "Pose-moi une question sur l'entraînement, la santé ou la progression de Tornado — je suis là pour t'aider.";
 
 const SUGGESTIONS = [
   { icon: "💡", text: "Un conseil pour la prochaine séance" },
   { icon: "🏆", text: "Comment progresser en concours ?" },
-  { icon: "😴", text: "Tornado semble fatigué, que faire ?" },
+  { icon: "😴", text: "Mon cheval semble fatigué, que faire ?" },
   { icon: "😰", text: "Gérer le stress avant un concours" },
 ];
 
-const FALLBACK_REPLIES = [
-  "Bonne question. Avec le niveau actuel de Tornado, mieux vaut consolider que brûler les étapes — la régularité paie toujours plus que l'intensité.",
-  "Je dirais d'ajouter un peu de travail à pied cette semaine : c'est souvent ce qui renforce le plus la complicité.",
-  "Pense à varier les terrains et les allures à l'échauffement — ça prépare mieux le corps et l'esprit qu'une routine toujours identique.",
-  "Un debrief de deux minutes après chaque séance fait une vraie différence sur la durée : note ce qui a marché, et ce qu'on ajuste la prochaine fois.",
-];
-
-/** Réponses mock par mots-clés — à remplacer par un vrai modèle plus tard. */
-function mockReply(text: string): string {
-  const t = text.toLowerCase();
-  if (t.includes("fatigu")) {
-    return "Si Tornado semble fatigué, allège la séance du jour : marche en main, étirements doux, et observe sa récupération sur 24 à 48h. Inutile de forcer tant qu'il ne paraît pas frais.";
-  }
-  if (t.includes("concours") || t.includes("cso") || t.includes("stress")) {
-    return "Pour aborder un concours plus serein, travaille la mise en confiance à l'entraînement : reproduis l'ambiance (bruit, public, autres chevaux) et garde toujours la même routine d'échauffement. La régularité rassure.";
-  }
-  if (t.includes("séance") || t.includes("seance") || t.includes("demain")) {
-    return "Pour ta prochaine séance : 10 minutes d'échauffement progressif, un bloc de travail ciblé sur ton objectif du moment, puis un retour au calme. Mieux vaut une séance courte et propre qu'une longue et brouillonne.";
-  }
-  if (t.includes("progress")) {
-    return "Pour progresser, alterne barres au sol, petits sauts techniques et travail à plat. La précision compte plus que la hauteur — construisez d'abord des bases solides.";
-  }
-  return FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
+function labelOf<T extends string>(
+  options: { value: T; label: string }[],
+  value: T | null | undefined
+): string | null {
+  if (!value) return null;
+  return options.find((o) => o.value === value)?.label ?? value;
 }
 
 function TypingDots() {
@@ -88,17 +72,44 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const { horses } = useHorses();
+  const { riderProfile } = useRiderProfile();
 
-  function send(text: string) {
+  const primaryHorse = horses.find((h) => h.isPrimary) ?? horses[0];
+  const horseName = primaryHorse?.name?.trim() || "ton cheval";
+  const greeting = `Pose-moi une question sur l'entraînement, la santé ou la progression de ${horseName} — je suis là pour t'aider.`;
+
+  async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || typing) return;
+    const history: CoachHistoryEntry[] = messages.slice(-20).map((m) => ({
+      role: m.role === "coach" ? "assistant" : "user",
+      text: m.text,
+    }));
     setMessages((m) => [...m, { id: String(Date.now()), role: "user", text: trimmed }]);
     setInput("");
     setTyping(true);
-    setTimeout(() => {
-      setMessages((m) => [...m, { id: String(Date.now() + 1), role: "coach", text: mockReply(trimmed) }]);
+    try {
+      const reply = await askCoach(trimmed, history, {
+        horseName,
+        discipline: labelOf(DISCIPLINES, primaryHorse?.discipline),
+        horseLevel: labelOf(HORSE_LEVELS, primaryHorse?.level),
+        strengths: primaryHorse?.strengths ?? [],
+        weaknesses: primaryHorse?.weaknesses ?? [],
+        riderLevel: labelOf(RIDER_LEVELS, riderProfile.level),
+        riderGoal: labelOf(RIDER_GOALS, riderProfile.primaryGoal),
+        additionalInfo: riderProfile.additionalInfo,
+      });
+      setMessages((m) => [...m, { id: String(Date.now() + 1), role: "coach", text: reply }]);
+    } catch (e) {
+      const text =
+        e instanceof CoachError && e.status === 429
+          ? "Tu as atteint la limite de messages pour aujourd'hui — reviens demain !"
+          : "Désolé, je n'arrive pas à répondre pour l'instant. Réessaie dans un instant.";
+      setMessages((m) => [...m, { id: String(Date.now() + 1), role: "coach", text }]);
+    } finally {
       setTyping(false);
-    }, 900);
+    }
   }
 
   useEffect(() => {
@@ -137,7 +148,7 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
                   <Text className="text-center text-xl font-extrabold tracking-tight text-text">
                     Salut, je suis ton coach
                   </Text>
-                  <Text className="text-center text-sm leading-5 text-muted">{GREETING}</Text>
+                  <Text className="text-center text-sm leading-5 text-muted">{greeting}</Text>
                 </View>
               </View>
             </FadeInView>

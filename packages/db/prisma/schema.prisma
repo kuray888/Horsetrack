@@ -18,6 +18,7 @@ model User {
 
   sessions     Session[]
   riderProfile RiderProfile?
+  coachUsages  CoachUsage[]
 
   @@map("users")
 }
@@ -259,5 +260,22 @@ model Session {
   createdAt DateTime @default(now())
 
   @@map("sessions")
+}
+
+/// Compteur de messages envoyés au Coach IA par jour — le Coach n'est pas
+/// derrière le paywall, ce compteur limite le coût d'API par utilisateur
+/// (cf. apps/api/.../coach/route.ts). Écrit uniquement par le backend
+/// (connexion DATABASE_URL qui bypass RLS), jamais par le client.
+model CoachUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Jour UTC au format "YYYY-MM-DD" — plus simple qu'une plage DateTime pour un upsert par jour.
+  date      String
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@map("coach_usage")
 }
 

@@ -8,8 +8,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
     "@cheval/db": "workspace:*",
     "@cheval/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.48.1",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
