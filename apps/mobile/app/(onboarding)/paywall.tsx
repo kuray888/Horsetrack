@@ -11,7 +11,7 @@ export default function OnboardingPaywall() {
   const { rider, horses } = useOnboarding();
   const { replaceHorses } = useHorses();
   const { setRiderProfile } = useRiderProfile();
-  const { submitting, subscribe } = useSubscribeFlow();
+  const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
 
   async function finish() {
     // Stores locaux : source de vérité tant que la session Supabase n'est pas
@@ -37,5 +37,13 @@ export default function OnboardingPaywall() {
     finish();
   }
 
-  return <PaywallView onSubscribe={onSubscribe} onClose={onClose} submitting={submitting} />;
+  return (
+    <PaywallView
+      onSubscribe={onSubscribe}
+      onClose={onClose}
+      onRestore={restore}
+      submitting={submitting}
+      restoring={restoring}
+    />
+  );
 }

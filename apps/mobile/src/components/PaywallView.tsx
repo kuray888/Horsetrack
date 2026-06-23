@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Alert, Linking } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/onboarding";
 import type { SubscriptionPlan } from "@/subscription/store";
@@ -32,12 +32,16 @@ function Bullet({ text }: { text: string }) {
 export function PaywallView({
   onSubscribe,
   onClose,
+  onRestore,
   submitting = false,
+  restoring = false,
   title = "7 jours offerts, puis tu décides.",
 }: {
   onSubscribe: (plan: SubscriptionPlan) => void;
   onClose?: () => void;
+  onRestore: () => void;
   submitting?: boolean;
+  restoring?: boolean;
   title?: string;
 }) {
   const [selected, setSelected] = useState<SubscriptionPlan>("ANNUAL");
@@ -106,8 +110,10 @@ export function PaywallView({
           Renouvellement automatique, résiliable à tout moment dans les réglages.
         </Text>
         <View className="flex-row justify-center gap-5">
-          <TouchableOpacity onPress={() => Alert.alert("Restauration", "Recherche d'achats…")}>
-            <Text className="text-xs font-semibold text-accent">Restaurer mes achats</Text>
+          <TouchableOpacity onPress={onRestore} disabled={restoring}>
+            <Text className="text-xs font-semibold text-accent">
+              {restoring ? "Restauration…" : "Restaurer mes achats"}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => Linking.openURL("https://cheval.app/cgu")}>
             <Text className="text-xs font-semibold text-accent">Conditions</Text>

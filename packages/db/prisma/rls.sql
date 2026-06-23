@@ -87,7 +87,6 @@ alter table public.horse_traits   enable row level security;
 alter table public.horse_injuries enable row level security;
 alter table public.goals          enable row level security;
 alter table public.sessions       enable row level security;
-alter table public.payments       enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
 
@@ -127,12 +126,6 @@ create policy "horse_injuries_all_own" on public.horse_injuries
 drop policy if exists "goals_all_own" on public.goals;
 create policy "goals_all_own" on public.goals
   for all using (public.owns_rider_profile("riderId")) with check (public.owns_rider_profile("riderId"));
-
--- payments : lecture de ses propres paiements seulement (écriture = API
--- backend uniquement, via connexion directe DATABASE_URL qui bypass RLS)
-drop policy if exists "payments_select_own" on public.payments;
-create policy "payments_select_own" on public.payments
-  for select using ("userId" = auth.uid()::text);
 
 -- sessions : table de jetons d'auth « legacy », non utilisée par le code
 -- actuel (le mobile passe par Supabase Auth, pas par ce modèle Prisma —

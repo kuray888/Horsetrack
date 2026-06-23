@@ -16,7 +16,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  payments     Payment[]
   sessions     Session[]
   riderProfile RiderProfile?
 
@@ -262,31 +261,3 @@ model Session {
   @@map("sessions")
 }
 
-model Payment {
-  id                    String        @id @default(cuid())
-  userId                String
-  user                  User          @relation(fields: [userId], references: [id])
-  amount                Int
-  currency              String        @default("EUR")
-  status                PaymentStatus @default(PENDING)
-  method                PaymentMethod
-  stripePaymentIntentId String?       @unique
-  metadata              Json?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-
-  @@map("payments")
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
-}
-
-enum PaymentMethod {
-  APPLE_PAY
-  CARD
-  OTHER
-}

@@ -1,5 +1,4 @@
 import "../global.css";
-// import { StripeProvider } from "@stripe/stripe-react-native";
 import { Stack } from "expo-router";
 import { SubscriptionProvider } from "@/subscription/store";
 import { ProgressProvider } from "@/progress/store";
@@ -8,9 +7,6 @@ import { RiderProfileProvider } from "@/rider/store";
 import { ProgramProvider } from "@/program/store";
 import { BadgeCelebration } from "@/components/BadgeCelebration";
 
-// TODO: StripeProvider désactivé temporairement pour tester dans Expo Go classique
-// (le module natif @stripe/stripe-react-native n'y est pas embarqué). À restaurer
-// avant de tester paiements/Apple Pay réels ou de builder un dev client/prod.
 export default function RootLayout() {
   return (
     <SubscriptionProvider>

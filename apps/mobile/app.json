@@ -8,12 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.cheval.app",
-      "entitlements": {
-        "com.apple.developer.in-app-payments": [
-          "merchant.com.cheval.app"
-        ]
-      }
+      "bundleIdentifier": "com.cheval.app"
     },
     "android": {
       "package": "com.cheval.app"
@@ -21,13 +16,6 @@
     "plugins": [
       "expo-router",
       "expo-local-authentication",
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.cheval.app",
-          "enableGooglePay": false
-        }
-      ],
       "expo-secure-store",
       "expo-notifications",
       [
