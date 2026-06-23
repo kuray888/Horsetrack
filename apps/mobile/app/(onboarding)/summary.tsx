@@ -51,7 +51,7 @@ export default function Summary() {
           <PlanRow text={`Séances adaptées au niveau de ${horseName}`} />
           {focus ? <PlanRow text={`Exercices ciblés : ${focus.toLowerCase()}`} /> : null}
           <PlanRow text="Suivi de progression & objectifs" />
-          <PlanRow text="Coach IA disponible 24/7" />
+          <PlanRow text="Julien, ton coach IA, disponible 24/7" />
           <PlanRow text={`Toute ton écurie (${horses.length} cheval${horses.length > 1 ? "x" : ""}) suivie`} />
         </View>
 

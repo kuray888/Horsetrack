@@ -1,5 +1,5 @@
 /**
- * Accès JS aux couleurs Cheval, pour les cas non stylables en className
+ * Accès JS aux couleurs Horsetrack, pour les cas non stylables en className
  * (ex: props de couleur de react-native-svg, valeurs dynamiques en TS).
  *
  * La source de vérité est `tokens.cjs` (partagée avec tailwind.config.js).

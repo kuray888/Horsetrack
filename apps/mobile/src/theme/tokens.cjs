@@ -1,5 +1,5 @@
 /**
- * Source de vérité UNIQUE du design system Cheval.
+ * Source de vérité UNIQUE du design system Horsetrack.
  * Consommé à la fois par `tailwind.config.js` (classes utilitaires) et par
  * `src/theme/colors.ts` (accès JS pour les cas non stylables en className,
  * ex: les props de couleur de react-native-svg).

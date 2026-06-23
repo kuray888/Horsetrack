@@ -17,3 +17,10 @@ export async function getUserIdFromRequest(req: Request): Promise<string | null>
   if (error || !data.user) return null;
   return data.user.id;
 }
+
+/** Supprime définitivement le compte Supabase Auth — à appeler une fois les
+ * données Prisma déjà supprimées (cf. /api/account), pas l'inverse : sinon un
+ * échec de suppression des données laisserait un compte fantôme sans profil. */
+export async function deleteSupabaseAuthUser(userId: string) {
+  return supabaseAdmin.auth.admin.deleteUser(userId);
+}

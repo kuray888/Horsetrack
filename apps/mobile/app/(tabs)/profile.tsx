@@ -16,6 +16,8 @@ import {
 } from "@/lib/biometrics";
 import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
 import { pickAndPersistImage } from "@/lib/imagePicker";
+import { deleteAccount } from "@/lib/account";
+import { resetOnboardingCompleted } from "@/onboarding/completion";
 import { useProgress } from "@/progress/store";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
@@ -97,6 +99,7 @@ export default function ProfileScreen() {
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
   const [bioLabel, setBioLabel] = useState("Biométrie");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -114,7 +117,7 @@ export default function ProfileScreen() {
 
   async function handleToggleBiometrics(next: boolean) {
     if (next) {
-      const ok = await authenticateWithBiometrics("Active le verrouillage biométrique de Cheval");
+      const ok = await authenticateWithBiometrics("Active le verrouillage biométrique de Horsetrack");
       if (!ok) return;
     }
     await setBiometricLockEnabled(next);
@@ -128,9 +131,27 @@ export default function ProfileScreen() {
 
   function handleDeleteAccount() {
     Alert.alert(
-      "Bientôt disponible",
-      "La suppression de compte n'est pas encore disponible. Contacte le support si besoin.",
+      "Supprimer ton compte ?",
+      "Toutes tes données (profil, chevaux, programme, progression) seront définitivement supprimées. Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Supprimer", style: "destructive", onPress: confirmDeleteAccount },
+      ]
     );
+  }
+
+  async function confirmDeleteAccount() {
+    setDeletingAccount(true);
+    try {
+      await deleteAccount();
+      await resetOnboardingCompleted();
+      await supabase.auth.signOut();
+      router.replace("/(onboarding)/welcome");
+    } catch (e) {
+      Alert.alert("Oups", e instanceof Error ? e.message : "Impossible de supprimer le compte pour l'instant.");
+    } finally {
+      setDeletingAccount(false);
+    }
   }
 
   function subscriptionLabel(): string {
@@ -252,7 +273,7 @@ export default function ProfileScreen() {
       {riderProfile.additionalInfo.trim() ? (
         <FadeInView delay={320}>
           <View className={`${CARD} gap-1`}>
-            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Pour ton Coach IA</Text>
+            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Pour Julien</Text>
             <Text className="text-sm text-text">{riderProfile.additionalInfo.trim()}</Text>
           </View>
         </FadeInView>
@@ -340,15 +361,18 @@ export default function ProfileScreen() {
           <TouchableOpacity
             className="items-center rounded-card border border-danger/30 p-4"
             onPress={handleDeleteAccount}
+            disabled={deletingAccount}
             activeOpacity={0.85}
           >
-            <Text className="font-semibold text-danger">Supprimer mon compte</Text>
+            <Text className="font-semibold text-danger">
+              {deletingAccount ? "Suppression…" : "Supprimer mon compte"}
+            </Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
 
       <FadeInView delay={580}>
-        <Text className="pt-2 text-center text-xs text-muted">Cheval · v1.0.0</Text>
+        <Text className="pt-2 text-center text-xs text-muted">Horsetrack · v1.0.0</Text>
       </FadeInView>
     </Screen>
   );

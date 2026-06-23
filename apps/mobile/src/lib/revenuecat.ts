@@ -1,6 +1,23 @@
 import { Platform } from "react-native";
-import Purchases, { type PurchasesPackage } from "react-native-purchases";
+import type { PurchasesPackage } from "react-native-purchases";
 import type { SubscriptionPlan } from "@/subscription/store";
+
+type PurchasesStatic = typeof import("react-native-purchases").default;
+
+/**
+ * Coupe-circuit temporaire pour tester le reste de l'app dans Expo Go sans
+ * dépendre du SDK natif (même si react-native-purchases gère normalement
+ * Expo Go via son propre "Preview API Mode" — cf. node_modules/react-native-purchases/dist/utils/environment.js).
+ * Repasser à `false` une fois un build natif/dev client/EAS disponible pour
+ * tester les achats réels.
+ */
+const TEMP_DISABLE_REVENUECAT = true;
+
+// require() plutôt qu'un import statique : permet de ne jamais charger le
+// module quand TEMP_DISABLE_REVENUECAT est actif, sans dépendre du SDK.
+const Purchases: PurchasesStatic | null = TEMP_DISABLE_REVENUECAT
+  ? null
+  : (require("react-native-purchases").default as PurchasesStatic);
 
 /**
  * Identifiant d'entitlement RevenueCat qui débloque l'accès premium — doit
@@ -26,7 +43,7 @@ let configured = false;
  * disponible plutôt que de planter.
  */
 export function configurePurchases(): void {
-  if (configured) return;
+  if (configured || !Purchases) return;
   const apiKey =
     Platform.OS === "ios"
       ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
@@ -45,17 +62,17 @@ export function isPurchasesAvailable(): boolean {
  * qu'une session existe, pour que le webhook RevenueCat (app_user_id) puisse
  * retrouver le bon rider_profile côté backend. */
 export async function loginRevenueCat(supabaseUserId: string): Promise<void> {
-  if (!configured) return;
+  if (!configured || !Purchases) return;
   await Purchases.logIn(supabaseUserId);
 }
 
 export async function logoutRevenueCat(): Promise<void> {
-  if (!configured) return;
+  if (!configured || !Purchases) return;
   await Purchases.logOut();
 }
 
 export async function getPackageForPlan(plan: SubscriptionPlan): Promise<PurchasesPackage | null> {
-  if (!configured) return null;
+  if (!configured || !Purchases) return null;
   const offerings = await Purchases.getOfferings();
   const current = offerings.current;
   if (!current) return null;

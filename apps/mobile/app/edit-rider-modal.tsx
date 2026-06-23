@@ -52,7 +52,7 @@ export default function EditRiderModal() {
           <SingleSelect options={RIDER_GOALS} value={primaryGoal} onChange={setPrimaryGoal} />
         </Field>
 
-        <Field label="Pour ton Coach IA (optionnel)">
+        <Field label="Pour Julien (optionnel)">
           <TextInput
             className={INPUT}
             placeholder="Objectifs précis, contraintes, ce qui compte pour toi…"

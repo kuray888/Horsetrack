@@ -2,15 +2,26 @@ import { supabase } from "@/lib/supabase";
 
 export type CoachHistoryEntry = { role: "user" | "assistant"; text: string };
 
+export type CoachInjury = { type: string; recoveryStatus: string | null; note: string | null };
+
+export type CoachSession = { title: string; focus: string; intensity: string; exercises: string[] };
+
 export type CoachContext = {
   horseName: string;
   discipline: string | null;
   horseLevel: string | null;
+  horseAge: number | null;
+  fitnessLevel: string | null;
+  workload: string | null;
   strengths: string[];
   weaknesses: string[];
+  healthConditions: string[];
+  injuries: CoachInjury[];
   riderLevel: string | null;
   riderGoal: string | null;
   additionalInfo: string;
+  todaySession: CoachSession | null;
+  programSafetyNotes: string[];
 };
 
 export class CoachError extends Error {

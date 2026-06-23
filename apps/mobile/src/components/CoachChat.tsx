@@ -14,7 +14,19 @@ import { FadeInView } from "@/components/FadeInView";
 import { askCoach, CoachError, type CoachHistoryEntry } from "@/lib/coach";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
-import { DISCIPLINES, HORSE_LEVELS, RIDER_LEVELS, RIDER_GOALS } from "@/onboarding/options";
+import { useProgram } from "@/program/store";
+import {
+  DISCIPLINES,
+  HORSE_LEVELS,
+  RIDER_LEVELS,
+  RIDER_GOALS,
+  HORSE_FITNESS_LEVELS,
+  HORSE_WORKLOADS,
+  RECOVERY_STATUSES,
+  NO_HEALTH_CONDITION,
+} from "@/onboarding/options";
+
+const INTENSITY_LABELS: Record<string, string> = { LOW: "faible", MEDIUM: "modérée", HIGH: "élevée" };
 
 type Message = { id: string; role: "user" | "coach"; text: string };
 
@@ -74,9 +86,18 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
   const scrollRef = useRef<ScrollView>(null);
   const { horses } = useHorses();
   const { riderProfile } = useRiderProfile();
+  const { program, currentWeek } = useProgram();
 
   const primaryHorse = horses.find((h) => h.isPrimary) ?? horses[0];
   const horseName = primaryHorse?.name?.trim() || "ton cheval";
+  const today = new Date();
+  const todaySession =
+    currentWeek?.sessions.find(
+      (s) =>
+        s.date.getFullYear() === today.getFullYear() &&
+        s.date.getMonth() === today.getMonth() &&
+        s.date.getDate() === today.getDate()
+    ) ?? null;
   const greeting = `Pose-moi une question sur l'entraînement, la santé ou la progression de ${horseName} — je suis là pour t'aider.`;
 
   async function send(text: string) {
@@ -94,11 +115,29 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
         horseName,
         discipline: labelOf(DISCIPLINES, primaryHorse?.discipline),
         horseLevel: labelOf(HORSE_LEVELS, primaryHorse?.level),
+        horseAge: primaryHorse?.birthYear ? new Date().getFullYear() - primaryHorse.birthYear : null,
+        fitnessLevel: labelOf(HORSE_FITNESS_LEVELS, primaryHorse?.fitnessLevel),
+        workload: labelOf(HORSE_WORKLOADS, primaryHorse?.workload),
         strengths: primaryHorse?.strengths ?? [],
         weaknesses: primaryHorse?.weaknesses ?? [],
+        healthConditions: (primaryHorse?.healthConditions ?? []).filter((c) => c !== NO_HEALTH_CONDITION),
+        injuries: (primaryHorse?.injuries ?? []).map((i) => ({
+          type: i.type,
+          recoveryStatus: labelOf(RECOVERY_STATUSES, i.recoveryStatus),
+          note: i.note || null,
+        })),
         riderLevel: labelOf(RIDER_LEVELS, riderProfile.level),
         riderGoal: labelOf(RIDER_GOALS, riderProfile.primaryGoal),
         additionalInfo: riderProfile.additionalInfo,
+        todaySession: todaySession
+          ? {
+              title: todaySession.title,
+              focus: todaySession.focus,
+              intensity: INTENSITY_LABELS[todaySession.intensity] ?? todaySession.intensity,
+              exercises: todaySession.exercises.map((e) => e.title),
+            }
+          : null,
+        programSafetyNotes: program?.safetyNotes ?? [],
       });
       setMessages((m) => [...m, { id: String(Date.now() + 1), role: "coach", text: reply }]);
     } catch (e) {
@@ -123,7 +162,7 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
           <Text className="text-xl">🐴</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-base font-extrabold tracking-tight text-text">Coach IA</Text>
+          <Text className="text-base font-extrabold tracking-tight text-text">Julien</Text>
           <View className="flex-row items-center gap-1.5">
             <View className="h-1.5 w-1.5 rounded-full bg-success" />
             <Text className="text-xs text-muted">En ligne</Text>
@@ -146,7 +185,7 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
                 </View>
                 <View className="gap-1.5">
                   <Text className="text-center text-xl font-extrabold tracking-tight text-text">
-                    Salut, je suis ton coach
+                    Salut, je suis Julien
                   </Text>
                   <Text className="text-center text-sm leading-5 text-muted">{greeting}</Text>
                 </View>

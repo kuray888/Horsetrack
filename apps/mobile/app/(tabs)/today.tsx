@@ -1,4 +1,6 @@
-import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { CircularProgress } from "@/components/CircularProgress";
 import { FadeInView } from "@/components/FadeInView";
 import { WeekStreak } from "@/components/WeekStreak";
@@ -30,10 +32,13 @@ const upcoming: { id: string; type: UpcomingType; title: string; when: string }[
 ];
 
 // Classes statiques par type (NativeWind ne supporte pas les classes dynamiques `bg-${x}`)
-const TYPE_META: Record<UpcomingType, { label: string; icon: string; chip: string; tag: string }> = {
-  seance: { label: "Séance", icon: "🏇", chip: "bg-primary/15", tag: "text-primary" },
-  veto: { label: "Vétérinaire", icon: "💉", chip: "bg-warning/15", tag: "text-warning" },
-  competition: { label: "Compétition", icon: "🏆", chip: "bg-accent/15", tag: "text-accent" },
+const TYPE_META: Record<
+  UpcomingType,
+  { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; chip: string; tint: string; tag: string }
+> = {
+  seance: { label: "Séance", icon: "horse-variant", chip: "bg-primary/15", tint: colors.primary, tag: "text-primary" },
+  veto: { label: "Vétérinaire", icon: "needle", chip: "bg-warning/15", tint: colors.warning, tag: "text-warning" },
+  competition: { label: "Compétition", icon: "trophy-outline", chip: "bg-accent/15", tint: colors.accent, tag: "text-accent" },
 };
 
 // Carte blanche standard, réutilisée tel quel
@@ -62,7 +67,7 @@ function weeklyRecapMessage(done: number, total: number): string {
 export default function TodayScreen() {
   const { isDone, xp, xpIntoLevel, xpGoal, level, weekStreak, bestWeekStreak } = useProgress();
   const { horses, selectedHorse, selectHorse } = useHorses();
-  const { program, currentWeek } = useProgram();
+  const { program, currentWeek, isProgramComplete, bilanDismissed } = useProgram();
   const horse = selectedHorse;
   const xpAnimated = useCountUp(xp);
   const precisionTarget = Math.round((precision.done / precision.target) * 100);
@@ -70,6 +75,14 @@ export default function TodayScreen() {
 
   const weekSessions = currentWeek?.sessions ?? [];
   const weekDoneCount = weekSessions.filter((s) => isDone(s.id)).length;
+  const today = new Date();
+  const todaySession =
+    weekSessions.find(
+      (s) =>
+        s.date.getFullYear() === today.getFullYear() &&
+        s.date.getMonth() === today.getMonth() &&
+        s.date.getDate() === today.getDate()
+    ) ?? null;
   const weekStreakDots = Array.from({ length: 7 }, (_, i) => {
     const session = weekSessions.find((s) => s.dayIndex === i);
     return session ? isDone(session.id) : false;
@@ -81,18 +94,38 @@ export default function TodayScreen() {
       <FadeInView>
         <View className="flex-row items-center justify-between">
           <View className="gap-0.5">
-            <Text className="text-2xl font-extrabold tracking-tight text-text">{greeting()} 👋</Text>
+            <Text className="text-2xl font-extrabold tracking-tight text-text">{greeting()}</Text>
             <Text className="text-base text-muted">Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?</Text>
           </View>
           <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-highlight">
             {horse?.photoUrl ? (
               <Image source={{ uri: horse.photoUrl }} className="h-14 w-14" />
             ) : (
-              <Text className="text-2xl">{horse?.emoji ?? "🐴"}</Text>
+              <MaterialCommunityIcons name="horse-variant" size={26} color={colors.primary} />
             )}
           </View>
         </View>
       </FadeInView>
+
+      {/* Bilan de fin de programme — proposé une fois la dernière semaine atteinte */}
+      {isProgramComplete && !bilanDismissed ? (
+        <FadeInView delay={30}>
+          <TouchableOpacity
+            onPress={() => router.push("/bilan-modal")}
+            activeOpacity={0.85}
+            className="flex-row items-center gap-3 rounded-card bg-surface p-4 shadow-card"
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-accent/15">
+              <MaterialCommunityIcons name="trophy-outline" size={22} color={colors.accent} />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text className="text-base font-bold text-text">Programme terminé !</Text>
+              <Text className="text-sm text-muted">Fais le point pour repartir sur un programme adapté.</Text>
+            </View>
+            <Text className="text-base text-muted">›</Text>
+          </TouchableOpacity>
+        </FadeInView>
+      ) : null}
 
       {/* Sélecteur de cheval — visible seulement à partir de 2 chevaux dans l'écurie */}
       {horses.length > 1 ? (
@@ -115,7 +148,11 @@ export default function TodayScreen() {
                     {h.photoUrl ? (
                       <Image source={{ uri: h.photoUrl }} className="h-14 w-14" />
                     ) : (
-                      <Text className="text-2xl">{h.emoji}</Text>
+                      <MaterialCommunityIcons
+                        name="horse-variant"
+                        size={24}
+                        color={isSelected ? colors.primary : colors.textMuted}
+                      />
                     )}
                   </View>
                   <Text
@@ -137,6 +174,13 @@ export default function TodayScreen() {
       <FadeInView delay={80}>
         <TouchableOpacity
           activeOpacity={0.85}
+          onPress={() => {
+            if (todaySession) {
+              router.push({ pathname: "/session-detail-modal", params: { id: todaySession.id } });
+            } else {
+              Alert.alert("Jour de repos", "Aucune séance n'est prévue aujourd'hui.");
+            }
+          }}
           className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
         >
           <Text className="text-base font-bold text-on-primary">Démarrer une séance</Text>
@@ -146,7 +190,9 @@ export default function TodayScreen() {
       {/* Bilan de la semaine — généré à partir des vraies séances cochées dans Planning */}
       <FadeInView delay={120}>
         <View className={`${CARD} flex-row gap-3`}>
-          <Text className="text-2xl">📊</Text>
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/15">
+            <MaterialCommunityIcons name="chart-line" size={20} color={colors.accent} />
+          </View>
           <View className="flex-1 gap-0.5">
             <Text className="text-sm font-bold uppercase tracking-wide text-accent">Bilan de la semaine</Text>
             <Text className="text-[15px] leading-5 text-text">
@@ -165,7 +211,9 @@ export default function TodayScreen() {
             <View className={CARD}>
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
-                  <Text className="text-3xl">🔥</Text>
+                  <View className="h-11 w-11 items-center justify-center rounded-full bg-warning/15">
+                    <MaterialCommunityIcons name="fire" size={22} color={colors.warning} />
+                  </View>
                   <View>
                     <Text className="text-xl font-extrabold text-text">{weekStreak} semaine{weekStreak !== 1 ? "s" : ""}</Text>
                     <Text className="text-sm text-muted">complète{weekStreak !== 1 ? "s" : ""} d'affilée</Text>
@@ -238,7 +286,9 @@ export default function TodayScreen() {
       {/* Conseil du jour */}
       <FadeInView delay={340}>
         <View className={`${CARD} flex-row gap-3`}>
-          <Text className="text-2xl">💡</Text>
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/15">
+            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.accent} />
+          </View>
           <View className="flex-1 gap-0.5">
             <Text className="text-sm font-bold uppercase tracking-wide text-accent">
               Conseil du jour
@@ -268,7 +318,7 @@ export default function TodayScreen() {
                 className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
               >
                 <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
-                  <Text className="text-base">{meta.icon}</Text>
+                  <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
                 </View>
                 <View className="flex-1 gap-0.5">
                   <Text className="text-[15px] font-semibold text-text">{item.title}</Text>

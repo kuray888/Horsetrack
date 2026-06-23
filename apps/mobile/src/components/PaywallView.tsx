@@ -67,7 +67,7 @@ export function PaywallView({
         <View className="gap-2.5 rounded-card bg-surface p-5 shadow-card">
           <Bullet text="Programme d'entraînement personnalisé" />
           <Bullet text="Chevaux illimités — toute ton écurie" />
-          <Bullet text="Coach IA disponible 24/7" />
+          <Bullet text="Julien, ton coach IA, disponible 24/7" />
           <Bullet text="Suivi santé, planning & objectifs" />
         </View>
 
@@ -115,10 +115,10 @@ export function PaywallView({
               {restoring ? "Restauration…" : "Restaurer mes achats"}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL("https://cheval.app/cgu")}>
+          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/cgu`)}>
             <Text className="text-xs font-semibold text-accent">Conditions</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL("https://cheval.app/confidentialite")}>
+          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/confidentialite`)}>
             <Text className="text-xs font-semibold text-accent">Confidentialité</Text>
           </TouchableOpacity>
         </View>

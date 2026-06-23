@@ -25,6 +25,7 @@ export default function RootLayout() {
                 <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
                 <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
                 <Stack.Screen name="session-detail-modal" options={{ presentation: "modal" }} />
+                <Stack.Screen name="bilan-modal" options={{ presentation: "modal" }} />
               </Stack>
               <BadgeCelebration />
             </ProgressProvider>

@@ -111,7 +111,7 @@ export function InjuryHistoryField({
           <Field label="Note (optionnel)">
             <TextInput
               className={INPUT}
-              placeholder="Détails utiles pour le Coach IA"
+              placeholder="Détails utiles pour Julien"
               value={note}
               onChangeText={setNote}
               multiline

@@ -23,6 +23,11 @@ import { useRiderProfile, type RiderProfile } from "@/rider/store";
 // régénération propre avec le nouveau schéma, sans coder de migration de données.
 const PROGRAMS_KEY = "programs_v2";
 const SIGNATURES_KEY = "program_signatures_v2";
+/** Mémorise, par cheval, la date de génération (`program.generatedAt`) du
+ * dernier programme pour lequel l'utilisateur a ignoré le bilan de fin de
+ * programme — se réinitialise naturellement à la prochaine régénération
+ * (nouveau `generatedAt`), pas besoin de le nettoyer explicitement. */
+const BILAN_DISMISSED_KEY = "bilan_dismissed_v1";
 
 export type PlannedSession = {
   id: string;
@@ -86,6 +91,13 @@ type ProgramContextValue = {
    * actuel — perd l'historique de complétion lié aux anciens ids de séance
    * (cf. progress/store.tsx, qui détecte ce changement et se réinitialise). */
   regenerate: () => void;
+  /** True une fois le dernier jour de la dernière semaine du programme atteint
+   * (indépendant du taux de complétion réel des séances). */
+  isProgramComplete: boolean;
+  /** True si l'utilisateur a déjà ignoré le bilan de fin de programme pour CE
+   * programme précis (réinitialisé à chaque régénération). */
+  bilanDismissed: boolean;
+  dismissBilan: () => void;
 };
 
 const ProgramContext = createContext<ProgramContextValue | null>(null);
@@ -98,15 +110,19 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [allPrograms, setAllPrograms] = useState<PersistedPrograms>({});
   const [signatures, setSignatures] = useState<PersistedSignatures>({});
+  const [bilanDismissedMap, setBilanDismissedMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    Promise.all([SecureStore.getItemAsync(PROGRAMS_KEY), SecureStore.getItemAsync(SIGNATURES_KEY)]).then(
-      ([rawPrograms, rawSignatures]) => {
-        setAllPrograms(rawPrograms ? JSON.parse(rawPrograms) : {});
-        setSignatures(rawSignatures ? JSON.parse(rawSignatures) : {});
-        setLoading(false);
-      }
-    );
+    Promise.all([
+      SecureStore.getItemAsync(PROGRAMS_KEY),
+      SecureStore.getItemAsync(SIGNATURES_KEY),
+      SecureStore.getItemAsync(BILAN_DISMISSED_KEY),
+    ]).then(([rawPrograms, rawSignatures, rawBilanDismissed]) => {
+      setAllPrograms(rawPrograms ? JSON.parse(rawPrograms) : {});
+      setSignatures(rawSignatures ? JSON.parse(rawSignatures) : {});
+      setBilanDismissedMap(rawBilanDismissed ? JSON.parse(rawBilanDismissed) : {});
+      setLoading(false);
+    });
   }, []);
 
   const persistPrograms = useCallback((next: PersistedPrograms) => {
@@ -196,9 +212,50 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     [weeks, currentWeekNumber]
   );
 
+  const isProgramComplete = useMemo(() => {
+    if (!program) return false;
+    const lastDay = getWeekDates(program.totalWeeks)[6];
+    return lastDay !== undefined && new Date() >= lastDay;
+  }, [program, getWeekDates]);
+
+  const bilanDismissed = Boolean(horseId && program && bilanDismissedMap[horseId] === program.generatedAt);
+
+  const dismissBilan = useCallback(() => {
+    if (!horseId || !program) return;
+    setBilanDismissedMap((prev) => {
+      const next = { ...prev, [horseId]: program.generatedAt };
+      SecureStore.setItemAsync(BILAN_DISMISSED_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, [horseId, program]);
+
   const value = useMemo<ProgramContextValue>(
-    () => ({ loading, program, currentWeekNumber, currentWeek, weeks, allSessions, getWeekDates, regenerate }),
-    [loading, program, currentWeekNumber, currentWeek, weeks, allSessions, getWeekDates, regenerate]
+    () => ({
+      loading,
+      program,
+      currentWeekNumber,
+      currentWeek,
+      weeks,
+      allSessions,
+      getWeekDates,
+      regenerate,
+      isProgramComplete,
+      bilanDismissed,
+      dismissBilan,
+    }),
+    [
+      loading,
+      program,
+      currentWeekNumber,
+      currentWeek,
+      weeks,
+      allSessions,
+      getWeekDates,
+      regenerate,
+      isProgramComplete,
+      bilanDismissed,
+      dismissBilan,
+    ]
   );
 
   return <ProgramContext.Provider value={value}>{children}</ProgramContext.Provider>;

@@ -99,7 +99,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const refreshFromRevenueCat = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
     if (data.user) await loginRevenueCat(data.user.id);
-    const info = await Purchases.getCustomerInfo();
+    // Non-null : on n'arrive ici que si isPurchasesAvailable() est true (cf. refresh()).
+    const info = await Purchases!.getCustomerInfo();
     applyCustomerInfo(info);
   }, [applyCustomerInfo]);
 
@@ -191,7 +192,8 @@ export function useSubscribeFlow() {
           Alert.alert("Indisponible", "Cette offre n'est pas encore configurée. Réessaie plus tard.");
           return;
         }
-        const { customerInfo } = await Purchases.purchasePackage(pkg);
+        // Non-null : isPurchasesAvailable() a déjà été vérifié plus haut dans ce bloc.
+        const { customerInfo } = await Purchases!.purchasePackage(pkg);
         applyCustomerInfo(customerInfo);
         await onSuccess();
       } catch (e) {
@@ -211,7 +213,8 @@ export function useSubscribeFlow() {
     }
     setRestoring(true);
     try {
-      const info = await Purchases.restorePurchases();
+      // Non-null : isPurchasesAvailable() vérifié juste au-dessus.
+      const info = await Purchases!.restorePurchases();
       applyCustomerInfo(info);
       const hasEntitlement = !!info.entitlements.active[ENTITLEMENT_ID];
       Alert.alert(hasEntitlement ? "Abonnement restauré" : "Rien à restaurer", hasEntitlement ? "" : "Aucun achat actif trouvé pour ce compte.");

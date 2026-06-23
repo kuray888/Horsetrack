@@ -3,9 +3,11 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
+import { Locked } from "@/components/Locked";
 import { ProgressBar } from "@/components/onboarding";
 import { useProgress } from "@/progress/store";
 import { useProgram, type PlannedSession } from "@/program/store";
+import { useSubscription } from "@/subscription/store";
 import { WEEK_DAYS_FULL, DAY_LABELS as WEEK_DAYS_SHORT, formatDuration, isSameDate } from "@/lib/dateFormat";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -36,6 +38,7 @@ function SessionCard({ session, done, onPress }: { session: PlannedSession; done
 export default function PlanningScreen() {
   const { isDone, completedCount } = useProgress();
   const { program, weeks, allSessions, currentWeekNumber, getWeekDates, regenerate } = useProgram();
+  const { isPremium } = useSubscription();
 
   function confirmRegenerate() {
     Alert.alert(
@@ -62,6 +65,7 @@ export default function PlanningScreen() {
   const weekTotalMin = weekSessions.reduce((sum, s) => sum + s.durationMin, 0);
   const visibleSessions =
     selectedDay === null ? weekSessions : weekSessions.filter((s) => s.dayIndex === selectedDay);
+  const isFutureWeekLocked = !isPremium && selectedWeek > currentWeekNumber;
 
   return (
     <Screen>
@@ -149,7 +153,7 @@ export default function PlanningScreen() {
               >
                 <Text className={`text-sm font-bold ${isSelected ? "text-on-primary" : "text-text"}`}>
                   S{week.weekNumber}
-                  {weekDone ? " ✓" : ""}
+                  {!isPremium && week.weekNumber > currentWeekNumber ? " 🔒" : weekDone ? " ✓" : ""}
                 </Text>
               </TouchableOpacity>
             );
@@ -211,6 +215,21 @@ export default function PlanningScreen() {
             <Text className="text-base font-semibold text-text">Jour de repos</Text>
             <Text className="text-sm text-muted">Pas de séance prévue ce jour-là.</Text>
           </View>
+        </FadeInView>
+      ) : isFutureWeekLocked ? (
+        <FadeInView delay={260}>
+          <Locked message="Débloque les semaines à venir avec l'abonnement">
+            <View className="gap-3">
+              {visibleSessions.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  done={isDone(session.id)}
+                  onPress={() => router.push({ pathname: "/session-detail-modal", params: { id: session.id } })}
+                />
+              ))}
+            </View>
+          </Locked>
         </FadeInView>
       ) : (
         visibleSessions.map((session, i) => (
