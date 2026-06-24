@@ -46,7 +46,6 @@ export type HorseDraft = {
   birthYear: number | null;
   sex: HorseSex | null;
   breed: string | null;
-  coat: string | null;
   heightCm: number | null;
   weightKg: number | null;
   discipline: Discipline | null;
@@ -57,6 +56,9 @@ export type HorseDraft = {
   weaknesses: string[];
   temperament: string[];
   healthConditions: string[];
+  /** Ce que fait le cheval les jours sans séance (paddock, longe...) — affiché
+   * sur les jours de repos dans Planning/Today (cf. onboarding/options.ts). */
+  restDayActivities: string[];
   injuries: InjuryDraft[];
   isPrimary: boolean;
 };
@@ -85,7 +87,6 @@ function newHorse(isPrimary: boolean): HorseDraft {
     birthYear: null,
     sex: null,
     breed: null,
-    coat: null,
     heightCm: null,
     weightKg: null,
     discipline: null,
@@ -96,6 +97,7 @@ function newHorse(isPrimary: boolean): HorseDraft {
     weaknesses: [],
     temperament: [],
     healthConditions: [],
+    restDayActivities: [],
     injuries: [],
     isPrimary,
   };

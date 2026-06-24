@@ -12,6 +12,7 @@ import type { Horse, Injury } from "@/horses/store";
 import type { RiderProfile } from "@/rider/store";
 import type {
   ExerciseStep,
+  FeedbackTrend,
   GeneratedProgram,
   ProgramPhase,
   SessionIntensity,
@@ -572,6 +573,21 @@ const HEALTH_CONDITION_RULES: Record<string, { excludeTypes: SessionType[]; maxI
   },
 };
 
+/** Types de séance dans lesquels il est pertinent de travailler concrètement
+ * un point faible déclaré — un point faible "Saut" n'a rien à faire sur une
+ * séance de dressage à plat sans matériel d'obstacle, par exemple. Les tags
+ * absents de cette table (Mental, Gestion du stress, Concentration...) sont
+ * transversaux : pertinents quel que soit le type de séance technique. */
+const WEAKNESS_RELEVANT_TYPES: Partial<Record<string, SessionType[]>> = {
+  "Dressage à plat": ["DRESSAGE_BASICS", "ASSOUPLISSEMENT"],
+  Saut: ["OBSTACLE", "BARRES_AU_SOL"],
+  "Contact / bouche": ["DRESSAGE_BASICS", "ASSOUPLISSEMENT", "OBSTACLE"],
+  Impulsion: ["DRESSAGE_BASICS", "RENFORCEMENT"],
+  Planeur: ["DRESSAGE_BASICS", "ASSOUPLISSEMENT"],
+  Endurance: ["SORTIE_EXTERIEURE", "RENFORCEMENT"],
+  Souplesse: ["ASSOUPLISSEMENT", "DRESSAGE_BASICS"],
+};
+
 /** Notes de personnalisation positives selon le tempérament déclaré — pas un
  * risque, juste une façon d'adapter l'approche à la personnalité du cheval. */
 const TEMPERAMENT_NOTES: Record<string, string> = {
@@ -639,6 +655,18 @@ function capAt(current: SessionIntensity, max: SessionIntensity): SessionIntensi
 
 type InjuryCaution = "NONE" | "ACTIVE" | "MONITOR";
 
+/** Blessures sans lien avec l'aptitude au saut ou l'impact articulaire — une
+ * colique ou une plaie superficielle ne justifient pas d'écarter le saut
+ * comme le ferait une tendinite ou une fracture ; seule la prudence sur
+ * l'intensité générale reste de mise. Tout type non répertorié ici (y
+ * compris "Autre" en texte libre) reste traité par défaut comme à risque
+ * articulaire/orthopédique, par prudence faute d'information. */
+const NON_MUSCULOSKELETAL_INJURY_TYPES = new Set([
+  "Colique",
+  "Problème respiratoire",
+  "Plaie / blessure superficielle",
+]);
+
 /** ACTIVE = récupération en cours (le plus prudent) ; MONITOR = séquelle
  * connue ou retour récent d'une blessure "rétablie" (< ~8 semaines) ; NONE =
  * rétablie depuis longtemps, aucune restriction. */
@@ -650,7 +678,12 @@ function injuryCautionLevel(injury: Injury): InjuryCaution {
   return daysSince < RECENT_RECOVERY_WINDOW_DAYS ? "MONITOR" : "NONE";
 }
 
-function injuryNote(injury: Injury, level: InjuryCaution): string {
+function injuryNote(injury: Injury, level: InjuryCaution, isMusculoskeletal: boolean): string {
+  if (!isMusculoskeletal) {
+    return level === "ACTIVE"
+      ? `${injury.type} en cours de récupération : travail très progressif en attendant la guérison complète.`
+      : `${injury.type} à surveiller (séquelle ou retour récent) : intensité modérée par précaution.`;
+  }
   if (level === "ACTIVE") {
     return `${injury.type} en cours de récupération : travail très progressif, saut et barres au sol écartés tant que la récupération n'est pas terminée.`;
   }
@@ -680,9 +713,12 @@ function applyHealthAndInjuryRestrictions(
   for (const injury of horse.injuries) {
     const level = injuryCautionLevel(injury);
     if (level === "NONE") continue;
-    nextPool = nextPool.filter((t) => t !== "OBSTACLE" && !(level === "ACTIVE" && t === "BARRES_AU_SOL"));
+    const isMusculoskeletal = !NON_MUSCULOSKELETAL_INJURY_TYPES.has(injury.type);
+    if (isMusculoskeletal) {
+      nextPool = nextPool.filter((t) => t !== "OBSTACLE" && !(level === "ACTIVE" && t === "BARRES_AU_SOL"));
+    }
     nextIntensity = capAt(nextIntensity, level === "ACTIVE" ? "LOW" : "MEDIUM");
-    notes.push(injuryNote(injury, level));
+    notes.push(injuryNote(injury, level, isMusculoskeletal));
   }
 
   return {
@@ -712,17 +748,48 @@ function intensityForPhase(base: SessionIntensity, phase: ProgramPhase): Session
   return base;
 }
 
-function scaleDuration(baseMin: number, intensity: SessionIntensity): number {
-  const factor = intensity === "LOW" ? 0.8 : intensity === "HIGH" ? 1.2 : 1;
-  return Math.round((baseMin * factor) / 5) * 5;
+function intensityFactor(intensity: SessionIntensity): number {
+  return intensity === "LOW" ? 0.8 : intensity === "HIGH" ? 1.2 : 1;
 }
 
-/** Répartit `count` séances sur les 7 jours de la semaine, le plus
- * régulièrement possible (lundi = 0). */
-function spreadDays(count: number): number[] {
-  const n = Math.min(7, Math.max(1, count));
+function scaleDuration(baseMin: number, intensity: SessionIntensity): number {
+  return Math.round((baseMin * intensityFactor(intensity)) / 5) * 5;
+}
+
+/** Décale une intensité d'un cran selon le ressenti réel des dernières
+ * séances (cf. progress/store.tsx + program/store.tsx), en restant dans les
+ * bornes LOW..HIGH. */
+export function shiftIntensity(intensity: SessionIntensity, trend: FeedbackTrend): SessionIntensity {
+  const idx = INTENSITY_ORDER.indexOf(intensity) + trend;
+  return INTENSITY_ORDER[Math.max(0, Math.min(INTENSITY_ORDER.length - 1, idx))];
+}
+
+/** Réajuste une durée déjà calculée pour `fromIntensity` à ce qu'elle serait
+ * pour `toIntensity` — utilisé quand `shiftIntensity` change l'intensité
+ * d'une séance déjà générée (dont on n'a plus la durée de base du type). */
+export function rescaleDuration(
+  currentDurationMin: number,
+  fromIntensity: SessionIntensity,
+  toIntensity: SessionIntensity
+): number {
+  if (fromIntensity === toIntensity) return currentDurationMin;
+  return Math.round((currentDurationMin * intensityFactor(toIntensity)) / intensityFactor(fromIntensity) / 5) * 5;
+}
+
+/** Jours samedi/dimanche (dayOffset : 0 = lundi) — seule la fréquence "Le
+ * week-end" contraint des jours précis ; les autres fréquences n'imposent
+ * qu'un nombre de séances et restent libres sur toute la semaine. */
+const WEEKEND_DAYS = [5, 6];
+
+/** Répartit `count` séances le plus régulièrement possible sur les jours
+ * disponibles — toute la semaine par défaut, ou seulement `allowedDays` si
+ * fourni (cf. WEEKEND_DAYS : un cavalier qui ne monte "que le week-end" ne
+ * doit jamais se voir caler une séance un lundi ou un vendredi). */
+function spreadDays(count: number, allowedDays?: number[]): number[] {
+  const pool = allowedDays && allowedDays.length > 0 ? allowedDays : [0, 1, 2, 3, 4, 5, 6];
+  const n = Math.min(pool.length, Math.max(1, count));
   const days = new Set<number>();
-  for (let i = 0; i < n; i++) days.add(Math.round((i * 7) / n) % 7);
+  for (let i = 0; i < n; i++) days.add(pool[Math.round((i * pool.length) / n) % pool.length]);
   return Array.from(days).sort((a, b) => a - b);
 }
 
@@ -734,14 +801,68 @@ function rotate<T>(list: T[], index: number): T | undefined {
   return list[index % list.length];
 }
 
+/** Charge technique/physique relative de chaque type de séance — sert à
+ * ordonner les jours de la semaine plutôt que de caler les types dans
+ * l'ordre brut du pool de discipline. Sans ça, un cavalier CSO démarre parfois
+ * sa semaine par une séance de saut (premier type du pool SHOW_JUMPING) :
+ * pas pertinent pédagogiquement, une semaine cohérente monte en charge plutôt
+ * que de placer le pic d'effort dès le premier jour. */
+const SESSION_LOAD: Record<SessionType, number> = {
+  TRAVAIL_A_PIED: 0,
+  RECUPERATION: 0,
+  ASSOUPLISSEMENT: 1,
+  DRESSAGE_BASICS: 1,
+  RENFORCEMENT: 2,
+  BARRES_AU_SOL: 2,
+  SORTIE_EXTERIEURE: 2,
+  OBSTACLE: 3,
+};
+
+/** Associe les jours retenus à des types de séance : la sélection (quels
+ * types, combien de fois chacun) reste pilotée par le pool de discipline +
+ * biais d'objectif (cf. applyGoalBias), mais l'ordre CHRONOLOGIQUE sur la
+ * semaine suit la charge croissante plutôt que l'ordre du pool — pour une
+ * progression cohérente. La tranche du pool utilisée avance d'un cran à
+ * chaque semaine (`weekIndex`) : sans ça, un cavalier qui ne monte qu'1 ou 2
+ * fois par semaine ne verrait jamais que les 1-2 premiers types du pool
+ * pendant tout le programme (ex. uniquement de l'obstacle en CSO, jamais de
+ * plat) — la rotation garantit que tout le pool est exploré sur la durée du
+ * programme plutôt qu'une seule fois pour les 8 semaines. */
+function buildDayTypes(
+  days: number[],
+  pool: SessionType[],
+  weekIndex: number
+): { dayOffset: number; type: SessionType }[] {
+  const selected = days.map((_, i) => pool[(i + weekIndex) % pool.length]);
+  const ordered = selected
+    .map((type, i) => ({ type, i }))
+    .sort((a, b) => SESSION_LOAD[a.type] - SESSION_LOAD[b.type] || a.i - b.i)
+    .map(({ type }) => type);
+  return days.map((dayOffset, i) => ({ dayOffset, type: ordered[i] }));
+}
+
 function buildExercises(type: SessionType, weekIndex: number, horse: Horse): ExerciseStep[] {
   const meta = SESSION_META[type];
   const variant = rotate(meta.exerciseVariants, weekIndex) ?? meta.exerciseVariants[0];
 
-  const technical: SessionType[] = ["DRESSAGE_BASICS", "OBSTACLE", "BARRES_AU_SOL"];
+  const technical: SessionType[] = [
+    "DRESSAGE_BASICS",
+    "OBSTACLE",
+    "BARRES_AU_SOL",
+    "ASSOUPLISSEMENT",
+    "RENFORCEMENT",
+    "SORTIE_EXTERIEURE",
+  ];
   if (!technical.includes(type)) return variant;
 
-  const weakness = rotate(horse.weaknesses, weekIndex);
+  // Ne cible que les points faibles pertinents pour CE type de séance (cf.
+  // WEAKNESS_RELEVANT_TYPES) — un tag transversal (absent de cette table)
+  // reste pertinent partout.
+  const relevantWeaknesses = horse.weaknesses.filter((w) => {
+    const relevantTypes = WEAKNESS_RELEVANT_TYPES[w];
+    return !relevantTypes || relevantTypes.includes(type);
+  });
+  const weakness = rotate(relevantWeaknesses, weekIndex);
   if (!weakness) return variant;
   return [
     ...variant,
@@ -817,16 +938,13 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
   } = applyHealthAndInjuryRestrictions(biasedPool, baseIntensity, horse);
   safetyNotes.push(...restrictionNotes);
 
-  const days = spreadDays(sessionsPerWeek);
-  // type fixé par jour (même créneau = même type chaque semaine, prévisible
-  // pour le cavalier) ; seuls l'intensité, l'exercice et le point faible
-  // ciblé varient semaine après semaine.
-  const dayTypes = days.map((dayOffset, i) => ({ dayOffset, type: safePool[i % safePool.length] }));
+  const days = spreadDays(sessionsPerWeek, rider.rideFrequency === "WEEKEND" ? WEEKEND_DAYS : undefined);
 
   const weeks = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
     const weekNumber = i + 1;
     const phase = phaseForWeek(weekNumber, TOTAL_WEEKS, rider.primaryGoal);
     const weekIntensity = intensityForPhase(cappedBaseIntensity, phase);
+    const dayTypes = buildDayTypes(days, safePool, weekNumber - 1);
 
     const sessions: SessionTemplate[] = dayTypes.map(({ dayOffset, type }) => {
       const meta = SESSION_META[type];
