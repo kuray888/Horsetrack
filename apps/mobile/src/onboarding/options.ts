@@ -115,6 +115,17 @@ export const HORSE_WORKLOADS: Option<HorseWorkload>[] = [
   { value: "DAILY", label: "Tous les jours" },
 ];
 
+/** Activités proposées pour les jours sans séance — multi-select avec "Autre"
+ * libre (cf. horse-health.tsx) ; affiché ensuite sur les jours de repos dans
+ * Planning/Today pour que ce ne soit pas juste "rien de prévu". */
+export const REST_DAY_ACTIVITIES: string[] = [
+  "Paddock / pré",
+  "Marche en main",
+  "Longe",
+  "Repos box complet",
+  "Soins / pansage",
+];
+
 /** Tempérament — multi-select libre, pas de notion de force/faiblesse. */
 export const HORSE_TEMPERAMENTS: string[] = [
   "Calme",

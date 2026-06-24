@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
+import { safeJsonParse } from "@/lib/safeJsonParse";
 import {
   ENTITLEMENT_ID,
   Purchases,
@@ -46,6 +47,9 @@ type SubscriptionContextValue = Persisted & {
   startTrial: (plan: SubscriptionPlan) => Promise<void>;
   refresh: () => Promise<void>;
   applyCustomerInfo: (info: CustomerInfo) => void;
+  /** Efface l'état d'abonnement local + déconnecte RevenueCat (cf. suppression
+   * de compte dans Profil). */
+  clearAll: () => Promise<void>;
 };
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
@@ -106,7 +110,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const refreshFromLocalCache = useCallback(async () => {
     const raw = await SecureStore.getItemAsync(KEY);
-    const parsed: Persisted = raw ? { ...DEFAULT, ...JSON.parse(raw) } : DEFAULT;
+    const parsed: Persisted = { ...DEFAULT, ...safeJsonParse<Partial<Persisted>>(raw, {}) };
     // expiration de l'essai simulé gérée localement
     if (parsed.status === "trialing" && parsed.trialEndsAt && !computeIsPremium(parsed)) {
       parsed.status = "expired";
@@ -152,9 +156,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     [persistLocal]
   );
 
+  const clearAll = useCallback(async () => {
+    if (isPurchasesAvailable()) await logoutRevenueCat();
+    await SecureStore.deleteItemAsync(KEY);
+    setState(DEFAULT);
+  }, []);
+
   const value = useMemo<SubscriptionContextValue>(
-    () => ({ ...state, isPremium: computeIsPremium(state), loading, startTrial, refresh, applyCustomerInfo }),
-    [state, loading, startTrial, refresh, applyCustomerInfo]
+    () => ({ ...state, isPremium: computeIsPremium(state), loading, startTrial, refresh, applyCustomerInfo, clearAll }),
+    [state, loading, startTrial, refresh, applyCustomerInfo, clearAll]
   );
 
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;

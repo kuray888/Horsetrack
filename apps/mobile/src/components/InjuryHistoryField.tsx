@@ -135,7 +135,7 @@ export function InjuryHistoryField({
               className={`flex-1 items-center rounded-card p-3.5 ${canSave ? "bg-primary" : "bg-border"}`}
             >
               <Text className={`text-sm font-bold ${canSave ? "text-on-primary" : "text-muted"}`}>
-                Ajouter à l'historique
+                Ajouter à l&apos;historique
               </Text>
             </TouchableOpacity>
           </View>

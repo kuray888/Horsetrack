@@ -1,5 +1,6 @@
+import { useEffect, useRef } from "react";
 import { Tabs, usePathname } from "expo-router";
-import { Text, View } from "react-native";
+import { Animated, View } from "react-native";
 import { colors } from "@/theme/colors";
 import { CoachBubble } from "@/components/CoachBubble";
 
@@ -12,7 +13,20 @@ const TAB_ICONS: Record<string, string> = {
 };
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  return <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.45 }}>{TAB_ICONS[name]}</Text>;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  // Petit rebond quand l'onglet devient actif, pour marquer le changement.
+  useEffect(() => {
+    if (!focused) return;
+    scale.setValue(0.7);
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 14 }).start();
+  }, [focused, scale]);
+
+  return (
+    <Animated.Text style={{ fontSize: 22, opacity: focused ? 1 : 0.45, transform: [{ scale }] }}>
+      {TAB_ICONS[name]}
+    </Animated.Text>
+  );
 }
 
 export default function TabsLayout() {

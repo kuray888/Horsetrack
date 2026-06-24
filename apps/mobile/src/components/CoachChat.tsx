@@ -46,7 +46,7 @@ function labelOf<T extends string>(
 }
 
 function TypingDots() {
-  const dots = [useRef(new Animated.Value(0.3)).current, useRef(new Animated.Value(0.3)).current, useRef(new Animated.Value(0.3)).current];
+  const dots = useRef([new Animated.Value(0.3), new Animated.Value(0.3), new Animated.Value(0.3)]).current;
 
   useEffect(() => {
     const loops = dots.map((dot, i) =>
@@ -59,7 +59,7 @@ function TypingDots() {
     );
     loops.forEach((l) => l.start());
     return () => loops.forEach((l) => l.stop());
-  }, []);
+  }, [dots]);
 
   return (
     <View className="flex-row gap-1.5 px-1 py-1.5">
@@ -73,7 +73,7 @@ function TypingDots() {
 function Avatar() {
   return (
     <View className="h-7 w-7 items-center justify-center rounded-full bg-highlight">
-      <Text className="text-xs">🐴</Text>
+      <Text className="text-xs">🧑‍🏫</Text>
     </View>
   );
 }
@@ -84,12 +84,15 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const { horses } = useHorses();
+  // Le cheval dont le Coach parle doit être celui actuellement sélectionné
+  // (cf. sélecteur sur Today) et non systématiquement le cheval primaire :
+  // sinon le programme/séance du jour ci-dessous (qui suit selectedHorse via
+  // useProgram) porterait sur un cheval différent du profil envoyé au LLM.
+  const { selectedHorse: horse } = useHorses();
   const { riderProfile } = useRiderProfile();
   const { program, currentWeek } = useProgram();
 
-  const primaryHorse = horses.find((h) => h.isPrimary) ?? horses[0];
-  const horseName = primaryHorse?.name?.trim() || "ton cheval";
+  const horseName = horse?.name?.trim() || "ton cheval";
   const today = new Date();
   const todaySession =
     currentWeek?.sessions.find(
@@ -113,15 +116,15 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
     try {
       const reply = await askCoach(trimmed, history, {
         horseName,
-        discipline: labelOf(DISCIPLINES, primaryHorse?.discipline),
-        horseLevel: labelOf(HORSE_LEVELS, primaryHorse?.level),
-        horseAge: primaryHorse?.birthYear ? new Date().getFullYear() - primaryHorse.birthYear : null,
-        fitnessLevel: labelOf(HORSE_FITNESS_LEVELS, primaryHorse?.fitnessLevel),
-        workload: labelOf(HORSE_WORKLOADS, primaryHorse?.workload),
-        strengths: primaryHorse?.strengths ?? [],
-        weaknesses: primaryHorse?.weaknesses ?? [],
-        healthConditions: (primaryHorse?.healthConditions ?? []).filter((c) => c !== NO_HEALTH_CONDITION),
-        injuries: (primaryHorse?.injuries ?? []).map((i) => ({
+        discipline: labelOf(DISCIPLINES, horse?.discipline),
+        horseLevel: labelOf(HORSE_LEVELS, horse?.level),
+        horseAge: horse?.birthYear ? new Date().getFullYear() - horse.birthYear : null,
+        fitnessLevel: labelOf(HORSE_FITNESS_LEVELS, horse?.fitnessLevel),
+        workload: labelOf(HORSE_WORKLOADS, horse?.workload),
+        strengths: horse?.strengths ?? [],
+        weaknesses: horse?.weaknesses ?? [],
+        healthConditions: (horse?.healthConditions ?? []).filter((c) => c !== NO_HEALTH_CONDITION),
+        injuries: (horse?.injuries ?? []).map((i) => ({
           type: i.type,
           recoveryStatus: labelOf(RECOVERY_STATUSES, i.recoveryStatus),
           note: i.note || null,
@@ -159,7 +162,7 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center gap-3 border-b border-border px-5 pb-3 pt-2">
         <View className="h-11 w-11 items-center justify-center rounded-full bg-highlight">
-          <Text className="text-xl">🐴</Text>
+          <Text className="text-xl">🧑‍🏫</Text>
         </View>
         <View className="flex-1">
           <Text className="text-base font-extrabold tracking-tight text-text">Julien</Text>
@@ -181,7 +184,7 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
             <FadeInView>
               <View className="items-center gap-3">
                 <View className="h-20 w-20 items-center justify-center rounded-full bg-highlight">
-                  <Text className="text-4xl">🐴</Text>
+                  <Text className="text-4xl">🧑‍🏫</Text>
                 </View>
                 <View className="gap-1.5">
                   <Text className="text-center text-xl font-extrabold tracking-tight text-text">

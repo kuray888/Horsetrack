@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { db, SubscriptionStatus } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 
-const anthropic = new Anthropic();
+/** Phase de test : passe par OpenRouter (cf. OPENROUTER_API_KEY) au lieu d'Anthropic
+ * en direct, le compte Anthropic étant à sec — à revenir sur le SDK Anthropic une fois
+ * le crédit reconstitué (cf. mémoire projet "coach-mocked"). */
+const OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
 
 /** Le Coach n'est pas derrière un mur total (cf. CoachChat.tsx) : les
  * non-abonnés y ont accès, avec un plafond plus bas — ces deux plafonds
- * protègent le budget API Anthropic plutôt que la qualité de service.
+ * protègent le budget de l'API LLM plutôt que la qualité de service.
  * Tant que RevenueCat n'est pas configuré, `trialEndsAt` reste null pour
  * tout le monde et `isPremiumRider` renvoie donc true (essai ouvert) — le
  * plafond gratuit ne s'appliquera réellement qu'une fois le webhook
@@ -147,16 +149,32 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      thinking: { type: "adaptive" },
-      system: buildSystemPrompt(context),
-      messages: [
-        ...history.map((h) => ({ role: h.role, content: h.text })),
-        { role: "user" as const, content: message },
-      ],
+    const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_MODEL,
+        max_tokens: 4096,
+        messages: [
+          { role: "system", content: buildSystemPrompt(context) },
+          ...history.map((h) => ({ role: h.role, content: h.text })),
+          { role: "user", content: message },
+        ],
+      }),
     });
+
+    if (openRouterRes.status === 429) {
+      return NextResponse.json({ error: "Le coach est surchargé, réessaie dans un instant." }, { status: 503 });
+    }
+    if (!openRouterRes.ok) {
+      return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
+    }
+
+    const data = await openRouterRes.json();
+    const choice = data.choices?.[0]?.message;
 
     await db.coachUsage.upsert({
       where: { userId_date: { userId, date: today } },
@@ -164,22 +182,12 @@ export async function POST(req: NextRequest) {
       create: { userId, date: today, count: 1 },
     });
 
-    let reply: string;
-    if (response.stop_reason === "refusal") {
-      reply = "Désolé, je ne peux pas répondre à ça — pose-moi une question sur l'entraînement, la santé ou la progression de ton cheval.";
-    } else {
-      const textBlock = response.content.find((b) => b.type === "text");
-      reply = textBlock && textBlock.type === "text" ? textBlock.text : "Désolé, je n'ai pas de réponse pour l'instant.";
-    }
+    const reply: string = choice?.refusal
+      ? "Désolé, je ne peux pas répondre à ça — pose-moi une question sur l'entraînement, la santé ou la progression de ton cheval."
+      : choice?.content || "Désolé, je n'ai pas de réponse pour l'instant.";
 
     return NextResponse.json({ reply });
-  } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ error: "Le coach est surchargé, réessaie dans un instant." }, { status: 503 });
-    }
-    if (e instanceof Anthropic.APIError) {
-      return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
-    }
-    throw e;
+  } catch {
+    return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
   }
 }

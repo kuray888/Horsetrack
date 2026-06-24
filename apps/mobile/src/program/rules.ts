@@ -532,6 +532,178 @@ const SESSION_EQUIPMENT: Record<SessionType, string[]> = {
   RECUPERATION: ["Aucun matériel — privilégier le confort du cheval"],
 };
 
+/** Cheval de référence (≈ selle français/anglo-arabe moyen) sur lequel sont
+ * calibrés les écartements ci-dessous — mis à l'échelle de la taille déclarée
+ * du cheval (s'il y en a une) plutôt que figés : un poney et un grand cheval
+ * n'ont pas la même amplitude de foulée. */
+const REFERENCE_HEIGHT_CM = 160;
+
+/** Écartement de barres au sol par allure, pour un cheval à hauteur de
+ * référence — repères couramment enseignés (FFE/BPJEPS), pas une norme
+ * absolue : la foulée réelle varie aussi avec l'équilibre et la décontraction
+ * du cheval, pas seulement sa taille. */
+const POLE_SPACING_BASE_CM: Record<"pas" | "trot" | "galop", number> = {
+  pas: 85,
+  trot: 135,
+  galop: 330,
+};
+
+function poleSpacingCm(gait: "pas" | "trot" | "galop", horse: Horse): number {
+  const scale = (horse.heightCm ?? REFERENCE_HEIGHT_CM) / REFERENCE_HEIGHT_CM;
+  return Math.round((POLE_SPACING_BASE_CM[gait] * scale) / 5) * 5;
+}
+
+/** Distance entre deux obstacles d'une ligne, pour un cheval à hauteur de
+ * référence : une foulée de galop (~3,50 m) par foulée demandée, plus un
+ * forfait d'appel + réception (~3,50 m) — repère classique pour une ligne
+ * "normale", à ajuster selon le profil de saut réel du cheval. */
+const CANTER_STRIDE_CM = 350;
+const LANDING_TAKEOFF_ALLOWANCE_CM = 350;
+
+function lineDistanceCm(strides: number, horse: Horse): number {
+  const scale = (horse.heightCm ?? REFERENCE_HEIGHT_CM) / REFERENCE_HEIGHT_CM;
+  return Math.round(((strides * CANTER_STRIDE_CM + LANDING_TAKEOFF_ALLOWANCE_CM) * scale) / 10) * 10;
+}
+
+/** Hauteur de saut indicative par niveau du cheval — point de départ
+ * raisonnable, pas une norme de concours (qui dépend du circuit réel, hors de
+ * ce que l'app connaît) : à ajuster au ressenti, idéalement avec un
+ * instructeur présent plutôt que suivi à la lettre. */
+const JUMP_HEIGHT_RANGE_CM: Record<HorseLevel, [number, number]> = {
+  UNTRAINED: [20, 40],
+  CLUB: [40, 60],
+  AMATEUR: [70, 90],
+  PRO: [100, 120],
+};
+
+function jumpHeightCm(horse: Horse, intensity: SessionIntensity): number {
+  const [low, high] = JUMP_HEIGHT_RANGE_CM[horse.level];
+  if (intensity === "LOW") return low;
+  if (intensity === "HIGH") return high;
+  return Math.round((low + high) / 2 / 5) * 5;
+}
+
+/** Nombre total d'efforts de saut (lignes comprises) jugé raisonnable sur UNE
+ * séance, par niveau et intensité — au-delà, le risque de surmenage articulaire
+ * dépasse le bénéfice technique, quel que soit le niveau du cheval. Repère de
+ * bien-être courant, pas une règle gravée dans le marbre. */
+const JUMP_COUNT_RANGE: Record<HorseLevel, [number, number]> = {
+  UNTRAINED: [8, 12],
+  CLUB: [12, 18],
+  AMATEUR: [15, 20],
+  PRO: [18, 25],
+};
+
+function jumpCount(horse: Horse, intensity: SessionIntensity): number {
+  const [low, high] = JUMP_COUNT_RANGE[horse.level];
+  if (intensity === "LOW") return low;
+  if (intensity === "HIGH") return high;
+  return Math.round((low + high) / 2);
+}
+
+/** Catégorie usuelle (poney/cheval, seuil légal FFE à 1,48 m au garrot) — sert
+ * surtout à formuler l'hypothèse de taille en clair plutôt qu'en centimètres
+ * abstraits quand la taille réelle du cheval n'est pas connue. */
+function horseSizeCategory(heightCm: number): string {
+  if (heightCm < 120) return "petit poney";
+  if (heightCm < 148) return "poney";
+  if (heightCm < 175) return "cheval";
+  return "grand cheval";
+}
+
+/** Rend explicite l'hypothèse de taille utilisée pour les écartements/hauteurs
+ * ci-dessus — un repère silencieux serait trompeur si la taille réelle (poney
+ * vs grand cheval) change beaucoup la pertinence du chiffre affiché. */
+function heightAssumptionNote(horse: Horse): string {
+  if (horse.heightCm) {
+    return `Repères ajustés à la taille de ${horse.name} (~${horse.heightCm} cm, ${horseSizeCategory(horse.heightCm)}).`;
+  }
+  return `Taille de ${horse.name} non renseignée : repères calculés pour un ${horseSizeCategory(REFERENCE_HEIGHT_CM)} standard (~${REFERENCE_HEIGHT_CM} cm) — renseigne sa taille au garrot dans sa fiche pour des repères ajustés à sa morphologie.`;
+}
+
+/** Nombre de transitions/changements d'allure visé sur la séance, proportionnel
+ * à sa durée — un repère de densité de travail plutôt qu'un compte à respecter
+ * à l'exercice près. */
+function transitionCount(durationMin: number): number {
+  return Math.max(6, Math.round(durationMin / 4));
+}
+
+/** Répartition longe / travail en main sur la durée de la séance — pour
+ * donner un repère concret plutôt qu'un simple "un peu des deux". */
+function inHandSplitMin(durationMin: number): { longe: number; main: number } {
+  const longe = Math.round((durationMin * 0.5) / 5) * 5;
+  return { longe, main: durationMin - longe };
+}
+
+/** Nombre de répétitions de côte visé, par intensité de la semaine. */
+const HILL_REPS_RANGE: Record<SessionIntensity, [number, number]> = {
+  LOW: [3, 4],
+  MEDIUM: [5, 6],
+  HIGH: [7, 8],
+};
+
+/** Part de la sortie consacrée au trot enlevé — le reste se répartit entre
+ * l'échauffement/retour au pas et un éventuel temps de galop. */
+function trotShareMin(durationMin: number): number {
+  return Math.round((durationMin * 0.4) / 5) * 5;
+}
+
+/** Repères techniques chiffrés selon le type de séance — un complément
+ * concret aux descriptions d'exercice (cf. SESSION_META), pas une
+ * prescription stricte : la hauteur/l'écartement réels se règlent au ressenti
+ * du jour, ce ne sont que des points de départ raisonnables. Vide pour les
+ * types où chiffrer n'apporte rien (récupération, repos actif). */
+function buildSetupNotes(
+  type: SessionType,
+  horse: Horse,
+  intensity: SessionIntensity,
+  durationMin: number
+): string[] {
+  switch (type) {
+    case "BARRES_AU_SOL":
+      return [
+        heightAssumptionNote(horse),
+        `Écartement au pas : ~${poleSpacingCm("pas", horse)} cm`,
+        `Écartement au trot : ~${poleSpacingCm("trot", horse)} cm`,
+        `Écartement au galop (barres de réglage) : ~${poleSpacingCm("galop", horse)} cm`,
+      ];
+    case "OBSTACLE":
+      return [
+        heightAssumptionNote(horse),
+        `Hauteur indicative : ~${jumpHeightCm(horse, intensity)} cm (repère de départ, à ajuster au ressenti)`,
+        `Distance de ligne à 1 foulée : ~${lineDistanceCm(1, horse)} cm`,
+        `Distance de ligne à 2 foulées : ~${lineDistanceCm(2, horse)} cm`,
+        `Volume total d'efforts de saut sur la séance : ~${jumpCount(horse, intensity)} (lignes comprises)`,
+      ];
+    case "DRESSAGE_BASICS":
+    case "ASSOUPLISSEMENT":
+      return [
+        "Repère : voltes/cercles de 15 à 20 m de diamètre",
+        `Repère : ~${transitionCount(durationMin)} transitions/changements d'allure répartis sur la séance`,
+      ];
+    case "TRAVAIL_A_PIED": {
+      const { longe, main } = inHandSplitMin(durationMin);
+      return [
+        "Repère : cercle de longe de 15 à 20 m de diamètre si travail en longe",
+        `Répartition indicative : ~${longe} min de longe/liberté, ~${main} min d'exercices en main`,
+      ];
+    }
+    case "RENFORCEMENT": {
+      const [low, high] = HILL_REPS_RANGE[intensity];
+      return [
+        "Repère : pente légère (5-8 %) sur 100 à 150 m si le terrain s'y prête",
+        `Repère : ${low} à ${high} montées si travail en côte`,
+      ];
+    }
+    case "SORTIE_EXTERIEURE":
+      return [`Repère : ~${trotShareMin(durationMin)} min de trot enlevé cumulées sur la sortie, au confort du cheval`];
+    case "RECUPERATION":
+      return [];
+    default:
+      return [];
+  }
+}
+
 /** Restrictions spécifiques par condition de santé déclarée — seules les
  * conditions ayant un impact connu sur l'effort/l'impact articulaire ont une
  * règle ; les autres (allergies, coliques...) restent un point de vigilance
@@ -912,6 +1084,20 @@ function buildPersonalizationNotes(rider: RiderProfile, horse: Horse): string[] 
   return [...notes, ...minorHealthNotes];
 }
 
+/** La longe sollicite davantage les tendons/articulations qu'une marche en
+ * main ou du temps au paddock (cercles serrés, contrairement à une ligne
+ * droite) — ce n'est pas un vrai "repos" actif pour un cheval au repos forcé
+ * ou en convalescence, même si elle est choisie comme activité de jour sans
+ * séance. */
+function buildRestDayNotes(horse: Horse): string[] {
+  const isRestingOrRecovering =
+    horse.fitnessLevel === "RESTING" || horse.injuries.some((i) => i.recoveryStatus === "IN_PROGRESS");
+  if (!isRestingOrRecovering || !horse.restDayActivities.includes("Longe")) return [];
+  return [
+    `${horse.name} est au repos/en convalescence : la longe (cercles serrés) sollicite plus les articulations qu'une marche en main ou du paddock — à réserver à un avis vétérinaire favorable.`,
+  ];
+}
+
 function programTitle(horse: Horse): string {
   const disciplineLabel = DISCIPLINES.find((d) => d.value === horse.discipline)?.label ?? horse.discipline;
   return `Programme de ${horse.name} — ${disciplineLabel}`;
@@ -937,6 +1123,7 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
     notes: restrictionNotes,
   } = applyHealthAndInjuryRestrictions(biasedPool, baseIntensity, horse);
   safetyNotes.push(...restrictionNotes);
+  safetyNotes.push(...buildRestDayNotes(horse));
 
   const days = spreadDays(sessionsPerWeek, rider.rideFrequency === "WEEKEND" ? WEEKEND_DAYS : undefined);
 
@@ -948,15 +1135,17 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
 
     const sessions: SessionTemplate[] = dayTypes.map(({ dayOffset, type }) => {
       const meta = SESSION_META[type];
+      const durationMin = scaleDuration(meta.baseDurationMin, weekIntensity);
       return {
         dayOffset,
         time: dayOffset >= 5 ? "10h00" : "18h00",
         type,
         title: meta.title,
-        durationMin: scaleDuration(meta.baseDurationMin, weekIntensity),
+        durationMin,
         focus: meta.focus,
         intensity: weekIntensity,
         equipment: SESSION_EQUIPMENT[type],
+        setupNotes: buildSetupNotes(type, horse, weekIntensity, durationMin),
         exercises: buildExercises(type, weekNumber - 1, horse),
       };
     });

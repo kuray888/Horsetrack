@@ -17,10 +17,15 @@ import {
 import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { deleteAccount } from "@/lib/account";
+import { clearLocalDataOwner } from "@/lib/deviceOwner";
 import { resetOnboardingCompleted } from "@/onboarding/completion";
+import { formatDate } from "@/lib/dateFormat";
 import { useProgress } from "@/progress/store";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
+import { useAgenda } from "@/agenda/store";
+import { useProgram } from "@/program/store";
+import { useGoals } from "@/goals/store";
 import { BADGES } from "@/program/badges";
 import {
   DISCIPLINES,
@@ -90,10 +95,13 @@ function SettingRow({
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
-  const { status, plan, trialEndsAt, isPremium, loading: subLoading } = useSubscription();
-  const { unlockedBadges } = useProgress();
-  const { horses, updateHorsePhoto } = useHorses();
-  const { riderProfile } = useRiderProfile();
+  const { status, plan, trialEndsAt, isPremium, loading: subLoading, clearAll: clearSubscription } = useSubscription();
+  const { unlockedBadges, clearAll: clearProgress } = useProgress();
+  const { horses, updateHorsePhoto, clearAll: clearHorses } = useHorses();
+  const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
+  const { clearAll: clearAgenda } = useAgenda();
+  const { clearAll: clearProgram } = useProgram();
+  const { goals, clearAll: clearGoals } = useGoals();
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
@@ -144,8 +152,24 @@ export default function ProfileScreen() {
     setDeletingAccount(true);
     try {
       await deleteAccount();
-      await resetOnboardingCompleted();
-      await supabase.auth.signOut();
+      // Le compte n'existe déjà plus côté serveur à ce stade : on ne demande
+      // qu'une déconnexion locale (scope "local") pour ne pas dépendre d'un
+      // appel réseau qui viserait un utilisateur déjà supprimé.
+      await supabase.auth.signOut({ scope: "local" });
+      // Vide tous les caches locaux pour repartir d'un état "installation
+      // fraîche" — sinon le prochain compte créé sur cet appareil hériterait
+      // de l'écurie, de la progression, de l'agenda ou de l'abo de l'ancien.
+      await Promise.all([
+        resetOnboardingCompleted(),
+        clearHorses(),
+        clearRiderProfile(),
+        clearProgress(),
+        clearProgram(),
+        clearAgenda(),
+        clearGoals(),
+        clearSubscription(),
+        clearLocalDataOwner(),
+      ]);
       router.replace("/(onboarding)/welcome");
     } catch (e) {
       Alert.alert("Oups", e instanceof Error ? e.message : "Impossible de supprimer le compte pour l'instant.");
@@ -163,8 +187,6 @@ export default function ProfileScreen() {
     }
     return "Aucun abonnement actif";
   }
-
-  const primaryHorse = horses.find((h) => h.isPrimary) ?? horses[0];
 
   return (
     <Screen>
@@ -278,6 +300,57 @@ export default function ProfileScreen() {
           </View>
         </FadeInView>
       ) : null}
+
+      {/* Mes objectifs */}
+      <FadeInView delay={330}>
+        <SectionTitle>Mes objectifs</SectionTitle>
+      </FadeInView>
+
+      <FadeInView delay={360}>
+        <View className="gap-3">
+          {goals.length === 0 ? (
+            <View className={`${CARD} items-center gap-1`}>
+              <Text className="text-2xl">🎯</Text>
+              <Text className="text-sm text-muted">Aucun objectif pour l&apos;instant.</Text>
+            </View>
+          ) : (
+            goals
+              .slice()
+              .sort((a, b) => (a.targetDate?.getTime() ?? Infinity) - (b.targetDate?.getTime() ?? Infinity))
+              .map((goal) => {
+                const horseName = goal.horseId ? horses.find((h) => h.id === goal.horseId)?.name : null;
+                const emoji = goal.type ? RIDER_GOALS.find((g) => g.value === goal.type)?.emoji : null;
+                const subtitle = [goal.targetDate ? formatDate(goal.targetDate) : null, horseName]
+                  .filter(Boolean)
+                  .join(" · ");
+                return (
+                  <TouchableOpacity
+                    key={goal.id}
+                    activeOpacity={0.8}
+                    onPress={() => router.push(`/goal-modal?id=${goal.id}`)}
+                    className={`${CARD} flex-row items-center gap-3`}
+                  >
+                    <Text className="text-2xl">{emoji ?? "🎯"}</Text>
+                    <View className="flex-1 gap-0.5">
+                      <Text className="text-base font-bold text-text">{goal.title}</Text>
+                      {subtitle ? <Text className="text-sm text-muted">{subtitle}</Text> : null}
+                    </View>
+                    <Text className="text-base text-muted">›</Text>
+                  </TouchableOpacity>
+                );
+              })
+          )}
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/goal-modal")}
+            className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
+          >
+            <Text className="text-lg font-bold text-primary">＋</Text>
+            <Text className="text-base font-semibold text-primary">Ajouter un objectif</Text>
+          </TouchableOpacity>
+        </View>
+      </FadeInView>
 
       {/* Mes succès */}
       <FadeInView delay={340}>

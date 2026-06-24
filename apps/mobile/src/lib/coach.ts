@@ -45,7 +45,11 @@ export async function askCoach(
     body: JSON.stringify({ message, history, context }),
   });
 
-  const json = await res.json();
-  if (!res.ok) throw new CoachError(json.error ?? "Erreur inconnue.", res.status);
+  // Une réponse d'erreur peut venir d'un proxy/CDN (HTML, texte brut) plutôt
+  // que de l'API elle-même — on ne veut pas qu'un JSON.parse raté masque le
+  // vrai statut HTTP derrière une SyntaxError.
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new CoachError(json?.error ?? "Erreur inconnue.", res.status);
+  if (!json) throw new CoachError("Réponse invalide du serveur.", 502);
   return json.reply as string;
 }

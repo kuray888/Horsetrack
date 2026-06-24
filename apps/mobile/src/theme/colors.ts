@@ -10,10 +10,15 @@ import { colors as tokenColors } from "./tokens.cjs";
 export const colors = {
   ...tokenColors,
 
-  // Couleurs par type d'événement "À venir" (mappées sur la palette)
+  // Couleurs par type d'événement "À venir" (mappées sur la palette) — partagées
+  // entre Today (liste fusionnée séances + rendez-vous) et Agenda.
   event: {
     seance: tokenColors.primary,
     veto: tokenColors.warning,
-    competition: tokenColors.accent,
+    osteo: tokenColors.accent,
+    marechal: tokenColors.primary,
+    dentiste: tokenColors.success,
+    concours: tokenColors.accent,
+    autre: tokenColors.textMuted,
   },
 };

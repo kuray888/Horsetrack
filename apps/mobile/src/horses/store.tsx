@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import * as SecureStore from "expo-secure-store";
+import { safeJsonParse } from "@/lib/safeJsonParse";
+import { pushHorses } from "@/lib/cloudSync";
 import type {
   Discipline,
   HorseDraft,
@@ -19,8 +21,8 @@ import type {
 } from "@/onboarding/store";
 
 /**
- * Écurie de l'utilisateur, persistée localement (en attendant Supabase, cf.
- * onboarding/persist.ts) — accessible depuis tout l'app, pas seulement
+ * Écurie de l'utilisateur, persistée localement et sauvegardée vers Supabase
+ * en best-effort (cf. lib/cloudSync.ts) — accessible depuis tout l'app, pas seulement
  * pendant l'onboarding (dont le store est démonté une fois sorti du groupe
  * de routes (onboarding)).
  */
@@ -57,6 +59,9 @@ export type Horse = {
   weaknesses: string[];
   temperament: string[];
   healthConditions: string[];
+  /** Ce que fait le cheval les jours sans séance (paddock, longe...) — affiché
+   * sur les jours de repos dans Planning/Today. */
+  restDayActivities: string[];
   injuries: Injury[];
 };
 
@@ -76,6 +81,7 @@ export type NewHorse = {
   weaknesses: string[];
   temperament: string[];
   healthConditions: string[];
+  restDayActivities: string[];
   injuries: Injury[];
 };
 
@@ -99,18 +105,36 @@ const DEFAULT_HORSES: Horse[] = [
     weaknesses: ["Impulsion"],
     temperament: ["Calme", "Joueur"],
     healthConditions: [],
+    restDayActivities: ["Paddock / pré", "Marche en main"],
     injuries: [],
   },
 ];
+
+/** Active une activité différente selon le jour de la semaine (0 = lundi ...
+ * 6 = dimanche) plutôt que d'afficher toute la liste choisie à chaque jour de
+ * repos : un cheval qui va au paddock certains jours et reste au box d'autres
+ * jours a une routine cohérente — pas un mélange de toutes ses activités à la
+ * fois. Avec une seule activité choisie, elle s'applique à tous les jours de
+ * repos (comportement inchangé). */
+export function restDayActivityFor(horse: Horse, dayOffset: number): string | null {
+  if (horse.restDayActivities.length === 0) return null;
+  return horse.restDayActivities[dayOffset % horse.restDayActivities.length];
+}
 
 function generateId(): string {
   return `h${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** JSON.parse renvoie les dates de blessures en string — on les remet en Date à la lecture. */
+/** JSON.parse renvoie les dates de blessures en string — on les remet en Date à
+ * la lecture. Comble aussi les champs ajoutés après coup (ex: restDayActivities)
+ * absents des chevaux sauvegardés avant leur introduction — sans ça, un cheval
+ * créé avant cet ajout charge `undefined` au lieu d'un tableau vide et fait
+ * planter tout appel à `.length`/`.join()` dessus (cf. Today/Planning sur un
+ * jour de repos). */
 function reviveHorses(horses: Horse[]): Horse[] {
   return horses.map((h) => ({
     ...h,
+    restDayActivities: h.restDayActivities ?? [],
     injuries: h.injuries.map((i) => ({
       ...i,
       occurredAt: i.occurredAt ? new Date(i.occurredAt) : null,
@@ -142,6 +166,7 @@ function fromDraft(draft: CompletedHorseDraft): Horse {
     weaknesses: draft.weaknesses,
     temperament: draft.temperament,
     healthConditions: draft.healthConditions,
+    restDayActivities: draft.restDayActivities,
     injuries: draft.injuries.map((i) => ({
       id: generateId(),
       type: i.type,
@@ -160,11 +185,18 @@ type HorsesContextValue = {
   /** Remplace toute l'écurie par les chevaux de l'onboarding — appelé une
    * seule fois à la fin du parcours (cf. (onboarding)/paywall.tsx). */
   replaceHorses: (drafts: HorseDraft[]) => void;
+  /** Restaure l'écurie depuis une sauvegarde cloud (cf. lib/cloudSync.ts) —
+   * distinct de replaceHorses : prend des Horse déjà complets, pas des
+   * brouillons d'onboarding, et ne republie pas vers le cloud. */
+  hydrateFromCloud: (horses: Horse[]) => void;
   updateHorsePhoto: (id: string, photoUrl: string) => void;
   /** Cheval actuellement sélectionné (cf. sélecteur sur Today) — pilote la
    * progression/programme affichés ailleurs dans l'app. */
   selectedHorse: Horse | null;
   selectHorse: (id: string) => void;
+  /** Efface l'écurie locale (cf. suppression de compte dans Profil) — remet
+   * l'état exactement comme à l'installation, pas juste un tableau vide. */
+  clearAll: () => Promise<void>;
 };
 
 const HorsesContext = createContext<HorsesContextValue | null>(null);
@@ -177,7 +209,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)]).then(
       ([rawHorses, rawSelected]) => {
-        const loaded: Horse[] = rawHorses ? reviveHorses(JSON.parse(rawHorses)) : DEFAULT_HORSES;
+        const loaded: Horse[] = reviveHorses(safeJsonParse(rawHorses, DEFAULT_HORSES));
         setHorses(loaded);
         setSelectedHorseId(rawSelected ?? loaded.find((h) => h.isPrimary)?.id ?? loaded[0]?.id ?? null);
         setLoading(false);
@@ -187,6 +219,9 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
 
   const persist = useCallback((next: Horse[]) => {
     SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
+    // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
+    // programme/affichage local ne doit jamais attendre le réseau.
+    pushHorses(next).catch(() => {});
   }, []);
 
   const addHorse = useCallback(
@@ -240,9 +275,28 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  // Hydrate l'écurie depuis une sauvegarde cloud (cf. lib/cloudSync.ts,
+  // appelé par (auth)/login.tsx quand cet appareil n'a pas les données du
+  // compte qui vient de se connecter). Persiste localement SANS repousser
+  // vers le cloud : on vient justement d'en lire l'état, le republier serait
+  // un aller-retour inutile.
+  const hydrateFromCloud = useCallback((next: Horse[]) => {
+    setHorses(next);
+    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
+    const primaryId = next.find((h) => h.isPrimary)?.id ?? next[0]?.id ?? null;
+    setSelectedHorseId(primaryId);
+    if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId);
+  }, []);
+
   const selectHorse = useCallback((id: string) => {
     setSelectedHorseId(id);
     SecureStore.setItemAsync(SELECTED_KEY, id);
+  }, []);
+
+  const clearAll = useCallback(async () => {
+    await Promise.all([SecureStore.deleteItemAsync(STORAGE_KEY), SecureStore.deleteItemAsync(SELECTED_KEY)]);
+    setHorses(DEFAULT_HORSES);
+    setSelectedHorseId(DEFAULT_HORSES.find((h) => h.isPrimary)?.id ?? DEFAULT_HORSES[0]?.id ?? null);
   }, []);
 
   const selectedHorse = useMemo(
@@ -251,8 +305,30 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<HorsesContextValue>(
-    () => ({ loading, horses, addHorse, updateHorse, replaceHorses, updateHorsePhoto, selectedHorse, selectHorse }),
-    [loading, horses, addHorse, updateHorse, replaceHorses, updateHorsePhoto, selectedHorse, selectHorse]
+    () => ({
+      loading,
+      horses,
+      addHorse,
+      updateHorse,
+      replaceHorses,
+      hydrateFromCloud,
+      updateHorsePhoto,
+      selectedHorse,
+      selectHorse,
+      clearAll,
+    }),
+    [
+      loading,
+      horses,
+      addHorse,
+      updateHorse,
+      replaceHorses,
+      hydrateFromCloud,
+      updateHorsePhoto,
+      selectedHorse,
+      selectHorse,
+      clearAll,
+    ]
   );
 
   return <HorsesContext.Provider value={value}>{children}</HorsesContext.Provider>;

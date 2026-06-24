@@ -17,6 +17,7 @@ import {
   HORSE_TRAITS,
   HORSE_WORKLOADS,
   NO_HEALTH_CONDITION,
+  REST_DAY_ACTIVITIES,
 } from "@/onboarding/options";
 import type { Injury, NewHorse } from "@/horses/store";
 import { pickAndPersistImage } from "@/lib/imagePicker";
@@ -47,6 +48,7 @@ export const EMPTY_HORSE_DRAFT: HorseFormDraft = {
   weaknesses: [],
   temperament: [],
   healthConditions: [],
+  restDayActivities: [],
   injuries: [],
 };
 
@@ -99,6 +101,7 @@ export function HorseForm({
   const [weaknesses, setWeaknesses] = useState<string[]>(initial.weaknesses);
   const [temperament, setTemperament] = useState<string[]>(initial.temperament);
   const [healthConditions, setHealthConditions] = useState<string[]>(initial.healthConditions);
+  const [restDayActivities, setRestDayActivities] = useState<string[]>(initial.restDayActivities);
   const [injuries, setInjuries] = useState<Injury[]>(initial.injuries);
 
   async function pickPhoto() {
@@ -124,6 +127,7 @@ export function HorseForm({
       weaknesses,
       temperament,
       healthConditions,
+      restDayActivities,
       injuries,
     });
   }
@@ -244,6 +248,7 @@ export function HorseForm({
           <MultiSelectChips
             options={HORSE_TEMPERAMENTS}
             values={temperament}
+            allowCustom
             onToggle={(t) => setTemperament((list) => toggle(list, t))}
           />
         </Field>
@@ -252,6 +257,7 @@ export function HorseForm({
           <MultiSelectChips
             options={HORSE_TRAITS}
             values={strengths}
+            allowCustom
             onToggle={(t) => {
               setStrengths((s) => toggle(s, t));
               setWeaknesses((w) => w.filter((x) => x !== t));
@@ -263,6 +269,7 @@ export function HorseForm({
           <MultiSelectChips
             options={HORSE_TRAITS}
             values={weaknesses}
+            allowCustom
             onToggle={(t) => {
               setWeaknesses((w) => toggle(w, t));
               setStrengths((s) => s.filter((x) => x !== t));
@@ -283,6 +290,18 @@ export function HorseForm({
           onAdd={(entry) => setInjuries((list) => [...list, { ...entry, id: generateInjuryId() }])}
           onRemove={(key) => setInjuries((list) => list.filter((i) => i.id !== key))}
         />
+
+        <Field label="Les jours sans séance, il est plutôt…">
+          <Text className="text-xs text-muted">
+            Plusieurs choix possibles : ils tournent d&apos;un jour de repos à l&apos;autre (ex. paddock un jour, box le suivant).
+          </Text>
+          <MultiSelectChips
+            options={REST_DAY_ACTIVITIES}
+            values={restDayActivities}
+            allowCustom
+            onToggle={(t) => setRestDayActivities((list) => toggle(list, t))}
+          />
+        </Field>
       </ScrollView>
 
       <View className="px-5 pb-2 pt-3">

@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useProgram } from "@/program/store";
-import { useProgress, type Debrief, type Mood } from "@/progress/store";
+import { useProgress, type Mood } from "@/progress/store";
 import type { SessionIntensity, SessionStepPhase } from "@/program/types";
 import { WEEK_DAYS_FULL } from "@/lib/dateFormat";
+import { usePressScale } from "@/hooks/usePressScale";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -36,11 +37,26 @@ export default function SessionDetailModal() {
   const { isDone, toggleSession, getDebrief, saveDebrief } = useProgress();
 
   const session = allSessions.find((s) => s.id === id);
+  const done = session ? isDone(session.id) : false;
 
   const [editingDebrief, setEditingDebrief] = useState(false);
   const debrief = session ? getDebrief(session.id) : null;
   const [draftMood, setDraftMood] = useState<Mood | null>(debrief?.mood ?? null);
   const [draftNote, setDraftNote] = useState(debrief?.note ?? "");
+
+  const { scale: pressScale, onPressIn, onPressOut } = usePressScale();
+  const popScale = useRef(new Animated.Value(1)).current;
+  const wasDone = useRef(done);
+
+  // Petit rebond satisfaisant uniquement au moment où la séance passe à "faite"
+  // (pas au montage si elle l'était déjà).
+  useEffect(() => {
+    if (done && !wasDone.current) {
+      popScale.setValue(0.8);
+      Animated.spring(popScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 16 }).start();
+    }
+    wasDone.current = done;
+  }, [done, popScale]);
 
   if (!session) {
     return (
@@ -51,7 +67,6 @@ export default function SessionDetailModal() {
   }
 
   const sessionId = session.id;
-  const done = isDone(sessionId);
   const intensity = INTENSITY_META[session.intensity];
 
   function handleSaveDebrief() {
@@ -91,6 +106,21 @@ export default function SessionDetailModal() {
           ))}
         </View>
 
+        {session.setupNotes.length > 0 ? (
+          <View className={`${CARD} gap-2`}>
+            <Text className="text-sm font-bold uppercase tracking-wide text-accent">Repères techniques</Text>
+            {session.setupNotes.map((note, i) => (
+              <View key={i} className="flex-row items-start gap-2">
+                <Text className="text-sm text-muted">📏</Text>
+                <Text className="flex-1 text-sm text-text">{note}</Text>
+              </View>
+            ))}
+            <Text className="text-xs text-muted">
+              Points de départ à ajuster au ressenti — pas des prescriptions strictes.
+            </Text>
+          </View>
+        ) : null}
+
         {PHASE_ORDER.map((phase) => {
           const steps = session.exercises.filter((e) => e.phase === phase);
           if (steps.length === 0) return null;
@@ -107,21 +137,25 @@ export default function SessionDetailModal() {
           );
         })}
 
-        <TouchableOpacity
-          onPress={() => toggleSession(sessionId)}
-          activeOpacity={0.85}
-          className={`items-center rounded-full p-3 ${done ? "border border-border" : "bg-primary"}`}
-        >
-          <Text className={`text-sm font-bold ${done ? "text-muted" : "text-on-primary"}`}>
-            {done ? "Marquer comme à faire" : "Marquer comme fait ✓"}
-          </Text>
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: Animated.multiply(pressScale, popScale) }] }}>
+          <TouchableOpacity
+            onPress={() => toggleSession(sessionId)}
+            onPressIn={onPressIn}
+            onPressOut={onPressOut}
+            activeOpacity={0.85}
+            className={`items-center rounded-full p-3 ${done ? "border border-border" : "bg-primary"}`}
+          >
+            <Text className={`text-sm font-bold ${done ? "text-muted" : "text-on-primary"}`}>
+              {done ? "Marquer comme à faire" : "Marquer comme fait ✓"}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
 
         {done ? (
           <View className={`${CARD} gap-3`}>
             {editingDebrief ? (
               <>
-                <Text className="text-xs font-bold uppercase tracking-wide text-accent">Comment ça s'est passé ?</Text>
+                <Text className="text-xs font-bold uppercase tracking-wide text-accent">Comment ça s&apos;est passé ?</Text>
                 <View className="flex-row gap-2">
                   {(Object.entries(MOOD_META) as [Mood, { emoji: string; label: string }][]).map(([mood, meta]) => (
                     <TouchableOpacity

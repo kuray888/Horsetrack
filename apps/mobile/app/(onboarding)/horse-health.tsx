@@ -3,7 +3,11 @@ import { router } from "expo-router";
 import { OnboardingShell, MultiSelectChips } from "@/components/onboarding";
 import { InjuryHistoryField } from "@/components/InjuryHistoryField";
 import { useOnboarding } from "@/onboarding/store";
-import { HEALTH_CONDITIONS, NO_HEALTH_CONDITION, TOTAL_STEPS } from "@/onboarding/options";
+import { HEALTH_CONDITIONS, NO_HEALTH_CONDITION, REST_DAY_ACTIVITIES, TOTAL_STEPS } from "@/onboarding/options";
+
+function toggle(list: string[], value: string): string[] {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}
 
 function toggleHealthCondition(list: string[], value: string): string[] {
   if (value === NO_HEALTH_CONDITION) {
@@ -41,6 +45,21 @@ export default function HorseHealth() {
         onAdd={addInjury}
         onRemove={removeInjury}
       />
+
+      <View className="gap-2">
+        <Text className="text-sm font-semibold text-muted">Les jours sans séance, {name} est plutôt…</Text>
+        <Text className="text-xs text-muted">
+          Plusieurs choix possibles : ils tournent d&apos;un jour de repos à l&apos;autre (ex. paddock un jour, box le suivant).
+        </Text>
+        <MultiSelectChips
+          options={REST_DAY_ACTIVITIES}
+          values={editingHorse.restDayActivities}
+          allowCustom
+          onToggle={(t) =>
+            updateEditingHorse({ restDayActivities: toggle(editingHorse.restDayActivities, t) })
+          }
+        />
+      </View>
     </OnboardingShell>
   );
 }

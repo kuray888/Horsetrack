@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "mobile": "pnpm --filter @cheval/mobile dev",
+    "api": "pnpm --filter @cheval/api dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "db:generate": "turbo db:generate",

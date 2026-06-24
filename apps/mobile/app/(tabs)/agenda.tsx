@@ -1,49 +1,24 @@
 import { useEffect, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
-import * as SecureStore from "expo-secure-store";
+import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
+import { PrimaryButton } from "@/components/onboarding";
 import { formatDate } from "@/lib/dateFormat";
-import {
-  cancelReminder,
-  computeReminderTrigger,
-  ensureNotificationPermission,
-  scheduleReminder,
-  type ReminderOption,
-} from "@/lib/notifications";
+import { computeReminderTrigger, ensureNotificationPermission, scheduleReminder, type ReminderOption } from "@/lib/notifications";
+import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
-
-type AppointmentType = "veto" | "osteo" | "marechal" | "dentiste" | "concours" | "autre";
-type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
-
-type ChecklistItem = { id: string; label: string; checked: boolean };
-
-type Appointment = {
-  id: string;
-  type: AppointmentType;
-  title: string;
-  date: Date;
-  time: string;
-  location: string;
-  notes: string;
-  reminder: ReminderOption;
-  /** Id de la notification locale programmée, pour pouvoir l'annuler. Null si pas de rappel programmé. */
-  reminderNotificationId: string | null;
-  /** Résultat saisi après l'épreuve (concours uniquement). Null si pas encore renseigné. */
-  result: string | null;
-  /** Checklist de préparation (concours uniquement). Vide pour les autres types. */
-  checklist: ChecklistItem[];
-};
-
-type Doc = {
-  id: string;
-  category: DocumentCategory;
-  name: string;
-  date: Date;
-};
+import {
+  useAgenda,
+  daysFromNow,
+  defaultChecklist,
+  type Appointment,
+  type AppointmentType,
+  type Doc,
+  type DocumentCategory,
+} from "@/agenda/store";
 
 const APPT_META: Record<AppointmentType, { label: string; icon: string; chip: string; tag: string }> = {
   veto: { label: "Vétérinaire", icon: "💉", chip: "bg-warning/15", tag: "text-warning" },
@@ -70,105 +45,6 @@ const REMINDER_META: Record<ReminderOption, { label: string; icon: string }> = {
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
-const APPOINTMENTS_KEY = "agenda_appointments_v1";
-const DOCUMENTS_KEY = "agenda_documents_v1";
-
-function daysFromNow(offset: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-const CHECKLIST_LABELS = [
-  "Papiers d'identité du cheval (passeport)",
-  "Carnet de vaccination à jour",
-  "Licence FFE / engagement",
-  "Matériel de pansage",
-  "Tapis de selle + couvertures",
-  "Protections (guêtres, cloches)",
-  "Casque",
-  "Gilet de protection",
-  "Eau et nourriture pour la journée",
-];
-
-function defaultChecklist(): ChecklistItem[] {
-  return CHECKLIST_LABELS.map((label, i) => ({ id: `c${i}`, label, checked: false }));
-}
-
-const initialAppointments: Appointment[] = [
-  {
-    id: "a1",
-    type: "veto",
-    title: "Vaccin annuel",
-    date: daysFromNow(-32),
-    time: "10h00",
-    location: "Clinique équine du Val",
-    notes: "Rappel grippe + tétanos",
-    reminder: "none",
-    reminderNotificationId: null,
-    result: null,
-    checklist: [],
-  },
-  {
-    id: "a2",
-    type: "osteo",
-    title: "Bilan ostéopathe",
-    date: daysFromNow(6),
-    time: "14h00",
-    location: "À l'écurie",
-    notes: "",
-    reminder: "1d",
-    reminderNotificationId: null,
-    result: null,
-    checklist: [],
-  },
-  {
-    id: "a3",
-    type: "marechal",
-    title: "Parage",
-    date: daysFromNow(18),
-    time: "09h30",
-    location: "À l'écurie",
-    notes: "",
-    reminder: "1d",
-    reminderNotificationId: null,
-    result: null,
-    checklist: [],
-  },
-  {
-    id: "a4",
-    type: "concours",
-    title: "Concours CSO Club 2",
-    date: daysFromNow(27),
-    time: "08h00",
-    location: "Centre équestre de Bois-Joli",
-    notes: "Épreuve à 9h15",
-    reminder: "1w",
-    reminderNotificationId: null,
-    result: null,
-    checklist: defaultChecklist(),
-  },
-  {
-    id: "a5",
-    type: "concours",
-    title: "Concours CSO Club 1",
-    date: daysFromNow(-15),
-    time: "08h00",
-    location: "Centre équestre de Bois-Joli",
-    notes: "",
-    reminder: "none",
-    reminderNotificationId: null,
-    result: null,
-    checklist: defaultChecklist().map((c) => ({ ...c, checked: true })),
-  },
-];
-
-const initialDocuments: Doc[] = [
-  { id: "d1", category: "ordonnance", name: "Ordonnance vermifuge", date: daysFromNow(-10) },
-  { id: "d2", category: "facture", name: "Facture maréchal — mars", date: daysFromNow(-32) },
-  { id: "d3", category: "rapport", name: "Rapport bilan vétérinaire annuel", date: daysFromNow(-32) },
-];
 
 function ChipSelect<T extends string>({
   options,
@@ -216,19 +92,6 @@ function AddToggle({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
-function SubmitButton({ label, disabled, onPress }: { label: string; disabled: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.85}
-      className={`items-center rounded-card p-4 ${disabled ? "bg-border" : "bg-primary"}`}
-    >
-      <Text className={`text-base font-bold ${disabled ? "text-muted" : "text-on-primary"}`}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 const emptyApptForm = {
   type: "veto" as AppointmentType,
   title: "",
@@ -237,66 +100,42 @@ const emptyApptForm = {
   location: "",
   reminder: "1d" as ReminderOption,
 };
-const emptyDocForm = { category: "facture" as DocumentCategory, name: "", date: null as Date | null };
+const emptyDocForm = {
+  category: "facture" as DocumentCategory,
+  name: "",
+  date: null as Date | null,
+  fileUri: null as string | null,
+};
 
 export default function AgendaScreen() {
   const { selectedHorse: horse } = useHorses();
+  const {
+    appointments,
+    documents,
+    addAppointment,
+    deleteAppointment,
+    saveResult,
+    toggleChecklistItem,
+    addChecklistItem,
+    removeChecklistItem,
+    addDocument,
+    deleteDocument,
+  } = useAgenda();
   const [section, setSection] = useState<"appointments" | "documents">("appointments");
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     ensureNotificationPermission().then(setNotifPermission);
   }, []);
 
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [showApptForm, setShowApptForm] = useState(false);
   const [apptForm, setApptForm] = useState(emptyApptForm);
   const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
   const [showPastAppts, setShowPastAppts] = useState(false);
 
-  const [documents, setDocuments] = useState<Doc[]>(initialDocuments);
   const [showDocForm, setShowDocForm] = useState(false);
   const [docForm, setDocForm] = useState(emptyDocForm);
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
-
-  // Charge les données persistées une fois au montage (sinon on garde les mocks par défaut).
-  useEffect(() => {
-    (async () => {
-      const [apptRaw, docRaw] = await Promise.all([
-        SecureStore.getItemAsync(APPOINTMENTS_KEY),
-        SecureStore.getItemAsync(DOCUMENTS_KEY),
-      ]);
-      if (apptRaw) {
-        const parsed: Appointment[] = JSON.parse(apptRaw);
-        setAppointments(
-          parsed.map((a) => ({
-            ...a,
-            date: new Date(a.date),
-            result: a.result ?? null,
-            checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
-          }))
-        );
-      }
-      if (docRaw) {
-        const parsed: Doc[] = JSON.parse(docRaw);
-        setDocuments(parsed.map((d) => ({ ...d, date: new Date(d.date) })));
-      }
-      setLoaded(true);
-    })();
-  }, []);
-
-  // Persiste à chaque changement, une fois le chargement initial terminé
-  // (sinon on écraserait les données sauvegardées avec les mocks par défaut).
-  useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appointments));
-  }, [appointments, loaded]);
-
-  useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(documents));
-  }, [documents, loaded]);
 
   const today = daysFromNow(0);
   const upcomingAppts = appointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -312,73 +151,44 @@ export default function AgendaScreen() {
     const location = apptForm.location.trim();
     const trigger = computeReminderTrigger(date, time, apptForm.reminder);
     const notifBody = `${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`;
-    const reminderNotificationId = trigger ? await scheduleReminder(`Rappel : ${title}`, notifBody, trigger) : null;
-    setNotifPermission((prev) => (trigger && !reminderNotificationId ? false : prev));
+    // L'échec de programmation du rappel (permission révoquée, erreur OS) ne
+    // doit jamais empêcher l'ajout du rendez-vous lui-même.
+    let reminderNotificationId: string | null = null;
+    if (trigger) {
+      try {
+        reminderNotificationId = await scheduleReminder(`Rappel : ${title}`, notifBody, trigger);
+      } catch {
+        reminderNotificationId = null;
+      }
+      setNotifPermission((prev) => (!reminderNotificationId ? false : prev));
+    }
 
-    setAppointments((list) => [
-      ...list,
-      {
-        id: String(Date.now()),
-        type: apptForm.type,
-        title,
-        date,
-        time,
-        location,
-        notes: "",
-        reminder: apptForm.reminder,
-        reminderNotificationId,
-        result: null,
-        checklist: apptForm.type === "concours" ? defaultChecklist() : [],
-      },
-    ]);
+    addAppointment({
+      type: apptForm.type,
+      title,
+      date,
+      time,
+      location,
+      notes: "",
+      reminder: apptForm.reminder,
+      reminderNotificationId,
+      checklist: apptForm.type === "concours" ? defaultChecklist() : [],
+    });
     setApptForm(emptyApptForm);
     setShowApptForm(false);
-  }
-
-  function handleDeleteAppointment(appt: Appointment) {
-    cancelReminder(appt.reminderNotificationId);
-    setAppointments((list) => list.filter((a) => a.id !== appt.id));
-  }
-
-  function handleSaveResult(apptId: string, result: string) {
-    setAppointments((list) => list.map((a) => (a.id === apptId ? { ...a, result } : a)));
-  }
-
-  function handleToggleChecklistItem(apptId: string, itemId: string) {
-    setAppointments((list) =>
-      list.map((a) =>
-        a.id === apptId
-          ? { ...a, checklist: a.checklist.map((c) => (c.id === itemId ? { ...c, checked: !c.checked } : c)) }
-          : a
-      )
-    );
-  }
-
-  function handleAddChecklistItem(apptId: string, label: string) {
-    setAppointments((list) =>
-      list.map((a) =>
-        a.id === apptId
-          ? { ...a, checklist: [...a.checklist, { id: `c${Date.now()}`, label, checked: false }] }
-          : a
-      )
-    );
-  }
-
-  function handleRemoveChecklistItem(apptId: string, itemId: string) {
-    setAppointments((list) =>
-      list.map((a) => (a.id === apptId ? { ...a, checklist: a.checklist.filter((c) => c.id !== itemId) } : a))
-    );
   }
 
   function handleAddDocument() {
     const date = docForm.date;
     if (!docForm.name.trim() || !date) return;
-    setDocuments((list) => [
-      ...list,
-      { id: String(Date.now()), category: docForm.category, name: docForm.name.trim(), date },
-    ]);
+    addDocument({ category: docForm.category, name: docForm.name.trim(), date, fileUri: docForm.fileUri });
     setDocForm(emptyDocForm);
     setShowDocForm(false);
+  }
+
+  async function handlePickDocPhoto() {
+    const uri = await pickAndPersistImage();
+    if (uri) setDocForm((f) => ({ ...f, fileUri: uri }));
   }
 
   return (
@@ -422,7 +232,7 @@ export default function AgendaScreen() {
           <View className={`${CARD} flex-row items-center gap-3`}>
             <Text className="text-xl">🔕</Text>
             <Text className="flex-1 text-sm text-muted">
-              Notifications désactivées : tes rappels seront enregistrés mais ne s'afficheront pas sur ton téléphone.
+              Notifications désactivées : tes rappels seront enregistrés mais ne s&apos;afficheront pas sur ton téléphone.
             </Text>
             <TouchableOpacity
               onPress={() => ensureNotificationPermission().then(setNotifPermission)}
@@ -501,7 +311,7 @@ export default function AgendaScreen() {
                     <Text className="text-base font-semibold text-muted">Annuler</Text>
                   </TouchableOpacity>
                   <View className="flex-1">
-                    <SubmitButton
+                    <PrimaryButton
                       label="Ajouter"
                       disabled={!apptForm.title.trim() || !apptForm.date}
                       onPress={handleAddAppointment}
@@ -532,11 +342,11 @@ export default function AgendaScreen() {
                   appt={appt}
                   expanded={expandedApptId === appt.id}
                   onToggleExpand={() => setExpandedApptId(expandedApptId === appt.id ? null : appt.id)}
-                  onDelete={() => handleDeleteAppointment(appt)}
-                  onSaveResult={(result) => handleSaveResult(appt.id, result)}
-                  onToggleChecklistItem={(itemId) => handleToggleChecklistItem(appt.id, itemId)}
-                  onAddChecklistItem={(label) => handleAddChecklistItem(appt.id, label)}
-                  onRemoveChecklistItem={(itemId) => handleRemoveChecklistItem(appt.id, itemId)}
+                  onDelete={() => deleteAppointment(appt)}
+                  onSaveResult={(result) => saveResult(appt.id, result)}
+                  onToggleChecklistItem={(itemId) => toggleChecklistItem(appt.id, itemId)}
+                  onAddChecklistItem={(label) => addChecklistItem(appt.id, label)}
+                  onRemoveChecklistItem={(itemId) => removeChecklistItem(appt.id, itemId)}
                 />
               </FadeInView>
             ))
@@ -560,11 +370,11 @@ export default function AgendaScreen() {
                     appt={appt}
                     expanded={expandedApptId === appt.id}
                     onToggleExpand={() => setExpandedApptId(expandedApptId === appt.id ? null : appt.id)}
-                    onDelete={() => handleDeleteAppointment(appt)}
-                    onSaveResult={(result) => handleSaveResult(appt.id, result)}
-                    onToggleChecklistItem={(itemId) => handleToggleChecklistItem(appt.id, itemId)}
-                    onAddChecklistItem={(label) => handleAddChecklistItem(appt.id, label)}
-                    onRemoveChecklistItem={(itemId) => handleRemoveChecklistItem(appt.id, itemId)}
+                    onDelete={() => deleteAppointment(appt)}
+                    onSaveResult={(result) => saveResult(appt.id, result)}
+                    onToggleChecklistItem={(itemId) => toggleChecklistItem(appt.id, itemId)}
+                    onAddChecklistItem={(label) => addChecklistItem(appt.id, label)}
+                    onRemoveChecklistItem={(itemId) => removeChecklistItem(appt.id, itemId)}
                   />
                 </View>
               </FadeInView>
@@ -600,13 +410,21 @@ export default function AgendaScreen() {
                   value={docForm.date}
                   onChange={(date) => setDocForm((f) => ({ ...f, date }))}
                 />
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
-                >
-                  <Text className="text-base">📎</Text>
-                  <Text className="text-sm font-semibold text-muted">Joindre un fichier (bientôt)</Text>
-                </TouchableOpacity>
+                {docForm.fileUri ? (
+                  <TouchableOpacity onPress={handlePickDocPhoto} activeOpacity={0.8} className="gap-2">
+                    <Image source={{ uri: docForm.fileUri }} className="h-32 w-full rounded-card" resizeMode="cover" />
+                    <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handlePickDocPhoto}
+                    activeOpacity={0.8}
+                    className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
+                  >
+                    <Text className="text-base">📎</Text>
+                    <Text className="text-sm font-semibold text-muted">Joindre une photo du document</Text>
+                  </TouchableOpacity>
+                )}
                 <View className="flex-row gap-2">
                   <TouchableOpacity
                     onPress={() => {
@@ -618,7 +436,7 @@ export default function AgendaScreen() {
                     <Text className="text-base font-semibold text-muted">Annuler</Text>
                   </TouchableOpacity>
                   <View className="flex-1">
-                    <SubmitButton
+                    <PrimaryButton
                       label="Ajouter"
                       disabled={!docForm.name.trim() || !docForm.date}
                       onPress={handleAddDocument}
@@ -635,7 +453,7 @@ export default function AgendaScreen() {
             <FadeInView delay={200}>
               <View className={`${CARD} items-center gap-1`}>
                 <Text className="text-2xl">🗂️</Text>
-                <Text className="text-sm text-muted">Aucun document pour l'instant.</Text>
+                <Text className="text-sm text-muted">Aucun document pour l&apos;instant.</Text>
               </View>
             </FadeInView>
           ) : (
@@ -645,7 +463,7 @@ export default function AgendaScreen() {
                   doc={doc}
                   expanded={expandedDocId === doc.id}
                   onToggleExpand={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)}
-                  onDelete={() => setDocuments((list) => list.filter((d) => d.id !== doc.id))}
+                  onDelete={() => deleteDocument(doc.id)}
                 />
               </FadeInView>
             ))
@@ -792,7 +610,7 @@ function AppointmentCard({
               {editingResult ? (
                 <>
                   <Text className="text-xs font-bold uppercase tracking-wide text-accent">
-                    Résultat de l'épreuve
+                    Résultat de l&apos;épreuve
                   </Text>
                   <TextInput
                     className={INPUT}
@@ -862,7 +680,11 @@ function DocumentCard({
 
       {expanded ? (
         <View className="mt-4 gap-2 border-t border-border pt-4">
-          <Text className="text-sm text-muted">📎 Aucun fichier joint (bientôt disponible)</Text>
+          {doc.fileUri ? (
+            <Image source={{ uri: doc.fileUri }} className="h-40 w-full rounded-card" resizeMode="cover" />
+          ) : (
+            <Text className="text-sm text-muted">📎 Aucun fichier joint</Text>
+          )}
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
             <Text className="text-sm font-semibold text-danger">Supprimer ce document</Text>
           </TouchableOpacity>

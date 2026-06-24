@@ -6,12 +6,22 @@
     "orientation": "portrait",
     "scheme": "horsetrack",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#e7ecef"
+    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.cheval.app"
+      "bundleIdentifier": "com.horsetrack.app"
     },
     "android": {
-      "package": "com.cheval.app"
+      "package": "com.horsetrack.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#e7ecef"
+      }
     },
     "plugins": [
       "expo-router",

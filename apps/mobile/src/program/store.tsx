@@ -1,7 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
-import { generateProgram } from "./rules";
-import type { ExerciseStep, GeneratedProgram, SessionIntensity } from "./types";
+import { safeJsonParse } from "@/lib/safeJsonParse";
+import { supabase } from "@/lib/supabase";
+import { askProgramInsight } from "@/lib/programInsight";
+import { DISCIPLINES, RIDER_GOALS } from "@/onboarding/options";
+import { generateProgram, rescaleDuration, shiftIntensity } from "./rules";
+import type { ExerciseStep, FeedbackTrend, GeneratedProgram, SessionIntensity } from "./types";
 import { useHorses, type Horse } from "@/horses/store";
 import { useRiderProfile, type RiderProfile } from "@/rider/store";
 
@@ -18,16 +22,21 @@ import { useRiderProfile, type RiderProfile } from "@/rider/store";
  * pour un changement non "important" (forces/faiblesses, tempérament...).
  */
 
-// v2 : le schéma de séance a changé (exercices structurés en phases + matériel) —
-// la clé est bumpée pour ignorer les programmes v1 mis en cache et forcer une
-// régénération propre avec le nouveau schéma, sans coder de migration de données.
-const PROGRAMS_KEY = "programs_v2";
+// v3 : ajout de `setupNotes` (repères chiffrés) sur SessionTemplate — même
+// principe qu'au passage v1 -> v2 : la clé est bumpée pour ignorer les
+// programmes déjà en cache (qui n'ont pas ce champ) et forcer une
+// régénération propre, sans coder de migration de données.
+const PROGRAMS_KEY = "programs_v3";
 const SIGNATURES_KEY = "program_signatures_v2";
 /** Mémorise, par cheval, la date de génération (`program.generatedAt`) du
  * dernier programme pour lequel l'utilisateur a ignoré le bilan de fin de
  * programme — se réinitialise naturellement à la prochaine régénération
  * (nouveau `generatedAt`), pas besoin de le nettoyer explicitement. */
 const BILAN_DISMISSED_KEY = "bilan_dismissed_v1";
+/** Cache de l'éclairage IA (cf. /api/program-insight) par cheval — distinct
+ * des programmes eux-mêmes : c'est un enrichissement async best-effort, pas
+ * une donnée structurelle du moteur de règles. */
+const AI_NOTES_KEY = "program_ai_notes_v1";
 
 export type PlannedSession = {
   id: string;
@@ -39,6 +48,7 @@ export type PlannedSession = {
   focus: string;
   intensity: SessionIntensity;
   equipment: string[];
+  setupNotes: string[];
   exercises: ExerciseStep[];
 };
 
@@ -49,6 +59,9 @@ export type ProgramWeekView = {
 
 type PersistedPrograms = Record<string, GeneratedProgram>;
 type PersistedSignatures = Record<string, string>;
+/** `note: null` = appel déjà fait, rien d'exploitable à afficher (cf.
+ * sentinelle "RIEN" côté /api/program-insight) — distinct de "pas encore demandé". */
+type PersistedAiNotes = Record<string, { generatedAt: string; note: string | null }>;
 
 /** Seuls les champs qui changent vraiment la structure ou la sécurité du
  * programme déclenchent une régénération automatique — un changement de nom
@@ -98,6 +111,21 @@ type ProgramContextValue = {
    * programme précis (réinitialisé à chaque régénération). */
   bilanDismissed: boolean;
   dismissBilan: () => void;
+  /** Efface les programmes générés/signatures locaux, tous chevaux confondus
+   * (cf. suppression de compte / changement de compte sur cet appareil dans
+   * Profil, login.tsx, (onboarding)/account.tsx). */
+  clearAll: () => Promise<void>;
+  /** Pousse le ressenti récent (cf. progress/store.tsx, qui calcule la
+   * tendance à partir des derniers débriefs) pour ajuster l'intensité des
+   * semaines pas encore vécues. Volontairement non persisté : recalculé à
+   * chaque chargement à partir des débriefs réels, jamais figé. */
+  recordFeedbackTrend: (trend: FeedbackTrend) => void;
+  /** Explique l'ajustement en cours (ou null si aucun) — affiché dans
+   * Planning aux côtés des autres notes de personnalisation/sécurité. */
+  feedbackNote: string | null;
+  /** Éclairage IA sur le texte libre (cf. /api/program-insight) — null tant
+   * qu'il n'y a rien à interpréter, pas encore reçu, ou rien d'exploitable. */
+  aiNote: string | null;
 };
 
 const ProgramContext = createContext<ProgramContextValue | null>(null);
@@ -111,18 +139,38 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   const [allPrograms, setAllPrograms] = useState<PersistedPrograms>({});
   const [signatures, setSignatures] = useState<PersistedSignatures>({});
   const [bilanDismissedMap, setBilanDismissedMap] = useState<Record<string, string>>({});
+  const [feedbackTrend, setFeedbackTrend] = useState<FeedbackTrend>(0);
+  const [aiNotes, setAiNotes] = useState<PersistedAiNotes>({});
+  const aiFetchingRef = useRef<Set<string>>(new Set());
+  const [authEpoch, setAuthEpoch] = useState(0);
+
+  const recordFeedbackTrend = useCallback((trend: FeedbackTrend) => {
+    setFeedbackTrend((prev) => (prev === trend ? prev : trend));
+  }, []);
 
   useEffect(() => {
     Promise.all([
       SecureStore.getItemAsync(PROGRAMS_KEY),
       SecureStore.getItemAsync(SIGNATURES_KEY),
       SecureStore.getItemAsync(BILAN_DISMISSED_KEY),
-    ]).then(([rawPrograms, rawSignatures, rawBilanDismissed]) => {
-      setAllPrograms(rawPrograms ? JSON.parse(rawPrograms) : {});
-      setSignatures(rawSignatures ? JSON.parse(rawSignatures) : {});
-      setBilanDismissedMap(rawBilanDismissed ? JSON.parse(rawBilanDismissed) : {});
+      SecureStore.getItemAsync(AI_NOTES_KEY),
+    ]).then(([rawPrograms, rawSignatures, rawBilanDismissed, rawAiNotes]) => {
+      setAllPrograms(safeJsonParse<PersistedPrograms>(rawPrograms, {}));
+      setSignatures(safeJsonParse<PersistedSignatures>(rawSignatures, {}));
+      setBilanDismissedMap(safeJsonParse<Record<string, string>>(rawBilanDismissed, {}));
+      setAiNotes(safeJsonParse<PersistedAiNotes>(rawAiNotes, {}));
       setLoading(false);
     });
+  }, []);
+
+  // Redéclenche une tentative d'éclairage IA une fois la session ouverte —
+  // utile car le programme est généré pendant l'onboarding (cf. (onboarding)/
+  // paywall.tsx), avant la création de compte ((onboarding)/account.tsx).
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") setAuthEpoch((e) => e + 1);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   const persistPrograms = useCallback((next: PersistedPrograms) => {
@@ -188,23 +236,97 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     if (!program || !horseId) return [];
     return program.weeks.map((week) => {
       const dates = getWeekDates(week.weekNumber);
+      // L'ajustement issu du ressenti réel (cf. progress/store.tsx) ne touche
+      // que les semaines pas encore vécues : on ne change jamais une semaine
+      // déjà en cours ou passée, pour ne pas modifier ce que le cavalier voit
+      // déjà au milieu de sa semaine.
+      const applyTrend = feedbackTrend !== 0 && week.weekNumber > currentWeekNumber;
       return {
         weekNumber: week.weekNumber,
-        sessions: week.sessions.map((s, i) => ({
-          id: `${horseId}-w${week.weekNumber}-s${i}`,
-          date: dates[s.dayOffset],
-          dayIndex: s.dayOffset,
-          time: s.time,
-          title: s.title,
-          durationMin: s.durationMin,
-          focus: s.focus,
-          intensity: s.intensity,
-          equipment: s.equipment,
-          exercises: s.exercises,
-        })),
+        sessions: week.sessions.map((s, i) => {
+          const intensity = applyTrend ? shiftIntensity(s.intensity, feedbackTrend) : s.intensity;
+          const durationMin = applyTrend ? rescaleDuration(s.durationMin, s.intensity, intensity) : s.durationMin;
+          return {
+            id: `${horseId}-w${week.weekNumber}-s${i}`,
+            date: dates[s.dayOffset],
+            dayIndex: s.dayOffset,
+            time: s.time,
+            title: s.title,
+            durationMin,
+            focus: s.focus,
+            intensity,
+            equipment: s.equipment,
+            setupNotes: s.setupNotes,
+            exercises: s.exercises,
+          };
+        }),
       };
     });
-  }, [program, horseId, getWeekDates]);
+  }, [program, horseId, getWeekDates, feedbackTrend, currentWeekNumber]);
+
+  const feedbackNote = useMemo(() => {
+    if (feedbackTrend === -1) {
+      return "Programme allégé sur les prochaines séances : plusieurs séances récentes ressenties comme difficiles.";
+    }
+    if (feedbackTrend === 1) {
+      return "Programme intensifié sur les prochaines séances : les dernières ont été ressenties comme top !";
+    }
+    return null;
+  }, [feedbackTrend]);
+
+  // Demande un éclairage IA sur le texte libre (notes du cavalier, notes de
+  // blessure) — uniquement s'il y a vraiment du texte à interpréter, une
+  // session active (peut ne pas encore exister pendant l'onboarding, cf.
+  // authEpoch ci-dessus), et pas déjà fait pour CE programme précis.
+  useEffect(() => {
+    if (loading || !horseId || !program || !selectedHorse) return;
+
+    const additionalInfo = riderProfile.additionalInfo.trim();
+    const injuriesWithNotes = selectedHorse.injuries.filter((i) => i.note.trim().length > 0);
+    if (!additionalInfo && injuriesWithNotes.length === 0) return;
+
+    const cached = aiNotes[horseId];
+    if (cached && cached.generatedAt === program.generatedAt) return;
+
+    const fetchKey = `${horseId}:${program.generatedAt}`;
+    if (aiFetchingRef.current.has(fetchKey)) return;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return; // pas encore de compte créé — retentera via authEpoch
+
+      aiFetchingRef.current.add(fetchKey);
+      try {
+        const note = await askProgramInsight({
+          horseName: selectedHorse.name,
+          discipline: DISCIPLINES.find((d) => d.value === selectedHorse.discipline)?.label ?? selectedHorse.discipline,
+          riderGoal: RIDER_GOALS.find((g) => g.value === riderProfile.primaryGoal)?.label ?? riderProfile.primaryGoal,
+          additionalInfo,
+          injuries: injuriesWithNotes.map((i) => ({ type: i.type, recoveryStatus: i.recoveryStatus, note: i.note })),
+          safetyNotes: program.safetyNotes,
+        });
+        setAiNotes((prev) => {
+          const next = { ...prev, [horseId]: { generatedAt: program.generatedAt, note } };
+          SecureStore.setItemAsync(AI_NOTES_KEY, JSON.stringify(next));
+          return next;
+        });
+      } catch {
+        // Best-effort : pas d'erreur affichée, on retentera à la prochaine
+        // régénération ou ouverture de session plutôt que de bloquer l'écran.
+      } finally {
+        aiFetchingRef.current.delete(fetchKey);
+      }
+    })();
+  }, [loading, horseId, program, selectedHorse, riderProfile, aiNotes, authEpoch]);
+
+  // `program` doit exister explicitement avant de comparer les `generatedAt` :
+  // sinon, tant qu'aucune note IA n'a encore été mise en cache ET qu'aucun
+  // programme n'a encore été généré (juste après le montage, le temps que
+  // l'effet d'auto-génération ci-dessus se déclenche), les deux côtés valent
+  // `undefined` et `undefined === undefined` passe à `true` — on tente alors
+  // de lire `.note` sur `aiNotes[horseId]`, qui n'existe pas (crash).
+  const cachedNote = horseId ? aiNotes[horseId] : undefined;
+  const aiNote = program && cachedNote?.generatedAt === program.generatedAt ? cachedNote.note : null;
 
   const allSessions = useMemo(() => weeks.flatMap((w) => w.sessions), [weeks]);
   const currentWeek = useMemo(
@@ -229,6 +351,19 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     });
   }, [horseId, program]);
 
+  const clearAll = useCallback(async () => {
+    await Promise.all([
+      SecureStore.deleteItemAsync(PROGRAMS_KEY),
+      SecureStore.deleteItemAsync(SIGNATURES_KEY),
+      SecureStore.deleteItemAsync(BILAN_DISMISSED_KEY),
+      SecureStore.deleteItemAsync(AI_NOTES_KEY),
+    ]);
+    setAllPrograms({});
+    setSignatures({});
+    setBilanDismissedMap({});
+    setAiNotes({});
+  }, []);
+
   const value = useMemo<ProgramContextValue>(
     () => ({
       loading,
@@ -242,6 +377,10 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       isProgramComplete,
       bilanDismissed,
       dismissBilan,
+      clearAll,
+      recordFeedbackTrend,
+      feedbackNote,
+      aiNote,
     }),
     [
       loading,
@@ -255,6 +394,10 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       isProgramComplete,
       bilanDismissed,
       dismissBilan,
+      clearAll,
+      recordFeedbackTrend,
+      feedbackNote,
+      aiNote,
     ]
   );
 

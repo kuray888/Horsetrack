@@ -1,44 +1,57 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Animated, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Locked } from "@/components/Locked";
 import { ProgressBar } from "@/components/onboarding";
+import { usePressScale } from "@/hooks/usePressScale";
 import { useProgress } from "@/progress/store";
 import { useProgram, type PlannedSession } from "@/program/store";
 import { useSubscription } from "@/subscription/store";
+import { restDayActivityFor, useHorses } from "@/horses/store";
 import { WEEK_DAYS_FULL, DAY_LABELS as WEEK_DAYS_SHORT, formatDuration, isSameDate } from "@/lib/dateFormat";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
 function SessionCard({ session, done, onPress }: { session: PlannedSession; done: boolean; onPress: () => void }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} className={`${CARD} flex-row items-center gap-3`}>
-      <View
-        className={`h-11 w-11 items-center justify-center rounded-full ${
-          done ? "bg-success/15" : "bg-primary/15"
-        }`}
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        className={`${CARD} flex-row items-center gap-3`}
       >
-        <Text className="text-lg">{done ? "✓" : "🏇"}</Text>
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text className={`text-base font-bold ${done ? "text-muted line-through" : "text-text"}`}>
-          {session.title}
-        </Text>
-        <Text className="text-sm text-muted">
-          {WEEK_DAYS_FULL[session.dayIndex]} · {session.time} · {session.durationMin} min
-        </Text>
-      </View>
-      <Text className="text-base text-muted">›</Text>
-    </TouchableOpacity>
+        <View
+          className={`h-11 w-11 items-center justify-center rounded-full ${
+            done ? "bg-success/15" : "bg-primary/15"
+          }`}
+        >
+          <Text className="text-lg">{done ? "✓" : "🏇"}</Text>
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text className={`text-base font-bold ${done ? "text-muted line-through" : "text-text"}`}>
+            {session.title}
+          </Text>
+          <Text className="text-sm text-muted">
+            {WEEK_DAYS_FULL[session.dayIndex]} · {session.time} · {session.durationMin} min
+          </Text>
+        </View>
+        <Text className="text-base text-muted">›</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 export default function PlanningScreen() {
   const { isDone, completedCount } = useProgress();
-  const { program, weeks, allSessions, currentWeekNumber, getWeekDates, regenerate } = useProgram();
+  const { program, weeks, allSessions, currentWeekNumber, getWeekDates, regenerate, feedbackNote, aiNote } =
+    useProgram();
   const { isPremium } = useSubscription();
+  const { selectedHorse } = useHorses();
 
   function confirmRegenerate() {
     Alert.alert(
@@ -111,10 +124,18 @@ export default function PlanningScreen() {
         </View>
       </FadeInView>
 
-      {program && (program.personalizationNotes.length > 0 || program.safetyNotes.length > 0) ? (
+      {program &&
+      (program.personalizationNotes.length > 0 || program.safetyNotes.length > 0 || feedbackNote || aiNote) ? (
         <FadeInView delay={90}>
           <View className={`${CARD} gap-2`}>
             <Text className="text-sm font-bold uppercase tracking-wide text-accent">Pourquoi ce programme</Text>
+            {aiNote ? (
+              <Text className="text-sm leading-5 text-text">
+                <Text className="font-semibold">✨ Julien : </Text>
+                {aiNote}
+              </Text>
+            ) : null}
+            {feedbackNote ? <Text className="text-sm leading-5 text-text">🔁 {feedbackNote}</Text> : null}
             {program.personalizationNotes.map((note, i) => (
               <Text key={`p${i}`} className="text-sm leading-5 text-text">
                 💡 {note}
@@ -213,7 +234,16 @@ export default function PlanningScreen() {
           <View className={`${CARD} items-center gap-1`}>
             <Text className="text-2xl">🌿</Text>
             <Text className="text-base font-semibold text-text">Jour de repos</Text>
-            <Text className="text-sm text-muted">Pas de séance prévue ce jour-là.</Text>
+            {selectedHorse && selectedHorse.restDayActivities.length > 0 ? (
+              <Text className="text-center text-sm text-muted">
+                {selectedHorse.name} :{" "}
+                {selectedDay !== null
+                  ? restDayActivityFor(selectedHorse, selectedDay)?.toLowerCase()
+                  : selectedHorse.restDayActivities.join(", ").toLowerCase()}
+              </Text>
+            ) : (
+              <Text className="text-sm text-muted">Pas de séance prévue ce jour-là.</Text>
+            )}
           </View>
         </FadeInView>
       ) : isFutureWeekLocked ? (

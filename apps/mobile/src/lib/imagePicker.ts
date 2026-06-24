@@ -21,6 +21,10 @@ export async function pickAndPersistImage(): Promise<string | null> {
 
   const source = new File(result.assets[0].uri);
   const dest = new File(Paths.document, `horse-${Date.now()}.jpg`);
-  source.copy(dest);
+  try {
+    source.copy(dest);
+  } catch {
+    return null;
+  }
   return dest.uri;
 }

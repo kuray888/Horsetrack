@@ -17,6 +17,7 @@ const TEMP_DISABLE_REVENUECAT = true;
 // module quand TEMP_DISABLE_REVENUECAT est actif, sans dépendre du SDK.
 const Purchases: PurchasesStatic | null = TEMP_DISABLE_REVENUECAT
   ? null
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   : (require("react-native-purchases").default as PurchasesStatic);
 
 /**

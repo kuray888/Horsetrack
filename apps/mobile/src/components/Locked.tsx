@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { Animated, View, Text, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { useSubscription } from "@/subscription/store";
+import { usePressScale } from "@/hooks/usePressScale";
 
 /**
  * Gating « soft » d'un visuel premium.
@@ -23,6 +24,7 @@ export function Locked({
   cta?: string;
 }) {
   const { isPremium } = useSubscription();
+  const { scale, onPressIn, onPressOut } = usePressScale();
 
   if (isPremium) return <>{children}</>;
 
@@ -37,13 +39,17 @@ export function Locked({
       <View className="absolute inset-0 items-center justify-center gap-3 bg-surface/40 p-4">
         <Text className="text-2xl">🔒</Text>
         <Text className="text-center text-sm font-semibold text-text">{message}</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/paywall")}
-          activeOpacity={0.85}
-          className="rounded-full bg-primary px-5 py-2.5"
-        >
-          <Text className="text-sm font-bold text-on-primary">{cta}</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <TouchableOpacity
+            onPress={() => router.push("/paywall")}
+            onPressIn={onPressIn}
+            onPressOut={onPressOut}
+            activeOpacity={0.85}
+            className="rounded-full bg-primary px-5 py-2.5"
+          >
+            <Text className="text-sm font-bold text-on-primary">{cta}</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </View>
   );

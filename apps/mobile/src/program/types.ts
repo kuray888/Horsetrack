@@ -10,6 +10,11 @@ export type SessionType =
 
 export type SessionIntensity = "LOW" | "MEDIUM" | "HIGH";
 
+/** Ajustement d'intensité dérivé du ressenti réel des dernières séances
+ * (cf. progress/store.tsx) : -1 = allège, 0 = inchangé, 1 = intensifie.
+ * S'applique uniquement aux semaines pas encore vécues (cf. program/store.tsx). */
+export type FeedbackTrend = -1 | 0 | 1;
+
 /** Phase du programme — fait varier l'intensité au fil des semaines plutôt
  * que de répéter la même semaine du début à la fin. */
 export type ProgramPhase = "REPRISE" | "DEVELOPPEMENT" | "AFFIRMATION";
@@ -33,6 +38,10 @@ export type SessionTemplate = {
   focus: string;
   intensity: SessionIntensity;
   equipment: string[];
+  /** Repères techniques chiffrés (hauteurs, écartements, allures, durées) —
+   * distincts du matériel : ce sont des points de départ à ajuster au
+   * ressenti, pas des prescriptions strictes (cf. program/rules.ts). */
+  setupNotes: string[];
   exercises: ExerciseStep[];
 };
 

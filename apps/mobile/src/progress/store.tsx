@@ -9,8 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import * as SecureStore from "expo-secure-store";
+import { safeJsonParse } from "@/lib/safeJsonParse";
 import { BADGES, unlockedBadgeIds, type Badge } from "@/program/badges";
-import { useProgram, type ProgramWeekView } from "@/program/store";
+import { useProgram, type PlannedSession, type ProgramWeekView } from "@/program/store";
+import type { FeedbackTrend } from "@/program/types";
 import { useHorses } from "@/horses/store";
 
 /**
@@ -47,6 +49,25 @@ type PersistedAll = Record<string, PersistedForHorse>;
 
 function emptyPersisted(programGeneratedAt: string | null): PersistedForHorse {
   return { completed: {}, bestWeekStreak: 0, debriefs: {}, programGeneratedAt };
+}
+
+/** Nombre de débriefs récents (chronologiques) pris en compte pour la
+ * tendance — assez pour ne pas réagir à un coup de fatigue isolé, assez peu
+ * pour rester réactif d'une semaine à l'autre. */
+const FEEDBACK_WINDOW = 3;
+
+/** Dérive une tendance (-1 = allège, 0 = inchangé, 1 = intensifie) des
+ * derniers débriefs réellement saisis, dans l'ordre chronologique des séances
+ * (cf. program/store.tsx, qui applique cette tendance aux semaines à venir).
+ * Volontairement prudent : il faut une fenêtre pleine de débriefs, et
+ * l'unanimité pour intensifier (un seul "difficile" suffit à ne pas le faire). */
+function computeFeedbackTrend(sessions: PlannedSession[], debriefs: Record<string, Debrief>): FeedbackTrend {
+  const recentMoods = sessions.filter((s) => debriefs[s.id]).slice(-FEEDBACK_WINDOW).map((s) => debriefs[s.id].mood);
+  if (recentMoods.length < FEEDBACK_WINDOW) return 0;
+  const hardCount = recentMoods.filter((m) => m === "hard").length;
+  if (hardCount >= 2) return -1;
+  if (recentMoods.every((m) => m === "great")) return 1;
+  return 0;
 }
 
 /** Semaines complètes d'affilée, en partant de la semaine actuelle vers le passé. */
@@ -86,13 +107,16 @@ type ProgressContextValue = {
   dismissCelebration: () => void;
   getDebrief: (sessionId: string) => Debrief | null;
   saveDebrief: (sessionId: string, debrief: Debrief) => void;
+  /** Efface la progression locale, tous chevaux confondus (cf. suppression
+   * de compte dans Profil). */
+  clearAll: () => Promise<void>;
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const { selectedHorse } = useHorses();
-  const { program, weeks, allSessions, currentWeekNumber } = useProgram();
+  const { program, weeks, allSessions, currentWeekNumber, recordFeedbackTrend } = useProgram();
   const horseId = selectedHorse?.id ?? null;
   const generatedAt = program?.generatedAt ?? null;
 
@@ -104,7 +128,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
-      setAllData(raw ? JSON.parse(raw) : {});
+      setAllData(safeJsonParse<PersistedAll>(raw, {}));
       setLoading(false);
     });
   }, []);
@@ -120,6 +144,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [allData, horseId, generatedAt]);
 
   const epoch = horseId ? `${horseId}:${generatedAt ?? ""}` : null;
+
+  // Pousse la tendance issue des derniers débriefs vers program/store.tsx, qui
+  // ajuste l'intensité des semaines pas encore vécues (cf. computeFeedbackTrend).
+  useEffect(() => {
+    recordFeedbackTrend(computeFeedbackTrend(allSessions, current.debriefs));
+  }, [allSessions, current.debriefs, recordFeedbackTrend]);
 
   // Recalcule le tracker "badges déjà vus" quand on change de cheval ou que
   // son programme est régénéré, pour ne pas déclencher de célébration sur
@@ -173,6 +203,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const isDone = useCallback((sessionId: string) => !!current.completed[sessionId], [current]);
   const dismissCelebration = useCallback(() => setCelebrationBadge(null), []);
 
+  const clearAll = useCallback(async () => {
+    await SecureStore.deleteItemAsync(STORAGE_KEY);
+    setAllData({});
+    prevUnlockedRef.current = new Set();
+  }, []);
+
   const getDebrief = useCallback((sessionId: string) => current.debriefs[sessionId] ?? null, [current]);
 
   const saveDebrief = useCallback(
@@ -207,8 +243,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       dismissCelebration,
       getDebrief,
       saveDebrief,
+      clearAll,
     };
-  }, [current, loading, isDone, toggleSession, celebrationBadge, dismissCelebration, getDebrief, saveDebrief, allSessions.length, weeks, currentWeekNumber]);
+  }, [current, loading, isDone, toggleSession, celebrationBadge, dismissCelebration, getDebrief, saveDebrief, clearAll, allSessions.length, weeks, currentWeekNumber]);
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
 }

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Linking } from "react-native";
+import { Animated, View, Text, TouchableOpacity, ScrollView, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/onboarding";
+import { usePressScale } from "@/hooks/usePressScale";
 import type { SubscriptionPlan } from "@/subscription/store";
 
 const PLANS: { id: SubscriptionPlan; title: string; price: string; sub: string; badge?: string }[] = [
@@ -21,6 +22,40 @@ function Bullet({ text }: { text: string }) {
       <Text className="text-base text-success">✓</Text>
       <Text className="flex-1 text-[15px] text-text">{text}</Text>
     </View>
+  );
+}
+
+function PlanCard({
+  plan,
+  active,
+  onPress,
+}: {
+  plan: (typeof PLANS)[number];
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        className={`rounded-card border p-4 ${active ? "border-primary bg-highlight" : "border-border bg-surface"}`}
+      >
+        <View className="flex-row items-center justify-between">
+          <Text className="text-lg font-bold text-text">{plan.title}</Text>
+          {plan.badge ? (
+            <View className="rounded-full bg-primary px-2.5 py-1">
+              <Text className="text-xs font-bold text-on-primary">{plan.badge}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text className="mt-1 text-xl font-extrabold text-primary">{plan.price}</Text>
+        <Text className="text-sm text-muted">{plan.sub}</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -60,7 +95,7 @@ export function PaywallView({
         <View className="gap-2">
           <Text className="text-3xl font-extrabold leading-tight tracking-tight text-text">{title}</Text>
           <Text className="text-base text-muted">
-            Accès complet. Annulable à tout moment avant la fin de l'essai.
+            Accès complet. Annulable à tout moment avant la fin de l&apos;essai.
           </Text>
         </View>
 
@@ -72,30 +107,9 @@ export function PaywallView({
         </View>
 
         <View className="gap-3">
-          {PLANS.map((plan) => {
-            const active = selected === plan.id;
-            return (
-              <TouchableOpacity
-                key={plan.id}
-                activeOpacity={0.85}
-                onPress={() => setSelected(plan.id)}
-                className={`rounded-card border p-4 ${
-                  active ? "border-primary bg-highlight" : "border-border bg-surface"
-                }`}
-              >
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-lg font-bold text-text">{plan.title}</Text>
-                  {plan.badge ? (
-                    <View className="rounded-full bg-primary px-2.5 py-1">
-                      <Text className="text-xs font-bold text-on-primary">{plan.badge}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text className="mt-1 text-xl font-extrabold text-primary">{plan.price}</Text>
-                <Text className="text-sm text-muted">{plan.sub}</Text>
-              </TouchableOpacity>
-            );
-          })}
+          {PLANS.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} active={selected === plan.id} onPress={() => setSelected(plan.id)} />
+          ))}
         </View>
       </ScrollView>
 

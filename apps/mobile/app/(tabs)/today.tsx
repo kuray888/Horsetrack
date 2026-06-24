@@ -8,12 +8,11 @@ import { Screen } from "@/components/Screen";
 import { Locked } from "@/components/Locked";
 import { useCountUp } from "@/hooks/useCountUp";
 import { colors } from "@/theme/colors";
+import { MONTHS, isSameDate } from "@/lib/dateFormat";
 import { useProgress } from "@/progress/store";
-import { useHorses } from "@/horses/store";
+import { restDayActivityFor, useHorses } from "@/horses/store";
 import { useProgram } from "@/program/store";
-
-// --- Données mock (à brancher sur l'API plus tard) ---
-const precision = { done: 18, target: 24 };
+import { useAgenda, type AppointmentType } from "@/agenda/store";
 
 const TIPS = [
   "Varie les allures à l'échauffement pour mieux préparer les muscles de ton cheval.",
@@ -22,23 +21,35 @@ const TIPS = [
   "Mieux vaut une séance courte et régulière qu'une longue séance espacée.",
 ];
 
-type UpcomingType = "seance" | "veto" | "competition";
+type UpcomingType = "seance" | AppointmentType;
 
-const upcoming: { id: string; type: UpcomingType; title: string; when: string }[] = [
-  { id: "1", type: "seance", title: "Séance dressage", when: "Aujourd'hui · 17h00" },
-  { id: "2", type: "veto", title: "Rappel vaccin", when: "Demain · 09h00" },
-  { id: "3", type: "competition", title: "Concours CSO", when: "Sam. 21 juin" },
-  { id: "4", type: "seance", title: "Séance saut", when: "Lun. 23 juin · 18h00" },
-];
+type UpcomingItem = { id: string; type: UpcomingType; title: string; date: Date; when: string };
+
+const DAY_SHORT_BY_GETDAY = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
+
+function formatWhen(date: Date, time?: string): string {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const suffix = time ? ` · ${time}` : "";
+  if (isSameDate(date, todayStart)) return `Aujourd'hui${suffix}`;
+  if (isSameDate(date, tomorrowStart)) return `Demain${suffix}`;
+  return `${DAY_SHORT_BY_GETDAY[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}${suffix}`;
+}
 
 // Classes statiques par type (NativeWind ne supporte pas les classes dynamiques `bg-${x}`)
 const TYPE_META: Record<
   UpcomingType,
   { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; chip: string; tint: string; tag: string }
 > = {
-  seance: { label: "Séance", icon: "horse-variant", chip: "bg-primary/15", tint: colors.primary, tag: "text-primary" },
-  veto: { label: "Vétérinaire", icon: "needle", chip: "bg-warning/15", tint: colors.warning, tag: "text-warning" },
-  competition: { label: "Compétition", icon: "trophy-outline", chip: "bg-accent/15", tint: colors.accent, tag: "text-accent" },
+  seance: { label: "Séance", icon: "horse-variant", chip: "bg-primary/15", tint: colors.event.seance, tag: "text-primary" },
+  veto: { label: "Vétérinaire", icon: "needle", chip: "bg-warning/15", tint: colors.event.veto, tag: "text-warning" },
+  osteo: { label: "Ostéopathe", icon: "bone", chip: "bg-accent/15", tint: colors.event.osteo, tag: "text-accent" },
+  marechal: { label: "Maréchal-ferrant", icon: "hammer", chip: "bg-primary/15", tint: colors.event.marechal, tag: "text-primary" },
+  dentiste: { label: "Dentiste équin", icon: "tooth-outline", chip: "bg-success/15", tint: colors.event.dentiste, tag: "text-success" },
+  concours: { label: "Compétition", icon: "trophy-outline", chip: "bg-accent/15", tint: colors.event.concours, tag: "text-accent" },
+  autre: { label: "Rendez-vous", icon: "calendar-blank-outline", chip: "bg-border", tint: colors.event.autre, tag: "text-muted" },
 };
 
 // Carte blanche standard, réutilisée tel quel
@@ -67,15 +78,27 @@ function weeklyRecapMessage(done: number, total: number): string {
 export default function TodayScreen() {
   const { isDone, xp, xpIntoLevel, xpGoal, level, weekStreak, bestWeekStreak } = useProgress();
   const { horses, selectedHorse, selectHorse } = useHorses();
-  const { program, currentWeek, isProgramComplete, bilanDismissed } = useProgram();
+  const { program, currentWeek, allSessions, isProgramComplete, bilanDismissed } = useProgram();
+  const { appointments } = useAgenda();
   const horse = selectedHorse;
   const xpAnimated = useCountUp(xp);
-  const precisionTarget = Math.round((precision.done / precision.target) * 100);
-  const precisionPct = useCountUp(precisionTarget);
 
   const weekSessions = currentWeek?.sessions ?? [];
   const weekDoneCount = weekSessions.filter((s) => isDone(s.id)).length;
   const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // 0 = lundi ... 6 = dimanche (même convention que dayOffset/dayIndex ailleurs
+  // dans l'app, cf. program/store.tsx).
+  const todayDayOffset = (today.getDay() + 6) % 7;
+
+  // Assiduité réelle : part des séances déjà passées (programme entier, pas
+  // juste la semaine en cours) effectivement cochées comme faites — calculée
+  // à partir des vraies données de progression, contrairement à l'ancienne
+  // carte "Précision" qui affichait un chiffre fictif sans rien derrière.
+  const pastSessions = allSessions.filter((s) => s.date <= todayStart);
+  const pastDoneCount = pastSessions.filter((s) => isDone(s.id)).length;
+  const adherenceTarget = pastSessions.length > 0 ? Math.round((pastDoneCount / pastSessions.length) * 100) : 0;
+  const adherencePct = useCountUp(adherenceTarget);
   const todaySession =
     weekSessions.find(
       (s) =>
@@ -83,6 +106,18 @@ export default function TodayScreen() {
         s.date.getMonth() === today.getMonth() &&
         s.date.getDate() === today.getDate()
     ) ?? null;
+
+  // "À venir" : fusion des prochaines séances (non faites) et rendez-vous Agenda,
+  // triés par date — remplace l'ancienne liste mockée, déconnectée des vraies données.
+  const upcoming: UpcomingItem[] = [
+    ...allSessions
+      .filter((s) => s.date >= todayStart && !isDone(s.id))
+      .map((s) => ({ id: `session-${s.id}`, type: "seance" as const, title: s.title, date: s.date, when: formatWhen(s.date, s.time) })),
+    ...appointments
+      .filter((a) => a.date >= todayStart)
+      .map((a) => ({ id: `appt-${a.id}`, type: a.type, title: a.title, date: a.date, when: formatWhen(a.date, a.time) })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
   const weekStreakDots = Array.from({ length: 7 }, (_, i) => {
     const session = weekSessions.find((s) => s.dayIndex === i);
     return session ? isDone(session.id) : false;
@@ -178,7 +213,13 @@ export default function TodayScreen() {
             if (todaySession) {
               router.push({ pathname: "/session-detail-modal", params: { id: todaySession.id } });
             } else {
-              Alert.alert("Jour de repos", "Aucune séance n'est prévue aujourd'hui.");
+              const activity = horse ? restDayActivityFor(horse, todayDayOffset) : null;
+              Alert.alert(
+                "Jour de repos",
+                activity && horse
+                  ? `Aucune séance aujourd'hui. ${horse.name} : ${activity.toLowerCase()}.`
+                  : "Aucune séance n'est prévue aujourd'hui."
+              );
             }
           }}
           className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
@@ -216,7 +257,7 @@ export default function TodayScreen() {
                   </View>
                   <View>
                     <Text className="text-xl font-extrabold text-text">{weekStreak} semaine{weekStreak !== 1 ? "s" : ""}</Text>
-                    <Text className="text-sm text-muted">complète{weekStreak !== 1 ? "s" : ""} d'affilée</Text>
+                    <Text className="text-sm text-muted">complète{weekStreak !== 1 ? "s" : ""} d&apos;affilée</Text>
                   </View>
                 </View>
                 <View className="rounded-full bg-highlight px-3 py-1.5">
@@ -271,11 +312,11 @@ export default function TodayScreen() {
               </View>
               <View className={`${CARD} flex-1 gap-1`}>
                 <Text className="text-3xl font-extrabold tracking-tight text-text">
-                  {Math.round(precisionPct)}%
+                  {Math.round(adherencePct)}%
                 </Text>
-                <Text className="text-sm font-semibold text-muted">Précision</Text>
+                <Text className="text-sm font-semibold text-muted">Assiduité</Text>
                 <Text className="text-xs text-muted">
-                  {precision.done}/{precision.target} exercices
+                  {pastDoneCount}/{pastSessions.length} séances
                 </Text>
               </View>
             </View>
@@ -302,33 +343,40 @@ export default function TodayScreen() {
       <FadeInView delay={400}>
         <View className="mt-1 flex-row items-center justify-between">
           <Text className="text-xl font-bold text-text">À venir</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/(tabs)/agenda")}>
             <Text className="text-sm font-semibold text-accent">Voir tout</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
 
       <FadeInView delay={440}>
-        <View className={CARD}>
-          {upcoming.slice(0, 3).map((item, i) => {
-            const meta = TYPE_META[item.type];
-            return (
-              <View
-                key={item.id}
-                className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
-              >
-                <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
-                  <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
+        {upcoming.length === 0 ? (
+          <View className={`${CARD} items-center gap-1`}>
+            <Text className="text-2xl">🌿</Text>
+            <Text className="text-sm text-muted">Rien de prévu pour l&apos;instant.</Text>
+          </View>
+        ) : (
+          <View className={CARD}>
+            {upcoming.slice(0, 3).map((item, i) => {
+              const meta = TYPE_META[item.type];
+              return (
+                <View
+                  key={item.id}
+                  className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
+                >
+                  <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
+                    <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
+                  </View>
+                  <View className="flex-1 gap-0.5">
+                    <Text className="text-[15px] font-semibold text-text">{item.title}</Text>
+                    <Text className="text-sm text-muted">{item.when}</Text>
+                  </View>
+                  <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
                 </View>
-                <View className="flex-1 gap-0.5">
-                  <Text className="text-[15px] font-semibold text-text">{item.title}</Text>
-                  <Text className="text-sm text-muted">{item.when}</Text>
-                </View>
-                <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </FadeInView>
     </Screen>
   );

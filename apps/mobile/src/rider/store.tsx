@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
+import { safeJsonParse } from "@/lib/safeJsonParse";
+import { pushRiderProfile } from "@/lib/cloudSync";
 import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
 
 /**
- * Profil cavalier, persisté localement (en attendant Supabase, cf.
- * onboarding/persist.ts) — pendant de horses/store.tsx pour le cavalier :
+ * Profil cavalier, persisté localement et sauvegardé vers Supabase en
+ * best-effort (cf. lib/cloudSync.ts) — pendant de horses/store.tsx pour le cavalier :
  * sans ce store, les réponses d'onboarding (niveau, discipline, objectif...)
  * n'auraient jamais existé ailleurs que dans le contexte d'onboarding, démonté
  * une fois l'utilisateur sorti du groupe de routes (onboarding).
@@ -32,6 +34,8 @@ type RiderProfileContextValue = {
   loading: boolean;
   riderProfile: RiderProfile;
   setRiderProfile: (profile: RiderProfile) => void;
+  /** Efface le profil local (cf. suppression de compte dans Profil). */
+  clearAll: () => Promise<void>;
 };
 
 const RiderProfileContext = createContext<RiderProfileContextValue | null>(null);
@@ -42,7 +46,7 @@ export function RiderProfileProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
-      setRiderProfileState(raw ? JSON.parse(raw) : DEFAULT_RIDER_PROFILE);
+      setRiderProfileState(safeJsonParse(raw, DEFAULT_RIDER_PROFILE));
       setLoading(false);
     });
   }, []);
@@ -50,11 +54,18 @@ export function RiderProfileProvider({ children }: { children: ReactNode }) {
   const setRiderProfile = useCallback((profile: RiderProfile) => {
     setRiderProfileState(profile);
     SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(profile));
+    // Best-effort, jamais bloquant : cf. lib/cloudSync.ts.
+    pushRiderProfile(profile).catch(() => {});
+  }, []);
+
+  const clearAll = useCallback(async () => {
+    await SecureStore.deleteItemAsync(STORAGE_KEY);
+    setRiderProfileState(DEFAULT_RIDER_PROFILE);
   }, []);
 
   const value = useMemo<RiderProfileContextValue>(
-    () => ({ loading, riderProfile, setRiderProfile }),
-    [loading, riderProfile, setRiderProfile]
+    () => ({ loading, riderProfile, setRiderProfile, clearAll }),
+    [loading, riderProfile, setRiderProfile, clearAll]
   );
 
   return <RiderProfileContext.Provider value={value}>{children}</RiderProfileContext.Provider>;

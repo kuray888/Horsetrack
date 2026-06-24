@@ -25,6 +25,7 @@ export default function HorseTemperament() {
         <MultiSelectChips
           options={HORSE_TEMPERAMENTS}
           values={editingHorse.temperament}
+          allowCustom
           onToggle={(t) => updateEditingHorse({ temperament: toggle(editingHorse.temperament, t) })}
         />
       </View>
@@ -34,6 +35,7 @@ export default function HorseTemperament() {
         <MultiSelectChips
           options={HORSE_TRAITS}
           values={editingHorse.strengths}
+          allowCustom
           onToggle={(t) =>
             updateEditingHorse({
               strengths: toggle(editingHorse.strengths, t),
@@ -49,6 +51,7 @@ export default function HorseTemperament() {
         <MultiSelectChips
           options={HORSE_TRAITS}
           values={editingHorse.weaknesses}
+          allowCustom
           onToggle={(t) =>
             updateEditingHorse({
               weaknesses: toggle(editingHorse.weaknesses, t),

@@ -1,15 +1,29 @@
-import { ReactNode } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { Animated, View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { usePressScale } from "@/hooks/usePressScale";
+import { FadeInView } from "@/components/FadeInView";
 import type { Option } from "@/onboarding/options";
 
-/** Barre de progression fine en haut de chaque étape. */
+/** Barre de progression fine en haut de chaque étape — le remplissage est
+ * animé (au lieu de sauter directement à la valeur cible) plutôt que statique,
+ * pour accompagner la progression dans l'onboarding comme dans le programme
+ * (cf. Planning, qui réutilise ce composant pour le taux de complétion). */
 export function ProgressBar({ step, total }: { step: number; total: number }) {
-  const pct = Math.round((step / total) * 100);
+  const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((step / total) * 100))) : 0;
+  const width = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(width, { toValue: pct, duration: 400, useNativeDriver: false }).start();
+  }, [pct, width]);
+
   return (
     <View className="h-1.5 w-full overflow-hidden rounded-full bg-border">
-      <View className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+      <Animated.View
+        className="h-full rounded-full bg-primary"
+        style={{ width: width.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) }}
+      />
     </View>
   );
 }
@@ -56,11 +70,15 @@ export function OnboardingShell({
         contentContainerClassName="px-5 pt-6 pb-4 gap-5"
         showsVerticalScrollIndicator={false}
       >
-        <View className="gap-2">
-          <Text className="text-2xl font-extrabold tracking-tight text-text">{title}</Text>
-          {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
-        </View>
-        {children}
+        <FadeInView>
+          <View className="gap-2">
+            <Text className="text-2xl font-extrabold tracking-tight text-text">{title}</Text>
+            {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
+          </View>
+        </FadeInView>
+        <FadeInView delay={80}>
+          <View className="gap-5">{children}</View>
+        </FadeInView>
       </ScrollView>
 
       <View className="px-5 pb-2 pt-3">
@@ -79,19 +97,24 @@ export function PrimaryButton({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.85}
-      className={`items-center rounded-card p-4 ${disabled ? "bg-border" : "bg-primary"}`}
-    >
-      <Text
-        className={`text-base font-bold ${disabled ? "text-muted" : "text-on-primary"}`}
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={disabled}
+        activeOpacity={0.85}
+        className={`items-center rounded-card p-4 ${disabled ? "bg-border" : "bg-primary"}`}
       >
-        {label}
-      </Text>
-    </TouchableOpacity>
+        <Text
+          className={`text-base font-bold ${disabled ? "text-muted" : "text-on-primary"}`}
+        >
+          {label}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -107,22 +130,27 @@ export function OptionCard({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      className={`flex-row items-center gap-3 rounded-card border p-4 ${
-        selected ? "border-primary bg-highlight" : "border-border bg-surface"
-      }`}
-    >
-      {emoji ? <Text className="text-xl">{emoji}</Text> : null}
-      <Text
-        className={`flex-1 text-base font-semibold ${selected ? "text-primary" : "text-text"}`}
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        activeOpacity={0.8}
+        className={`flex-row items-center gap-3 rounded-card border p-4 ${
+          selected ? "border-primary bg-highlight" : "border-border bg-surface"
+        }`}
       >
-        {label}
-      </Text>
-      {selected ? <Text className="text-lg font-bold text-primary">✓</Text> : null}
-    </TouchableOpacity>
+        {emoji ? <Text className="text-xl">{emoji}</Text> : null}
+        <Text
+          className={`flex-1 text-base font-semibold ${selected ? "text-primary" : "text-text"}`}
+        >
+          {label}
+        </Text>
+        {selected ? <Text className="text-lg font-bold text-primary">✓</Text> : null}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -151,37 +179,81 @@ export function SingleSelect<T extends string>({
   );
 }
 
-/** Puces multi-select (points forts / faibles). */
+/**
+ * Puces multi-select (points forts / faibles, tempérament, activités de
+ * repos...). `allowCustom` ajoute un champ libre pour les tags hors liste
+ * suggérée — ils s'affichent ensuite comme des puces normales (retaper
+ * dessus les retire, comme pour une puce de la liste qu'on désélectionne).
+ */
 export function MultiSelectChips({
   options,
   values,
   onToggle,
+  allowCustom = false,
 }: {
   options: string[];
   values: string[];
   onToggle: (value: string) => void;
+  allowCustom?: boolean;
 }) {
+  const [customInput, setCustomInput] = useState("");
+  const customValues = values.filter((v) => !options.includes(v));
+
+  function addCustom() {
+    const trimmed = customInput.trim();
+    if (!trimmed || values.includes(trimmed)) return;
+    onToggle(trimmed);
+    setCustomInput("");
+  }
+
   return (
-    <View className="flex-row flex-wrap gap-2">
-      {options.map((opt) => {
-        const selected = values.includes(opt);
-        return (
+    <View className="gap-2.5">
+      <View className="flex-row flex-wrap gap-2">
+        {[...options, ...customValues].map((opt) => {
+          const selected = values.includes(opt);
+          return (
+            <TouchableOpacity
+              key={opt}
+              onPress={() => onToggle(opt)}
+              activeOpacity={0.8}
+              className={`rounded-full border px-4 py-2.5 ${
+                selected ? "border-primary bg-highlight" : "border-border bg-surface"
+              }`}
+            >
+              <Text
+                className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}
+              >
+                {opt}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {allowCustom ? (
+        <View className="flex-row items-center gap-2">
+          <TextInput
+            className="flex-1 rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-text"
+            placeholder="Autre (préciser)…"
+            value={customInput}
+            onChangeText={setCustomInput}
+            onSubmitEditing={addCustom}
+            returnKeyType="done"
+          />
           <TouchableOpacity
-            key={opt}
-            onPress={() => onToggle(opt)}
+            onPress={addCustom}
+            disabled={!customInput.trim()}
             activeOpacity={0.8}
-            className={`rounded-full border px-4 py-2.5 ${
-              selected ? "border-primary bg-highlight" : "border-border bg-surface"
+            className={`h-9 w-9 items-center justify-center rounded-full ${
+              customInput.trim() ? "bg-primary" : "bg-border"
             }`}
           >
-            <Text
-              className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}
-            >
-              {opt}
+            <Text className={`text-base font-bold ${customInput.trim() ? "text-on-primary" : "text-muted"}`}>
+              +
             </Text>
           </TouchableOpacity>
-        );
-      })}
+        </View>
+      ) : null}
     </View>
   );
 }

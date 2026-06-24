@@ -43,7 +43,7 @@ export default function BilanModal() {
           </Text>
           <Text className="text-center text-sm leading-5 text-muted">
             Avant de repartir, dis-nous ce qui a changé pour adapter le prochain programme : forme, blessures,
-            objectifs, ce qui s'est bien ou mal passé.
+            objectifs, ce qui s&apos;est bien ou mal passé.
           </Text>
         </View>
 

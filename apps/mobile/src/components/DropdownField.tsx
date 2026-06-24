@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Modal, ScrollView, Text, TouchableOpacity } from "react-native";
 import { Field } from "@/components/Field";
 
 export type DropdownOption<T extends string> = { value: T; label: string };
