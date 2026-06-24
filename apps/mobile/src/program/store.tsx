@@ -60,8 +60,13 @@ export type ProgramWeekView = {
 type PersistedPrograms = Record<string, GeneratedProgram>;
 type PersistedSignatures = Record<string, string>;
 /** `note: null` = appel déjà fait, rien d'exploitable à afficher (cf.
- * sentinelle "RIEN" côté /api/program-insight) — distinct de "pas encore demandé". */
-type PersistedAiNotes = Record<string, { generatedAt: string; note: string | null }>;
+ * sentinelle "RIEN" côté /api/program-insight) — distinct de "pas encore demandé".
+ * `textSignature` couvre le texte libre (notes du cavalier, notes de blessure) :
+ * ces champs ne font pas partie de `importantSignature` (qui ne régénère le
+ * programme que sur un changement structurel/sécurité), donc sans ce second
+ * signal le cache ne se rafraîchirait jamais après une simple modification de
+ * texte tant que `program.generatedAt` reste le même. */
+type PersistedAiNotes = Record<string, { generatedAt: string; textSignature: string; note: string | null }>;
 
 /** Seuls les champs qui changent vraiment la structure ou la sécurité du
  * programme déclenchent une régénération automatique — un changement de nom
@@ -285,10 +290,11 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     const injuriesWithNotes = selectedHorse.injuries.filter((i) => i.note.trim().length > 0);
     if (!additionalInfo && injuriesWithNotes.length === 0) return;
 
+    const textSignature = JSON.stringify([additionalInfo, injuriesWithNotes.map((i) => i.note.trim())]);
     const cached = aiNotes[horseId];
-    if (cached && cached.generatedAt === program.generatedAt) return;
+    if (cached && cached.generatedAt === program.generatedAt && cached.textSignature === textSignature) return;
 
-    const fetchKey = `${horseId}:${program.generatedAt}`;
+    const fetchKey = `${horseId}:${program.generatedAt}:${textSignature}`;
     if (aiFetchingRef.current.has(fetchKey)) return;
 
     (async () => {
@@ -306,7 +312,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
           safetyNotes: program.safetyNotes,
         });
         setAiNotes((prev) => {
-          const next = { ...prev, [horseId]: { generatedAt: program.generatedAt, note } };
+          const next = { ...prev, [horseId]: { generatedAt: program.generatedAt, textSignature, note } };
           SecureStore.setItemAsync(AI_NOTES_KEY, JSON.stringify(next));
           return next;
         });

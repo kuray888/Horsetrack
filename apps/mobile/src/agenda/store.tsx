@@ -58,6 +58,14 @@ export type Doc = {
 const APPOINTMENTS_KEY = "agenda_appointments_v1";
 const DOCUMENTS_KEY = "agenda_documents_v1";
 
+// Suffixe aléatoire en plus du timestamp : deux ajouts dans la même
+// milliseconde (double-tap sur "Ajouter") ne doivent jamais produire le même
+// id, sinon `deleteAppointment`/`toggleChecklistItem` agiraient sur les deux
+// entrées à la fois.
+function generateId(prefix: string): string {
+  return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function daysFromNow(offset: number): Date {
   const d = new Date();
   d.setDate(d.getDate() + offset);
@@ -219,7 +227,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, [documents, loaded]);
 
   const addAppointment = useCallback((appt: NewAppointment) => {
-    setAppointments((list) => [...list, { ...appt, id: String(Date.now()), result: null, checklist: appt.checklist ?? [] }]);
+    setAppointments((list) => [...list, { ...appt, id: generateId("a"), result: null, checklist: appt.checklist ?? [] }]);
   }, []);
 
   const deleteAppointment = useCallback((appt: Appointment) => {
@@ -245,7 +253,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     setAppointments((list) =>
       list.map((a) =>
         a.id === apptId
-          ? { ...a, checklist: [...a.checklist, { id: `c${Date.now()}`, label, checked: false }] }
+          ? { ...a, checklist: [...a.checklist, { id: generateId("c"), label, checked: false }] }
           : a
       )
     );
@@ -258,7 +266,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDocument = useCallback((doc: Omit<Doc, "id">) => {
-    setDocuments((list) => [...list, { ...doc, id: String(Date.now()) }]);
+    setDocuments((list) => [...list, { ...doc, id: generateId("d") }]);
   }, []);
 
   const deleteDocument = useCallback((docId: string) => {

@@ -92,6 +92,15 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
   const { riderProfile } = useRiderProfile();
   const { program, currentWeek } = useProgram();
 
+  // L'onglet Coach reste monté en arrière-plan en changeant d'onglet (cf.
+  // (tabs)/_layout.tsx) : sans ça, changer de cheval sélectionné sur Today
+  // puis revenir sur Coach garderait l'historique de conversation de l'ancien
+  // cheval alors que le contexte envoyé au LLM (profil, séance du jour) est
+  // déjà celui du nouveau — le coach répondrait avec un contexte incohérent.
+  useEffect(() => {
+    setMessages([]);
+  }, [horse?.id]);
+
   const horseName = horse?.name?.trim() || "ton cheval";
   const today = new Date();
   const todaySession =

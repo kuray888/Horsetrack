@@ -143,8 +143,28 @@ export async function POST(req: NextRequest) {
   const dailyLimit = isPremiumRider(riderProfile) ? DAILY_MESSAGE_LIMIT_PREMIUM : DAILY_MESSAGE_LIMIT_FREE;
 
   const today = new Date().toISOString().slice(0, 10);
-  const usage = await db.coachUsage.findUnique({ where: { userId_date: { userId, date: today } } });
-  if (usage && usage.count >= dailyLimit) {
+
+  // Incrémente d'abord, vérifie ensuite : un read-then-write (lire le compteur,
+  // comparer, puis écrire seulement après l'appel LLM) laisse une fenêtre de
+  // course où deux requêtes concurrentes lisent le même compteur avant
+  // incrément et passent toutes les deux la limite. L'incrément Prisma se
+  // traduit en `UPDATE ... SET count = count + 1`, atomique côté Postgres, donc
+  // plus de fenêtre de course. En contrepartie, on décrémente explicitement
+  // dans toutes les branches d'échec ci-dessous pour ne jamais facturer un
+  // message qui n'a pas obtenu de réponse exploitable.
+  const usage = await db.coachUsage.upsert({
+    where: { userId_date: { userId, date: today } },
+    update: { count: { increment: 1 } },
+    create: { userId, date: today, count: 1 },
+  });
+
+  const releaseUsage = () =>
+    db.coachUsage
+      .update({ where: { userId_date: { userId, date: today } }, data: { count: { decrement: 1 } } })
+      .catch(() => {});
+
+  if (usage.count > dailyLimit) {
+    await releaseUsage();
     return NextResponse.json({ error: "Limite quotidienne de messages atteinte. Réessaie demain." }, { status: 429 });
   }
 
@@ -167,27 +187,32 @@ export async function POST(req: NextRequest) {
     });
 
     if (openRouterRes.status === 429) {
+      await releaseUsage();
       return NextResponse.json({ error: "Le coach est surchargé, réessaie dans un instant." }, { status: 503 });
     }
     if (!openRouterRes.ok) {
+      await releaseUsage();
       return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
     }
 
     const data = await openRouterRes.json();
     const choice = data.choices?.[0]?.message;
 
-    await db.coachUsage.upsert({
-      where: { userId_date: { userId, date: today } },
-      update: { count: { increment: 1 } },
-      create: { userId, date: today, count: 1 },
-    });
+    // Une réponse sans contenu exploitable (choices vide, content manquant) ne
+    // doit pas consommer le quota quotidien de l'utilisateur pour un message
+    // auquel il n'a en pratique pas eu de réponse.
+    if (!choice?.refusal && !choice?.content) {
+      await releaseUsage();
+      return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
+    }
 
-    const reply: string = choice?.refusal
+    const reply: string = choice.refusal
       ? "Désolé, je ne peux pas répondre à ça — pose-moi une question sur l'entraînement, la santé ou la progression de ton cheval."
-      : choice?.content || "Désolé, je n'ai pas de réponse pour l'instant.";
+      : choice.content;
 
     return NextResponse.json({ reply });
   } catch {
+    await releaseUsage();
     return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
   }
 }
