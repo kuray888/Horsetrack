@@ -1,8 +1,11 @@
 import { Platform } from "react-native";
 import type { PurchasesPackage } from "react-native-purchases";
-import type { SubscriptionPlan } from "@/subscription/store";
+import type { BillingPeriod, SubscriptionTier } from "@/subscription/store";
 
 type PurchasesStatic = typeof import("react-native-purchases").default;
+
+/** Palier payant — FREE n'a pas de produit RevenueCat associé. */
+export type PaidTier = Exclude<SubscriptionTier, "FREE">;
 
 /**
  * Coupe-circuit temporaire pour tester le reste de l'app dans Expo Go sans
@@ -21,17 +24,28 @@ const Purchases: PurchasesStatic | null = TEMP_DISABLE_REVENUECAT
   : (require("react-native-purchases").default as PurchasesStatic);
 
 /**
- * Identifiant d'entitlement RevenueCat qui débloque l'accès premium — doit
- * correspondre exactement à l'entitlement créé dans le dashboard RevenueCat.
+ * Identifiants d'entitlement RevenueCat — doivent correspondre exactement aux
+ * entitlements créés dans le dashboard RevenueCat. Le produit Grand Prix doit
+ * être rattaché aux DEUX entitlements `paddock` et `grand_prix` (Grand Prix
+ * est un sur-ensemble de Paddock), Paddock uniquement à `paddock`.
  */
-export const ENTITLEMENT_ID = "premium";
+export const ENTITLEMENT_ID: Record<PaidTier, string> = {
+  PADDOCK: "paddock",
+  GRAND_PRIX: "grand_prix",
+};
+export const EXTRA_HORSE_ENTITLEMENT_ID = "extra_horse";
 
-/** Identifiants de package RevenueCat (convention par défaut d'une Offering
- * "Monthly + Annual") — à ajuster si les packages créés dans le dashboard
- * portent d'autres identifiants. */
-const PACKAGE_IDENTIFIER: Record<SubscriptionPlan, string> = {
-  MONTHLY: "$rc_monthly",
-  ANNUAL: "$rc_annual",
+/** Identifiants de package RevenueCat — custom (pas les `$rc_monthly`/`$rc_annual`
+ * spéciaux, réservés à une offering à un seul produit) : 2 paliers × 2
+ * fréquences + l'add-on × 2 fréquences, à créer avec ces identifiants exacts
+ * dans le dashboard RevenueCat. */
+const PACKAGE_IDENTIFIER: Record<PaidTier, Record<BillingPeriod, string>> = {
+  PADDOCK: { MONTHLY: "paddock_monthly", ANNUAL: "paddock_annual" },
+  GRAND_PRIX: { MONTHLY: "grand_prix_monthly", ANNUAL: "grand_prix_annual" },
+};
+const ADDON_PACKAGE_IDENTIFIER: Record<BillingPeriod, string> = {
+  MONTHLY: "extra_horse_monthly",
+  ANNUAL: "extra_horse_annual",
 };
 
 let configured = false;
@@ -72,14 +86,23 @@ export async function logoutRevenueCat(): Promise<void> {
   await Purchases.logOut();
 }
 
-export async function getPackageForPlan(plan: SubscriptionPlan): Promise<PurchasesPackage | null> {
+export async function getPackageForTier(
+  tier: PaidTier,
+  period: BillingPeriod
+): Promise<PurchasesPackage | null> {
   if (!configured || !Purchases) return null;
   const offerings = await Purchases.getOfferings();
   const current = offerings.current;
   if (!current) return null;
-  return (
-    current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[plan]) ?? null
-  );
+  return current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[tier][period]) ?? null;
+}
+
+export async function getAddonPackage(period: BillingPeriod): Promise<PurchasesPackage | null> {
+  if (!configured || !Purchases) return null;
+  const offerings = await Purchases.getOfferings();
+  const current = offerings.current;
+  if (!current) return null;
+  return current.availablePackages.find((p) => p.identifier === ADDON_PACKAGE_IDENTIFIER[period]) ?? null;
 }
 
 export { Purchases };

@@ -13,6 +13,7 @@ import { useProgress } from "@/progress/store";
 import { restDayActivityFor, useHorses } from "@/horses/store";
 import { useProgram } from "@/program/store";
 import { useAgenda, type AppointmentType } from "@/agenda/store";
+import { maxHorses, useSubscription } from "@/subscription/store";
 
 const TIPS = [
   "Varie les allures à l'échauffement pour mieux préparer les muscles de ton cheval.",
@@ -80,6 +81,9 @@ export default function TodayScreen() {
   const { horses, selectedHorse, selectHorse } = useHorses();
   const { program, currentWeek, allSessions, isProgramComplete, bilanDismissed } = useProgram();
   const { appointments } = useAgenda();
+  const subscription = useSubscription();
+  const { isGrandPrix } = subscription;
+  const horseLimit = maxHorses(subscription);
   const horse = selectedHorse;
   const xpAnimated = useCountUp(xp);
 
@@ -110,9 +114,12 @@ export default function TodayScreen() {
   // "À venir" : fusion des prochaines séances (non faites) et rendez-vous Agenda,
   // triés par date — remplace l'ancienne liste mockée, déconnectée des vraies données.
   const upcoming: UpcomingItem[] = [
-    ...allSessions
-      .filter((s) => s.date >= todayStart && !isDone(s.id))
-      .map((s) => ({ id: `session-${s.id}`, type: "seance" as const, title: s.title, date: s.date, when: formatWhen(s.date, s.time) })),
+    // Les séances de programme ne sont des items "à venir" actionnables que pour Grand Prix.
+    ...(isGrandPrix
+      ? allSessions
+          .filter((s) => s.date >= todayStart && !isDone(s.id))
+          .map((s) => ({ id: `session-${s.id}`, type: "seance" as const, title: s.title, date: s.date, when: formatWhen(s.date, s.time) }))
+      : []),
     ...appointments
       .filter((a) => a.date >= todayStart)
       .map((a) => ({ id: `appt-${a.id}`, type: a.type, title: a.title, date: a.date, when: formatWhen(a.date, a.time) })),
@@ -143,7 +150,7 @@ export default function TodayScreen() {
       </FadeInView>
 
       {/* Bilan de fin de programme — proposé une fois la dernière semaine atteinte */}
-      {isProgramComplete && !bilanDismissed ? (
+      {isGrandPrix && isProgramComplete && !bilanDismissed ? (
         <FadeInView delay={30}>
           <TouchableOpacity
             onPress={() => router.push("/bilan-modal")}
@@ -168,17 +175,18 @@ export default function TodayScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 pr-2">
             {horses.map((h) => {
               const isSelected = h.id === horse?.id;
+              const locked = horses.indexOf(h) >= horseLimit;
               return (
                 <TouchableOpacity
                   key={h.id}
-                  onPress={() => selectHorse(h.id)}
+                  onPress={() => (locked ? router.push("/paywall") : selectHorse(h.id))}
                   activeOpacity={0.8}
                   className="items-center gap-1"
                 >
                   <View
-                    className={`h-14 w-14 items-center justify-center overflow-hidden rounded-full ${
+                    className={`relative h-14 w-14 items-center justify-center overflow-hidden rounded-full ${
                       isSelected ? "border-2 border-primary bg-highlight" : "border border-border bg-surface"
-                    }`}
+                    } ${locked ? "opacity-40" : ""}`}
                   >
                     {h.photoUrl ? (
                       <Image source={{ uri: h.photoUrl }} className="h-14 w-14" />
@@ -189,6 +197,11 @@ export default function TodayScreen() {
                         color={isSelected ? colors.primary : colors.textMuted}
                       />
                     )}
+                    {locked ? (
+                      <View className="absolute inset-0 items-center justify-center bg-surface/50">
+                        <Text className="text-sm">🔒</Text>
+                      </View>
+                    ) : null}
                   </View>
                   <Text
                     className={`max-w-[64px] text-center text-xs font-semibold ${
@@ -205,44 +218,68 @@ export default function TodayScreen() {
         </FadeInView>
       ) : null}
 
-      {/* CTA rapide */}
-      <FadeInView delay={80}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            if (todaySession) {
-              router.push({ pathname: "/session-detail-modal", params: { id: todaySession.id } });
-            } else {
-              const activity = horse ? restDayActivityFor(horse, todayDayOffset) : null;
-              Alert.alert(
-                "Jour de repos",
-                activity && horse
-                  ? `Aucune séance aujourd'hui. ${horse.name} : ${activity.toLowerCase()}.`
-                  : "Aucune séance n'est prévue aujourd'hui."
-              );
-            }
-          }}
-          className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
-        >
-          <Text className="text-base font-bold text-on-primary">Démarrer une séance</Text>
-        </TouchableOpacity>
-      </FadeInView>
+      {/* Programme — réservé au pack Grand Prix (cf. grille tarifaire) */}
+      {isGrandPrix ? (
+        <>
+          {/* CTA rapide */}
+          <FadeInView delay={80}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                if (todaySession) {
+                  router.push({ pathname: "/session-detail-modal", params: { id: todaySession.id } });
+                } else {
+                  const activity = horse ? restDayActivityFor(horse, todayDayOffset) : null;
+                  Alert.alert(
+                    "Jour de repos",
+                    activity && horse
+                      ? `Aucune séance aujourd'hui. ${horse.name} : ${activity.toLowerCase()}.`
+                      : "Aucune séance n'est prévue aujourd'hui."
+                  );
+                }
+              }}
+              className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
+            >
+              <Text className="text-base font-bold text-on-primary">Démarrer une séance</Text>
+            </TouchableOpacity>
+          </FadeInView>
 
-      {/* Bilan de la semaine — généré à partir des vraies séances cochées dans Planning */}
-      <FadeInView delay={120}>
-        <View className={`${CARD} flex-row gap-3`}>
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/15">
-            <MaterialCommunityIcons name="chart-line" size={20} color={colors.accent} />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">Bilan de la semaine</Text>
-            <Text className="text-[15px] leading-5 text-text">
-              {weeklyRecapMessage(weekDoneCount, weekSessions.length)}
-            </Text>
-            <Text className="mt-1 text-xs text-muted">Focus : {program?.theme ?? "Ton programme arrive…"}</Text>
-          </View>
-        </View>
-      </FadeInView>
+          {/* Bilan de la semaine — généré à partir des vraies séances cochées dans Planning */}
+          <FadeInView delay={120}>
+            <View className={`${CARD} flex-row gap-3`}>
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/15">
+                <MaterialCommunityIcons name="chart-line" size={20} color={colors.accent} />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text className="text-sm font-bold uppercase tracking-wide text-accent">Bilan de la semaine</Text>
+                <Text className="text-[15px] leading-5 text-text">
+                  {weeklyRecapMessage(weekDoneCount, weekSessions.length)}
+                </Text>
+                <Text className="mt-1 text-xs text-muted">Focus : {program?.theme ?? "Ton programme arrive…"}</Text>
+              </View>
+            </View>
+          </FadeInView>
+        </>
+      ) : (
+        <FadeInView delay={80}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => router.push("/paywall")}
+            className={`${CARD} flex-row items-center gap-3`}
+          >
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/15">
+              <Text className="text-lg">🔒</Text>
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text className="text-base font-bold text-text">Programme d&apos;entraînement</Text>
+              <Text className="text-sm text-muted">
+                Réservé au pack Grand Prix — séances personnalisées générées chaque semaine.
+              </Text>
+            </View>
+            <Text className="text-base text-muted">›</Text>
+          </TouchableOpacity>
+        </FadeInView>
+      )}
 
       {/* Stats premium — gatées tant que l'utilisateur n'a pas d'abo/essai */}
       <Locked message="Suis ta progression avec l'abonnement">

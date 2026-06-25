@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
-import { useSubscribeFlow, type SubscriptionPlan } from "@/subscription/store";
+import { useSubscribeFlow, type BillingPeriod } from "@/subscription/store";
+import type { PaidTier } from "@/lib/revenuecat";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { useOnboarding } from "@/onboarding/store";
 import { useHorses } from "@/horses/store";
@@ -25,14 +26,18 @@ export default function OnboardingPaywall() {
     router.replace("/(tabs)/today");
   }
 
-  async function onSubscribe(plan: SubscriptionPlan) {
-    await subscribe(plan, finish);
+  async function onSubscribe(tier: PaidTier, period: BillingPeriod) {
+    await subscribe(tier, period, finish);
   }
 
-  // « Plus tard » : entre dans l'app en mode gaté (visuels/stats verrouillés).
+  // « Plus tard » : entre dans l'app en mode gaté (palier Free).
   function onClose() {
     finish();
   }
+
+  // Aide à la décision : un cavalier qui a déjà saisi plus de chevaux que ne
+  // permet Paddock (2) doit voir Grand Prix présélectionné d'emblée.
+  const initialTier = horses.length > 2 ? "GRAND_PRIX" : horses.length === 2 ? "PADDOCK" : "GRAND_PRIX";
 
   return (
     <PaywallView
@@ -41,6 +46,7 @@ export default function OnboardingPaywall() {
       onRestore={restore}
       submitting={submitting}
       restoring={restoring}
+      initialTier={initialTier}
     />
   );
 }

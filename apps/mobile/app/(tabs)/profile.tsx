@@ -95,7 +95,7 @@ function SettingRow({
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
-  const { status, plan, trialEndsAt, isPremium, loading: subLoading, clearAll: clearSubscription } = useSubscription();
+  const { status, tier, billingPeriod, trialEndsAt, isPremium, loading: subLoading, clearAll: clearSubscription } = useSubscription();
   const { unlockedBadges, clearAll: clearProgress } = useProgress();
   const { horses, updateHorsePhoto, clearAll: clearHorses } = useHorses();
   const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
@@ -180,12 +180,14 @@ export default function ProfileScreen() {
 
   function subscriptionLabel(): string {
     if (subLoading) return "Chargement…";
-    if (status === "active") return `Abonnement ${plan === "ANNUAL" ? "annuel" : "mensuel"} actif`;
+    if (tier === "FREE") return "Palier Free";
+    const tierName = tier === "GRAND_PRIX" ? "Grand Prix" : "Paddock";
+    if (status === "active") return `${tierName} · ${billingPeriod === "ANNUAL" ? "annuel" : "mensuel"}`;
     if (status === "trialing") {
       const days = daysUntil(trialEndsAt);
-      return `Essai gratuit · ${days} jour${days !== 1 ? "s" : ""} restant${days !== 1 ? "s" : ""}`;
+      return `Essai ${tierName} · ${days} jour${days !== 1 ? "s" : ""} restant${days !== 1 ? "s" : ""}`;
     }
-    return "Aucun abonnement actif";
+    return "Palier Free";
   }
 
   return (

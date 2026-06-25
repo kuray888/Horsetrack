@@ -18,15 +18,20 @@ export function Locked({
   children,
   message = "Disponible avec l'abonnement",
   cta = "Débloquer",
+  require = "paddock",
 }: {
   children: ReactNode;
   message?: string;
   cta?: string;
+  /** Palier minimum requis — "paddock" (défaut) couvre Paddock et Grand Prix ;
+   * "grand_prix" réserve au palier Grand Prix uniquement (Coach IA, programme). */
+  require?: "paddock" | "grand_prix";
 }) {
-  const { isPremium } = useSubscription();
+  const { isPaddockOrAbove, isGrandPrix } = useSubscription();
   const { scale, onPressIn, onPressOut } = usePressScale();
+  const unlocked = require === "grand_prix" ? isGrandPrix : isPaddockOrAbove;
 
-  if (isPremium) return <>{children}</>;
+  if (unlocked) return <>{children}</>;
 
   return (
     <View className="relative overflow-hidden rounded-card">

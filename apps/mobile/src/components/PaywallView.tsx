@@ -3,17 +3,49 @@ import { Animated, View, Text, TouchableOpacity, ScrollView, Linking } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/onboarding";
 import { usePressScale } from "@/hooks/usePressScale";
-import type { SubscriptionPlan } from "@/subscription/store";
+import type { BillingPeriod } from "@/subscription/store";
+import type { PaidTier } from "@/lib/revenuecat";
 
-const PLANS: { id: SubscriptionPlan; title: string; price: string; sub: string; badge?: string }[] = [
+const PERIODS: { id: BillingPeriod; label: string }[] = [
+  { id: "ANNUAL", label: "Annuel" },
+  { id: "MONTHLY", label: "Mensuel" },
+];
+
+const TIERS: {
+  id: PaidTier;
+  title: string;
+  price: Record<BillingPeriod, string>;
+  sub: Record<BillingPeriod, string>;
+  badge?: string;
+  bullets: string[];
+}[] = [
   {
-    id: "ANNUAL",
-    title: "Annuel",
-    price: "129 €/an",
-    sub: "soit 10,75 €/mois · économise 37 %",
-    badge: "Le plus choisi",
+    id: "PADDOCK",
+    title: "Paddock",
+    price: { MONTHLY: "4,99 €/mois", ANNUAL: "39,99 €/an" },
+    sub: { MONTHLY: "sans engagement", ANNUAL: "soit 3,33 €/mois · économise 33 %" },
+    bullets: [
+      "2 chevaux",
+      "Calendrier complet & rappels illimités",
+      "Historique à vie",
+      "Coffre-fort numérique",
+      "Partage avec 1 demi-pension",
+    ],
   },
-  { id: "MONTHLY", title: "Mensuel", price: "16,99 €/mois", sub: "sans engagement" },
+  {
+    id: "GRAND_PRIX",
+    title: "Grand Prix",
+    price: { MONTHLY: "19,99 €/mois", ANNUAL: "169,99 €/an" },
+    sub: { MONTHLY: "sans engagement", ANNUAL: "soit 14,17 €/mois · économise 29 %" },
+    badge: "Le plus complet",
+    bullets: [
+      "3 chevaux",
+      "Tout Paddock",
+      "Julien, ton coach IA, disponible 24/7",
+      "Programme d'entraînement personnalisé",
+      "Statistiques avancées",
+    ],
+  },
 ];
 
 function Bullet({ text }: { text: string }) {
@@ -25,12 +57,31 @@ function Bullet({ text }: { text: string }) {
   );
 }
 
-function PlanCard({
-  plan,
+function PeriodToggle({ value, onChange }: { value: BillingPeriod; onChange: (p: BillingPeriod) => void }) {
+  return (
+    <View className="flex-row gap-2 self-center rounded-full bg-surface p-1">
+      {PERIODS.map((p) => (
+        <TouchableOpacity
+          key={p.id}
+          activeOpacity={0.85}
+          onPress={() => onChange(p.id)}
+          className={`rounded-full px-4 py-1.5 ${value === p.id ? "bg-primary" : ""}`}
+        >
+          <Text className={`text-sm font-semibold ${value === p.id ? "text-on-primary" : "text-muted"}`}>{p.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function TierCard({
+  tier,
+  period,
   active,
   onPress,
 }: {
-  plan: (typeof PLANS)[number];
+  tier: (typeof TIERS)[number];
+  period: BillingPeriod;
   active: boolean;
   onPress: () => void;
 }) {
@@ -42,18 +93,25 @@ function PlanCard({
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        className={`rounded-card border p-4 ${active ? "border-primary bg-highlight" : "border-border bg-surface"}`}
+        className={`gap-2.5 rounded-card border p-4 ${active ? "border-primary bg-highlight" : "border-border bg-surface"}`}
       >
         <View className="flex-row items-center justify-between">
-          <Text className="text-lg font-bold text-text">{plan.title}</Text>
-          {plan.badge ? (
+          <Text className="text-lg font-bold text-text">{tier.title}</Text>
+          {tier.badge ? (
             <View className="rounded-full bg-primary px-2.5 py-1">
-              <Text className="text-xs font-bold text-on-primary">{plan.badge}</Text>
+              <Text className="text-xs font-bold text-on-primary">{tier.badge}</Text>
             </View>
           ) : null}
         </View>
-        <Text className="mt-1 text-xl font-extrabold text-primary">{plan.price}</Text>
-        <Text className="text-sm text-muted">{plan.sub}</Text>
+        <View>
+          <Text className="text-xl font-extrabold text-primary">{tier.price[period]}</Text>
+          <Text className="text-sm text-muted">{tier.sub[period]}</Text>
+        </View>
+        <View className="gap-1.5 pt-1">
+          {tier.bullets.map((b) => (
+            <Bullet key={b} text={b} />
+          ))}
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -62,24 +120,34 @@ function PlanCard({
 /**
  * Vue du paywall, réutilisée par l'onboarding et le paywall accessible depuis l'app
  * (déclenché par <Locked>). Purement présentationnelle : la logique d'achat est
- * injectée via `onSubscribe`. `onClose` optionnel = paywall skippable (mode gaté).
+ * injectée via `onSubscribe`/`onPurchaseAddon`. `onClose` optionnel = paywall
+ * skippable (mode gaté, reste sur Free). `onPurchaseAddon` optionnel = la ligne
+ * add-on n'a de sens qu'une fois déjà abonné (paywall in-app), pas à l'onboarding.
  */
 export function PaywallView({
   onSubscribe,
   onClose,
   onRestore,
+  onPurchaseAddon,
   submitting = false,
   restoring = false,
-  title = "7 jours offerts, puis tu décides.",
+  title = "Choisis ton accès.",
+  initialTier = "GRAND_PRIX",
 }: {
-  onSubscribe: (plan: SubscriptionPlan) => void;
+  onSubscribe: (tier: PaidTier, period: BillingPeriod) => void;
   onClose?: () => void;
   onRestore: () => void;
+  onPurchaseAddon?: (period: BillingPeriod) => void;
   submitting?: boolean;
   restoring?: boolean;
   title?: string;
+  /** Palier présélectionné à l'ouverture (ex: Paddock si le cavalier a déjà 2 chevaux à l'onboarding). */
+  initialTier?: PaidTier;
 }) {
-  const [selected, setSelected] = useState<SubscriptionPlan>("ANNUAL");
+  const [period, setPeriod] = useState<BillingPeriod>("ANNUAL");
+  const [selected, setSelected] = useState<PaidTier>(initialTier);
+  // Non-null : `selected` ne prend que des valeurs présentes dans TIERS.
+  const selectedTier = TIERS.find((t) => t.id === selected)!;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
@@ -94,33 +162,51 @@ export function PaywallView({
       <ScrollView contentContainerClassName="px-5 pt-6 pb-4 gap-5" showsVerticalScrollIndicator={false}>
         <View className="gap-2">
           <Text className="text-3xl font-extrabold leading-tight tracking-tight text-text">{title}</Text>
-          <Text className="text-base text-muted">
-            Accès complet. Annulable à tout moment avant la fin de l&apos;essai.
-          </Text>
+          <Text className="text-base text-muted">Annulable à tout moment depuis les réglages.</Text>
         </View>
 
-        <View className="gap-2.5 rounded-card bg-surface p-5 shadow-card">
-          <Bullet text="Programme d'entraînement personnalisé" />
-          <Bullet text="Chevaux illimités — toute ton écurie" />
-          <Bullet text="Julien, ton coach IA, disponible 24/7" />
-          <Bullet text="Suivi santé, planning & objectifs" />
-        </View>
+        <PeriodToggle value={period} onChange={setPeriod} />
 
         <View className="gap-3">
-          {PLANS.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} active={selected === plan.id} onPress={() => setSelected(plan.id)} />
+          {TIERS.map((tier) => (
+            <TierCard
+              key={tier.id}
+              tier={tier}
+              period={period}
+              active={selected === tier.id}
+              onPress={() => setSelected(tier.id)}
+            />
           ))}
         </View>
+
+        {onPurchaseAddon ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => onPurchaseAddon(period)}
+            className="flex-row items-center justify-between rounded-card border border-dashed border-primary p-4"
+          >
+            <Text className="flex-1 text-sm font-semibold text-text">➕ Ajouter un cheval supplémentaire</Text>
+            <Text className="text-sm font-bold text-primary">{period === "ANNUAL" ? "14,99 €/an" : "1,99 €/mois"}</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
-          label={submitting ? "Un instant…" : "Commencer mes 7 jours gratuits"}
+          label={
+            submitting
+              ? "Un instant…"
+              : selected === "GRAND_PRIX"
+                ? "Commencer mes 7 jours gratuits"
+                : `Choisir ${selectedTier.title}`
+          }
           disabled={submitting}
-          onPress={() => onSubscribe(selected)}
+          onPress={() => onSubscribe(selected, period)}
         />
         <Text className="text-center text-xs leading-4 text-muted">
-          Essai gratuit de 7 jours, puis {selected === "ANNUAL" ? "129 €/an" : "16,99 €/mois"}.
+          {selected === "GRAND_PRIX"
+            ? `Essai gratuit de 7 jours, puis ${selectedTier.price[period]}.`
+            : `${selectedTier.price[period]}.`}{" "}
           Renouvellement automatique, résiliable à tout moment dans les réglages.
         </Text>
         <View className="flex-row justify-center gap-5">

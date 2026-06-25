@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@cheval/db";
+import { db, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
 
 /**
- * Entitlement déclenché par un abonnement Cheval — doit correspondre
- * exactement à l'entitlement créé dans le dashboard RevenueCat.
+ * Entitlements RevenueCat — doivent correspondre exactement à ceux créés dans
+ * le dashboard (cf. apps/mobile/src/lib/revenuecat.ts). Le produit Grand Prix
+ * est rattaché aux DEUX entitlements `paddock` et `grand_prix` (sur-ensemble).
  */
-const ENTITLEMENT_ID = "premium";
+const ENTITLEMENT_PADDOCK = "paddock";
+const ENTITLEMENT_GRAND_PRIX = "grand_prix";
+const ENTITLEMENT_EXTRA_HORSE = "extra_horse";
 
 type RevenueCatEvent = {
   type: string;
@@ -19,12 +22,12 @@ type RevenueCatEvent = {
 /** Best-effort : le SKU exact dépend des produits créés dans App Store Connect
  * / Play Console (pas encore le cas) — à remplacer par un mapping exact une
  * fois ces identifiants connus (cf. mobile/src/subscription/store.tsx). */
-function planFromProductId(productId: string | undefined): "MONTHLY" | "ANNUAL" | undefined {
-  if (!productId) return undefined;
+function billingPeriodFromProductId(productId: string | undefined): "MONTHLY" | "ANNUAL" | null {
+  if (!productId) return null;
   const id = productId.toLowerCase();
   if (id.includes("annual") || id.includes("year")) return "ANNUAL";
   if (id.includes("month")) return "MONTHLY";
-  return undefined;
+  return null;
 }
 
 /**
@@ -34,6 +37,14 @@ function planFromProductId(productId: string | undefined): "MONTHLY" | "ANNUAL" 
  * est l'id Supabase Auth (cf. Purchases.logIn côté mobile), qui est aussi
  * `rider_profiles.userId` (le trigger `handle_new_user` recopie l'uuid
  * Supabase en texte dans public.users.id — cf. rls.sql).
+ *
+ * Un même événement peut concerner le palier (paddock/grand_prix) et/ou
+ * l'add-on cheval supplémentaire (extra_horse) — ce sont des entitlements
+ * indépendants, chacun mis à jour seulement s'il apparaît dans `entitlement_ids`.
+ * Limite connue : si plusieurs entitlements évoluent dans des événements
+ * séparés et proches, il n'y a pas de réconciliation fine entre eux au-delà
+ * de ce que chaque événement porte individuellement — acceptable, zéro
+ * abonné réel à ce jour.
  */
 export async function POST(req: NextRequest) {
   const expected = process.env.REVENUECAT_WEBHOOK_SECRET;
@@ -50,12 +61,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  if (!event?.app_user_id || !event.entitlement_ids?.includes(ENTITLEMENT_ID)) {
+  const entitlementIds = event?.entitlement_ids ?? [];
+  const hasGrandPrix = entitlementIds.includes(ENTITLEMENT_GRAND_PRIX);
+  const hasPaddock = entitlementIds.includes(ENTITLEMENT_PADDOCK);
+  const hasExtraHorse = entitlementIds.includes(ENTITLEMENT_EXTRA_HORSE);
+
+  if (!event?.app_user_id || (!hasGrandPrix && !hasPaddock && !hasExtraHorse)) {
     return NextResponse.json({ received: true });
   }
 
   const userId = event.app_user_id;
-  const plan = planFromProductId(event.product_id);
+  const tier: SubscriptionTier | null = hasGrandPrix
+    ? SubscriptionTier.GRAND_PRIX
+    : hasPaddock
+      ? SubscriptionTier.PADDOCK
+      : null;
 
   switch (event.type) {
     case "INITIAL_PURCHASE":
@@ -64,23 +84,33 @@ export async function POST(req: NextRequest) {
     case "PRODUCT_CHANGE":
     case "SUBSCRIPTION_EXTENDED": {
       const isTrial = event.period_type === "TRIAL";
+      const tierFields = tier
+        ? {
+            subscriptionTier: tier,
+            subscriptionStatus: isTrial ? SubscriptionStatus.TRIALING : SubscriptionStatus.ACTIVE,
+            billingPeriod: billingPeriodFromProductId(event.product_id),
+            trialEndsAt: isTrial && event.expiration_at_ms ? new Date(event.expiration_at_ms) : null,
+          }
+        : {};
+      const addonFields = hasExtraHorse ? { extraHorseSlots: 1 } : {};
       await db.riderProfile.updateMany({
         where: { userId },
-        data: {
-          subscriptionStatus: isTrial ? "TRIALING" : "ACTIVE",
-          subscriptionPlan: plan,
-          trialEndsAt: isTrial && event.expiration_at_ms ? new Date(event.expiration_at_ms) : null,
-          revenuecatId: userId,
-        },
+        data: { revenuecatId: userId, ...tierFields, ...addonFields },
       });
       break;
     }
-    case "CANCELLATION":
-      await db.riderProfile.updateMany({ where: { userId }, data: { subscriptionStatus: "CANCELLED" } });
+    case "CANCELLATION": {
+      const tierFields = tier ? { subscriptionStatus: SubscriptionStatus.CANCELLED } : {};
+      const addonFields = hasExtraHorse ? { extraHorseSlots: 0 } : {};
+      await db.riderProfile.updateMany({ where: { userId }, data: { ...tierFields, ...addonFields } });
       break;
-    case "EXPIRATION":
-      await db.riderProfile.updateMany({ where: { userId }, data: { subscriptionStatus: "EXPIRED" } });
+    }
+    case "EXPIRATION": {
+      const tierFields = tier ? { subscriptionStatus: SubscriptionStatus.EXPIRED } : {};
+      const addonFields = hasExtraHorse ? { extraHorseSlots: 0 } : {};
+      await db.riderProfile.updateMany({ where: { userId }, data: { ...tierFields, ...addonFields } });
       break;
+    }
     default:
       break;
   }

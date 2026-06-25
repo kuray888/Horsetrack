@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { db, SubscriptionStatus } from "@cheval/db";
+import { db, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 
 /** Phase de test : passe par OpenRouter (cf. OPENROUTER_API_KEY) au lieu d'Anthropic
@@ -8,18 +8,22 @@ import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
  * le crédit reconstitué (cf. mémoire projet "coach-mocked"). */
 const OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
 
-/** Le Coach n'est pas derrière un mur total (cf. CoachChat.tsx) : les
- * non-abonnés y ont accès, avec un plafond plus bas — ces deux plafonds
- * protègent le budget de l'API LLM plutôt que la qualité de service.
- * Tant que RevenueCat n'est pas configuré, `trialEndsAt` reste null pour
- * tout le monde et `isPremiumRider` renvoie donc true (essai ouvert) — le
- * plafond gratuit ne s'appliquera réellement qu'une fois le webhook
- * RevenueCat actif (cf. /api/revenuecat/webhook). */
-const DAILY_MESSAGE_LIMIT_FREE = 5;
-const DAILY_MESSAGE_LIMIT_PREMIUM = 20;
+/** Le Coach IA est réservé au palier Grand Prix (cf. grille tarifaire) — Free
+ * et Paddock n'y ont pas accès du tout. Le plafond quotidien ci-dessous ne
+ * protège plus une "version gratuite dégradée" : il protège le budget de
+ * l'API LLM même pour les abonnés Grand Prix ("illimité" côté marketing,
+ * réellement capé côté serveur).
+ * Tant que RevenueCat n'est pas configuré, `subscriptionTier` reste à sa
+ * valeur par défaut généreuse (GRAND_PRIX, cf. schema.prisma) pour tout le
+ * monde — l'accès Coach IA ne sera réellement restreint qu'une fois le
+ * webhook RevenueCat actif (cf. /api/revenuecat/webhook). */
+const DAILY_MESSAGE_LIMIT_GRAND_PRIX = 20;
 
-function isPremiumRider(rider: { subscriptionStatus: SubscriptionStatus; trialEndsAt: Date | null } | null): boolean {
+function isGrandPrixRider(
+  rider: { subscriptionTier: SubscriptionTier; subscriptionStatus: SubscriptionStatus; trialEndsAt: Date | null } | null
+): boolean {
   if (!rider) return false;
+  if (rider.subscriptionTier !== SubscriptionTier.GRAND_PRIX) return false;
   if (rider.subscriptionStatus === SubscriptionStatus.ACTIVE) return true;
   if (rider.subscriptionStatus === SubscriptionStatus.TRIALING) {
     return !rider.trialEndsAt || rider.trialEndsAt.getTime() > Date.now();
@@ -138,9 +142,11 @@ export async function POST(req: NextRequest) {
 
   const riderProfile = await db.riderProfile.findUnique({
     where: { userId },
-    select: { subscriptionStatus: true, trialEndsAt: true },
+    select: { subscriptionTier: true, subscriptionStatus: true, trialEndsAt: true },
   });
-  const dailyLimit = isPremiumRider(riderProfile) ? DAILY_MESSAGE_LIMIT_PREMIUM : DAILY_MESSAGE_LIMIT_FREE;
+  if (!isGrandPrixRider(riderProfile)) {
+    return NextResponse.json({ error: "Le Coach IA est réservé au pack Grand Prix." }, { status: 403 });
+  }
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -163,7 +169,7 @@ export async function POST(req: NextRequest) {
       .update({ where: { userId_date: { userId, date: today } }, data: { count: { decrement: 1 } } })
       .catch(() => {});
 
-  if (usage.count > dailyLimit) {
+  if (usage.count > DAILY_MESSAGE_LIMIT_GRAND_PRIX) {
     await releaseUsage();
     return NextResponse.json({ error: "Limite quotidienne de messages atteinte. Réessaie demain." }, { status: 429 });
   }

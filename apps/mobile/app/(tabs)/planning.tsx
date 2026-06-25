@@ -3,7 +3,6 @@ import { Alert, Animated, ScrollView, Text, TouchableOpacity, View } from "react
 import { router } from "expo-router";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
-import { Locked } from "@/components/Locked";
 import { ProgressBar } from "@/components/onboarding";
 import { usePressScale } from "@/hooks/usePressScale";
 import { useProgress } from "@/progress/store";
@@ -46,11 +45,37 @@ function SessionCard({ session, done, onPress }: { session: PlannedSession; done
   );
 }
 
+/** Le programme d'entraînement (génération + suivi semaine par semaine) est
+ * réservé au pack Grand Prix — Free et Paddock retombent sur le calendrier
+ * manuel (cf. Agenda). Écran entier verrouillé, pas seulement les semaines
+ * futures comme avant la refonte des paliers. */
+function ProgramLocked() {
+  return (
+    <Screen>
+      <View className="flex-1 items-center justify-center gap-4 px-6 py-20">
+        <Text className="text-3xl">🔒</Text>
+        <Text className="text-center text-xl font-bold text-text">Programme d&apos;entraînement</Text>
+        <Text className="text-center text-sm text-muted">
+          Le programme personnalisé sur 8 semaines, généré et ajusté pour ton cheval, est réservé au pack Grand
+          Prix.
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/paywall")}
+          className="rounded-full bg-primary px-6 py-3"
+        >
+          <Text className="text-sm font-bold text-on-primary">Découvrir Grand Prix</Text>
+        </TouchableOpacity>
+      </View>
+    </Screen>
+  );
+}
+
 export default function PlanningScreen() {
   const { isDone, completedCount } = useProgress();
   const { program, weeks, allSessions, currentWeekNumber, getWeekDates, regenerate, feedbackNote, aiNote } =
     useProgram();
-  const { isPremium } = useSubscription();
+  const { isGrandPrix } = useSubscription();
   const { selectedHorse } = useHorses();
 
   function confirmRegenerate() {
@@ -70,6 +95,8 @@ export default function PlanningScreen() {
     setSelectedWeek(currentWeekNumber);
   }, [currentWeekNumber]);
 
+  if (!isGrandPrix) return <ProgramLocked />;
+
   const today = new Date();
   const progressPct = allSessions.length > 0 ? Math.round((completedCount / allSessions.length) * 100) : 0;
 
@@ -78,7 +105,6 @@ export default function PlanningScreen() {
   const weekTotalMin = weekSessions.reduce((sum, s) => sum + s.durationMin, 0);
   const visibleSessions =
     selectedDay === null ? weekSessions : weekSessions.filter((s) => s.dayIndex === selectedDay);
-  const isFutureWeekLocked = !isPremium && selectedWeek > currentWeekNumber;
 
   return (
     <Screen>
@@ -174,7 +200,7 @@ export default function PlanningScreen() {
               >
                 <Text className={`text-sm font-bold ${isSelected ? "text-on-primary" : "text-text"}`}>
                   S{week.weekNumber}
-                  {!isPremium && week.weekNumber > currentWeekNumber ? " 🔒" : weekDone ? " ✓" : ""}
+                  {weekDone ? " ✓" : ""}
                 </Text>
               </TouchableOpacity>
             );
@@ -245,21 +271,6 @@ export default function PlanningScreen() {
               <Text className="text-sm text-muted">Pas de séance prévue ce jour-là.</Text>
             )}
           </View>
-        </FadeInView>
-      ) : isFutureWeekLocked ? (
-        <FadeInView delay={260}>
-          <Locked message="Débloque les semaines à venir avec l'abonnement">
-            <View className="gap-3">
-              {visibleSessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  done={isDone(session.id)}
-                  onPress={() => router.push({ pathname: "/session-detail-modal", params: { id: session.id } })}
-                />
-              ))}
-            </View>
-          </Locked>
         </FadeInView>
       ) : (
         visibleSessions.map((session, i) => (

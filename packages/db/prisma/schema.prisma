@@ -41,10 +41,17 @@ model RiderProfile {
   additionalInfo String?
 
   // Entitlement abonnement (source de vérité côté store = RevenueCat)
+  /// Défaut généreux tant que RevenueCat n'a jamais écrit de vraie valeur via
+  /// le webhook (pas encore configuré) — même logique que l'ancien défaut
+  /// TRIALING : ne pas bloquer les comptes de test existants avant le go-live.
+  subscriptionTier   SubscriptionTier   @default(GRAND_PRIX)
   subscriptionStatus SubscriptionStatus @default(TRIALING)
-  subscriptionPlan   SubscriptionPlan?
+  billingPeriod      BillingPeriod?
   trialEndsAt        DateTime?
   revenuecatId       String?            @unique
+  /// Add-on "cheval supplémentaire" acheté à la carte — vient en plus du
+  /// quota de chevaux du palier (cf. HORSE_LIMITS côté mobile).
+  extraHorseSlots    Int                @default(0)
 
   onboardingCompletedAt DateTime?
   createdAt             DateTime  @default(now())
@@ -244,11 +251,22 @@ enum SubscriptionStatus {
   @@map("subscription_status")
 }
 
-enum SubscriptionPlan {
-  MONTHLY // 16,99€/mois
-  ANNUAL // 129€/an
+/// Palier d'abonnement — détermine les fonctionnalités et limites accessibles
+/// (cf. HORSE_LIMITS et les gates Coach IA / programme côté mobile et API).
+enum SubscriptionTier {
+  FREE // 0€ — 1 cheval, historique 14j, calendrier manuel
+  PADDOCK // 4,99€/mois ou 39,99€/an — 2 chevaux, coffre-fort, partage
+  GRAND_PRIX // 19,99€/mois ou 169,99€/an — 3 chevaux, Coach IA + programme + stats avancées
 
-  @@map("subscription_plan")
+  @@map("subscription_tier")
+}
+
+/// Fréquence de facturation — indépendante du palier (Free n'en a pas).
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+
+  @@map("billing_period")
 }
 
 model Session {
