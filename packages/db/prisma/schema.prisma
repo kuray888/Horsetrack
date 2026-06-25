@@ -16,9 +16,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions     Session[]
-  riderProfile RiderProfile?
-  coachUsages  CoachUsage[]
+  sessions       Session[]
+  riderProfile   RiderProfile?
+  coachUsages    CoachUsage[]
+  emailReminders EmailReminder[]
 
   @@map("users")
 }
@@ -295,5 +296,27 @@ model CoachUsage {
 
   @@unique([userId, date])
   @@map("coach_usage")
+}
+
+/// Rappel email programmé pour un rendez-vous d'agenda — pas un miroir complet
+/// de l'agenda (qui reste local-first sur mobile), juste assez d'info pour
+/// pouvoir envoyer un email au bon moment (cf. apps/api/.../cron/email-reminders).
+/// Écrit uniquement par le backend (connexion DATABASE_URL qui bypass RLS),
+/// jamais directement par le client.
+model EmailReminder {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sendAt  DateTime
+  subject String
+  body    String
+  sentAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([sendAt, sentAt])
+  @@map("email_reminders")
 }
 

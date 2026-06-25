@@ -33,6 +33,12 @@
         {
           "photosPermission": "Horsetrack a besoin d'accéder à tes photos pour ajouter une photo de cheval."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Horsetrack utilise ta position pour enregistrer la météo du jour sur ton journal de travail."
+        }
       ]
     ],
     "experiments": {

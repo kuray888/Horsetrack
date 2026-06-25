@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
@@ -8,8 +9,12 @@ import { TimePickerField } from "@/components/TimePickerField";
 import { PrimaryButton } from "@/components/onboarding";
 import { formatDate } from "@/lib/dateFormat";
 import { computeReminderTrigger, ensureNotificationPermission, scheduleReminder, type ReminderOption } from "@/lib/notifications";
+import { scheduleEmailReminder } from "@/lib/emailReminders";
+import { fetchWeatherSnapshot } from "@/lib/weather";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
+import { useSubscription } from "@/subscription/store";
+import type { Mood } from "@/progress/store";
 import {
   useAgenda,
   daysFromNow,
@@ -18,6 +23,8 @@ import {
   type AppointmentType,
   type Doc,
   type DocumentCategory,
+  type JournalEntry,
+  type ActivityType,
 } from "@/agenda/store";
 
 const APPT_META: Record<AppointmentType, { label: string; icon: string; chip: string; tag: string }> = {
@@ -43,8 +50,26 @@ const REMINDER_META: Record<ReminderOption, { label: string; icon: string }> = {
   "1w": { label: "1 semaine avant", icon: "🔔" },
 };
 
+const ACTIVITY_META: Record<ActivityType, { label: string; icon: string; chip: string; tag: string }> = {
+  dressage: { label: "Dressage", icon: "🐴", chip: "bg-primary/15", tag: "text-primary" },
+  cso: { label: "CSO", icon: "🤸", chip: "bg-accent/15", tag: "text-accent" },
+  balade: { label: "Balade", icon: "🌳", chip: "bg-success/15", tag: "text-success" },
+  longe: { label: "Longe", icon: "🔄", chip: "bg-warning/15", tag: "text-warning" },
+  repos: { label: "Repos", icon: "😴", chip: "bg-border", tag: "text-muted" },
+};
+
+const MOOD_META: Record<Mood, { emoji: string; label: string }> = {
+  great: { emoji: "🤩", label: "Top" },
+  good: { emoji: "🙂", label: "Bien" },
+  okay: { emoji: "😐", label: "Moyen" },
+  hard: { emoji: "😣", label: "Difficile" },
+};
+
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
+
+/** Palier Free : historique (rendez-vous passés + documents) limité aux 14 derniers jours. */
+const HISTORY_LIMIT_DAYS = 14;
 
 function ChipSelect<T extends string>({
   options,
@@ -106,12 +131,21 @@ const emptyDocForm = {
   date: null as Date | null,
   fileUri: null as string | null,
 };
+const emptyJournalForm = {
+  activityType: "dressage" as ActivityType,
+  mood: "good" as Mood,
+  notes: "",
+  date: daysFromNow(0) as Date | null,
+  time: "09h00",
+};
 
 export default function AgendaScreen() {
   const { selectedHorse: horse } = useHorses();
+  const { tier } = useSubscription();
   const {
     appointments,
     documents,
+    journal,
     addAppointment,
     deleteAppointment,
     saveResult,
@@ -120,8 +154,10 @@ export default function AgendaScreen() {
     removeChecklistItem,
     addDocument,
     deleteDocument,
+    addJournalEntry,
+    deleteJournalEntry,
   } = useAgenda();
-  const [section, setSection] = useState<"appointments" | "documents">("appointments");
+  const [section, setSection] = useState<"appointments" | "documents" | "journal">("appointments");
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -137,10 +173,27 @@ export default function AgendaScreen() {
   const [docForm, setDocForm] = useState(emptyDocForm);
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
 
+  const [showJournalForm, setShowJournalForm] = useState(false);
+  const [journalForm, setJournalForm] = useState(emptyJournalForm);
+  const [expandedJournalId, setExpandedJournalId] = useState<string | null>(null);
+  const [savingJournal, setSavingJournal] = useState(false);
+
   const today = daysFromNow(0);
+  const isFree = tier === "FREE";
+  const historyCutoff = daysFromNow(-HISTORY_LIMIT_DAYS);
+
   const upcomingAppts = appointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
-  const pastAppts = appointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
-  const sortedDocs = [...documents].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const pastApptsAll = appointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
+  const pastAppts = isFree ? pastApptsAll.filter((a) => a.date >= historyCutoff) : pastApptsAll;
+  const hiddenPastApptsCount = pastApptsAll.length - pastAppts.length;
+
+  const sortedDocsAll = [...documents].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const sortedDocs = isFree ? sortedDocsAll.filter((d) => d.date >= historyCutoff) : sortedDocsAll;
+  const hiddenDocsCount = sortedDocsAll.length - sortedDocs.length;
+
+  const sortedJournalAll = [...journal].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const sortedJournal = isFree ? sortedJournalAll.filter((j) => j.date >= historyCutoff) : sortedJournalAll;
+  const hiddenJournalCount = sortedJournalAll.length - sortedJournal.length;
 
   async function handleAddAppointment() {
     const date = apptForm.date;
@@ -149,11 +202,17 @@ export default function AgendaScreen() {
     const title = apptForm.title.trim();
     const time = apptForm.time.trim();
     const location = apptForm.location.trim();
-    const trigger = computeReminderTrigger(date, time, apptForm.reminder);
+    // Free n'a "pas de rappels automatiques" (push ou email) selon la grille
+    // tarifaire — le champ Rappel est masqué côté UI pour ce palier, mais on
+    // re-vérifie ici pour ne jamais programmer un rappel à partir d'un état
+    // de formulaire resté à une valeur précédente (ex: downgrade de palier).
+    const reminder = isFree ? "none" : apptForm.reminder;
+    const trigger = computeReminderTrigger(date, time, reminder);
     const notifBody = `${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`;
     // L'échec de programmation du rappel (permission révoquée, erreur OS) ne
     // doit jamais empêcher l'ajout du rendez-vous lui-même.
     let reminderNotificationId: string | null = null;
+    let emailReminderId: string | null = null;
     if (trigger) {
       try {
         reminderNotificationId = await scheduleReminder(`Rappel : ${title}`, notifBody, trigger);
@@ -161,6 +220,7 @@ export default function AgendaScreen() {
         reminderNotificationId = null;
       }
       setNotifPermission((prev) => (!reminderNotificationId ? false : prev));
+      emailReminderId = await scheduleEmailReminder(trigger, `Rappel : ${title}`, notifBody);
     }
 
     addAppointment({
@@ -170,8 +230,9 @@ export default function AgendaScreen() {
       time,
       location,
       notes: "",
-      reminder: apptForm.reminder,
+      reminder,
       reminderNotificationId,
+      emailReminderId,
       checklist: apptForm.type === "concours" ? defaultChecklist() : [],
     });
     setApptForm(emptyApptForm);
@@ -189,6 +250,29 @@ export default function AgendaScreen() {
   async function handlePickDocPhoto() {
     const uri = await pickAndPersistImage();
     if (uri) setDocForm((f) => ({ ...f, fileUri: uri }));
+  }
+
+  async function handleAddJournalEntry() {
+    const date = journalForm.date;
+    if (!date) return;
+    setSavingJournal(true);
+    try {
+      // Best-effort, jamais bloquant : un refus de position/permission ne
+      // doit pas empêcher d'enregistrer l'entrée de journal.
+      const weather = await fetchWeatherSnapshot();
+      addJournalEntry({
+        activityType: journalForm.activityType,
+        mood: journalForm.mood,
+        notes: journalForm.notes.trim(),
+        date,
+        time: journalForm.time.trim(),
+        weather,
+      });
+      setJournalForm(emptyJournalForm);
+      setShowJournalForm(false);
+    } finally {
+      setSavingJournal(false);
+    }
   }
 
   return (
@@ -222,6 +306,17 @@ export default function AgendaScreen() {
               className={`text-sm font-bold ${section === "documents" ? "text-on-primary" : "text-muted"}`}
             >
               Documents
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSection("journal")}
+            activeOpacity={0.85}
+            className={`flex-1 items-center rounded-full p-2.5 ${section === "journal" ? "bg-primary" : ""}`}
+          >
+            <Text
+              className={`text-sm font-bold ${section === "journal" ? "text-on-primary" : "text-muted"}`}
+            >
+              Journal
             </Text>
           </TouchableOpacity>
         </View>
@@ -289,17 +384,27 @@ export default function AgendaScreen() {
                     onChangeText={(location) => setApptForm((f) => ({ ...f, location }))}
                   />
                 </Field>
-                <Field label="Rappel">
-                  <ChipSelect
-                    options={Object.entries(REMINDER_META).map(([value, meta]) => ({
-                      value: value as ReminderOption,
-                      label: meta.label,
-                      icon: meta.icon,
-                    }))}
-                    value={apptForm.reminder}
-                    onChange={(reminder) => setApptForm((f) => ({ ...f, reminder }))}
-                  />
-                </Field>
+                {isFree ? (
+                  <Field label="Rappel">
+                    <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8}>
+                      <Text className="text-sm font-semibold text-accent">
+                        🔒 Rappels disponibles avec Paddock
+                      </Text>
+                    </TouchableOpacity>
+                  </Field>
+                ) : (
+                  <Field label="Rappel">
+                    <ChipSelect
+                      options={Object.entries(REMINDER_META).map(([value, meta]) => ({
+                        value: value as ReminderOption,
+                        label: meta.label,
+                        icon: meta.icon,
+                      }))}
+                      value={apptForm.reminder}
+                      onChange={(reminder) => setApptForm((f) => ({ ...f, reminder }))}
+                    />
+                  </Field>
+                )}
                 <View className="flex-row gap-2">
                   <TouchableOpacity
                     onPress={() => {
@@ -379,8 +484,21 @@ export default function AgendaScreen() {
                 </View>
               </FadeInView>
             ))}
+
+          {showPastAppts && hiddenPastApptsCount > 0 ? (
+            <FadeInView delay={pastAppts.length * 60}>
+              <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8} className={`${CARD} items-center gap-1`}>
+                <Text className="text-xl">🔒</Text>
+                <Text className="text-center text-sm font-semibold text-text">
+                  {hiddenPastApptsCount} rendez-vous plus ancien{hiddenPastApptsCount > 1 ? "s" : ""} masqué
+                  {hiddenPastApptsCount > 1 ? "s" : ""} (historique limité à {HISTORY_LIMIT_DAYS} jours)
+                </Text>
+                <Text className="text-sm font-bold text-accent">Débloque l&apos;historique complet avec Paddock</Text>
+              </TouchableOpacity>
+            </FadeInView>
+          ) : null}
         </>
-      ) : (
+      ) : section === "documents" ? (
         <>
           <FadeInView delay={140}>
             {showDocForm ? (
@@ -468,6 +586,123 @@ export default function AgendaScreen() {
               </FadeInView>
             ))
           )}
+
+          {hiddenDocsCount > 0 ? (
+            <FadeInView delay={200 + sortedDocs.length * 60}>
+              <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8} className={`${CARD} items-center gap-1`}>
+                <Text className="text-xl">🔒</Text>
+                <Text className="text-center text-sm font-semibold text-text">
+                  {hiddenDocsCount} document{hiddenDocsCount > 1 ? "s" : ""} plus ancien{hiddenDocsCount > 1 ? "s" : ""} masqué
+                  {hiddenDocsCount > 1 ? "s" : ""} (historique limité à {HISTORY_LIMIT_DAYS} jours)
+                </Text>
+                <Text className="text-sm font-bold text-accent">Débloque l&apos;historique complet avec Paddock</Text>
+              </TouchableOpacity>
+            </FadeInView>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <FadeInView delay={140}>
+            {showJournalForm ? (
+              <View className={`${CARD} gap-3`}>
+                <Text className="text-sm font-bold uppercase tracking-wide text-accent">Nouvelle entrée de journal</Text>
+                <Field label="Activité">
+                  <ChipSelect
+                    options={Object.entries(ACTIVITY_META).map(([value, meta]) => ({
+                      value: value as ActivityType,
+                      label: meta.label,
+                      icon: meta.icon,
+                    }))}
+                    value={journalForm.activityType}
+                    onChange={(activityType) => setJournalForm((f) => ({ ...f, activityType }))}
+                  />
+                </Field>
+                <Field label="Ressenti">
+                  <ChipSelect
+                    options={Object.entries(MOOD_META).map(([value, meta]) => ({
+                      value: value as Mood,
+                      label: meta.label,
+                      icon: meta.emoji,
+                    }))}
+                    value={journalForm.mood}
+                    onChange={(mood) => setJournalForm((f) => ({ ...f, mood }))}
+                  />
+                </Field>
+                <DatePickerField
+                  label="Date"
+                  value={journalForm.date}
+                  onChange={(date) => setJournalForm((f) => ({ ...f, date }))}
+                />
+                <TimePickerField
+                  label="Heure"
+                  value={journalForm.time}
+                  onChange={(time) => setJournalForm((f) => ({ ...f, time }))}
+                />
+                <Field label="Notes (optionnel)">
+                  <TextInput
+                    className={INPUT}
+                    placeholder="Ex : très bonne séance, cheval détendu"
+                    value={journalForm.notes}
+                    onChangeText={(notes) => setJournalForm((f) => ({ ...f, notes }))}
+                    multiline
+                  />
+                </Field>
+                <View className="flex-row gap-2">
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowJournalForm(false);
+                      setJournalForm(emptyJournalForm);
+                    }}
+                    className="flex-1 items-center rounded-card border border-border p-4"
+                  >
+                    <Text className="text-base font-semibold text-muted">Annuler</Text>
+                  </TouchableOpacity>
+                  <View className="flex-1">
+                    <PrimaryButton
+                      label={savingJournal ? "Un instant…" : "Ajouter"}
+                      disabled={!journalForm.date || savingJournal}
+                      onPress={handleAddJournalEntry}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <AddToggle label="Ajouter une entrée de journal" onPress={() => setShowJournalForm(true)} />
+            )}
+          </FadeInView>
+
+          {sortedJournal.length === 0 ? (
+            <FadeInView delay={200}>
+              <View className={`${CARD} items-center gap-1`}>
+                <Text className="text-2xl">📔</Text>
+                <Text className="text-sm text-muted">Aucune entrée de journal pour l&apos;instant.</Text>
+              </View>
+            </FadeInView>
+          ) : (
+            sortedJournal.map((entry, i) => (
+              <FadeInView key={entry.id} delay={200 + i * 60}>
+                <JournalCard
+                  entry={entry}
+                  expanded={expandedJournalId === entry.id}
+                  onToggleExpand={() => setExpandedJournalId(expandedJournalId === entry.id ? null : entry.id)}
+                  onDelete={() => deleteJournalEntry(entry.id)}
+                />
+              </FadeInView>
+            ))
+          )}
+
+          {hiddenJournalCount > 0 ? (
+            <FadeInView delay={200 + sortedJournal.length * 60}>
+              <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8} className={`${CARD} items-center gap-1`}>
+                <Text className="text-xl">🔒</Text>
+                <Text className="text-center text-sm font-semibold text-text">
+                  {hiddenJournalCount} entrée{hiddenJournalCount > 1 ? "s" : ""} plus ancienne{hiddenJournalCount > 1 ? "s" : ""} masquée
+                  {hiddenJournalCount > 1 ? "s" : ""} (historique limité à {HISTORY_LIMIT_DAYS} jours)
+                </Text>
+                <Text className="text-sm font-bold text-accent">Débloque l&apos;historique complet avec Paddock</Text>
+              </TouchableOpacity>
+            </FadeInView>
+          ) : null}
         </>
       )}
     </Screen>
@@ -687,6 +922,53 @@ function DocumentCard({
           )}
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
             <Text className="text-sm font-semibold text-danger">Supprimer ce document</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+function JournalCard({
+  entry,
+  expanded,
+  onToggleExpand,
+  onDelete,
+}: {
+  entry: JournalEntry;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onDelete: () => void;
+}) {
+  const meta = ACTIVITY_META[entry.activityType];
+  const mood = MOOD_META[entry.mood];
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={onToggleExpand} className={CARD}>
+      <View className="flex-row items-center gap-3">
+        <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
+          <Text className="text-lg">{meta.icon}</Text>
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text className="text-base font-bold text-text">{meta.label}</Text>
+          <Text className="text-sm text-muted">
+            {formatDate(entry.date)} · {entry.time}
+            {entry.weather ? ` · ${entry.weather.icon} ${Math.round(entry.weather.tempC)}°C` : ""}
+          </Text>
+        </View>
+        <Text className="text-lg">{mood.emoji}</Text>
+      </View>
+
+      {expanded ? (
+        <View className="mt-4 gap-2 border-t border-border pt-4">
+          <Text className="text-sm text-text">{mood.emoji} Ressenti : {mood.label}</Text>
+          {entry.weather ? (
+            <Text className="text-sm text-text">
+              {entry.weather.icon} {entry.weather.label} · {Math.round(entry.weather.tempC)}°C
+            </Text>
+          ) : null}
+          {entry.notes ? <Text className="text-sm text-muted">{entry.notes}</Text> : null}
+          <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
+            <Text className="text-sm font-semibold text-danger">Supprimer cette entrée</Text>
           </TouchableOpacity>
         </View>
       ) : null}

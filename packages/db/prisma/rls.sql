@@ -88,6 +88,7 @@ alter table public.horse_injuries enable row level security;
 alter table public.goals          enable row level security;
 alter table public.sessions       enable row level security;
 alter table public.coach_usage    enable row level security;
+alter table public.email_reminders enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
 
@@ -132,6 +133,12 @@ create policy "goals_all_own" on public.goals
 -- backend uniquement, via connexion directe DATABASE_URL qui bypass RLS)
 drop policy if exists "coach_usage_select_own" on public.coach_usage;
 create policy "coach_usage_select_own" on public.coach_usage
+  for select using ("userId" = auth.uid()::text);
+
+-- email_reminders : même logique que coach_usage — lecture seule pour le
+-- propriétaire, écriture réservée au backend (création/cron via DATABASE_URL)
+drop policy if exists "email_reminders_select_own" on public.email_reminders;
+create policy "email_reminders_select_own" on public.email_reminders
   for select using ("userId" = auth.uid()::text);
 
 -- sessions : table de jetons d'auth « legacy », non utilisée par le code
