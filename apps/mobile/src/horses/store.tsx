@@ -63,6 +63,12 @@ export type Horse = {
    * sur les jours de repos dans Planning/Today. */
   restDayActivities: string[];
   injuries: Injury[];
+  /** null = cheval possédé. Renseigné si ce cheval est partagé AVEC
+   * l'utilisateur courant (cf. lib/sharing.ts) — pilote le mode lecture seule
+   * du profil et l'exclusion du quota de chevaux du palier (cf. profile.tsx,
+   * today.tsx). Un cheval partagé n'est jamais retourné par `pushHorses` (cf.
+   * cloudSync.ts), seulement par `pullSharedHorses`. */
+  sharedRole: "DEMI_PENSION" | "COACH" | null;
 };
 
 export type NewHorse = {
@@ -107,6 +113,7 @@ const DEFAULT_HORSES: Horse[] = [
     healthConditions: [],
     restDayActivities: ["Paddock / pré", "Marche en main"],
     injuries: [],
+    sharedRole: null,
   },
 ];
 
@@ -135,6 +142,7 @@ function reviveHorses(horses: Horse[]): Horse[] {
   return horses.map((h) => ({
     ...h,
     restDayActivities: h.restDayActivities ?? [],
+    sharedRole: h.sharedRole ?? null,
     injuries: h.injuries.map((i) => ({
       ...i,
       occurredAt: i.occurredAt ? new Date(i.occurredAt) : null,
@@ -167,6 +175,7 @@ function fromDraft(draft: CompletedHorseDraft): Horse {
     temperament: draft.temperament,
     healthConditions: draft.healthConditions,
     restDayActivities: draft.restDayActivities,
+    sharedRole: null,
     injuries: draft.injuries.map((i) => ({
       id: generateId(),
       type: i.type,
@@ -220,14 +229,16 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   const persist = useCallback((next: Horse[]) => {
     SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
     // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
-    // programme/affichage local ne doit jamais attendre le réseau.
-    pushHorses(next).catch(() => {});
+    // programme/affichage local ne doit jamais attendre le réseau. Exclut les
+    // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
+    // sans effet (RLS bloque, cf. owns_rider_profile) et inutile.
+    pushHorses(next.filter((h) => !h.sharedRole)).catch(() => {});
   }, []);
 
   const addHorse = useCallback(
     (horse: NewHorse) => {
       setHorses((prev) => {
-        const next = [...prev, { ...horse, id: generateId(), emoji: "🐴", isPrimary: false }];
+        const next = [...prev, { ...horse, id: generateId(), emoji: "🐴", isPrimary: false, sharedRole: null }];
         persist(next);
         return next;
       });

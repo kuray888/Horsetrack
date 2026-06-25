@@ -182,8 +182,16 @@ export default function AgendaScreen() {
   const isFree = tier === "FREE";
   const historyCutoff = daysFromNow(-HISTORY_LIMIT_DAYS);
 
-  const upcomingAppts = appointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
-  const pastApptsAll = appointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
+  // Rendez-vous et journal sont rattachés à un cheval (cf. agenda/store.tsx) —
+  // le partage DP/coach se fait par cheval, donc cet écran ne montre que ceux
+  // du cheval actuellement sélectionné. Les documents (coffre-fort) restent
+  // volontairement non filtrés : ils ne sont pas rattachés à un cheval (hors
+  // scope du partage, cf. plan de la session sur le partage).
+  const horseAppointments = appointments.filter((a) => a.horseId === horse?.id);
+  const horseJournal = journal.filter((j) => j.horseId === horse?.id);
+
+  const upcomingAppts = horseAppointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
+  const pastApptsAll = horseAppointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
   const pastAppts = isFree ? pastApptsAll.filter((a) => a.date >= historyCutoff) : pastApptsAll;
   const hiddenPastApptsCount = pastApptsAll.length - pastAppts.length;
 
@@ -191,7 +199,7 @@ export default function AgendaScreen() {
   const sortedDocs = isFree ? sortedDocsAll.filter((d) => d.date >= historyCutoff) : sortedDocsAll;
   const hiddenDocsCount = sortedDocsAll.length - sortedDocs.length;
 
-  const sortedJournalAll = [...journal].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const sortedJournalAll = [...horseJournal].sort((a, b) => b.date.getTime() - a.date.getTime());
   const sortedJournal = isFree ? sortedJournalAll.filter((j) => j.date >= historyCutoff) : sortedJournalAll;
   const hiddenJournalCount = sortedJournalAll.length - sortedJournal.length;
 

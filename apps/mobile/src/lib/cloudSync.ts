@@ -2,7 +2,7 @@ import { File } from "expo-file-system";
 import { supabase } from "@/lib/supabase";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
-import type { Doc } from "@/agenda/store";
+import type { Appointment, Doc, JournalEntry } from "@/agenda/store";
 
 /**
  * Sauvegarde cloud des données irremplaçables (écurie + profil cavalier) —
@@ -174,23 +174,47 @@ export async function pullCloudData(): Promise<CloudData | null> {
     additionalInfo: profile.additionalInfo ?? "",
   };
 
-  type RemoteTrait = { tag: string; kind: string };
-  type RemoteInjury = {
-    id: string;
-    type: string;
-    occurredAt: string | null;
-    recoveryStatus: Horse["injuries"][number]["recoveryStatus"];
-    note: string | null;
-  };
-  type RemoteHorse = Omit<Horse, "emoji" | "strengths" | "weaknesses" | "temperament" | "healthConditions" | "restDayActivities" | "injuries"> & {
-    horse_traits: RemoteTrait[];
-    horse_injuries: RemoteInjury[];
-  };
-
   const remoteHorses = (profile.horses ?? []) as RemoteHorse[];
-  const horses: Horse[] = remoteHorses.map((h) => ({
+  const horses: Horse[] = remoteHorses.map(mapRemoteHorse);
+
+  return { rider, horses };
+}
+
+export type RemoteTrait = { tag: string; kind: string };
+export type RemoteInjury = {
+  id: string;
+  type: string;
+  occurredAt: string | null;
+  recoveryStatus: Horse["injuries"][number]["recoveryStatus"];
+  note: string | null;
+};
+export type RemoteHorse = Omit<
+  Horse,
+  | "emoji"
+  | "strengths"
+  | "weaknesses"
+  | "temperament"
+  | "healthConditions"
+  | "restDayActivities"
+  | "injuries"
+  | "sharedRole"
+> & {
+  horse_traits: RemoteTrait[];
+  horse_injuries: RemoteInjury[];
+};
+
+/** Convertit la forme "brute" renvoyée par une requête Supabase imbriquée
+ * (horses(*, horse_traits(*), horse_injuries(*))) en `Horse` local — partagée
+ * entre `pullCloudData` (chevaux possédés) et `lib/sharing.ts` `pullSharedHorses`
+ * (chevaux partagés), mêmes colonnes distantes des deux côtés. `sharedRole`
+ * n'existe pas comme colonne réelle (c'est une notion purement locale) : on le
+ * met à `null` par défaut ici, `pullSharedHorses` l'écrase ensuite avec le
+ * vrai rôle pour les chevaux partagés. */
+export function mapRemoteHorse(h: RemoteHorse): Horse {
+  return {
     ...h,
     emoji: "🐴",
+    sharedRole: null,
     strengths: h.horse_traits.filter((t) => t.kind === "STRENGTH").map((t) => t.tag),
     weaknesses: h.horse_traits.filter((t) => t.kind === "WEAKNESS").map((t) => t.tag),
     temperament: h.horse_traits.filter((t) => t.kind === "TEMPERAMENT").map((t) => t.tag),
@@ -205,9 +229,7 @@ export async function pullCloudData(): Promise<CloudData | null> {
       recoveryStatus: i.recoveryStatus,
       note: i.note ?? "",
     })),
-  }));
-
-  return { rider, horses };
+  };
 }
 
 /**
@@ -318,4 +340,125 @@ export async function pullDocuments(): Promise<Doc[]> {
     });
   }
   return docs;
+}
+
+/**
+ * Calendrier (rendez-vous + journal) : contrairement au coffre-fort, ces
+ * tables sont scopées par horseId — pas par riderId — donc aucune jointure
+ * via rider_profiles n'est nécessaire ici. La policy RLS `can_access_horse`
+ * filtre déjà automatiquement aux chevaux possédés OU partagés avec
+ * l'utilisateur courant (cf. partage demi-pension/coach), en lecture comme
+ * en écriture : ces fonctions n'ont donc rien de spécial à faire pour gérer
+ * le cas "cheval partagé", RLS s'en occupe.
+ */
+
+function appointmentTypeToDb(type: Appointment["type"]): string {
+  return type.toUpperCase();
+}
+
+function appointmentTypeFromDb(type: string): Appointment["type"] {
+  return type.toLowerCase() as Appointment["type"];
+}
+
+/** Pas de push si l'entrée n'est pas encore rattachée à un cheval (cf.
+ * agenda/store.tsx, backfill au chargement) — rien à synchroniser tant
+ * qu'aucun horseId n'est connu. */
+export async function pushAppointment(appt: Appointment): Promise<void> {
+  if (!appt.horseId) return;
+  await supabase.from("appointments").upsert({
+    id: appt.id,
+    horseId: appt.horseId,
+    type: appointmentTypeToDb(appt.type),
+    title: appt.title,
+    date: appt.date.toISOString(),
+    time: appt.time,
+    location: appt.location,
+    notes: appt.notes,
+    reminder: appt.reminder,
+    result: appt.result,
+    checklist: appt.checklist,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteAppointmentRemote(apptId: string): Promise<void> {
+  await supabase.from("appointments").delete().eq("id", apptId);
+}
+
+/** Restaure les rendez-vous visibles par l'utilisateur courant — possédés ET
+ * partagés (cf. ci-dessus, géré entièrement par RLS). */
+export async function pullAppointments(): Promise<Appointment[]> {
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("id, horseId, type, title, date, time, location, notes, reminder, result, checklist");
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: row.id,
+    horseId: row.horseId,
+    type: appointmentTypeFromDb(row.type),
+    title: row.title,
+    date: new Date(row.date),
+    time: row.time,
+    location: row.location,
+    notes: row.notes,
+    reminder: row.reminder as Appointment["reminder"],
+    // Jamais synchronisés (cf. schema.prisma Appointment) : identifiants de
+    // planification propres à l'appareil/au compte qui a créé le rappel.
+    reminderNotificationId: null,
+    emailReminderId: null,
+    result: row.result ?? null,
+    checklist: (row.checklist as Appointment["checklist"]) ?? [],
+  }));
+}
+
+function activityTypeToDb(type: JournalEntry["activityType"]): string {
+  return type.toUpperCase();
+}
+
+function activityTypeFromDb(type: string): JournalEntry["activityType"] {
+  return type.toLowerCase() as JournalEntry["activityType"];
+}
+
+function moodToDb(mood: JournalEntry["mood"]): string {
+  return mood.toUpperCase();
+}
+
+function moodFromDb(mood: string): JournalEntry["mood"] {
+  return mood.toLowerCase() as JournalEntry["mood"];
+}
+
+export async function pushJournalEntry(entry: JournalEntry): Promise<void> {
+  if (!entry.horseId) return;
+  await supabase.from("journal_entries").upsert({
+    id: entry.id,
+    horseId: entry.horseId,
+    activityType: activityTypeToDb(entry.activityType),
+    mood: moodToDb(entry.mood),
+    notes: entry.notes,
+    date: entry.date.toISOString(),
+    time: entry.time,
+    weather: entry.weather,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteJournalEntryRemote(entryId: string): Promise<void> {
+  await supabase.from("journal_entries").delete().eq("id", entryId);
+}
+
+export async function pullJournalEntries(): Promise<JournalEntry[]> {
+  const { data, error } = await supabase
+    .from("journal_entries")
+    .select("id, horseId, activityType, mood, notes, date, time, weather");
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: row.id,
+    horseId: row.horseId,
+    activityType: activityTypeFromDb(row.activityType),
+    mood: moodFromDb(row.mood),
+    notes: row.notes,
+    date: new Date(row.date),
+    time: row.time,
+    weather: (row.weather as JournalEntry["weather"]) ?? null,
+  }));
 }

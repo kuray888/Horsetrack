@@ -6,6 +6,7 @@ import { markOnboardingCompleted } from "@/onboarding/completion";
 import { useOnboarding } from "@/onboarding/store";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
+import { pullPendingInvites } from "@/lib/sharing";
 
 export default function OnboardingPaywall() {
   const { rider, horses } = useOnboarding();
@@ -23,7 +24,13 @@ export default function OnboardingPaywall() {
     // session n'existe pas encore et le push échoue silencieusement — il sera
     // retenté à la prochaine modification, ou au prochain login.
     await markOnboardingCompleted();
+    // Signale une éventuelle invitation reçue avant l'inscription (cf.
+    // lib/sharing.ts) — le cheval partagé lui-même n'apparaîtra qu'à la
+    // prochaine connexion (cf. (auth)/login.tsx, qui fusionne pullSharedHorses
+    // avec l'écurie possédée), limite acceptée pour ce cas rare.
+    const invites = await pullPendingInvites().catch(() => []);
     router.replace("/(tabs)/today");
+    if (invites.length > 0) router.push("/invites-modal");
   }
 
   async function onSubscribe(tier: PaidTier, period: BillingPeriod) {

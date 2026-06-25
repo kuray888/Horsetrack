@@ -84,6 +84,7 @@ export default function TodayScreen() {
   const subscription = useSubscription();
   const { isGrandPrix } = subscription;
   const horseLimit = maxHorses(subscription);
+  const ownedHorseIds = horses.filter((h) => !h.sharedRole).map((h) => h.id);
   const horse = selectedHorse;
   const xpAnimated = useCountUp(xp);
 
@@ -121,7 +122,7 @@ export default function TodayScreen() {
           .map((s) => ({ id: `session-${s.id}`, type: "seance" as const, title: s.title, date: s.date, when: formatWhen(s.date, s.time) }))
       : []),
     ...appointments
-      .filter((a) => a.date >= todayStart)
+      .filter((a) => a.date >= todayStart && a.horseId === horse?.id)
       .map((a) => ({ id: `appt-${a.id}`, type: a.type, title: a.title, date: a.date, when: formatWhen(a.date, a.time) })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -175,7 +176,10 @@ export default function TodayScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 pr-2">
             {horses.map((h) => {
               const isSelected = h.id === horse?.id;
-              const locked = horses.indexOf(h) >= horseLimit;
+              // Les chevaux partagés (DP/coach) ne comptent jamais dans le
+              // quota du palier — seul leur rang parmi les chevaux POSSÉDÉS
+              // compte pour le verrouillage (cf. profile.tsx, même logique).
+              const locked = !h.sharedRole && ownedHorseIds.indexOf(h.id) >= horseLimit;
               return (
                 <TouchableOpacity
                   key={h.id}

@@ -90,9 +90,12 @@ model Horse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  traits   HorseTrait[]
-  injuries HorseInjury[]
-  goals    Goal[]
+  traits         HorseTrait[]
+  injuries       HorseInjury[]
+  goals          Goal[]
+  appointments   Appointment[]
+  journalEntries JournalEntry[]
+  collaborators  HorseCollaborator[]
 
   @@index([ownerId])
   @@map("horses")
@@ -172,6 +175,85 @@ model Document {
 
   @@index([riderId])
   @@map("documents")
+}
+
+/// Rendez-vous d'agenda — rattaché à un cheval (pas au cavalier) pour que le
+/// partage (cf. HorseCollaborator) fonctionne : qui peut voir/écrire un
+/// rendez-vous se déduit entièrement de `can_access_horse(horseId)` côté RLS.
+/// Pas de `reminderNotificationId`/identifiant d'email programmé ici : ce
+/// sont des identifiants de planification propres à l'appareil/au compte qui
+/// programme le rappel, pas une donnée à partager.
+model Appointment {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  type     AppointmentType
+  title    String
+  date     DateTime
+  time     String
+  location String
+  notes    String
+  /// "none"/"1h"/"1d"/"1w" — 4 valeurs fixes, pas besoin d'un enum dédié.
+  reminder String
+  /// Résultat saisi après l'épreuve (concours uniquement).
+  result   String?
+  /// Checklist de préparation (concours uniquement), sérialisée en JSON —
+  /// volume/complexité trop faible pour justifier une table dédiée.
+  checklist Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("appointments")
+}
+
+/// Entrée de journal de travail libre — même logique de rattachement à un
+/// cheval que Appointment, pour le même partage.
+model JournalEntry {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  activityType ActivityType
+  mood         Mood
+  notes        String
+  date         DateTime
+  time         String
+  /// Snapshot météo au moment de la saisie ({tempC, code, label, icon}),
+  /// sérialisé en JSON — pas de colonnes dédiées pour un simple affichage.
+  weather      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("journal_entries")
+}
+
+/// Accès partagé à un cheval (demi-pension / coach) — invité par email, lien
+/// avec un compte réel seulement à l'acceptation (cf. cf. lib/sharing.ts).
+model HorseCollaborator {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  invitedEmail String
+  /// Renseigné seulement à l'acceptation — c'est CE champ (pas invitedEmail)
+  /// que les policies RLS utilisent pour donner l'accès réel (cf. rls.sql
+  /// can_access_horse).
+  collaboratorUserId String?
+
+  role   HorseCollaboratorRole
+  status HorseCollaboratorStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([horseId, invitedEmail])
+  @@index([collaboratorUserId])
+  @@map("horse_collaborators")
 }
 
 enum RiderLevel {
@@ -275,6 +357,50 @@ enum DocumentCategory {
   AUTRE
 
   @@map("document_category")
+}
+
+enum AppointmentType {
+  VETO
+  OSTEO
+  MARECHAL
+  DENTISTE
+  CONCOURS
+  AUTRE
+
+  @@map("appointment_type")
+}
+
+enum ActivityType {
+  DRESSAGE
+  CSO
+  BALADE
+  LONGE
+  REPOS
+
+  @@map("activity_type")
+}
+
+enum Mood {
+  GREAT
+  GOOD
+  OKAY
+  HARD
+
+  @@map("mood")
+}
+
+enum HorseCollaboratorRole {
+  DEMI_PENSION
+  COACH
+
+  @@map("horse_collaborator_role")
+}
+
+enum HorseCollaboratorStatus {
+  PENDING
+  ACCEPTED
+
+  @@map("horse_collaborator_status")
 }
 
 enum SubscriptionStatus {

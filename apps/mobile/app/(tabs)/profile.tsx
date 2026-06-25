@@ -5,7 +5,8 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
-import { useSubscription } from "@/subscription/store";
+import { Locked } from "@/components/Locked";
+import { maxHorses, useSubscription } from "@/subscription/store";
 import { colors } from "@/theme/colors";
 import {
   isBiometricsAvailable,
@@ -95,7 +96,9 @@ function SettingRow({
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
-  const { status, tier, billingPeriod, trialEndsAt, isPremium, loading: subLoading, clearAll: clearSubscription } = useSubscription();
+  const subscription = useSubscription();
+  const { status, tier, billingPeriod, trialEndsAt, isPremium, loading: subLoading, clearAll: clearSubscription } = subscription;
+  const horseLimit = maxHorses(subscription);
   const { unlockedBadges, clearAll: clearProgress } = useProgress();
   const { horses, updateHorsePhoto, clearAll: clearHorses } = useHorses();
   const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
@@ -228,41 +231,71 @@ export default function ProfileScreen() {
         <SectionTitle>Mon écurie</SectionTitle>
       </FadeInView>
 
-      {horses.map((horse, i) => (
-        <FadeInView key={horse.id} delay={160 + i * 60}>
-          <View className={`${CARD} flex-row items-center gap-3`}>
-            <TouchableOpacity
-              onPress={async () => {
-                const uri = await pickAndPersistImage();
-                if (uri) updateHorsePhoto(horse.id, uri);
-              }}
-              activeOpacity={0.8}
-              className="h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-highlight"
-            >
-              {horse.photoUrl ? (
-                <Image source={{ uri: horse.photoUrl }} className="h-12 w-12" />
+      {/* Les chevaux partagés (DP/coach) ne comptent jamais dans le quota du
+          palier et n'ont pas de bouton Modifier/Partager — le profil reste en
+          lecture seule pour quiconque n'est pas le propriétaire (cf. RLS
+          can_access_horse, écriture du profil réservée à owns_horse). */}
+      {(() => {
+        const ownedHorseIds = horses.filter((h) => !h.sharedRole).map((h) => h.id);
+        return horses.map((horse, i) => {
+          const isShared = horse.sharedRole !== null;
+          const ownedIndex = ownedHorseIds.indexOf(horse.id);
+          const card = (
+            <View className={`${CARD} flex-row items-center gap-3`}>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (isShared) return;
+                  const uri = await pickAndPersistImage();
+                  if (uri) updateHorsePhoto(horse.id, uri);
+                }}
+                activeOpacity={isShared ? 1 : 0.8}
+                className="h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-highlight"
+              >
+                {horse.photoUrl ? (
+                  <Image source={{ uri: horse.photoUrl }} className="h-12 w-12" />
+                ) : (
+                  <Text className="text-2xl">{horse.emoji}</Text>
+                )}
+              </TouchableOpacity>
+              <View className="flex-1 gap-0.5">
+                <Text className="text-base font-bold text-text">
+                  {horse.name}
+                  {horse.isPrimary ? "  ⭐" : ""}
+                </Text>
+                <Text className="text-sm text-muted">
+                  {labelOf(DISCIPLINES, horse.discipline)} · {labelOf(HORSE_LEVELS, horse.level)}
+                </Text>
+                {horse.strengths.length > 0 ? (
+                  <Text className="text-xs text-success">💪 {horse.strengths.join(", ")}</Text>
+                ) : null}
+              </View>
+              {isShared ? (
+                <Text className="px-1 text-xs font-semibold text-accent">
+                  {horse.sharedRole === "COACH" ? "🤝 Coach" : "🤝 Demi-pension"}
+                </Text>
               ) : (
-                <Text className="text-2xl">{horse.emoji}</Text>
+                <View className="items-end gap-2">
+                  <TouchableOpacity onPress={() => router.push(`/edit-horse-modal?id=${horse.id}`)} hitSlop={8}>
+                    <Text className="px-1 text-sm font-semibold text-accent">Modifier</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => router.push(`/share-horse-modal?horseId=${horse.id}`)} hitSlop={8}>
+                    <Text className="px-1 text-xs font-semibold text-muted">Partager</Text>
+                  </TouchableOpacity>
+                </View>
               )}
-            </TouchableOpacity>
-            <View className="flex-1 gap-0.5">
-              <Text className="text-base font-bold text-text">
-                {horse.name}
-                {horse.isPrimary ? "  ⭐" : ""}
-              </Text>
-              <Text className="text-sm text-muted">
-                {labelOf(DISCIPLINES, horse.discipline)} · {labelOf(HORSE_LEVELS, horse.level)}
-              </Text>
-              {horse.strengths.length > 0 ? (
-                <Text className="text-xs text-success">💪 {horse.strengths.join(", ")}</Text>
-              ) : null}
             </View>
-            <TouchableOpacity onPress={() => router.push(`/edit-horse-modal?id=${horse.id}`)} hitSlop={8}>
-              <Text className="px-1 text-sm font-semibold text-accent">Modifier</Text>
-            </TouchableOpacity>
-          </View>
-        </FadeInView>
-      ))}
+          );
+          return (
+            <FadeInView key={horse.id} delay={160 + i * 60}>
+              {!isShared && ownedIndex >= horseLimit ? (
+                <Locked message="Débloque ce cheval avec un palier supérieur ou l'add-on cheval">{card}</Locked>
+              ) : (
+                card
+              )}
+            </FadeInView>
+          );
+        });
+      })()}
 
       <FadeInView delay={220}>
         <TouchableOpacity

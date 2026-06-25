@@ -7,7 +7,8 @@ import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
-import { pullCloudData, pullDocuments } from "@/lib/cloudSync";
+import { pullCloudData, pullDocuments, pullAppointments, pullJournalEntries } from "@/lib/cloudSync";
+import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
@@ -27,9 +28,21 @@ export default function LoginScreen() {
   const { clearAll: clearRiderProfile, setRiderProfile } = useRiderProfile();
   const { clearAll: clearProgress } = useProgress();
   const { clearAll: clearProgram } = useProgram();
-  const { clearAll: clearAgenda, hydrateDocumentsFromCloud } = useAgenda();
+  const { clearAll: clearAgenda, hydrateDocumentsFromCloud, hydrateAppointmentsFromCloud, hydrateJournalFromCloud } =
+    useAgenda();
   const { clearAll: clearGoals } = useGoals();
   const { clearAll: clearSubscription } = useSubscription();
+
+  // Affiche les invitations en attente (cf. lib/sharing.ts) juste après être
+  // entré dans l'app, que ce soit après une restauration complète ou une
+  // simple reconnexion sur un appareil qui a déjà les données du compte —
+  // une invitation peut arriver à tout moment, pas seulement à la première
+  // connexion sur un nouvel appareil.
+  async function goToTodayOrInvites() {
+    const invites = await pullPendingInvites().catch(() => []);
+    router.replace("/(tabs)/today");
+    if (invites.length > 0) router.push("/invites-modal");
+  }
 
   async function signIn() {
     setLoading(true);
@@ -74,15 +87,19 @@ export default function LoginScreen() {
         try {
           const cloudData = await pullCloudData();
           if (cloudData) {
-            hydrateFromCloud(cloudData.horses);
-            setRiderProfile(cloudData.rider);
-            // Best-effort, ne lève jamais : cf. lib/cloudSync.ts. Le coffre-fort
-            // est secondaire à l'écurie possédée/au profil — un échec ici ne
+            // Best-effort, ne lèvent jamais : cf. lib/cloudSync.ts et
+            // lib/sharing.ts. Coffre-fort/calendrier/chevaux partagés sont
+            // secondaires à l'écurie possédée/au profil — un échec ici ne
             // doit pas faire échouer toute la restauration.
+            const sharedHorses = await pullSharedHorses().catch(() => []);
+            hydrateFromCloud([...cloudData.horses, ...sharedHorses]);
+            setRiderProfile(cloudData.rider);
             hydrateDocumentsFromCloud(await pullDocuments());
+            hydrateAppointmentsFromCloud(await pullAppointments());
+            hydrateJournalFromCloud(await pullJournalEntries());
             await markOnboardingCompleted();
             await setLocalDataOwner(userId);
-            router.replace("/(tabs)/today");
+            await goToTodayOrInvites();
             return;
           }
         } catch {
@@ -110,7 +127,7 @@ export default function LoginScreen() {
       }
     }
 
-    router.replace("/(tabs)/today");
+    await goToTodayOrInvites();
   }
 
   return (

@@ -53,10 +53,19 @@ create trigger on_auth_user_created
 -- users.id) : il faut remonter par rider_profiles pour vérifier le
 -- propriétaire réel (auth.uid()).
 
+-- security definer (pas invoker) : depuis l'ajout du partage, `horses` a une
+-- policy SELECT qui appelle can_access_horse(), qui appelle owns_horse(), qui
+-- lit `horses` — en security invoker, cette lecture interne re-déclenche la
+-- RLS de `horses` (donc can_access_horse() à nouveau) → récursion infinie
+-- ("stack depth limit exceeded"). En security definer, owns_rider_profile/
+-- owns_horse contournent RLS pour leur propre lecture interne, cassant la
+-- boucle — exactement le même besoin que handle_new_user() ci-dessus, donc
+-- même mitigation (search_path figé pour ne pas être détourné).
 create or replace function public.owns_rider_profile(_rider_profile_id text)
 returns boolean
 language sql
-security invoker
+security definer
+set search_path = public
 stable
 as $$
   select exists (
@@ -68,7 +77,8 @@ $$;
 create or replace function public.owns_horse(_horse_id text)
 returns boolean
 language sql
-security invoker
+security definer
+set search_path = public
 stable
 as $$
   select exists (
@@ -76,6 +86,25 @@ as $$
     join public.rider_profiles rp on rp.id = h."ownerId"
     where h.id = _horse_id and rp."userId" = auth.uid()::text
   );
+$$;
+
+-- Partage (demi-pension / coach, cf. lib/sharing.ts) : propriétaire OU
+-- collaborateur dont l'invitation a été acceptée. Utilisée pour le calendrier
+-- (lecture/écriture) et pour la lecture du profil cheval/traits/blessures —
+-- jamais pour l'écriture du profil, qui reste exclusivement owns_horse.
+create or replace function public.can_access_horse(_horse_id text)
+returns boolean
+language sql
+security invoker
+stable
+as $$
+  select public.owns_horse(_horse_id)
+    or exists (
+      select 1 from public.horse_collaborators hc
+      where hc."horseId" = _horse_id
+        and hc."collaboratorUserId" = auth.uid()::text
+        and hc.status = 'ACCEPTED'
+    );
 $$;
 
 -- 3. Activer RLS sur toutes les tables --------------------------------------
@@ -90,6 +119,9 @@ alter table public.sessions       enable row level security;
 alter table public.coach_usage    enable row level security;
 alter table public.email_reminders enable row level security;
 alter table public.documents      enable row level security;
+alter table public.appointments   enable row level security;
+alter table public.journal_entries enable row level security;
+alter table public.horse_collaborators enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
 
@@ -147,6 +179,61 @@ create policy "email_reminders_select_own" on public.email_reminders
 drop policy if exists "documents_all_own" on public.documents;
 create policy "documents_all_own" on public.documents
   for all using (public.owns_rider_profile("riderId")) with check (public.owns_rider_profile("riderId"));
+
+-- Partage (cf. lib/sharing.ts) -----------------------------------------------
+
+-- horses/horse_traits/horse_injuries : policy SUPPLÉMENTAIRE, lecture seule,
+-- pour les collaborateurs acceptés — les policies "_all_own" ci-dessus restent
+-- inchangées et continuent de réserver l'écriture du profil au propriétaire.
+-- Une policy permissive en SELECT s'ajoute en OR à la policy ALL existante.
+drop policy if exists "horses_select_shared" on public.horses;
+create policy "horses_select_shared" on public.horses
+  for select using (public.can_access_horse(id));
+
+drop policy if exists "horse_traits_select_shared" on public.horse_traits;
+create policy "horse_traits_select_shared" on public.horse_traits
+  for select using (public.can_access_horse("horseId"));
+
+drop policy if exists "horse_injuries_select_shared" on public.horse_injuries;
+create policy "horse_injuries_select_shared" on public.horse_injuries
+  for select using (public.can_access_horse("horseId"));
+
+-- appointments / journal_entries : propriétaire ET collaborateur accepté ont
+-- un accès complet (lecture/écriture) — "le calendrier" du brief. Une seule
+-- policy par table puisque can_access_horse couvre déjà le cas propriétaire.
+drop policy if exists "appointments_shared" on public.appointments;
+create policy "appointments_shared" on public.appointments
+  for all using (public.can_access_horse("horseId")) with check (public.can_access_horse("horseId"));
+
+drop policy if exists "journal_entries_shared" on public.journal_entries;
+create policy "journal_entries_shared" on public.journal_entries
+  for all using (public.can_access_horse("horseId")) with check (public.can_access_horse("horseId"));
+
+-- horse_collaborators : le propriétaire du cheval gère ses invitations
+-- (créer/lister/révoquer) ; l'invité voit et accepte sa propre ligne avant
+-- acceptation par correspondance d'email (seule donnée disponible tant que
+-- collaboratorUserId est encore vide), puis par collaboratorUserId une fois
+-- acceptée (cf. can_access_horse, qui filtre par collaboratorUserId — sans
+-- cette 2e policy, can_access_horse ne verrait jamais sa propre ligne après
+-- acceptation si jamais le claim email venait à manquer/changer).
+drop policy if exists "horse_collaborators_owner_all" on public.horse_collaborators;
+create policy "horse_collaborators_owner_all" on public.horse_collaborators
+  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
+
+drop policy if exists "horse_collaborators_invitee_select" on public.horse_collaborators;
+create policy "horse_collaborators_invitee_select" on public.horse_collaborators
+  for select using (lower("invitedEmail") = lower(auth.jwt() ->> 'email'));
+
+drop policy if exists "horse_collaborators_accepted_select" on public.horse_collaborators;
+create policy "horse_collaborators_accepted_select" on public.horse_collaborators
+  for select using ("collaboratorUserId" = auth.uid()::text);
+
+-- with check supplémentaire (collaboratorUserId = soi-même) : empêche un
+-- invité d'accepter sa propre ligne en y inscrivant l'id de quelqu'un d'autre.
+drop policy if exists "horse_collaborators_invitee_accept" on public.horse_collaborators;
+create policy "horse_collaborators_invitee_accept" on public.horse_collaborators
+  for update using (lower("invitedEmail") = lower(auth.jwt() ->> 'email'))
+  with check (lower("invitedEmail") = lower(auth.jwt() ->> 'email') and "collaboratorUserId" = auth.uid()::text);
 
 -- 5. Storage : bucket "documents" (coffre-fort) -----------------------------
 -- Bucket privé : un document (ordonnance, facture...) ne doit jamais être
