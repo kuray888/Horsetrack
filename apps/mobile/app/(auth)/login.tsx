@@ -7,7 +7,7 @@ import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
-import { pullCloudData } from "@/lib/cloudSync";
+import { pullCloudData, pullDocuments } from "@/lib/cloudSync";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
@@ -27,7 +27,7 @@ export default function LoginScreen() {
   const { clearAll: clearRiderProfile, setRiderProfile } = useRiderProfile();
   const { clearAll: clearProgress } = useProgress();
   const { clearAll: clearProgram } = useProgram();
-  const { clearAll: clearAgenda } = useAgenda();
+  const { clearAll: clearAgenda, hydrateDocumentsFromCloud } = useAgenda();
   const { clearAll: clearGoals } = useGoals();
   const { clearAll: clearSubscription } = useSubscription();
 
@@ -76,6 +76,10 @@ export default function LoginScreen() {
           if (cloudData) {
             hydrateFromCloud(cloudData.horses);
             setRiderProfile(cloudData.rider);
+            // Best-effort, ne lève jamais : cf. lib/cloudSync.ts. Le coffre-fort
+            // est secondaire à l'écurie possédée/au profil — un échec ici ne
+            // doit pas faire échouer toute la restauration.
+            hydrateDocumentsFromCloud(await pullDocuments());
             await markOnboardingCompleted();
             await setLocalDataOwner(userId);
             router.replace("/(tabs)/today");

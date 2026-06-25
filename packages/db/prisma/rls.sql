@@ -89,6 +89,7 @@ alter table public.goals          enable row level security;
 alter table public.sessions       enable row level security;
 alter table public.coach_usage    enable row level security;
 alter table public.email_reminders enable row level security;
+alter table public.documents      enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
 
@@ -140,6 +141,29 @@ create policy "coach_usage_select_own" on public.coach_usage
 drop policy if exists "email_reminders_select_own" on public.email_reminders;
 create policy "email_reminders_select_own" on public.email_reminders
   for select using ("userId" = auth.uid()::text);
+
+-- documents : rattaché au rider_profile, CRUD complet écrit directement par
+-- le client mobile (cf. lib/cloudSync.ts) — même pattern que goals_all_own.
+drop policy if exists "documents_all_own" on public.documents;
+create policy "documents_all_own" on public.documents
+  for all using (public.owns_rider_profile("riderId")) with check (public.owns_rider_profile("riderId"));
+
+-- 5. Storage : bucket "documents" (coffre-fort) -----------------------------
+-- Bucket privé : un document (ordonnance, facture...) ne doit jamais être
+-- accessible sans authentification, donc pas d'URL publique permanente — cf.
+-- lib/cloudSync.ts qui génère une URL signée à la demande. Chemin de chaque
+-- fichier : "{auth.uid()}/{docId}.jpg", donc le scoping par propriétaire se
+-- fait directement sur le premier segment du chemin, sans repasser par
+-- rider_profiles (storage.objects n'a pas de lien direct vers le domaine
+-- métier, juste un bucket_id + un nom de fichier).
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', false)
+on conflict (id) do nothing;
+
+drop policy if exists "documents_storage_all_own" on storage.objects;
+create policy "documents_storage_all_own" on storage.objects
+  for all using (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- sessions : table de jetons d'auth « legacy », non utilisée par le code
 -- actuel (le mobile passe par Supabase Auth, pas par ce modèle Prisma —

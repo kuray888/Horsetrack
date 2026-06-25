@@ -10,6 +10,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 import { cancelReminder, type ReminderOption } from "@/lib/notifications";
 import { cancelEmailReminder } from "@/lib/emailReminders";
+import { pushDocument, deleteDocumentRemote } from "@/lib/cloudSync";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import type { Mood } from "@/progress/store";
 
@@ -56,10 +57,16 @@ export type Doc = {
   category: DocumentCategory;
   name: string;
   date: Date;
-  /** URI locale de la photo du document (copiée dans le stockage persistant
-   * de l'app via lib/imagePicker.ts, comme les photos de cheval) — null tant
-   * qu'aucune photo n'a été ajoutée. */
+  /** URI de la photo du document : chemin local (copié dans le stockage
+   * persistant de l'app via lib/imagePicker.ts, comme les photos de cheval)
+   * tant qu'elle n'a pas encore été synchronisée, puis URL signée Supabase
+   * une fois restaurée depuis le cloud (cf. lib/cloudSync.ts pullDocuments).
+   * Null tant qu'aucune photo n'a été ajoutée. */
   fileUri: string | null;
+  /** Chemin dans le bucket Storage "documents" une fois synchronisé — permet
+   * de ne pas re-uploader la même photo à chaque synchro. Null tant que pas
+   * encore synchronisé (ou pas de photo). */
+  filePath: string | null;
 };
 
 /**
@@ -188,9 +195,9 @@ const DEFAULT_APPOINTMENTS: Appointment[] = [
 ];
 
 const DEFAULT_DOCUMENTS: Doc[] = [
-  { id: "d1", category: "ordonnance", name: "Ordonnance vermifuge", date: daysFromNow(-10), fileUri: null },
-  { id: "d2", category: "facture", name: "Facture maréchal — mars", date: daysFromNow(-32), fileUri: null },
-  { id: "d3", category: "rapport", name: "Rapport bilan vétérinaire annuel", date: daysFromNow(-32), fileUri: null },
+  { id: "d1", category: "ordonnance", name: "Ordonnance vermifuge", date: daysFromNow(-10), fileUri: null, filePath: null },
+  { id: "d2", category: "facture", name: "Facture maréchal — mars", date: daysFromNow(-32), fileUri: null, filePath: null },
+  { id: "d3", category: "rapport", name: "Rapport bilan vétérinaire annuel", date: daysFromNow(-32), fileUri: null, filePath: null },
 ];
 
 const DEFAULT_JOURNAL: JournalEntry[] = [];
@@ -205,8 +212,12 @@ type AgendaContextValue = {
   toggleChecklistItem: (apptId: string, itemId: string) => void;
   addChecklistItem: (apptId: string, label: string) => void;
   removeChecklistItem: (apptId: string, itemId: string) => void;
-  addDocument: (doc: Omit<Doc, "id">) => void;
+  addDocument: (doc: Omit<Doc, "id" | "filePath">) => void;
   deleteDocument: (docId: string) => void;
+  /** Remplace les documents locaux par ceux restaurés depuis le cloud (cf.
+   * (auth)/login.tsx) — n'écrit que l'état + SecureStore, ne relance jamais
+   * de synchro (on viendrait de recevoir exactement ces données du serveur). */
+  hydrateDocumentsFromCloud: (docs: Doc[]) => void;
   addJournalEntry: (entry: Omit<JournalEntry, "id">) => void;
   deleteJournalEntry: (entryId: string) => void;
   /** Efface rendez-vous + documents + journal locaux (cf. suppression de compte dans Profil). */
@@ -243,10 +254,12 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       }
       const parsedDocs = safeJsonParse<Doc[] | null>(docRaw, null);
       if (parsedDocs) {
-        // fileUri n'existe pas sur les documents sauvegardés avant son ajout —
-        // le compléter plutôt que de laisser `undefined` (cf. le même souci
-        // déjà rencontré sur Horse.restDayActivities).
-        setDocuments(parsedDocs.map((d) => ({ ...d, date: new Date(d.date), fileUri: d.fileUri ?? null })));
+        // fileUri/filePath n'existent pas sur les documents sauvegardés avant
+        // leur ajout — les compléter plutôt que de laisser `undefined` (cf. le
+        // même souci déjà rencontré sur Horse.restDayActivities).
+        setDocuments(
+          parsedDocs.map((d) => ({ ...d, date: new Date(d.date), fileUri: d.fileUri ?? null, filePath: d.filePath ?? null }))
+        );
       }
       const parsedJournal = safeJsonParse<JournalEntry[] | null>(journalRaw, null);
       if (parsedJournal) {
@@ -313,12 +326,30 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const addDocument = useCallback((doc: Omit<Doc, "id">) => {
-    setDocuments((list) => [...list, { ...doc, id: generateId("d") }]);
+  const addDocument = useCallback((doc: Omit<Doc, "id" | "filePath">) => {
+    const id = generateId("d");
+    const next: Doc = { ...doc, id, filePath: null };
+    setDocuments((list) => [...list, next]);
+    // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Le filePath
+    // résultant est reporté localement pour ne pas re-uploader la même photo
+    // à la prochaine synchro (cf. pushDocument).
+    pushDocument(next)
+      .then((filePath) => {
+        if (filePath) {
+          setDocuments((list) => list.map((d) => (d.id === id ? { ...d, filePath } : d)));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const deleteDocument = useCallback((docId: string) => {
     setDocuments((list) => list.filter((d) => d.id !== docId));
+    deleteDocumentRemote(docId).catch(() => {});
+  }, []);
+
+  const hydrateDocumentsFromCloud = useCallback((docs: Doc[]) => {
+    setDocuments(docs);
+    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(docs));
   }, []);
 
   const addJournalEntry = useCallback((entry: Omit<JournalEntry, "id">) => {
@@ -353,6 +384,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       removeChecklistItem,
       addDocument,
       deleteDocument,
+      hydrateDocumentsFromCloud,
       addJournalEntry,
       deleteJournalEntry,
       clearAll,
@@ -369,6 +401,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       removeChecklistItem,
       addDocument,
       deleteDocument,
+      hydrateDocumentsFromCloud,
       addJournalEntry,
       deleteJournalEntry,
       clearAll,

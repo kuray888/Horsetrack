@@ -1,6 +1,8 @@
+import { File } from "expo-file-system";
 import { supabase } from "@/lib/supabase";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
+import type { Doc } from "@/agenda/store";
 
 /**
  * Sauvegarde cloud des données irremplaçables (écurie + profil cavalier) —
@@ -206,4 +208,114 @@ export async function pullCloudData(): Promise<CloudData | null> {
   }));
 
   return { rider, horses };
+}
+
+/**
+ * Coffre-fort numérique : contrairement à l'écurie/le profil cavalier
+ * (synchronisés en repoussant l'état complet à chaque mutation, cf. ci-dessus),
+ * les documents sont synchronisés un par un — un document n'a pas d'opération
+ * de remplacement en masse comme `replaceHorses`, et repousser la photo de
+ * TOUS les documents à chaque ajout/suppression serait un gaspillage de bande
+ * passante qui grossirait avec la taille du coffre-fort.
+ */
+
+function categoryToDb(category: Doc["category"]): string {
+  return category.toUpperCase();
+}
+
+function categoryFromDb(category: string): Doc["category"] {
+  return category.toLowerCase() as Doc["category"];
+}
+
+async function uploadDocumentPhoto(userId: string, docId: string, localUri: string): Promise<string | null> {
+  try {
+    const bytes = await new File(localUri).bytes();
+    const path = `${userId}/${docId}.jpg`;
+    const { error } = await supabase.storage.from("documents").upload(path, bytes, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+    return error ? null : path;
+  } catch {
+    return null;
+  }
+}
+
+/** Upload la photo (si locale et pas encore envoyée) puis upsert la ligne.
+ * Retourne le `filePath` résultant — à reporter dans l'état local par
+ * l'appelant (cf. agenda/store.tsx `addDocument`) pour ne pas re-uploader la
+ * même photo à chaque synchro suivante. Retourne null sans rien casser si la
+ * synchro échoue (pas de session, pas de profil serveur encore, erreur réseau). */
+export async function pushDocument(doc: Doc): Promise<string | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return null;
+
+  const profile = await getOwnerProfile(userId);
+  if (!profile) return null;
+
+  let filePath = doc.filePath;
+  if (doc.fileUri?.startsWith("file://") && !filePath) {
+    filePath = await uploadDocumentPhoto(userId, doc.id, doc.fileUri);
+  }
+
+  const { error } = await supabase.from("documents").upsert({
+    id: doc.id,
+    riderId: profile.id,
+    category: categoryToDb(doc.category),
+    name: doc.name,
+    date: doc.date.toISOString(),
+    filePath,
+    updatedAt: new Date().toISOString(),
+  });
+  return error ? null : filePath;
+}
+
+export async function deleteDocumentRemote(docId: string): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return;
+  await supabase.from("documents").delete().eq("id", docId);
+  // Best-effort : si l'objet Storage ne se supprime pas, RLS empêche de
+  // toute façon tout accès par un autre utilisateur — pas une fuite.
+  await supabase.storage.from("documents").remove([`${userId}/${docId}.jpg`]);
+}
+
+/** Restaure le coffre-fort depuis Supabase (cf. (auth)/login.tsx, même
+ * déclencheur que pullCloudData). Les URLs étant signées (bucket privé,
+ * validité 7 jours), elles sont régénérées à chaque appel — donc à chaque
+ * connexion sur un appareil qui n'a pas déjà les données locales. */
+export async function pullDocuments(): Promise<Doc[]> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return [];
+
+  const profile = await getOwnerProfile(userId);
+  if (!profile) return [];
+
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, category, name, date, filePath")
+    .eq("riderId", profile.id);
+  if (error || !data) return [];
+
+  const docs: Doc[] = [];
+  for (const row of data) {
+    let fileUri: string | null = null;
+    if (row.filePath) {
+      const { data: signed } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(row.filePath, 7 * 24 * 60 * 60);
+      fileUri = signed?.signedUrl ?? null;
+    }
+    docs.push({
+      id: row.id,
+      category: categoryFromDb(row.category),
+      name: row.name,
+      date: new Date(row.date),
+      fileUri,
+      filePath: row.filePath ?? null,
+    });
+  }
+  return docs;
 }

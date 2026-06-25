@@ -58,8 +58,9 @@ model RiderProfile {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  horses Horse[]
-  goals  Goal[]
+  horses    Horse[]
+  goals     Goal[]
+  documents Document[]
 
   @@map("rider_profiles")
 }
@@ -147,6 +148,30 @@ model Goal {
 
   @@index([riderId])
   @@map("goals")
+}
+
+/// Coffre-fort numérique — document rattaché au cavalier (pas à un cheval
+/// précis, le modèle local actuel n'a pas cette notion). Écrit directement
+/// par le client mobile (cf. lib/cloudSync.ts), comme Horse/Goal.
+model Document {
+  id      String       @id @default(cuid())
+  riderId String
+  rider   RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+
+  category DocumentCategory
+  name     String
+  date     DateTime
+  /// Chemin dans le bucket Storage "documents" (userId/docId.jpg) — pas une
+  /// URL : le bucket est privé, l'URL signée est régénérée à la demande
+  /// (cf. cloudSync.ts pullDocuments) pour ne jamais exposer un document
+  /// sensible (ordonnance, facture...) sans authentification.
+  filePath String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riderId])
+  @@map("documents")
 }
 
 enum RiderLevel {
@@ -241,6 +266,15 @@ enum TraitKind {
   HEALTH_CONDITION
 
   @@map("trait_kind")
+}
+
+enum DocumentCategory {
+  FACTURE
+  RAPPORT
+  ORDONNANCE
+  AUTRE
+
+  @@map("document_category")
 }
 
 enum SubscriptionStatus {
