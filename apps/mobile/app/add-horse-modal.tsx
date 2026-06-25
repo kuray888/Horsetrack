@@ -35,8 +35,11 @@ export default function AddHorseModal() {
   const { addHorse, horses } = useHorses();
   const subscription = useSubscription();
   const limit = maxHorses(subscription);
+  // Les chevaux partagés (DP/coach) ne comptent jamais dans le quota du
+  // palier — même règle que profile.tsx/today.tsx (cf. Horse.sharedRole).
+  const ownedCount = horses.filter((h) => !h.sharedRole).length;
 
-  if (horses.length >= limit) {
+  if (ownedCount >= limit) {
     return <HorseLimitReached limit={limit} />;
   }
 

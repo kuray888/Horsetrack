@@ -11,6 +11,15 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
+  // horse_collaborators.collaboratorUserId n'a pas de FK vers users (cf.
+  // schema.prisma) — un cavalier invité comme demi-pension/coach n'a pas à
+  // exister côté Prisma pour qu'on puisse créer la ligne avant qu'il accepte.
+  // Pas couvert par le cascade de db.user.delete ci-dessous : à nettoyer à la
+  // main, sinon le propriétaire du cheval garde un slot de partage occupé par
+  // un compte qui n'existe plus (la limite d'1 collaborateur/cheval ne se
+  // libère jamais sans ça).
+  await db.horseCollaborator.deleteMany({ where: { collaboratorUserId: userId } });
+
   try {
     await db.user.delete({ where: { id: userId } });
   } catch (e) {
