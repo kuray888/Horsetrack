@@ -7,6 +7,7 @@ import { DropdownField } from "@/components/DropdownField";
 import { BreedField } from "@/components/BreedField";
 import { InjuryHistoryField, type InjuryEntry } from "@/components/InjuryHistoryField";
 import { Field } from "@/components/Field";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import {
   DISCIPLINES,
   HEALTH_CONDITIONS,
@@ -311,6 +312,7 @@ export function HorseForm({
           onPress={submit}
         />
       </View>
+      <PickerOverlaySlot />
     </SafeAreaView>
   );
 }

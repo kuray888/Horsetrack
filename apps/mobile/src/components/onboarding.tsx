@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { usePressScale } from "@/hooks/usePressScale";
 import { FadeInView } from "@/components/FadeInView";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import type { Option } from "@/onboarding/options";
 
 /** Barre de progression fine en haut de chaque étape — le remplissage est
@@ -84,6 +85,7 @@ export function OnboardingShell({
       <View className="px-5 pb-2 pt-3">
         <PrimaryButton label={ctaLabel} disabled={ctaDisabled} onPress={onNext} />
       </View>
+      <PickerOverlaySlot />
     </SafeAreaView>
   );
 }

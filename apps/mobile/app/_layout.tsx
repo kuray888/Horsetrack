@@ -10,9 +10,11 @@ import { AgendaProvider } from "@/agenda/store";
 import { GoalsProvider } from "@/goals/store";
 import { BadgeCelebration } from "@/components/BadgeCelebration";
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
+import { PickerOverlayProvider } from "@/components/PickerOverlay";
 
 export default function RootLayout() {
   return (
+    <PickerOverlayProvider>
     <GlossaryProvider>
       <SubscriptionProvider>
         <RiderProfileProvider>
@@ -52,5 +54,6 @@ export default function RootLayout() {
         </RiderProfileProvider>
       </SubscriptionProvider>
     </GlossaryProvider>
+    </PickerOverlayProvider>
   );
 }

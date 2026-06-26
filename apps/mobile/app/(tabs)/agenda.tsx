@@ -6,6 +6,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { PrimaryButton } from "@/components/onboarding";
 import { formatDate } from "@/lib/dateFormat";
 import { computeReminderTrigger, ensureNotificationPermission, scheduleReminder, type ReminderOption } from "@/lib/notifications";
@@ -284,6 +285,7 @@ export default function AgendaScreen() {
   }
 
   return (
+    <>
     <Screen>
       <FadeInView>
         <View className="gap-1">
@@ -722,6 +724,8 @@ export default function AgendaScreen() {
         </>
       )}
     </Screen>
+    <PickerOverlaySlot />
+    </>
   );
 }
 

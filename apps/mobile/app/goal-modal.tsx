@@ -6,6 +6,7 @@ import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
 import { DropdownField } from "@/components/DropdownField";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { RIDER_GOALS } from "@/onboarding/options";
 import type { RiderGoal } from "@/onboarding/store";
 import { useGoals } from "@/goals/store";
@@ -107,6 +108,7 @@ export default function GoalModal() {
       <View className="px-5 pb-2 pt-3">
         <PrimaryButton label={editing ? "Enregistrer" : "Ajouter"} disabled={!canSave} onPress={submit} />
       </View>
+      <PickerOverlaySlot />
     </SafeAreaView>
   );
 }
