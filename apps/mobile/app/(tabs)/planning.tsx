@@ -10,6 +10,8 @@ import { useProgram, type PlannedSession } from "@/program/store";
 import { useSubscription } from "@/subscription/store";
 import { restDayActivityFor, useHorses } from "@/horses/store";
 import { WEEK_DAYS_FULL, DAY_LABELS as WEEK_DAYS_SHORT, formatDuration, isSameDate } from "@/lib/dateFormat";
+import { GlossaryText } from "@/components/GlossaryText";
+import { GlossaryPopup } from "@/glossary/GlossaryProvider";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -73,7 +75,7 @@ function ProgramLocked() {
 
 export default function PlanningScreen() {
   const { isDone, completedCount } = useProgress();
-  const { program, weeks, allSessions, currentWeekNumber, getWeekDates, regenerate, feedbackNote, aiNote } =
+  const { program, weeks, allSessions, currentWeekNumber, getWeekDates, regenerate, feedbackNote, aiNote, adaptiveNote } =
     useProgram();
   const { isGrandPrix } = useSubscription();
   const { selectedHorse } = useHorses();
@@ -107,7 +109,8 @@ export default function PlanningScreen() {
     selectedDay === null ? weekSessions : weekSessions.filter((s) => s.dayIndex === selectedDay);
 
   return (
-    <Screen>
+    <>
+      <Screen>
       <FadeInView>
         <View className="flex-row items-center justify-between">
           <Text className="text-3xl font-extrabold tracking-tight text-text">Planning</Text>
@@ -151,7 +154,11 @@ export default function PlanningScreen() {
       </FadeInView>
 
       {program &&
-      (program.personalizationNotes.length > 0 || program.safetyNotes.length > 0 || feedbackNote || aiNote) ? (
+      (program.personalizationNotes.length > 0 ||
+        program.safetyNotes.length > 0 ||
+        feedbackNote ||
+        aiNote ||
+        adaptiveNote) ? (
         <FadeInView delay={90}>
           <View className={`${CARD} gap-2`}>
             <Text className="text-sm font-bold uppercase tracking-wide text-accent">Pourquoi ce programme</Text>
@@ -161,16 +168,13 @@ export default function PlanningScreen() {
                 {aiNote}
               </Text>
             ) : null}
+            {adaptiveNote ? <Text className="text-sm leading-5 text-text">🤖 {adaptiveNote}</Text> : null}
             {feedbackNote ? <Text className="text-sm leading-5 text-text">🔁 {feedbackNote}</Text> : null}
             {program.personalizationNotes.map((note, i) => (
-              <Text key={`p${i}`} className="text-sm leading-5 text-text">
-                💡 {note}
-              </Text>
+              <GlossaryText key={`p${i}`} text={`💡 ${note}`} className="text-sm leading-5 text-text" />
             ))}
             {program.safetyNotes.map((note, i) => (
-              <Text key={`s${i}`} className="text-sm leading-5 text-warning">
-                ⚠️ {note}
-              </Text>
+              <GlossaryText key={`s${i}`} text={`⚠️ ${note}`} className="text-sm leading-5 text-warning" />
             ))}
           </View>
         </FadeInView>
@@ -283,6 +287,8 @@ export default function PlanningScreen() {
           </FadeInView>
         ))
       )}
-    </Screen>
+      </Screen>
+      <GlossaryPopup />
+    </>
   );
 }

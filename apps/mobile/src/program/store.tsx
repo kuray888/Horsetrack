@@ -1,13 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
+import { formatDate } from "@/lib/dateFormat";
 import { supabase } from "@/lib/supabase";
 import { askProgramInsight } from "@/lib/programInsight";
 import { DISCIPLINES, RIDER_GOALS } from "@/onboarding/options";
-import { generateProgram, rescaleDuration, shiftIntensity } from "./rules";
-import type { ExerciseStep, FeedbackTrend, GeneratedProgram, SessionIntensity } from "./types";
+import { generateProgram, recuperationSession, rescaleDuration, shiftIntensity } from "./rules";
+import type { ExerciseStep, FeedbackTrend, GeneratedProgram, SessionIntensity, SessionType } from "./types";
 import { useHorses, type Horse } from "@/horses/store";
 import { useRiderProfile, type RiderProfile } from "@/rider/store";
+import { useAgenda } from "@/agenda/store";
+import { useWeather } from "@/weather/store";
 
 /**
  * Programme d'entraînement — généré par cheval (cf. program/rules.ts) à
@@ -22,11 +25,12 @@ import { useRiderProfile, type RiderProfile } from "@/rider/store";
  * pour un changement non "important" (forces/faiblesses, tempérament...).
  */
 
-// v3 : ajout de `setupNotes` (repères chiffrés) sur SessionTemplate — même
-// principe qu'au passage v1 -> v2 : la clé est bumpée pour ignorer les
-// programmes déjà en cache (qui n'ont pas ce champ) et forcer une
+// v5 : descriptions allégées à l'échauffement + termes techniques marqués en
+// **gras** (cf. components/GlossaryText, glossary/terms.ts) — même principe
+// qu'aux passages précédents : la clé est bumpée pour ignorer les programmes
+// déjà en cache (générés avec l'ancien texte, sans marqueurs) et forcer une
 // régénération propre, sans coder de migration de données.
-const PROGRAMS_KEY = "programs_v3";
+const PROGRAMS_KEY = "programs_v5";
 const SIGNATURES_KEY = "program_signatures_v2";
 /** Mémorise, par cheval, la date de génération (`program.generatedAt`) du
  * dernier programme pour lequel l'utilisateur a ignoré le bilan de fin de
@@ -50,7 +54,27 @@ export type PlannedSession = {
   equipment: string[];
   setupNotes: string[];
   exercises: ExerciseStep[];
+  /** Type effectif de la séance — celui généré par le moteur de règles, sauf
+   * substitution par un ajustement dynamique (cf. `adaptedReason`), auquel cas
+   * il reflète le type réellement affiché (ex: RECUPERATION en repos auto). */
+  type: SessionType;
+  /** Ajustement automatique appliqué à cette séance précise, ou null si
+   * inchangée (cf. "IA adaptative" : repos auto après un rendez-vous
+   * vétérinaire, allègement en cas de forte chaleur prévue). */
+  adaptedReason: "VET_REST" | "HEAT_TAPER" | null;
 };
+
+/** Seuil de température max (°C) au-delà duquel une séance prévue ce jour-là
+ * est allégée d'un cran d'intensité — pas la définition officielle Météo-
+ * France d'une canicule (qui se déclare sur plusieurs jours consécutifs),
+ * mais un seuil de prudence ponctuel suffisant pour l'effort d'un cheval. */
+const HEAT_TAPER_THRESHOLD_C = 28;
+
+/** Clé jour (indépendante de l'heure) pour faire correspondre une date de
+ * séance à un jour de rendez-vous/prévision météo. */
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
 
 export type ProgramWeekView = {
   weekNumber: number;
@@ -131,6 +155,10 @@ type ProgramContextValue = {
   /** Éclairage IA sur le texte libre (cf. /api/program-insight) — null tant
    * qu'il n'y a rien à interpréter, pas encore reçu, ou rien d'exploitable. */
   aiNote: string | null;
+  /** Explique le prochain ajustement automatique en cours (repos auto après
+   * un rendez-vous vétérinaire, allègement par forte chaleur), ou null si
+   * aucun n'est actif sur les jours à venir — cf. PlannedSession.adaptedReason. */
+  adaptiveNote: string | null;
 };
 
 const ProgramContext = createContext<ProgramContextValue | null>(null);
@@ -138,7 +166,37 @@ const ProgramContext = createContext<ProgramContextValue | null>(null);
 export function ProgramProvider({ children }: { children: ReactNode }) {
   const { selectedHorse } = useHorses();
   const { riderProfile } = useRiderProfile();
+  const { appointments } = useAgenda();
+  const { forecast } = useWeather();
   const horseId = selectedHorse?.id ?? null;
+
+  // Jours déclenchant un repos automatique : le lendemain d'un rendez-vous
+  // "vétérinaire" pour CE cheval (pas de distinction vaccin/visite de routine
+  // dans le modèle actuel — cf. Appointment.type, un seul type "veto" — donc
+  // toute visite vétérinaire déclenche la prudence, pas seulement un vaccin).
+  const vetRestDays = useMemo(() => {
+    const days = new Set<string>();
+    if (!horseId) return days;
+    for (const appt of appointments) {
+      if (appt.horseId !== horseId || appt.type !== "veto") continue;
+      const next = new Date(appt.date);
+      next.setDate(next.getDate() + 1);
+      days.add(dayKey(next));
+    }
+    return days;
+  }, [appointments, horseId]);
+
+  // Jours avec une chaleur prévue au-delà du seuil de prudence — uniquement
+  // sur la fenêtre couverte par la prévision (cf. weather/store.tsx, ~5 jours),
+  // les semaines plus lointaines du programme restent inchangées par manque
+  // de donnée, pas par choix.
+  const heatTaperDays = useMemo(() => {
+    const days = new Map<string, number>();
+    for (const day of forecast ?? []) {
+      if (day.tempMaxC >= HEAT_TAPER_THRESHOLD_C) days.set(dayKey(day.date), day.tempMaxC);
+    }
+    return days;
+  }, [forecast]);
 
   const [loading, setLoading] = useState(true);
   const [allPrograms, setAllPrograms] = useState<PersistedPrograms>({});
@@ -238,7 +296,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   }, [program]);
 
   const weeks = useMemo<ProgramWeekView[]>(() => {
-    if (!program || !horseId) return [];
+    if (!program || !horseId || !selectedHorse) return [];
     return program.weeks.map((week) => {
       const dates = getWeekDates(week.weekNumber);
       // L'ajustement issu du ressenti réel (cf. progress/store.tsx) ne touche
@@ -249,25 +307,62 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       return {
         weekNumber: week.weekNumber,
         sessions: week.sessions.map((s, i) => {
-          const intensity = applyTrend ? shiftIntensity(s.intensity, feedbackTrend) : s.intensity;
-          const durationMin = applyTrend ? rescaleDuration(s.durationMin, s.intensity, intensity) : s.durationMin;
+          let intensity = applyTrend ? shiftIntensity(s.intensity, feedbackTrend) : s.intensity;
+          let durationMin = applyTrend ? rescaleDuration(s.durationMin, s.intensity, intensity) : s.durationMin;
+          let title = s.title;
+          let focus = s.focus;
+          let equipment = s.equipment;
+          let setupNotes = s.setupNotes;
+          let exercises = s.exercises;
+          let type: SessionType = s.type;
+          let adaptedReason: PlannedSession["adaptedReason"] = null;
+
+          const date = dates[s.dayOffset];
+          const key = date ? dayKey(date) : null;
+
+          // "IA adaptative" — repos auto après un rendez-vous vétérinaire :
+          // priorité sur l'allègement canicule (un repos complet couvre déjà
+          // le cas de la chaleur), inutile si déjà un jour de récupération.
+          if (key && vetRestDays.has(key) && s.type !== "RECUPERATION") {
+            const recup = recuperationSession(week.weekNumber - 1, selectedHorse);
+            title = `🩺 ${recup.title}`;
+            focus = `${recup.focus} — après le rendez-vous vétérinaire d'hier`;
+            durationMin = recup.durationMin;
+            equipment = recup.equipment;
+            setupNotes = [];
+            exercises = recup.exercises;
+            intensity = "LOW";
+            type = "RECUPERATION";
+            adaptedReason = "VET_REST";
+          } else if (key && heatTaperDays.has(key) && s.type !== "RECUPERATION") {
+            const tempMax = heatTaperDays.get(key)!;
+            const tapered = shiftIntensity(intensity, -1);
+            durationMin = rescaleDuration(durationMin, intensity, tapered);
+            intensity = tapered;
+            title = `🌡️ ${title}`;
+            focus = `${focus} — allégée, forte chaleur prévue (${tempMax}°C)`;
+            adaptedReason = "HEAT_TAPER";
+          }
+
           return {
             id: `${horseId}-w${week.weekNumber}-s${i}`,
-            date: dates[s.dayOffset],
+            date,
             dayIndex: s.dayOffset,
             time: s.time,
-            title: s.title,
+            title,
             durationMin,
-            focus: s.focus,
+            focus,
             intensity,
-            equipment: s.equipment,
-            setupNotes: s.setupNotes,
-            exercises: s.exercises,
+            equipment,
+            setupNotes,
+            exercises,
+            type,
+            adaptedReason,
           };
         }),
       };
     });
-  }, [program, horseId, getWeekDates, feedbackTrend, currentWeekNumber]);
+  }, [program, horseId, selectedHorse, getWeekDates, feedbackTrend, currentWeekNumber, vetRestDays, heatTaperDays]);
 
   const feedbackNote = useMemo(() => {
     if (feedbackTrend === -1) {
@@ -340,6 +435,21 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     [weeks, currentWeekNumber]
   );
 
+  // N'annonce que le PROCHAIN ajustement à venir (pas un cumul) — même logique
+  // d'affichage qu'un seul `feedbackNote` à la fois, pour rester lisible.
+  const adaptiveNote = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const next = allSessions
+      .filter((s) => s.adaptedReason && s.date >= todayStart)
+      .sort((a, b) => a.date.getTime() - b.date.getTime())[0];
+    if (!next) return null;
+    const when = next.date.getTime() === todayStart.getTime() ? "aujourd'hui" : `le ${formatDate(next.date)}`;
+    return next.adaptedReason === "VET_REST"
+      ? `Repos automatique ${when} suite au rendez-vous vétérinaire de la veille.`
+      : `Séance allégée ${when} : forte chaleur prévue.`;
+  }, [allSessions]);
+
   const isProgramComplete = useMemo(() => {
     if (!program) return false;
     const lastDay = getWeekDates(program.totalWeeks)[6];
@@ -387,6 +497,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       recordFeedbackTrend,
       feedbackNote,
       aiNote,
+      adaptiveNote,
     }),
     [
       loading,
@@ -404,6 +515,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       recordFeedbackTrend,
       feedbackNote,
       aiNote,
+      adaptiveNote,
     ]
   );
 

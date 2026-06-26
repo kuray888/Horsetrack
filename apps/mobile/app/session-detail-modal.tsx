@@ -7,6 +7,8 @@ import { useProgress, type Mood } from "@/progress/store";
 import type { SessionIntensity, SessionStepPhase } from "@/program/types";
 import { WEEK_DAYS_FULL } from "@/lib/dateFormat";
 import { usePressScale } from "@/hooks/usePressScale";
+import { GlossaryText } from "@/components/GlossaryText";
+import { GlossaryPopup } from "@/glossary/GlossaryProvider";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -101,7 +103,9 @@ export default function SessionDetailModal() {
           {session.equipment.map((item, i) => (
             <View key={i} className="flex-row items-start gap-2">
               <Text className="text-sm text-muted">•</Text>
-              <Text className="flex-1 text-sm text-text">{item}</Text>
+              <View className="flex-1">
+                <GlossaryText text={item} className="text-sm text-text" />
+              </View>
             </View>
           ))}
         </View>
@@ -112,7 +116,9 @@ export default function SessionDetailModal() {
             {session.setupNotes.map((note, i) => (
               <View key={i} className="flex-row items-start gap-2">
                 <Text className="text-sm text-muted">📏</Text>
-                <Text className="flex-1 text-sm text-text">{note}</Text>
+                <View className="flex-1">
+                  <GlossaryText text={note} className="text-sm text-text" />
+                </View>
               </View>
             ))}
             <Text className="text-xs text-muted">
@@ -129,8 +135,11 @@ export default function SessionDetailModal() {
               <Text className="text-sm font-bold uppercase tracking-wide text-accent">{PHASE_LABELS[phase]}</Text>
               {steps.map((step, i) => (
                 <View key={i} className="gap-1">
-                  <Text className="text-sm font-bold text-text">{step.title}</Text>
-                  <Text className="text-sm leading-5 text-muted">{step.description}</Text>
+                  <View className="flex-row items-center justify-between gap-2">
+                    <Text className="flex-1 text-sm font-bold text-text">{step.title}</Text>
+                    <Text className="text-xs font-bold text-accent">{step.durationMin} min</Text>
+                  </View>
+                  <GlossaryText text={step.description} className="text-sm leading-5 text-muted" />
                 </View>
               ))}
             </View>
@@ -208,6 +217,7 @@ export default function SessionDetailModal() {
           </View>
         ) : null}
       </ScrollView>
+      <GlossaryPopup />
     </SafeAreaView>
   );
 }

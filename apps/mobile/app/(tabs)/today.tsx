@@ -4,6 +4,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { CircularProgress } from "@/components/CircularProgress";
 import { FadeInView } from "@/components/FadeInView";
 import { WeekStreak } from "@/components/WeekStreak";
+import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
+import { DisciplineBreakdownCard } from "@/components/DisciplineBreakdownCard";
 import { Screen } from "@/components/Screen";
 import { Locked } from "@/components/Locked";
 import { useCountUp } from "@/hooks/useCountUp";
@@ -14,6 +16,12 @@ import { restDayActivityFor, useHorses } from "@/horses/store";
 import { useProgram } from "@/program/store";
 import { useAgenda, type AppointmentType } from "@/agenda/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
+import { disciplineBreakdown, workloadScore } from "@/stats/compute";
+
+/** Fenêtre glissante pour les statistiques avancées (répartition + charge) —
+ * 14 jours, comme le plafond d'historique Free ailleurs dans l'app : assez
+ * pour une tendance récente, pas un historique complet. */
+const STATS_WINDOW_DAYS = 14;
 
 const TIPS = [
   "Varie les allures à l'échauffement pour mieux préparer les muscles de ton cheval.",
@@ -79,8 +87,8 @@ function weeklyRecapMessage(done: number, total: number): string {
 export default function TodayScreen() {
   const { isDone, xp, xpIntoLevel, xpGoal, level, weekStreak, bestWeekStreak } = useProgress();
   const { horses, selectedHorse, selectHorse } = useHorses();
-  const { program, currentWeek, allSessions, isProgramComplete, bilanDismissed } = useProgram();
-  const { appointments } = useAgenda();
+  const { program, currentWeek, allSessions, isProgramComplete, bilanDismissed, adaptiveNote } = useProgram();
+  const { appointments, journal } = useAgenda();
   const subscription = useSubscription();
   const { isGrandPrix } = subscription;
   const horseLimit = maxHorses(subscription);
@@ -104,6 +112,17 @@ export default function TodayScreen() {
   const pastDoneCount = pastSessions.filter((s) => isDone(s.id)).length;
   const adherenceTarget = pastSessions.length > 0 ? Math.round((pastDoneCount / pastSessions.length) * 100) : 0;
   const adherencePct = useCountUp(adherenceTarget);
+
+  // Statistiques avancées — répartition par discipline (programme fait +
+  // journal libre) et score de charge réel (programme uniquement, cf.
+  // stats/compute.ts pour le détail des deux calculs).
+  const statsWindowStart = new Date(todayStart);
+  statsWindowStart.setDate(statsWindowStart.getDate() - STATS_WINDOW_DAYS);
+  const doneSessionsInWindow = allSessions.filter((s) => isDone(s.id) && s.date >= statsWindowStart && s.date <= today);
+  const horseJournalInWindow = journal.filter((j) => j.horseId === horse?.id && j.date >= statsWindowStart);
+  const discipline = disciplineBreakdown(doneSessionsInWindow, horseJournalInWindow);
+  const workload = workloadScore(doneSessionsInWindow, STATS_WINDOW_DAYS, today);
+
   const todaySession =
     weekSessions.find(
       (s) =>
@@ -148,6 +167,11 @@ export default function TodayScreen() {
             )}
           </View>
         </View>
+      </FadeInView>
+
+      {/* Météo des prochains jours — purement indicatif, masqué si indisponible */}
+      <FadeInView delay={20}>
+        <WeatherForecastStrip />
       </FadeInView>
 
       {/* Bilan de fin de programme — proposé une fois la dernière semaine atteinte */}
@@ -247,6 +271,18 @@ export default function TodayScreen() {
               <Text className="text-base font-bold text-on-primary">Démarrer une séance</Text>
             </TouchableOpacity>
           </FadeInView>
+
+          {/* IA adaptative — repos auto après un rendez-vous vétérinaire, allègement par forte chaleur */}
+          {adaptiveNote ? (
+            <FadeInView delay={100}>
+              <View className={`${CARD} flex-row items-center gap-3`}>
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-success/15">
+                  <Text className="text-lg">🤖</Text>
+                </View>
+                <Text className="flex-1 text-sm leading-5 text-text">{adaptiveNote}</Text>
+              </View>
+            </FadeInView>
+          ) : null}
 
           {/* Bilan de la semaine — généré à partir des vraies séances cochées dans Planning */}
           <FadeInView delay={120}>
@@ -359,6 +395,35 @@ export default function TodayScreen() {
                 <Text className="text-xs text-muted">
                   {pastDoneCount}/{pastSessions.length} séances
                 </Text>
+              </View>
+            </View>
+          </FadeInView>
+
+          {/* Statistiques avancées — répartition par discipline + charge réelle */}
+          <FadeInView delay={320}>
+            <View className={`${CARD} gap-3`}>
+              <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+                Répartition par discipline
+              </Text>
+              <Text className="text-xs text-muted">Sur les {STATS_WINDOW_DAYS} derniers jours</Text>
+              <DisciplineBreakdownCard stats={discipline} />
+            </View>
+          </FadeInView>
+
+          <FadeInView delay={360}>
+            <View className={`${CARD} flex-row items-center gap-3`}>
+              <View className="h-11 w-11 items-center justify-center rounded-full bg-warning/15">
+                <MaterialCommunityIcons name="speedometer" size={22} color={colors.warning} />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text className="text-sm font-bold uppercase tracking-wide text-accent">Charge d&apos;entraînement</Text>
+                {isGrandPrix ? (
+                  <Text className="text-[15px] leading-5 text-text">{workload.label}</Text>
+                ) : (
+                  <Text className="text-[15px] leading-5 text-text">
+                    Calculée à partir du programme — disponible avec le pack Grand Prix.
+                  </Text>
+                )}
               </View>
             </View>
           </FadeInView>

@@ -56,3 +56,42 @@ export async function fetchWeatherSnapshot(): Promise<WeatherSnapshot | null> {
   if (!position) return null;
   return fetchCurrentWeather(position.lat, position.lon);
 }
+
+export type DailyForecast = { date: Date; tempMaxC: number; tempMinC: number; code: number; label: string; icon: string };
+
+/** Parse une date "YYYY-MM-DD" (renvoyée par Open-Meteo) en date locale —
+ * éviter `new Date("YYYY-MM-DD")`, qui est interprété en UTC minuit et peut
+ * tomber sur la veille une fois reconverti en jour de semaine local dans un
+ * fuseau négatif (ex: US). */
+function parseLocalDate(isoDate: string): Date {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** Prévisions des prochains jours (aperçu indicatif, pas un bulletin détaillé) —
+ * pour anticiper les séances/rendez-vous à venir dans le planning. Même
+ * permission/position que fetchWeatherSnapshot ; échec silencieux. */
+export async function fetchWeatherForecast(days = 5): Promise<DailyForecast[] | null> {
+  const position = await requestLocationOnce();
+  if (!position) return null;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${position.lat}&longitude=${position.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=${days}&timezone=auto`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const dates = data?.daily?.time;
+    const codes = data?.daily?.weather_code;
+    const maxs = data?.daily?.temperature_2m_max;
+    const mins = data?.daily?.temperature_2m_min;
+    if (!Array.isArray(dates) || !Array.isArray(codes) || !Array.isArray(maxs) || !Array.isArray(mins)) return null;
+    return dates.map((isoDate: string, i: number) => ({
+      date: parseLocalDate(isoDate),
+      tempMaxC: Math.round(maxs[i]),
+      tempMinC: Math.round(mins[i]),
+      code: codes[i],
+      ...labelForCode(codes[i]),
+    }));
+  } catch {
+    return null;
+  }
+}

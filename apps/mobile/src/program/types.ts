@@ -27,6 +27,11 @@ export type ExerciseStep = {
   phase: SessionStepPhase;
   title: string;
   description: string;
+  /** Durée indicative de ce bloc précis, en minutes — calculée au prorata de
+   * la durée totale de la séance (cf. program/rules.ts buildExercises), pour
+   * qu'une séance se lise comme un vrai déroulé chronométré plutôt qu'une
+   * liste d'idées sans repère de temps. */
+  durationMin: number;
 };
 
 export type SessionTemplate = {
