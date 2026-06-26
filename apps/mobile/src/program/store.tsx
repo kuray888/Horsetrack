@@ -6,7 +6,14 @@ import { supabase } from "@/lib/supabase";
 import { askProgramInsight } from "@/lib/programInsight";
 import { pushHorseProgram, type RemoteProgramData } from "@/lib/cloudSync";
 import { DISCIPLINES, RIDER_GOALS } from "@/onboarding/options";
-import { generateProgram, recuperationSession, rescaleDuration, shiftIntensity } from "./rules";
+import {
+  generateProgram,
+  lightSessionOverride,
+  PRE_COMPETITION_RISK_TYPES,
+  recuperationSession,
+  rescaleDuration,
+  shiftIntensity,
+} from "./rules";
 import type { ExerciseStep, FeedbackTrend, GeneratedProgram, SessionIntensity, SessionType } from "./types";
 import { useHorses, type Horse } from "@/horses/store";
 import { useRiderProfile, type RiderProfile } from "@/rider/store";
@@ -385,11 +392,29 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
             type = "RECUPERATION";
             adaptedReason = "COMPETITION_RECOVERY";
           } else if (key && competitionTaperDays.has(key) && s.type !== "RECUPERATION") {
-            const tapered = shiftIntensity(intensity, -1);
-            durationMin = rescaleDuration(durationMin, intensity, tapered);
-            intensity = tapered;
-            title = `🏆 ${title}`;
-            focus = `${focus} — allégée, concours demain`;
+            // Le saut/renforcement sont écartés la veille d'un concours (risque
+            // de fatigue/blessure de dernière minute) au profit d'un plat léger
+            // — un simple cran d'intensité en moins ne suffit pas, le cheval
+            // continuerait à sauter juste un peu plus bas. Les types déjà sans
+            // risque particulier (plat, sortie, travail à pied) restent les
+            // mêmes, juste allégés en intensité.
+            if (PRE_COMPETITION_RISK_TYPES.has(s.type)) {
+              const light = lightSessionOverride("ASSOUPLISSEMENT", week.weekNumber - 1, selectedHorse);
+              title = `🏆 ${light.title}`;
+              focus = `${light.focus} — plat léger, concours demain`;
+              durationMin = light.durationMin;
+              equipment = light.equipment;
+              setupNotes = [];
+              exercises = light.exercises;
+              intensity = "LOW";
+              type = "ASSOUPLISSEMENT";
+            } else {
+              const tapered = shiftIntensity(intensity, -1);
+              durationMin = rescaleDuration(durationMin, intensity, tapered);
+              intensity = tapered;
+              title = `🏆 ${title}`;
+              focus = `${focus} — allégée, concours demain`;
+            }
             adaptedReason = "COMPETITION_TAPER";
           } else if (key && heatTaperDays.has(key) && s.type !== "RECUPERATION") {
             const tempMax = heatTaperDays.get(key)!;

@@ -1173,25 +1173,43 @@ export function rescaleDuration(
   return Math.round((currentDurationMin * intensityFactor(toIntensity)) / intensityFactor(fromIntensity) / 5) * 5;
 }
 
-/** Contenu d'une séance de récupération active, prêt à substituer à une
- * séance déjà générée — réutilisé pour l'ajustement dynamique "repos auto
- * après un rendez-vous vétérinaire" (cf. program/store.tsx), en plus de son
- * usage normal dans le pool de séances santé/blessures (cf.
- * applyHealthAndInjuryRestrictions). Même contenu, même rotation par semaine
- * (`weekIndex`) que `generateProgram` — pas une variante ad hoc. */
-export function recuperationSession(
+/** Contenu d'un type de séance donné, prêt à substituer à une séance déjà
+ * générée — réutilisé pour les ajustements dynamiques (cf. program/store.tsx :
+ * repos auto après un rendez-vous vétérinaire ou un concours, bascule en plat
+ * léger la veille d'un concours), en plus de l'usage normal de RECUPERATION
+ * dans le pool de séances santé/blessures (cf. applyHealthAndInjuryRestrictions).
+ * Même contenu, même rotation par semaine (`weekIndex`) que `generateProgram`
+ * — pas une variante ad hoc. */
+export function lightSessionOverride(
+  type: SessionType,
   weekIndex: number,
   horse: Horse
 ): { title: string; focus: string; durationMin: number; equipment: string[]; exercises: ExerciseStep[] } {
-  const meta = SESSION_META.RECUPERATION;
+  const meta = SESSION_META[type];
   return {
     title: meta.title,
     focus: meta.focus,
     durationMin: meta.baseDurationMin,
-    equipment: SESSION_EQUIPMENT.RECUPERATION,
-    exercises: buildExercises("RECUPERATION", weekIndex, horse, null, meta.baseDurationMin),
+    equipment: SESSION_EQUIPMENT[type],
+    exercises: buildExercises(type, weekIndex, horse, null, meta.baseDurationMin),
   };
 }
+
+export function recuperationSession(
+  weekIndex: number,
+  horse: Horse
+): { title: string; focus: string; durationMin: number; equipment: string[]; exercises: ExerciseStep[] } {
+  return lightSessionOverride("RECUPERATION", weekIndex, horse);
+}
+
+/** Types jugés trop sollicitants/techniques pour la veille d'un concours —
+ * mieux vaut une séance de plat léger ce jour-là qu'un maintien du travail
+ * habituel juste un peu moins intense (cf. program/store.tsx, ajustement
+ * "concours demain"). Le saut et le renforcement sont les plus exposés au
+ * risque de fatigue/blessure de dernière minute ; le travail de plat reste
+ * sans risque particulier, juste fait plus doucement (cf. ailleurs dans
+ * l'ajustement, qui se contente alors d'alléger l'intensité). */
+export const PRE_COMPETITION_RISK_TYPES = new Set<SessionType>(["OBSTACLE", "BARRES_AU_SOL", "RENFORCEMENT"]);
 
 /** Poids de charge relatif d'un type de séance (0 = aucune charge, 3 = la
  * plus intense) — même table que celle utilisée pour ordonner les séances de
