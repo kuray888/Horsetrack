@@ -46,6 +46,7 @@ const RAW_TERMS: GlossaryEntry[] = [
   { term: "Protège-boulets", definition: "Petites protections qui couvrent uniquement la zone du boulet (l'articulation juste au-dessus du paturon), utilisées surtout en extérieur ou à l'obstacle." },
   { term: "Cadence", definition: "Régularité du rythme d'une allure — une cadence stable signifie que le cheval garde la même vitesse de battue d'un pas/trot/galop à l'autre, sans accélérer ni ralentir." },
   { term: "Serpentine", definition: "Tracé en boucles successives traversant la carrière d'un côté à l'autre, utilisé pour travailler la souplesse et l'écoute aux changements de direction." },
+  { term: "Huit de chiffre", definition: "Figure tracée en croisant deux cercles ou voltes pour former un 8, avec un changement de pli au point de croisement — exercice classique pour travailler la souplesse dans les deux sens." },
 ];
 
 function normalize(value: string): string {

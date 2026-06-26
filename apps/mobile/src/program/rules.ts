@@ -102,9 +102,13 @@ const GOAL_THEME: Record<RiderGoal, string> = {
 
 type ExerciseStepDraft = { phase: SessionStepPhase; title: string; description: string };
 
-/** 2 variantes par type pour qu'une même séance ne soit pas identique à
- * chaque occurrence dans le programme. Chaque exercice porte une description
- * (comment le faire / à quoi veiller) et une phase d'affichage. */
+/** 3 variantes par type pour qu'une même séance ne soit pas identique à
+ * chaque occurrence dans le programme — la rotation se fait sur le nombre de
+ * fois où CE type a déjà été programmé (cf. `buildExercises`), pas sur le
+ * numéro de semaine brut, donc même un cheval qui voit le même type revenir
+ * souvent ne retombe sur la même variante qu'après les 3 avoir vues. Chaque
+ * exercice porte une description (comment le faire / à quoi veiller) et une
+ * phase d'affichage. */
 const SESSION_META: Record<
   SessionType,
   { title: string; focus: string; baseDurationMin: number; exerciseVariants: ExerciseStepDraft[][] }
@@ -158,6 +162,28 @@ const SESSION_META: Record<
           description: "Termine par 5 min au pas en recherchant l'**encolure basse**, pour relâcher le dos après le travail technique.",
         },
       ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "10 min pas actif puis trot en lignes droites",
+          description: "10 min de pas actif (le cheval marche franchement vers l'avant) puis trot en lignes droites sur toute la longueur de la carrière, pour installer l'impulsion avant le travail sur les courbes.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Spirale resserrée puis élargie × 4 par main",
+          description: "Trace une **volte** de 20 m que tu resserres progressivement jusqu'à 10 m puis élargis à nouveau, 4 fois par main, pour développer la **rectitude** et l'**incurvation** sans perdre l'allure.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Variations de cadence au trot sur le grand côté",
+          description: "Sur chaque grand côté, demande 3-4 foulées plus amples puis un retour à la **cadence** normale, pour développer l'écoute aux aides sans changer d'allure.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "5 min pas en extérieur du cadre, longues rênes",
+          description: "Termine par 5 min de pas en longues rênes, en sortant si possible du cadre habituel de travail (changement de terrain), pour décompresser mentalement autant que physiquement.",
+        },
+      ],
     ],
   },
   ASSOUPLISSEMENT: {
@@ -207,6 +233,28 @@ const SESSION_META: Record<
           phase: "RETOUR_AU_CALME",
           title: "5 min pas allongé, rênes longues",
           description: "Termine par 5 min de **pas allongé**, en **rênes longues**, pour détendre complètement le cheval après le travail technique.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "8 min pas avec flexions latérales légères",
+          description: "8 min au pas en demandant de courtes flexions latérales de l'encolure, à l'arrêt puis en mouvement, pour réveiller la décontraction de la mâchoire avant le travail.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Huit de chiffre au trot, 2 voltes de 15 m reliées",
+          description: "Trace un **huit de chiffre** formé de 2 **voltes** de 15 m reliées par une diagonale, au trot, en changeant de pli au croisement, pour travailler la souplesse dans les deux sens sans interruption.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Transitions trot-pas-trot sur la volte × 6",
+          description: "Réalise 6 **transitions** trot-pas-trot exactement sur le tracé d'une **volte** de 15 m, pour combiner le travail de souplesse latérale et la précision des transitions.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "5 min pas, flexions latérales à l'arrêt",
+          description: "Termine à l'arrêt par quelques flexions latérales douces de chaque côté, pour finir sur une décontraction complète de la mâchoire et de l'encolure.",
         },
       ],
     ],
@@ -260,6 +308,28 @@ const SESSION_META: Record<
           description: "Reviens au pas, **rênes longues**, et laisse le cheval s'étirer **encolure basse** pour décontracter le dos.",
         },
       ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Barre unique abordée des deux mains × 6",
+          description: "Aborde une barre isolée 6 fois en alternant les mains, au pas puis au trot, pour vérifier que le cheval reste droit à l'approche quel que soit le sens.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Ligne de barres sur une courbe légère × 5 passages",
+          description: "Dispose 3 à 4 barres sur une courbe légère (pas une ligne droite) et enchaîne 5 passages au trot, pour travailler l'équilibre et l'**incurvation** en plus de la régularité de la **foulée**.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Transitions trot-pas au-dessus d'une grille de barres",
+          description: "Place 4 à 5 barres rapprochées et alterne des passages au trot puis au pas dessus, pour renforcer l'**engagement** des postérieurs sans monter en vitesse.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "5 min pas, valorisation",
+          description: "Termine au pas en valorisant largement le travail de précision accompli, pour ancrer une fin de séance positive.",
+        },
+      ],
     ],
   },
   OBSTACLE: {
@@ -309,6 +379,28 @@ const SESSION_META: Record<
           phase: "RETOUR_AU_CALME",
           title: "5 min pas calme",
           description: "Termine par un retour au pas calme, en récompensant largement le cheval pour le travail fourni.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "Cavaletti puis petit obstacle isolé × 5 passages",
+          description: "5 passages au trot, d'abord sur un **cavaletti** puis sur un obstacle isolé très bas, pour installer le rythme avant d'enchaîner sur le travail principal.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Gymnastique : 2-3 obstacles rapprochés × 5 passages",
+          description: "Enchaîne 2 à 3 obstacles bas rapprochés (une **foulée** entre chaque, cf. repères techniques), au trot, pour développer la technique et la rapidité de réaction des membres sans vitesse excessive.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Ligne en courbe légère × 4 passages",
+          description: "Aborde une ligne de 2 obstacles disposée sur une courbe légère plutôt qu'une ligne droite, 4 passages en alternant les mains, pour travailler l'équilibre et l'anticipation du tracé.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "5 min pas, retour calme",
+          description: "Termine par un retour au pas, rênes détendues, en valorisant le cheval pour le travail technique fourni.",
         },
       ],
     ],
@@ -362,6 +454,28 @@ const SESSION_META: Record<
           description: "Termine par 10 min de marche calme pour permettre une bonne récupération avant le retour à l'écurie.",
         },
       ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "10 min marche en explorant un nouveau tracé",
+          description: "10 min de marche en explorant si possible un tracé ou un environnement légèrement différent de d'habitude, pour stimuler l'attention du cheval dès le départ.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Alternance trot/pas par tranches de 5 min × 3",
+          description: "Alterne 3 fois 5 min de **trot enlevé** et 5 min de pas actif, pour travailler l'endurance par paliers plutôt qu'en continu — plus facile à doser sur un terrain inconnu.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Passage d'1-2 éléments inhabituels du terrain",
+          description: "Si l'occasion se présente, laisse le cheval observer puis franchir calmement 1 à 2 éléments inhabituels (pont, flaque, véhicule au loin), pour développer son aisance générale en extérieur.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "10 min marche, retour progressif",
+          description: "Termine par 10 min de marche tranquille en revenant progressivement vers un terrain connu, pour une fin de sortie sereine.",
+        },
+      ],
     ],
   },
   TRAVAIL_A_PIED: {
@@ -411,6 +525,28 @@ const SESSION_META: Record<
           phase: "RETOUR_AU_CALME",
           title: "5 min temps calme",
           description: "Termine par 5 minutes sans exercice, juste présence et calme partagés.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "5 min marche en main libre, observation du comportement",
+          description: "5 min de marche en main, **longe** détendue, en observant l'attitude générale du cheval (oreilles, regard, façon de suivre) avant de commencer l'exercice.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Slalom entre 4 plots, mené en main × 4 passages",
+          description: "Mène le cheval en main à travers un slalom de 4 plots espacés de quelques mètres, 4 passages, pour travailler la précision du placement et l'écoute fine aux indications du meneur.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Immobilité prolongée pendant une tâche annexe (2 min)",
+          description: "Demande une immobilité de 2 minutes pendant que tu effectues une tâche annexe (réglage de matériel, par exemple), pour renforcer la patience sans présence active continue.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "5 min détente, retour au calme",
+          description: "Termine par 5 minutes de présence calme, sans exigence, pour clore la séance sur une note détendue.",
         },
       ],
     ],
@@ -464,6 +600,28 @@ const SESSION_META: Record<
           description: "Termine par un pas détendu de 5 minutes pour permettre une bonne récupération musculaire.",
         },
       ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "10 min pas-trot avec changements de direction réguliers",
+          description: "10 min au pas puis au trot avec un changement de direction toutes les 2-3 min, pour solliciter les deux côtés du corps dès l'échauffement.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Allongements/raccourcissements de foulée au trot × 8",
+          description: "Sur la longueur de la carrière, demande 8 allers-retours d'allongement puis raccourcissement de la **foulée** au trot, pour développer la poussée des postérieurs et la tonicité du dos.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Serpentine à 3 boucles, jambe intérieure active",
+          description: "Trace une **serpentine** de 3 boucles en demandant un engagement actif de la jambe intérieure à chaque changement de courbe, pour renforcer la musculature latérale.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "5 min pas, étirements encolure",
+          description: "Termine par 5 minutes au pas en laissant le cheval étirer son encolure, pour relâcher les muscles sollicités.",
+        },
+      ],
     ],
   },
   RECUPERATION: {
@@ -513,6 +671,28 @@ const SESSION_META: Record<
           phase: "RETOUR_AU_CALME",
           title: "Bilan vétérinaire/ostéopathe si besoin",
           description: "Si un doute persiste sur la récupération, prévois un point avec le vétérinaire ou l'**ostéopathe** avant de reprendre le travail.",
+        },
+      ],
+      [
+        {
+          phase: "ECHAUFFEMENT",
+          title: "10 min de soins (douche, pansage léger selon météo)",
+          description: "10 min de soins doux (douche fraîche si la météo s'y prête, sinon pansage léger), sans aucune sollicitation physique, juste pour le confort du cheval.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "5 min de marche très calme en main, si à l'aise",
+          description: "Si le cheval se montre à l'aise, propose 5 minutes de marche très calme en main sur terrain plat, sinon laisse-le simplement au repos complet.",
+        },
+        {
+          phase: "CORPS_DE_SEANCE",
+          title: "Observation de l'appétit et du comportement au box/pré",
+          description: "Observe l'appétit et le comportement général au box ou au pré dans les heures qui suivent, pour détecter tout signe inhabituel à signaler.",
+        },
+        {
+          phase: "RETOUR_AU_CALME",
+          title: "Pas de sollicitation supplémentaire",
+          description: "Ne rajoute aucune sollicitation supplémentaire ce jour-là — la récupération prime sur toute idée de progression.",
         },
       ],
     ],
@@ -946,10 +1126,22 @@ function phaseForWeek(weekNumber: number, totalWeeks: number, goal: RiderGoal | 
   return "DEVELOPPEMENT";
 }
 
-function intensityForPhase(base: SessionIntensity, phase: ProgramPhase): SessionIntensity {
+/** Une semaine sur 3 au sein de la phase DEVELOPPEMENT (le gros du programme,
+ * souvent 4-5 semaines plates sinon) est légèrement allégée plutôt que de
+ * rester strictement identique d'une semaine à l'autre — principe de
+ * périodisation courant (charge, charge, assimilation) qui évite la
+ * stagnation ET la sensation de "toujours la même chose", en plus de la
+ * rotation des exercices ci-dessus. Sans lien avec REPRISE/AFFIRMATION, qui
+ * gardent leur logique propre. */
+function isAssimilationWeek(weekNumber: number, phase: ProgramPhase): boolean {
+  return phase === "DEVELOPPEMENT" && weekNumber % 3 === 0;
+}
+
+function intensityForPhase(base: SessionIntensity, phase: ProgramPhase, weekNumber: number): SessionIntensity {
   const idx = INTENSITY_ORDER.indexOf(base);
   if (phase === "REPRISE") return INTENSITY_ORDER[Math.max(0, idx - 1)];
   if (phase === "AFFIRMATION") return INTENSITY_ORDER[Math.min(INTENSITY_ORDER.length - 1, idx + 1)];
+  if (isAssimilationWeek(weekNumber, phase)) return INTENSITY_ORDER[Math.max(0, idx - 1)];
   return base;
 }
 
@@ -1097,15 +1289,27 @@ function withDuration(draft: ExerciseStepDraft, sessionDurationMin: number, shar
   return { ...draft, durationMin: Math.max(1, Math.round(sessionDurationMin * share)) };
 }
 
+/**
+ * `variantIndex` est le nombre de fois où CE type de séance a déjà été
+ * programmé plus tôt dans le programme (cf. `generateProgram`, compteur
+ * `typeOccurrence`) — pas le numéro de semaine. Avec un pool de discipline
+ * court (3-4 types), le numéro de semaine cyclerait le jour de la semaine où
+ * tombe chaque type bien avant d'avoir épuisé les variantes disponibles ;
+ * indexer sur l'occurrence réelle du type garantit que les 3 variantes sont
+ * vues avant qu'aucune ne se répète, peu important le rythme du cavalier.
+ * `recuperationSession` (substitution dynamique pour le repos auto, cf.
+ * program/store.tsx) continue de passer un simple numéro de semaine — usage
+ * secondaire, pas la rotation régulière du programme.
+ */
 function buildExercises(
   type: SessionType,
-  weekIndex: number,
+  variantIndex: number,
   horse: Horse,
   goal: RiderGoal | null,
   sessionDurationMin: number
 ): ExerciseStep[] {
   const meta = SESSION_META[type];
-  const variant = rotate(meta.exerciseVariants, weekIndex) ?? meta.exerciseVariants[0];
+  const variant = rotate(meta.exerciseVariants, variantIndex) ?? meta.exerciseVariants[0];
   const base = variant.map((step, i) => withDuration(step, sessionDurationMin, STEP_DURATION_SHARE[i] ?? 0.25));
 
   if (!TECHNICAL_SESSION_TYPES.includes(type)) return base;
@@ -1117,7 +1321,7 @@ function buildExercises(
     const relevantTypes = WEAKNESS_RELEVANT_TYPES[w];
     return !relevantTypes || relevantTypes.includes(type);
   });
-  const weakness = rotate(relevantWeaknesses, weekIndex);
+  const weakness = rotate(relevantWeaknesses, variantIndex);
   const weaknessDraft: ExerciseStepDraft | null = weakness
     ? {
         phase: "CORPS_DE_SEANCE",
@@ -1127,11 +1331,11 @@ function buildExercises(
     : null;
   const goalDraft = goal ? GOAL_EXERCISE[goal] : null;
 
-  // Si les deux s'appliquent, alterne d'une semaine sur l'autre plutôt que
+  // Si les deux s'appliquent, alterne d'une occurrence à l'autre plutôt que
   // d'empiler systématiquement les deux — une séance reste lisible avec un
   // seul exercice "bonus" à la fois.
   const bonus =
-    weaknessDraft && goalDraft ? (weekIndex % 2 === 0 ? weaknessDraft : goalDraft) : weaknessDraft ?? goalDraft;
+    weaknessDraft && goalDraft ? (variantIndex % 2 === 0 ? weaknessDraft : goalDraft) : weaknessDraft ?? goalDraft;
 
   if (!bonus) return base;
   return [...base, withDuration(bonus, sessionDurationMin, BONUS_EXERCISE_SHARE)];
@@ -1218,15 +1422,23 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
 
   const days = spreadDays(sessionsPerWeek, rider.rideFrequency === "WEEKEND" ? WEEKEND_DAYS : undefined);
 
+  // Compte, type par type, combien de fois chacun a déjà été programmé plus
+  // tôt dans le programme (en ordre chronologique semaine puis jour) — sert
+  // de base à la rotation des variantes d'exercices (cf. buildExercises),
+  // plutôt que le numéro de semaine brut.
+  const typeOccurrence = new Map<SessionType, number>();
+
   const weeks = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
     const weekNumber = i + 1;
     const phase = phaseForWeek(weekNumber, TOTAL_WEEKS, rider.primaryGoal);
-    const weekIntensity = intensityForPhase(cappedBaseIntensity, phase);
+    const weekIntensity = intensityForPhase(cappedBaseIntensity, phase, weekNumber);
     const dayTypes = buildDayTypes(days, safePool, weekNumber - 1);
 
     const sessions: SessionTemplate[] = dayTypes.map(({ dayOffset, type }) => {
       const meta = SESSION_META[type];
       const durationMin = scaleDuration(meta.baseDurationMin, weekIntensity);
+      const occurrence = typeOccurrence.get(type) ?? 0;
+      typeOccurrence.set(type, occurrence + 1);
       return {
         dayOffset,
         time: dayOffset >= 5 ? "10h00" : "18h00",
@@ -1237,7 +1449,7 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
         intensity: weekIntensity,
         equipment: SESSION_EQUIPMENT[type],
         setupNotes: buildSetupNotes(type, horse, weekIntensity, durationMin),
-        exercises: buildExercises(type, weekNumber - 1, horse, rider.primaryGoal, durationMin),
+        exercises: buildExercises(type, occurrence, horse, rider.primaryGoal, durationMin),
       };
     });
 

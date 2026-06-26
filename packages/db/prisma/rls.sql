@@ -122,6 +122,8 @@ alter table public.documents      enable row level security;
 alter table public.appointments   enable row level security;
 alter table public.journal_entries enable row level security;
 alter table public.horse_collaborators enable row level security;
+alter table public.horse_progress     enable row level security;
+alter table public.horse_programs     enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
 
@@ -234,6 +236,18 @@ drop policy if exists "horse_collaborators_invitee_accept" on public.horse_colla
 create policy "horse_collaborators_invitee_accept" on public.horse_collaborators
   for update using (lower("invitedEmail") = lower(auth.jwt() ->> 'email'))
   with check (lower("invitedEmail") = lower(auth.jwt() ->> 'email') and "collaboratorUserId" = auth.uid()::text);
+
+-- horse_progress / horse_programs : continuité d'entraînement propre au
+-- cavalier propriétaire — pas partagée avec un demi-pensionnaire/coach (pas
+-- dans le brief de partage, contrairement au calendrier), donc owns_horse
+-- plutôt que can_access_horse.
+drop policy if exists "horse_progress_all_own" on public.horse_progress;
+create policy "horse_progress_all_own" on public.horse_progress
+  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
+
+drop policy if exists "horse_programs_all_own" on public.horse_programs;
+create policy "horse_programs_all_own" on public.horse_programs
+  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
 
 -- 5. Storage : bucket "documents" (coffre-fort) -----------------------------
 -- Bucket privé : un document (ordonnance, facture...) ne doit jamais être

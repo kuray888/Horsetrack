@@ -350,35 +350,59 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     deleteAppointmentRemote(appt.id).catch(() => {});
   }, []);
 
-  const saveResult = useCallback((apptId: string, result: string) => {
-    setAppointments((list) => list.map((a) => (a.id === apptId ? { ...a, result } : a)));
-  }, []);
+  // Les 4 mutateurs ci-dessous calculent le rendez-vous mis à jour à partir de
+  // `appointments` (donc en dépendance) plutôt que via la forme fonctionnelle
+  // de setState, pour pouvoir le repousser vers le cloud (cf. pushAppointment)
+  // — sans ça, un résultat de concours ou une checklist cochée ne survivrait
+  // ni à une restauration cloud (cf. login.tsx, qui écraserait silencieusement
+  // ces changements jamais envoyés au serveur) ni au partage DP/coach.
 
-  const toggleChecklistItem = useCallback((apptId: string, itemId: string) => {
-    setAppointments((list) =>
-      list.map((a) =>
-        a.id === apptId
-          ? { ...a, checklist: a.checklist.map((c) => (c.id === itemId ? { ...c, checked: !c.checked } : c)) }
-          : a
-      )
-    );
-  }, []);
+  const saveResult = useCallback(
+    (apptId: string, result: string) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const next = { ...target, result };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      pushAppointment(next).catch(() => {});
+    },
+    [appointments]
+  );
 
-  const addChecklistItem = useCallback((apptId: string, label: string) => {
-    setAppointments((list) =>
-      list.map((a) =>
-        a.id === apptId
-          ? { ...a, checklist: [...a.checklist, { id: generateId("c"), label, checked: false }] }
-          : a
-      )
-    );
-  }, []);
+  const toggleChecklistItem = useCallback(
+    (apptId: string, itemId: string) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const next = {
+        ...target,
+        checklist: target.checklist.map((c) => (c.id === itemId ? { ...c, checked: !c.checked } : c)),
+      };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      pushAppointment(next).catch(() => {});
+    },
+    [appointments]
+  );
 
-  const removeChecklistItem = useCallback((apptId: string, itemId: string) => {
-    setAppointments((list) =>
-      list.map((a) => (a.id === apptId ? { ...a, checklist: a.checklist.filter((c) => c.id !== itemId) } : a))
-    );
-  }, []);
+  const addChecklistItem = useCallback(
+    (apptId: string, label: string) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const next = { ...target, checklist: [...target.checklist, { id: generateId("c"), label, checked: false }] };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      pushAppointment(next).catch(() => {});
+    },
+    [appointments]
+  );
+
+  const removeChecklistItem = useCallback(
+    (apptId: string, itemId: string) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const next = { ...target, checklist: target.checklist.filter((c) => c.id !== itemId) };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      pushAppointment(next).catch(() => {});
+    },
+    [appointments]
+  );
 
   const addDocument = useCallback((doc: Omit<Doc, "id" | "filePath">) => {
     const id = generateId("d");

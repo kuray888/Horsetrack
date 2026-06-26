@@ -73,6 +73,16 @@ async function deleteGoalRemote(id: string): Promise<void> {
   await supabase.from("goals").delete().eq("id", id);
 }
 
+/** Exporté pour (auth)/login.tsx : un changement de compte sur cet appareil
+ * vide les objectifs locaux (cf. clearAll) avant de relire le cloud — sans un
+ * appel explicite et attendu ici, on ne pourrait compter QUE sur le
+ * `syncFromCloud` interne déclenché par SIGNED_IN ci-dessous, qui course
+ * potentiellement avec ce vidage (l'aller-retour réseau peut résoudre avant
+ * OU après `clearAll`, selon le timing). */
+export async function pullAllGoals(): Promise<Goal[]> {
+  return (await fetchCloudGoals()) ?? [];
+}
+
 async function fetchCloudGoals(): Promise<Goal[] | null> {
   const riderId = await getOwnerProfileId();
   if (!riderId) return null;
@@ -96,6 +106,9 @@ type GoalsContextValue = {
   /** Efface les objectifs locaux (cf. changement de compte sur cet appareil
    * dans login.tsx/(onboarding)/account.tsx, suppression de compte dans Profil). */
   clearAll: () => Promise<void>;
+  /** Restaure les objectifs depuis le cloud (cf. (auth)/login.tsx) — remplace
+   * entièrement l'état local, jamais un merge (même logique que horses/store.tsx). */
+  hydrateFromCloud: (goals: Goal[]) => void;
 };
 
 const GoalsContext = createContext<GoalsContextValue | null>(null);
@@ -175,9 +188,17 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
     setGoals([]);
   }, []);
 
+  const hydrateFromCloud = useCallback(
+    (next: Goal[]) => {
+      setGoals(next);
+      persist(next);
+    },
+    [persist]
+  );
+
   const value = useMemo<GoalsContextValue>(
-    () => ({ loading, goals, addGoal, updateGoal, deleteGoal, clearAll }),
-    [loading, goals, addGoal, updateGoal, deleteGoal, clearAll]
+    () => ({ loading, goals, addGoal, updateGoal, deleteGoal, clearAll, hydrateFromCloud }),
+    [loading, goals, addGoal, updateGoal, deleteGoal, clearAll, hydrateFromCloud]
   );
 
   return <GoalsContext.Provider value={value}>{children}</GoalsContext.Provider>;

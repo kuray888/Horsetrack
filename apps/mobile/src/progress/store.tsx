@@ -10,6 +10,7 @@ import {
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
+import { pushHorseProgress, type RemoteProgress } from "@/lib/cloudSync";
 import { BADGES, unlockedBadgeIds, type Badge } from "@/program/badges";
 import { useProgram, type PlannedSession, type ProgramWeekView } from "@/program/store";
 import type { FeedbackTrend } from "@/program/types";
@@ -110,6 +111,11 @@ type ProgressContextValue = {
   /** Efface la progression locale, tous chevaux confondus (cf. suppression
    * de compte dans Profil). */
   clearAll: () => Promise<void>;
+  /** Restaure la progression depuis le cloud (cf. (auth)/login.tsx, quand cet
+   * appareil n'a pas encore les données du compte qui vient de se connecter) —
+   * remplace entièrement l'état local, jamais un merge (cf. horses/store.tsx
+   * hydrateFromCloud, même logique). */
+  hydrateFromCloud: (byHorseId: Record<string, RemoteProgress>) => void;
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -175,6 +181,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(nextAll));
         return nextAll;
       });
+      // Best-effort, ne bloque jamais l'UI (cf. lib/cloudSync.ts) — pour
+      // survivre à un changement d'appareil/réinstallation (cf. login.tsx
+      // hydrateFromCloud ci-dessous).
+      pushHorseProgress(horseId, next).catch(() => {});
     },
     [horseId]
   );
@@ -207,6 +217,23 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     await SecureStore.deleteItemAsync(STORAGE_KEY);
     setAllData({});
     prevUnlockedRef.current = new Set();
+  }, []);
+
+  const hydrateFromCloud = useCallback((byHorseId: Record<string, RemoteProgress>) => {
+    const next: PersistedAll = {};
+    for (const [hId, p] of Object.entries(byHorseId)) {
+      next[hId] = {
+        completed: p.completed,
+        bestWeekStreak: p.bestWeekStreak,
+        debriefs: p.debriefs as Record<string, Debrief>,
+        programGeneratedAt: p.programGeneratedAt,
+      };
+    }
+    setAllData(next);
+    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
+    // Le tracker de badges déjà vus sera recalculé par l'effet ci-dessus dès
+    // que `current`/`epoch` changent à la prochaine sélection de cheval — pas
+    // besoin de le toucher ici directement.
   }, []);
 
   const getDebrief = useCallback((sessionId: string) => current.debriefs[sessionId] ?? null, [current]);
@@ -244,8 +271,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       getDebrief,
       saveDebrief,
       clearAll,
+      hydrateFromCloud,
     };
-  }, [current, loading, isDone, toggleSession, celebrationBadge, dismissCelebration, getDebrief, saveDebrief, clearAll, allSessions.length, weeks, currentWeekNumber]);
+  }, [current, loading, isDone, toggleSession, celebrationBadge, dismissCelebration, getDebrief, saveDebrief, clearAll, hydrateFromCloud, allSessions.length, weeks, currentWeekNumber]);
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
 }

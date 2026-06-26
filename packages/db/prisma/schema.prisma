@@ -90,12 +90,14 @@ model Horse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  traits         HorseTrait[]
-  injuries       HorseInjury[]
-  goals          Goal[]
-  appointments   Appointment[]
-  journalEntries JournalEntry[]
-  collaborators  HorseCollaborator[]
+  traits          HorseTrait[]
+  injuries        HorseInjury[]
+  goals           Goal[]
+  appointments    Appointment[]
+  journalEntries  JournalEntry[]
+  collaborators   HorseCollaborator[]
+  progress        HorseProgress?
+  trainingProgram HorseProgram?
 
   @@index([ownerId])
   @@map("horses")
@@ -254,6 +256,54 @@ model HorseCollaborator {
   @@unique([horseId, invitedEmail])
   @@index([collaboratorUserId])
   @@map("horse_collaborators")
+}
+
+/// Progression d'entraînement (séances cochées, série de badges, débriefs de
+/// ressenti) — 1-1 par cheval, pour survivre à un changement d'appareil (cf.
+/// progress/store.tsx, jusqu'ici purement local). Donnée personnelle au
+/// cavalier propriétaire, pas partagée avec un demi-pensionnaire/coach (pas
+/// dans le brief de partage) — RLS owns_horse, pas can_access_horse.
+/// Blob JSON plutôt qu'une ligne par séance : les ids de séance sont dérivés
+/// du programme généré (`${horseId}-w{n}-s{i}`) et invalidés en bloc dès sa
+/// régénération (cf. programGeneratedAt) — pas des entités stables qu'on
+/// liste/édite une à une comme Document/Appointment.
+model HorseProgress {
+  id      String @id @default(cuid())
+  horseId String @unique
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  /// Record<sessionId, boolean>
+  completed      Json @default("{}")
+  bestWeekStreak Int  @default(0)
+  /// Record<sessionId, { mood, note }>
+  debriefs Json @default("{}")
+  /// generatedAt du programme contre lequel cette progression a été calculée
+  /// — sert à détecter une régénération côté client (cf. program/store.tsx).
+  programGeneratedAt String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("horse_progress")
+}
+
+/// Programme d'entraînement généré (8 semaines) — 1-1 par cheval, même
+/// portée RLS et même raison d'être que HorseProgress ci-dessus.
+model HorseProgram {
+  id      String @id @default(cuid())
+  horseId String @unique
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  /// GeneratedProgram (cf. program/types.ts) sérialisé tel quel.
+  program Json
+  /// Signature des champs structurants (cf. program/store.tsx importantSignature)
+  /// — sert à détecter qu'une régénération est due.
+  signature String
+  /// generatedAt du programme pour lequel le bilan de fin a déjà été ignoré, ou null.
+  bilanDismissedAt String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("horse_programs")
 }
 
 enum RiderLevel {

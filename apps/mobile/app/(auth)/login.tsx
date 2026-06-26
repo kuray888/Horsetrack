@@ -7,7 +7,14 @@ import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
-import { pullCloudData, pullDocuments, pullAppointments, pullJournalEntries } from "@/lib/cloudSync";
+import {
+  pullCloudData,
+  pullDocuments,
+  pullAppointments,
+  pullJournalEntries,
+  pullAllHorseProgress,
+  pullAllHorsePrograms,
+} from "@/lib/cloudSync";
 import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
 import { useHorses } from "@/horses/store";
@@ -15,7 +22,7 @@ import { useRiderProfile } from "@/rider/store";
 import { useProgress } from "@/progress/store";
 import { useProgram } from "@/program/store";
 import { useAgenda } from "@/agenda/store";
-import { useGoals } from "@/goals/store";
+import { useGoals, pullAllGoals } from "@/goals/store";
 import { useSubscription } from "@/subscription/store";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -26,11 +33,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { clearAll: clearHorses, hydrateFromCloud } = useHorses();
   const { clearAll: clearRiderProfile, setRiderProfile } = useRiderProfile();
-  const { clearAll: clearProgress } = useProgress();
-  const { clearAll: clearProgram } = useProgram();
+  const { clearAll: clearProgress, hydrateFromCloud: hydrateProgressFromCloud } = useProgress();
+  const { clearAll: clearProgram, hydrateFromCloud: hydrateProgramFromCloud } = useProgram();
   const { clearAll: clearAgenda, hydrateDocumentsFromCloud, hydrateAppointmentsFromCloud, hydrateJournalFromCloud } =
     useAgenda();
-  const { clearAll: clearGoals } = useGoals();
+  const { clearAll: clearGoals, hydrateFromCloud: hydrateGoalsFromCloud } = useGoals();
   const { clearAll: clearSubscription } = useSubscription();
 
   // Affiche les invitations en attente (cf. lib/sharing.ts) juste après être
@@ -66,10 +73,11 @@ export default function LoginScreen() {
 
     setLoading(false);
 
-    // Progression/agenda/abo ne sont pas sauvegardés dans le cloud (cf.
-    // lib/cloudSync.ts) — si cet appareil a servi à un AUTRE compte avant, on
-    // les vide pour ne pas les montrer à celui-ci. Écurie + profil cavalier,
-    // eux, sont sauvegardés : un appareil qui n'a pas encore les données de CE
+    // L'abonnement (RevenueCat, pas encore branché) n'est pas sauvegardé dans
+    // le cloud — si cet appareil a servi à un AUTRE compte avant, on le vide
+    // pour ne pas le montrer à celui-ci. Écurie, profil cavalier, coffre-fort,
+    // calendrier, progression et programme, eux, sont sauvegardés (cf.
+    // lib/cloudSync.ts) : un appareil qui n'a pas encore les données de CE
     // compte (nouveau téléphone, réinstallation...) essaie de les restaurer
     // plutôt que de renvoyer vers un onboarding qui écraserait tout.
     const userId = data.user?.id;
@@ -90,13 +98,33 @@ export default function LoginScreen() {
             // Best-effort, ne lèvent jamais : cf. lib/cloudSync.ts et
             // lib/sharing.ts. Coffre-fort/calendrier/chevaux partagés sont
             // secondaires à l'écurie possédée/au profil — un échec ici ne
-            // doit pas faire échouer toute la restauration.
-            const sharedHorses = await pullSharedHorses().catch(() => []);
+            // doit pas faire échouer toute la restauration. Tout est récupéré
+            // EN PARALLÈLE puis appliqué d'un seul bloc synchrone ci-dessous
+            // (pas d'await entre les hydrateFromCloud) : si l'écurie/le profil
+            // étaient appliqués avant que le programme le soit, le moteur de
+            // programme (program/store.tsx, effet d'auto-génération) verrait
+            // un cheval sans programme entre les deux et en regénérerait un
+            // vide, écrasant la vraie restauration cloud.
+            const [sharedHorses, documents, appointments, journalEntries, progressByHorse, programsByHorse, goals] =
+              await Promise.all([
+                pullSharedHorses().catch(() => []),
+                pullDocuments(),
+                pullAppointments(),
+                pullJournalEntries(),
+                pullAllHorseProgress(),
+                pullAllHorsePrograms(),
+                pullAllGoals(),
+              ]);
+
             hydrateFromCloud([...cloudData.horses, ...sharedHorses]);
             setRiderProfile(cloudData.rider);
-            hydrateDocumentsFromCloud(await pullDocuments());
-            hydrateAppointmentsFromCloud(await pullAppointments());
-            hydrateJournalFromCloud(await pullJournalEntries());
+            hydrateDocumentsFromCloud(documents);
+            hydrateAppointmentsFromCloud(appointments);
+            hydrateJournalFromCloud(journalEntries);
+            hydrateProgressFromCloud(progressByHorse);
+            hydrateProgramFromCloud(programsByHorse);
+            hydrateGoalsFromCloud(goals);
+
             await markOnboardingCompleted();
             await setLocalDataOwner(userId);
             await goToTodayOrInvites();

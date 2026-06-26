@@ -3,14 +3,14 @@ import { supabase } from "@/lib/supabase";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
 import type { Appointment, Doc, JournalEntry } from "@/agenda/store";
+import type { GeneratedProgram } from "@/program/types";
 
 /**
- * Sauvegarde cloud des données irremplaçables (écurie + profil cavalier) —
- * progression/agenda/programme restent local-only pour l'instant (cf.
- * mémoire projet "données local-first"), ce sont elles qu'on perdrait sans ça
- * sur changement de téléphone ou réinstallation. Best-effort partout : un
- * échec réseau ne doit jamais bloquer l'usage de l'app, seulement retarder la
- * sauvegarde au prochain appel.
+ * Sauvegarde cloud des données irremplaçables (écurie + profil cavalier,
+ * coffre-fort, calendrier, progression + programme d'entraînement) — ce
+ * qu'on perdrait sans ça sur changement de téléphone ou réinstallation.
+ * Best-effort partout : un échec réseau ne doit jamais bloquer l'usage de
+ * l'app, seulement retarder la sauvegarde au prochain appel.
  *
  * Les ids locaux (Horse.id, Injury.id) servent aussi d'id Postgres — pas de
  * table de correspondance à maintenir, un push réutilise toujours la même
@@ -461,4 +461,75 @@ export async function pullJournalEntries(): Promise<JournalEntry[]> {
     time: row.time,
     weather: (row.weather as JournalEntry["weather"]) ?? null,
   }));
+}
+
+/**
+ * Progression d'entraînement et programme généré : contrairement à
+ * l'écurie/au profil cavalier, ce sont des données purement personnelles au
+ * cavalier propriétaire (pas partagées avec un demi-pensionnaire/coach, cf.
+ * rls.sql) — un seul upsert par cheval (1-1), pas de push en masse ni de
+ * suppression de lignes obsolètes comme pushHorses. `pullAll*` n'a pas
+ * besoin d'argument horseId : RLS (`owns_horse`) limite déjà le résultat aux
+ * propres chevaux de l'utilisateur courant, comme pullAppointments ci-dessus.
+ */
+
+export type RemoteProgress = {
+  completed: Record<string, boolean>;
+  bestWeekStreak: number;
+  debriefs: Record<string, { mood: string; note: string }>;
+  programGeneratedAt: string | null;
+};
+
+export async function pushHorseProgress(horseId: string, data: RemoteProgress): Promise<void> {
+  await supabase.from("horse_progress").upsert({
+    horseId,
+    completed: data.completed,
+    bestWeekStreak: data.bestWeekStreak,
+    debriefs: data.debriefs,
+    programGeneratedAt: data.programGeneratedAt,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function pullAllHorseProgress(): Promise<Record<string, RemoteProgress>> {
+  const { data, error } = await supabase
+    .from("horse_progress")
+    .select("horseId, completed, bestWeekStreak, debriefs, programGeneratedAt");
+  if (error || !data) return {};
+  const result: Record<string, RemoteProgress> = {};
+  for (const row of data) {
+    result[row.horseId] = {
+      completed: (row.completed as Record<string, boolean>) ?? {},
+      bestWeekStreak: row.bestWeekStreak ?? 0,
+      debriefs: (row.debriefs as Record<string, { mood: string; note: string }>) ?? {},
+      programGeneratedAt: row.programGeneratedAt ?? null,
+    };
+  }
+  return result;
+}
+
+export type RemoteProgramData = { program: GeneratedProgram; signature: string; bilanDismissedAt: string | null };
+
+export async function pushHorseProgram(horseId: string, data: RemoteProgramData): Promise<void> {
+  await supabase.from("horse_programs").upsert({
+    horseId,
+    program: data.program,
+    signature: data.signature,
+    bilanDismissedAt: data.bilanDismissedAt,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function pullAllHorsePrograms(): Promise<Record<string, RemoteProgramData>> {
+  const { data, error } = await supabase.from("horse_programs").select("horseId, program, signature, bilanDismissedAt");
+  if (error || !data) return {};
+  const result: Record<string, RemoteProgramData> = {};
+  for (const row of data) {
+    result[row.horseId] = {
+      program: row.program as GeneratedProgram,
+      signature: row.signature,
+      bilanDismissedAt: row.bilanDismissedAt ?? null,
+    };
+  }
+  return result;
 }

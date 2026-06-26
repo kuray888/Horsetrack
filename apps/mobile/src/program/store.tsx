@@ -4,6 +4,7 @@ import { safeJsonParse } from "@/lib/safeJsonParse";
 import { formatDate } from "@/lib/dateFormat";
 import { supabase } from "@/lib/supabase";
 import { askProgramInsight } from "@/lib/programInsight";
+import { pushHorseProgram, type RemoteProgramData } from "@/lib/cloudSync";
 import { DISCIPLINES, RIDER_GOALS } from "@/onboarding/options";
 import { generateProgram, recuperationSession, rescaleDuration, shiftIntensity } from "./rules";
 import type { ExerciseStep, FeedbackTrend, GeneratedProgram, SessionIntensity, SessionType } from "./types";
@@ -25,12 +26,12 @@ import { useWeather } from "@/weather/store";
  * pour un changement non "important" (forces/faiblesses, tempérament...).
  */
 
-// v5 : descriptions allégées à l'échauffement + termes techniques marqués en
-// **gras** (cf. components/GlossaryText, glossary/terms.ts) — même principe
-// qu'aux passages précédents : la clé est bumpée pour ignorer les programmes
-// déjà en cache (générés avec l'ancien texte, sans marqueurs) et forcer une
-// régénération propre, sans coder de migration de données.
-const PROGRAMS_KEY = "programs_v5";
+// v6 : 3e variante d'exercices par type de séance + rotation basée sur le
+// nombre d'occurrences réelles du type (pas le numéro de semaine) + semaines
+// d'assimilation périodiques (cf. program/rules.ts) — un programme déjà en
+// cache a été généré avec l'ancienne rotation à 2 variantes en lock-step avec
+// la semaine, donc bumpée pour forcer une régénération avec la vraie variété.
+const PROGRAMS_KEY = "programs_v6";
 const SIGNATURES_KEY = "program_signatures_v2";
 /** Mémorise, par cheval, la date de génération (`program.generatedAt`) du
  * dernier programme pour lequel l'utilisateur a ignoré le bilan de fin de
@@ -144,6 +145,8 @@ type ProgramContextValue = {
    * (cf. suppression de compte / changement de compte sur cet appareil dans
    * Profil, login.tsx, (onboarding)/account.tsx). */
   clearAll: () => Promise<void>;
+  /** Restaure programmes/signatures/bilans depuis le cloud (cf. (auth)/login.tsx). */
+  hydrateFromCloud: (byHorseId: Record<string, RemoteProgramData>) => void;
   /** Pousse le ressenti récent (cf. progress/store.tsx, qui calcule la
    * tendance à partir des derniers débriefs) pour ajuster l'intensité des
    * semaines pas encore vécues. Volontairement non persisté : recalculé à
@@ -259,6 +262,10 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       persistSignatures(updated);
       return updated;
     });
+    // Best-effort, ne bloque jamais l'UI (cf. lib/cloudSync.ts) — pour
+    // survivre à un changement d'appareil/réinstallation. Un nouveau
+    // programme efface tout bilan ignoré précédent (nouveau generatedAt).
+    pushHorseProgram(selectedHorse.id, { program: next, signature: sig, bilanDismissedAt: null }).catch(() => {});
   }, [selectedHorse, riderProfile, persistPrograms, persistSignatures]);
 
   // Génère automatiquement le programme d'un cheval qui n'en a pas encore, et
@@ -465,7 +472,11 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       SecureStore.setItemAsync(BILAN_DISMISSED_KEY, JSON.stringify(next));
       return next;
     });
-  }, [horseId, program]);
+    const signature = signatures[horseId];
+    if (signature) {
+      pushHorseProgram(horseId, { program, signature, bilanDismissedAt: program.generatedAt }).catch(() => {});
+    }
+  }, [horseId, program, signatures]);
 
   const clearAll = useCallback(async () => {
     await Promise.all([
@@ -479,6 +490,28 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     setBilanDismissedMap({});
     setAiNotes({});
   }, []);
+
+  /** Restaure programmes/signatures/bilans depuis le cloud (cf. (auth)/login.tsx,
+   * quand cet appareil n'a pas encore les données du compte qui vient de se
+   * connecter) — remplace entièrement l'état local, jamais un merge. L'éclairage
+   * IA n'est volontairement pas restauré : simple cache best-effort, re-demandé
+   * automatiquement si besoin (cf. effet authEpoch ci-dessus). */
+  const hydrateFromCloud = useCallback((byHorseId: Record<string, RemoteProgramData>) => {
+    const programs: PersistedPrograms = {};
+    const sigs: PersistedSignatures = {};
+    const dismissed: Record<string, string> = {};
+    for (const [hId, p] of Object.entries(byHorseId)) {
+      programs[hId] = p.program;
+      sigs[hId] = p.signature;
+      if (p.bilanDismissedAt) dismissed[hId] = p.bilanDismissedAt;
+    }
+    setAllPrograms(programs);
+    setSignatures(sigs);
+    setBilanDismissedMap(dismissed);
+    persistPrograms(programs);
+    persistSignatures(sigs);
+    SecureStore.setItemAsync(BILAN_DISMISSED_KEY, JSON.stringify(dismissed));
+  }, [persistPrograms, persistSignatures]);
 
   const value = useMemo<ProgramContextValue>(
     () => ({
@@ -494,6 +527,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       bilanDismissed,
       dismissBilan,
       clearAll,
+      hydrateFromCloud,
       recordFeedbackTrend,
       feedbackNote,
       aiNote,
@@ -512,6 +546,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       bilanDismissed,
       dismissBilan,
       clearAll,
+      hydrateFromCloud,
       recordFeedbackTrend,
       feedbackNote,
       aiNote,
