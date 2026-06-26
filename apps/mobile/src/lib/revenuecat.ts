@@ -8,13 +8,14 @@ type PurchasesStatic = typeof import("react-native-purchases").default;
 export type PaidTier = Exclude<SubscriptionTier, "FREE">;
 
 /**
- * Coupe-circuit temporaire pour tester le reste de l'app dans Expo Go sans
- * dépendre du SDK natif (même si react-native-purchases gère normalement
- * Expo Go via son propre "Preview API Mode" — cf. node_modules/react-native-purchases/dist/utils/environment.js).
- * Repasser à `false` une fois un build natif/dev client/EAS disponible pour
- * tester les achats réels.
+ * Coupe-circuit : désactive le SDK si aucune clé API n'est configurée pour la
+ * plateforme courante. En Expo Go, react-native-purchases bascule de toute
+ * façon en "Preview API Mode" (cf. node_modules/react-native-purchases/dist/utils/environment.js),
+ * donc la clé Test Store RevenueCat suffit pour tester le flux complet sans
+ * build natif. A repasser à `true` seulement si le SDK doit être désactivé
+ * temporairement (debug, incident, etc.).
  */
-const TEMP_DISABLE_REVENUECAT = true;
+const TEMP_DISABLE_REVENUECAT = false;
 
 // require() plutôt qu'un import statique : permet de ne jamais charger le
 // module quand TEMP_DISABLE_REVENUECAT est actif, sans dépendre du SDK.
