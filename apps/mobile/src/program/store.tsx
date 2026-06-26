@@ -26,12 +26,12 @@ import { useWeather } from "@/weather/store";
  * pour un changement non "important" (forces/faiblesses, tempérament...).
  */
 
-// v6 : 3e variante d'exercices par type de séance + rotation basée sur le
-// nombre d'occurrences réelles du type (pas le numéro de semaine) + semaines
-// d'assimilation périodiques (cf. program/rules.ts) — un programme déjà en
-// cache a été généré avec l'ancienne rotation à 2 variantes en lock-step avec
-// la semaine, donc bumpée pour forcer une régénération avec la vraie variété.
-const PROGRAMS_KEY = "programs_v6";
+// v7 : ordre chronologique des séances de la semaine désormais propre à
+// chaque discipline plutôt qu'un classement de charge universel (cf.
+// DISCIPLINE_SESSION_ORDER dans program/rules.ts) — un programme déjà en
+// cache a été généré avec l'ancien ordre, donc bumpée pour que chacun reçoive
+// le nouveau déroulé dès la prochaine régénération.
+const PROGRAMS_KEY = "programs_v7";
 const SIGNATURES_KEY = "program_signatures_v2";
 /** Mémorise, par cheval, la date de génération (`program.generatedAt`) du
  * dernier programme pour lequel l'utilisateur a ignoré le bilan de fin de
@@ -61,8 +61,9 @@ export type PlannedSession = {
   type: SessionType;
   /** Ajustement automatique appliqué à cette séance précise, ou null si
    * inchangée (cf. "IA adaptative" : repos auto après un rendez-vous
-   * vétérinaire, allègement en cas de forte chaleur prévue). */
-  adaptedReason: "VET_REST" | "HEAT_TAPER" | null;
+   * vétérinaire ou un concours, allègement en cas de forte chaleur prévue ou
+   * de concours le lendemain). */
+  adaptedReason: "VET_REST" | "HEAT_TAPER" | "COMPETITION_TAPER" | "COMPETITION_RECOVERY" | null;
 };
 
 /** Seuil de température max (°C) au-delà duquel une séance prévue ce jour-là
@@ -182,6 +183,34 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     if (!horseId) return days;
     for (const appt of appointments) {
       if (appt.horseId !== horseId || appt.type !== "veto") continue;
+      const next = new Date(appt.date);
+      next.setDate(next.getDate() + 1);
+      days.add(dayKey(next));
+    }
+    return days;
+  }, [appointments, horseId]);
+
+  // Jour précédant un concours : séance allégée pour arriver frais à
+  // l'épreuve plutôt que d'enchaîner un travail technique complet la veille.
+  const competitionTaperDays = useMemo(() => {
+    const days = new Set<string>();
+    if (!horseId) return days;
+    for (const appt of appointments) {
+      if (appt.horseId !== horseId || appt.type !== "concours") continue;
+      const prev = new Date(appt.date);
+      prev.setDate(prev.getDate() - 1);
+      days.add(dayKey(prev));
+    }
+    return days;
+  }, [appointments, horseId]);
+
+  // Lendemain d'un concours : repos automatique pour récupérer de l'effort
+  // (physique et mental) de l'épreuve — même logique que vetRestDays.
+  const competitionRecoveryDays = useMemo(() => {
+    const days = new Set<string>();
+    if (!horseId) return days;
+    for (const appt of appointments) {
+      if (appt.horseId !== horseId || appt.type !== "concours") continue;
       const next = new Date(appt.date);
       next.setDate(next.getDate() + 1);
       days.add(dayKey(next));
@@ -327,9 +356,12 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
           const date = dates[s.dayOffset];
           const key = date ? dayKey(date) : null;
 
-          // "IA adaptative" — repos auto après un rendez-vous vétérinaire :
-          // priorité sur l'allègement canicule (un repos complet couvre déjà
-          // le cas de la chaleur), inutile si déjà un jour de récupération.
+          // "IA adaptative" — priorité décroissante : repos médical (véto) >
+          // récupération post-concours (même mécanisme de repos complet,
+          // l'effort d'une épreuve méritant la même prudence) > allègement
+          // pré-concours > allègement canicule. Un repos complet couvre déjà
+          // le cas de la chaleur/du concours du lendemain, inutile de cumuler
+          // — et inutile sur un jour déjà RECUPERATION dans le programme de base.
           if (key && vetRestDays.has(key) && s.type !== "RECUPERATION") {
             const recup = recuperationSession(week.weekNumber - 1, selectedHorse);
             title = `🩺 ${recup.title}`;
@@ -341,6 +373,24 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
             intensity = "LOW";
             type = "RECUPERATION";
             adaptedReason = "VET_REST";
+          } else if (key && competitionRecoveryDays.has(key) && s.type !== "RECUPERATION") {
+            const recup = recuperationSession(week.weekNumber - 1, selectedHorse);
+            title = `🏆 ${recup.title}`;
+            focus = `${recup.focus} — récupération après le concours d'hier`;
+            durationMin = recup.durationMin;
+            equipment = recup.equipment;
+            setupNotes = [];
+            exercises = recup.exercises;
+            intensity = "LOW";
+            type = "RECUPERATION";
+            adaptedReason = "COMPETITION_RECOVERY";
+          } else if (key && competitionTaperDays.has(key) && s.type !== "RECUPERATION") {
+            const tapered = shiftIntensity(intensity, -1);
+            durationMin = rescaleDuration(durationMin, intensity, tapered);
+            intensity = tapered;
+            title = `🏆 ${title}`;
+            focus = `${focus} — allégée, concours demain`;
+            adaptedReason = "COMPETITION_TAPER";
           } else if (key && heatTaperDays.has(key) && s.type !== "RECUPERATION") {
             const tempMax = heatTaperDays.get(key)!;
             const tapered = shiftIntensity(intensity, -1);
@@ -369,7 +419,18 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
         }),
       };
     });
-  }, [program, horseId, selectedHorse, getWeekDates, feedbackTrend, currentWeekNumber, vetRestDays, heatTaperDays]);
+  }, [
+    program,
+    horseId,
+    selectedHorse,
+    getWeekDates,
+    feedbackTrend,
+    currentWeekNumber,
+    vetRestDays,
+    heatTaperDays,
+    competitionTaperDays,
+    competitionRecoveryDays,
+  ]);
 
   const feedbackNote = useMemo(() => {
     if (feedbackTrend === -1) {
@@ -452,9 +513,16 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => a.date.getTime() - b.date.getTime())[0];
     if (!next) return null;
     const when = next.date.getTime() === todayStart.getTime() ? "aujourd'hui" : `le ${formatDate(next.date)}`;
-    return next.adaptedReason === "VET_REST"
-      ? `Repos automatique ${when} suite au rendez-vous vétérinaire de la veille.`
-      : `Séance allégée ${when} : forte chaleur prévue.`;
+    switch (next.adaptedReason) {
+      case "VET_REST":
+        return `Repos automatique ${when} suite au rendez-vous vétérinaire de la veille.`;
+      case "COMPETITION_RECOVERY":
+        return `Repos automatique ${when} après le concours d'hier.`;
+      case "COMPETITION_TAPER":
+        return `Séance allégée ${when} : concours demain.`;
+      default:
+        return `Séance allégée ${when} : forte chaleur prévue.`;
+    }
   }, [allSessions]);
 
   const isProgramComplete = useMemo(() => {

@@ -1243,25 +1243,70 @@ const SESSION_LOAD: Record<SessionType, number> = {
   OBSTACLE: 3,
 };
 
+/**
+ * Ordre chronologique pédagogique au sein d'une semaine, PAR DISCIPLINE —
+ * distinct de SESSION_LOAD ci-dessus (qui reste une échelle universelle pour
+ * le score de charge réel, cf. stats/compute.ts) : ce qui constitue le pic
+ * technique de la semaine diffère selon la discipline (l'obstacle pour le
+ * CSO, la sortie pour l'endurance, le plat pour le dressage...), donc un
+ * classement de charge unique pour toutes les disciplines ne peut pas
+ * produire un déroulé cohérent pour chacune. Principe commun appliqué à
+ * chaque discipline : travail de base/assouplissement → travail préparatoire
+ * plus technique → pic technique/spécialité → sortie ou récupération en fin
+ * de semaine (jamais le pic d'effort en tout premier jour).
+ *
+ * Exemple CSO : dressage (bases) → barres au sol (préparation technique sans
+ * le choc du saut) → obstacle (pic technique) → sortie extérieure (sortie/
+ * récupération active).
+ */
+const DISCIPLINE_SESSION_ORDER: Record<Discipline, SessionType[]> = {
+  SHOW_JUMPING: ["DRESSAGE_BASICS", "BARRES_AU_SOL", "OBSTACLE", "SORTIE_EXTERIEURE"],
+  DRESSAGE: ["ASSOUPLISSEMENT", "DRESSAGE_BASICS", "TRAVAIL_A_PIED", "SORTIE_EXTERIEURE"],
+  EVENTING: ["DRESSAGE_BASICS", "RENFORCEMENT", "OBSTACLE", "SORTIE_EXTERIEURE"],
+  WESTERN: ["ASSOUPLISSEMENT", "DRESSAGE_BASICS", "TRAVAIL_A_PIED", "SORTIE_EXTERIEURE"],
+  // Ici, la sortie EST le cœur de la discipline (pas une simple récupération
+  // en fin de semaine comme pour les autres) — elle reste en dernier, mais
+  // comme l'aboutissement de la semaine, pas comme un délestage.
+  ENDURANCE: ["ASSOUPLISSEMENT", "RENFORCEMENT", "TRAVAIL_A_PIED", "SORTIE_EXTERIEURE"],
+  LEISURE: ["ASSOUPLISSEMENT", "TRAVAIL_A_PIED", "SORTIE_EXTERIEURE"],
+  ETHOLOGY: ["ASSOUPLISSEMENT", "TRAVAIL_A_PIED", "SORTIE_EXTERIEURE"],
+};
+
+/** Position chronologique d'un type pour la discipline donnée — celle de
+ * DISCIPLINE_SESSION_ORDER si elle le liste, sinon replié en fin de semaine
+ * (au-delà de tous les types explicitement ordonnés), départagé par
+ * SESSION_LOAD. Le repli sert aux cas rares où un type n'appartient pas au
+ * pool normal de la discipline mais y a été injecté par un biais d'objectif
+ * (ex. RENFORCEMENT pour l'objectif FITNESS en dressage, cf. applyGoalBias)
+ * ou par la restriction santé sévère (RECUPERATION, cf.
+ * applyHealthAndInjuryRestrictions). */
+function sessionOrderIndex(type: SessionType, discipline: Discipline): number {
+  const order = DISCIPLINE_SESSION_ORDER[discipline] ?? DISCIPLINE_SESSION_ORDER.LEISURE;
+  const idx = order.indexOf(type);
+  return idx >= 0 ? idx : order.length + SESSION_LOAD[type];
+}
+
 /** Associe les jours retenus à des types de séance : la sélection (quels
  * types, combien de fois chacun) reste pilotée par le pool de discipline +
  * biais d'objectif (cf. applyGoalBias), mais l'ordre CHRONOLOGIQUE sur la
- * semaine suit la charge croissante plutôt que l'ordre du pool — pour une
- * progression cohérente. La tranche du pool utilisée avance d'un cran à
- * chaque semaine (`weekIndex`) : sans ça, un cavalier qui ne monte qu'1 ou 2
- * fois par semaine ne verrait jamais que les 1-2 premiers types du pool
- * pendant tout le programme (ex. uniquement de l'obstacle en CSO, jamais de
- * plat) — la rotation garantit que tout le pool est exploré sur la durée du
- * programme plutôt qu'une seule fois pour les 8 semaines. */
+ * semaine suit le déroulé propre à la discipline (cf. DISCIPLINE_SESSION_ORDER)
+ * plutôt que l'ordre brut du pool — pour une progression cohérente. La
+ * tranche du pool utilisée avance d'un cran à chaque semaine (`weekIndex`) :
+ * sans ça, un cavalier qui ne monte qu'1 ou 2 fois par semaine ne verrait
+ * jamais que les 1-2 premiers types du pool pendant tout le programme (ex.
+ * uniquement de l'obstacle en CSO, jamais de plat) — la rotation garantit que
+ * tout le pool est exploré sur la durée du programme plutôt qu'une seule
+ * fois pour les 8 semaines. */
 function buildDayTypes(
   days: number[],
   pool: SessionType[],
-  weekIndex: number
+  weekIndex: number,
+  discipline: Discipline
 ): { dayOffset: number; type: SessionType }[] {
   const selected = days.map((_, i) => pool[(i + weekIndex) % pool.length]);
   const ordered = selected
     .map((type, i) => ({ type, i }))
-    .sort((a, b) => SESSION_LOAD[a.type] - SESSION_LOAD[b.type] || a.i - b.i)
+    .sort((a, b) => sessionOrderIndex(a.type, discipline) - sessionOrderIndex(b.type, discipline) || a.i - b.i)
     .map(({ type }) => type);
   return days.map((dayOffset, i) => ({ dayOffset, type: ordered[i] }));
 }
@@ -1432,7 +1477,7 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
     const weekNumber = i + 1;
     const phase = phaseForWeek(weekNumber, TOTAL_WEEKS, rider.primaryGoal);
     const weekIntensity = intensityForPhase(cappedBaseIntensity, phase, weekNumber);
-    const dayTypes = buildDayTypes(days, safePool, weekNumber - 1);
+    const dayTypes = buildDayTypes(days, safePool, weekNumber - 1, horse.discipline);
 
     const sessions: SessionTemplate[] = dayTypes.map(({ dayOffset, type }) => {
       const meta = SESSION_META[type];
