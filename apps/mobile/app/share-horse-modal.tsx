@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Field } from "@/components/Field";
@@ -97,6 +97,15 @@ export default function ShareHorseModal() {
       if (ok) {
         setEmail("");
         refresh();
+      } else {
+        // Cause la plus probable : cet email est déjà invité sur ce cheval
+        // (contrainte unique horseId+invitedEmail) — pas une erreur réseau,
+        // mais on ne peut pas distinguer les deux côté client sans détail
+        // d'erreur structuré, donc message générique.
+        Alert.alert(
+          "Invitation impossible",
+          "Cet email est peut-être déjà invité sur ce cheval, ou une erreur réseau est survenue. Réessaie."
+        );
       }
     } finally {
       setSubmitting(false);

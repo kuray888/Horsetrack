@@ -26,11 +26,24 @@ export type PendingInvite = {
  * email correspond enfin à un compte connecté (matching par auth.jwt() côté RLS).
  */
 
+// La colonne `id` n'a pas de DEFAULT côté Postgres : `@default(cuid())` côté
+// Prisma est une convention du client Prisma (génère la valeur en JS), pas un
+// vrai DEFAULT SQL — sans id fourni ici, l'insert échouait silencieusement
+// (contrainte NOT NULL), comme partout ailleurs dans le code (cf.
+// lib/cloudSync.ts, qui fournit toujours un id explicite).
+function generateId(): string {
+  return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export async function inviteCollaborator(horseId: string, email: string, role: CollaboratorRole): Promise<boolean> {
+  // `updatedAt` (`@updatedAt` côté Prisma) n'a pas non plus de vrai DEFAULT
+  // SQL — même raison que `id` ci-dessus, à fournir explicitement.
   const { error } = await supabase.from("horse_collaborators").insert({
+    id: generateId(),
     horseId,
     invitedEmail: email.trim().toLowerCase(),
     role,
+    updatedAt: new Date().toISOString(),
   });
   return !error;
 }
@@ -72,7 +85,7 @@ export async function acceptInvite(id: string): Promise<boolean> {
   if (!userId) return false;
   const { error } = await supabase
     .from("horse_collaborators")
-    .update({ status: "ACCEPTED", collaboratorUserId: userId })
+    .update({ status: "ACCEPTED", collaboratorUserId: userId, updatedAt: new Date().toISOString() })
     .eq("id", id);
   return !error;
 }

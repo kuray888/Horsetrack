@@ -480,15 +480,26 @@ export type RemoteProgress = {
   programGeneratedAt: string | null;
 };
 
+/** `id`/`updatedAt` n'ont pas de vrai DEFAULT SQL (`@default(cuid())`/
+ * `@updatedAt` sont des conventions du client Prisma, jamais utilisé ici —
+ * cf. lib/sharing.ts) : un upsert direct sans fournir `id` échoue toujours
+ * (NOT NULL), donc on suit le même pattern que pushRiderProfile — lire la
+ * ligne existante par la clé naturelle (`horseId`), update en gardant son id
+ * si elle existe, insert avec un nouvel id sinon. */
 export async function pushHorseProgress(horseId: string, data: RemoteProgress): Promise<void> {
-  await supabase.from("horse_progress").upsert({
-    horseId,
+  const { data: existing } = await supabase.from("horse_progress").select("id").eq("horseId", horseId).maybeSingle();
+  const fields = {
     completed: data.completed,
     bestWeekStreak: data.bestWeekStreak,
     debriefs: data.debriefs,
     programGeneratedAt: data.programGeneratedAt,
     updatedAt: new Date().toISOString(),
-  });
+  };
+  if (existing) {
+    await supabase.from("horse_progress").update(fields).eq("id", existing.id);
+  } else {
+    await supabase.from("horse_progress").insert({ id: generateId(), horseId, ...fields });
+  }
 }
 
 export async function pullAllHorseProgress(): Promise<Record<string, RemoteProgress>> {
@@ -510,14 +521,20 @@ export async function pullAllHorseProgress(): Promise<Record<string, RemoteProgr
 
 export type RemoteProgramData = { program: GeneratedProgram; signature: string; bilanDismissedAt: string | null };
 
+/** Même raison/pattern que pushHorseProgress ci-dessus. */
 export async function pushHorseProgram(horseId: string, data: RemoteProgramData): Promise<void> {
-  await supabase.from("horse_programs").upsert({
-    horseId,
+  const { data: existing } = await supabase.from("horse_programs").select("id").eq("horseId", horseId).maybeSingle();
+  const fields = {
     program: data.program,
     signature: data.signature,
     bilanDismissedAt: data.bilanDismissedAt,
     updatedAt: new Date().toISOString(),
-  });
+  };
+  if (existing) {
+    await supabase.from("horse_programs").update(fields).eq("id", existing.id);
+  } else {
+    await supabase.from("horse_programs").insert({ id: generateId(), horseId, ...fields });
+  }
 }
 
 export async function pullAllHorsePrograms(): Promise<Record<string, RemoteProgramData>> {
