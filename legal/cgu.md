@@ -2,11 +2,11 @@
 
 > **Brouillon de travail — pas une validation juridique.** Ce document a été rédigé à partir du fonctionnement réel de l'app (vérifié dans le code) pour donner un point de départ complet, mais doit être relu par un professionnel du droit avant publication, en particulier les sections paiement/résiliation, âge minimum et responsabilité. Remplace les passages entre crochets `[...]` avant publication.
 
-**Dernière mise à jour : [DATE]**
+**Dernière mise à jour : 28 juin 2026**
 
 ## 1. Objet
 
-Les présentes Conditions Générales d'Utilisation (« CGU ») régissent l'accès et l'utilisation de l'application mobile Horsetrack (« l'Application »), éditée par [NOM DE L'ÉDITEUR / RAISON SOCIALE], [forme juridique], dont le siège est situé [ADRESSE], immatriculée sous le numéro [SIRET/RCS] (« l'Éditeur »).
+Les présentes Conditions Générales d'Utilisation (« CGU ») régissent l'accès et l'utilisation de l'application mobile Horsetrack (« l'Application »), éditée par Anis Armand MESLIN, Entreprise individuelle (EI), dont le siège est situé 60 Route des Gardes, Passerelle 8 – RDC G, 92190 Meudon, immatriculée sous le numéro 952 094 456 R.C.S. Nanterre (« l'Éditeur »).
 
 En créant un compte ou en utilisant l'Application, l'utilisateur (« l'Utilisateur ») accepte sans réserve les présentes CGU.
 
@@ -83,7 +83,7 @@ L'Éditeur peut modifier les présentes CGU à tout moment. Les Utilisateurs ser
 
 ## 12. Droit applicable et litiges
 
-Les présentes CGU sont soumises au droit [français]. En cas de litige, et après tentative de résolution amiable, les tribunaux [compétents selon le droit applicable] seront seuls compétents, sous réserve des dispositions impératives applicables aux consommateurs.
+Les présentes CGU sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux du ressort de Nanterre seront seuls compétents, sous réserve des dispositions impératives applicables aux consommateurs.
 
 ## 13. Contact
 

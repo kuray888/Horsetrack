@@ -2,11 +2,11 @@
 
 > **Brouillon de travail — pas une validation juridique.** Rédigé à partir du fonctionnement réel de l'app (vérifié dans le code : ce qui est collecté, où c'est stocké, à qui c'est transmis), pas d'un modèle générique. À faire relire par un professionnel du droit avant publication, et à tenir à jour si de nouvelles fonctionnalités changent les traitements décrits ici. Remplace les passages entre crochets `[...]` avant publication.
 
-**Dernière mise à jour : [DATE]**
+**Dernière mise à jour : 28 juin 2026**
 
 ## 1. Qui sommes-nous
 
-[NOM DE L'ÉDITEUR / RAISON SOCIALE], [forme juridique], [ADRESSE] (« nous »), éditeur de l'application Horsetrack, est responsable du traitement des données décrites dans cette politique.
+Anis Armand MESLIN, Entreprise individuelle (EI), 60 Route des Gardes, Passerelle 8 – RDC G, 92190 Meudon (immatriculé sous le numéro 952 094 456 R.C.S. Nanterre) (« nous »), éditeur de l'application Horsetrack, est responsable du traitement des données décrites dans cette politique.
 
 Contact pour toute question relative à vos données : [EMAIL DE CONTACT].
 
@@ -46,11 +46,11 @@ Nous faisons appel à des prestataires techniques tiers, strictement nécessaire
 | Prestataire | Rôle | Données concernées |
 |---|---|---|
 | **Supabase** | Hébergement de la base de données et authentification (serveurs situés en Union Européenne) | Toutes les données listées en section 2, à l'exception des messages au Coach IA |
-| **Anthropic** (modèle Claude) | Génération des réponses du Coach IA | Contenu des messages envoyés au Coach IA, et contexte de votre profil cavalier/cheval transmis pour personnaliser la réponse |
+| **OpenRouter** (qui route la requête vers le modèle Claude d'Anthropic) | Génération des réponses du Coach IA | Contenu des messages envoyés au Coach IA, et contexte de votre profil cavalier/cheval transmis pour personnaliser la réponse |
 | **RevenueCat** | Gestion des abonnements et synchronisation avec Apple/Google | Statut d'abonnement, identifiant utilisateur |
 | **Apple (App Store) / Google (Play Store)** | Traitement des paiements d'abonnement | Moyens de paiement (nous n'y avons jamais accès) |
 
-Anthropic étant basé aux États-Unis, l'envoi des messages du Coach IA constitue un transfert de données hors Union Européenne. Ce transfert est encadré par les clauses contractuelles types (CCT) prévues par la réglementation européenne. [À vérifier/compléter avec les engagements contractuels réels d'Anthropic au moment de la publication.]
+OpenRouter et Anthropic étant basés aux États-Unis, l'envoi des messages du Coach IA constitue un transfert de données hors Union Européenne. Ce transfert est encadré par les clauses contractuelles types (CCT) prévues par la réglementation européenne. [À vérifier/compléter avec les engagements contractuels réels d'OpenRouter et d'Anthropic au moment de la publication — ce sous-traitant est amené à changer, cf. décision en cours sur le fournisseur du Coach IA.]
 
 ## 6. Durée de conservation
 

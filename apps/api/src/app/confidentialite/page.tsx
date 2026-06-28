@@ -7,10 +7,11 @@ import { LegalPage } from "@/components/LegalPage";
  * cf. /legal/politique-confidentialite.md). */
 export default function ConfidentialitePage() {
   return (
-    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="[DATE]">
+    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="28 juin 2026">
       <h2>1. Qui sommes-nous</h2>
       <p>
-        [NOM DE L&apos;ÉDITEUR / RAISON SOCIALE], [forme juridique], [ADRESSE] (« nous »), éditeur de l&apos;application
+        Anis Armand MESLIN, Entreprise individuelle (EI), 60 Route des Gardes, Passerelle 8 – RDC G, 92190 Meudon
+        (immatriculé sous le numéro 952 094 456 R.C.S. Nanterre) (« nous »), éditeur de l&apos;application
         Horsetrack, est responsable du traitement des données décrites dans cette politique.
       </p>
       <p>Contact pour toute question relative à vos données : [EMAIL DE CONTACT].</p>
@@ -112,7 +113,7 @@ export default function ConfidentialitePage() {
             <td>Toutes les données listées en section 2, à l&apos;exception des messages au Coach IA</td>
           </tr>
           <tr>
-            <td><strong>Anthropic</strong> (modèle Claude)</td>
+            <td><strong>OpenRouter</strong> (qui route la requête vers le modèle Claude d&apos;Anthropic)</td>
             <td>Génération des réponses du Coach IA</td>
             <td>
               Contenu des messages envoyés au Coach IA, et contexte de votre profil cavalier/cheval transmis pour
@@ -132,10 +133,11 @@ export default function ConfidentialitePage() {
         </tbody>
       </table>
       <p>
-        Anthropic étant basé aux États-Unis, l&apos;envoi des messages du Coach IA constitue un transfert de données
+        OpenRouter et Anthropic étant basés aux États-Unis, l&apos;envoi des messages du Coach IA constitue un transfert de données
         hors Union Européenne. Ce transfert est encadré par les clauses contractuelles types (CCT) prévues par la
-        réglementation européenne. [À vérifier/compléter avec les engagements contractuels réels d&apos;Anthropic au
-        moment de la publication.]
+        réglementation européenne. [À vérifier/compléter avec les engagements contractuels réels d&apos;OpenRouter et
+        d&apos;Anthropic au moment de la publication — ce sous-traitant est amené à changer, cf. décision en cours sur
+        le fournisseur du Coach IA.]
       </p>
 
       <h2>6. Durée de conservation</h2>
