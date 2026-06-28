@@ -261,7 +261,7 @@ export function CoachChat({ onClose }: { onClose?: () => void }) {
           <TouchableOpacity
             onPress={() => send(input)}
             activeOpacity={0.85}
-            disabled={!input.trim()}
+            disabled={!input.trim() || typing}
             className={`h-11 w-11 items-center justify-center rounded-full ${input.trim() ? "bg-primary" : "bg-border"}`}
           >
             <Text className="text-lg text-on-primary">➤</Text>

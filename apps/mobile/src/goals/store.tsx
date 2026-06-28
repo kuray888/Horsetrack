@@ -58,7 +58,7 @@ async function getOwnerProfileId(): Promise<string | null> {
 async function pushGoal(goal: Goal): Promise<void> {
   const riderId = await getOwnerProfileId();
   if (!riderId) return;
-  await supabase.from("goals").upsert({
+  const { error } = await supabase.from("goals").upsert({
     id: goal.id,
     riderId,
     horseId: goal.horseId,
@@ -67,10 +67,12 @@ async function pushGoal(goal: Goal): Promise<void> {
     targetDate: goal.targetDate?.toISOString() ?? null,
     updatedAt: new Date().toISOString(),
   });
+  if (error) console.warn("[goals] pushGoal échoué", error);
 }
 
 async function deleteGoalRemote(id: string): Promise<void> {
-  await supabase.from("goals").delete().eq("id", id);
+  const { error } = await supabase.from("goals").delete().eq("id", id);
+  if (error) console.warn("[goals] deleteGoalRemote échoué", error);
 }
 
 /** Exporté pour (auth)/login.tsx : un changement de compte sur cet appareil
@@ -125,10 +127,10 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   // réconcilie avec le cloud dès qu'une session existe — le cloud est la
   // source de vérité pour un objectif créé sur un autre appareil.
   useEffect(() => {
-    SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
-      setGoals(reviveGoals(safeJsonParse<Goal[]>(raw, [])));
-      setLoading(false);
-    });
+    SecureStore.getItemAsync(STORAGE_KEY)
+      .then((raw) => setGoals(reviveGoals(safeJsonParse<Goal[]>(raw, []))))
+      .catch((e) => console.warn("[goals] lecture SecureStore échouée, objectifs par défaut", e))
+      .finally(() => setLoading(false));
 
     const syncFromCloud = () => {
       fetchCloudGoals().then((cloud) => {

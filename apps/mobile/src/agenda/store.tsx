@@ -262,40 +262,45 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // Charge les données persistées une fois au montage (sinon on garde les mocks par défaut).
   useEffect(() => {
     (async () => {
-      const [apptRaw, docRaw, journalRaw] = await Promise.all([
-        SecureStore.getItemAsync(APPOINTMENTS_KEY),
-        SecureStore.getItemAsync(DOCUMENTS_KEY),
-        SecureStore.getItemAsync(JOURNAL_KEY),
-      ]);
-      const parsedAppts = safeJsonParse<Appointment[] | null>(apptRaw, null);
-      if (parsedAppts) {
-        setAppointments(
-          parsedAppts.map((a) => ({
-            ...a,
-            date: new Date(a.date),
-            horseId: a.horseId ?? null,
-            emailReminderId: a.emailReminderId ?? null,
-            result: a.result ?? null,
-            checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
-          }))
-        );
+      try {
+        const [apptRaw, docRaw, journalRaw] = await Promise.all([
+          SecureStore.getItemAsync(APPOINTMENTS_KEY),
+          SecureStore.getItemAsync(DOCUMENTS_KEY),
+          SecureStore.getItemAsync(JOURNAL_KEY),
+        ]);
+        const parsedAppts = safeJsonParse<Appointment[] | null>(apptRaw, null);
+        if (parsedAppts) {
+          setAppointments(
+            parsedAppts.map((a) => ({
+              ...a,
+              date: new Date(a.date),
+              horseId: a.horseId ?? null,
+              emailReminderId: a.emailReminderId ?? null,
+              result: a.result ?? null,
+              checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
+            }))
+          );
+        }
+        const parsedDocs = safeJsonParse<Doc[] | null>(docRaw, null);
+        if (parsedDocs) {
+          // fileUri/filePath n'existent pas sur les documents sauvegardés avant
+          // leur ajout — les compléter plutôt que de laisser `undefined` (cf. le
+          // même souci déjà rencontré sur Horse.restDayActivities).
+          setDocuments(
+            parsedDocs.map((d) => ({ ...d, date: new Date(d.date), fileUri: d.fileUri ?? null, filePath: d.filePath ?? null }))
+          );
+        }
+        const parsedJournal = safeJsonParse<JournalEntry[] | null>(journalRaw, null);
+        if (parsedJournal) {
+          setJournal(
+            parsedJournal.map((j) => ({ ...j, date: new Date(j.date), horseId: j.horseId ?? null, weather: j.weather ?? null }))
+          );
+        }
+      } catch (e) {
+        console.warn("[agenda] lecture SecureStore échouée, agenda par défaut", e);
+      } finally {
+        setLoaded(true);
       }
-      const parsedDocs = safeJsonParse<Doc[] | null>(docRaw, null);
-      if (parsedDocs) {
-        // fileUri/filePath n'existent pas sur les documents sauvegardés avant
-        // leur ajout — les compléter plutôt que de laisser `undefined` (cf. le
-        // même souci déjà rencontré sur Horse.restDayActivities).
-        setDocuments(
-          parsedDocs.map((d) => ({ ...d, date: new Date(d.date), fileUri: d.fileUri ?? null, filePath: d.filePath ?? null }))
-        );
-      }
-      const parsedJournal = safeJsonParse<JournalEntry[] | null>(journalRaw, null);
-      if (parsedJournal) {
-        setJournal(
-          parsedJournal.map((j) => ({ ...j, date: new Date(j.date), horseId: j.horseId ?? null, weather: j.weather ?? null }))
-        );
-      }
-      setLoaded(true);
     })();
   }, []);
 

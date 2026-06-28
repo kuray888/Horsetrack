@@ -45,10 +45,10 @@ export function RiderProfileProvider({ children }: { children: ReactNode }) {
   const [riderProfile, setRiderProfileState] = useState<RiderProfile>(DEFAULT_RIDER_PROFILE);
 
   useEffect(() => {
-    SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
-      setRiderProfileState(safeJsonParse(raw, DEFAULT_RIDER_PROFILE));
-      setLoading(false);
-    });
+    SecureStore.getItemAsync(STORAGE_KEY)
+      .then((raw) => setRiderProfileState(safeJsonParse(raw, DEFAULT_RIDER_PROFILE)))
+      .catch((e) => console.warn("[rider] lecture SecureStore échouée, profil par défaut", e))
+      .finally(() => setLoading(false));
   }, []);
 
   const setRiderProfile = useCallback((profile: RiderProfile) => {

@@ -49,11 +49,10 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
     updatedAt: now,
   };
 
-  if (existing) {
-    await supabase.from("rider_profiles").update(fields).eq("id", existing.id);
-  } else {
-    await supabase.from("rider_profiles").insert({ id: generateId(), userId, ...fields });
-  }
+  const { error } = existing
+    ? await supabase.from("rider_profiles").update(fields).eq("id", existing.id)
+    : await supabase.from("rider_profiles").insert({ id: generateId(), userId, ...fields });
+  if (error) console.warn("[cloudSync] pushRiderProfile échoué", error);
 }
 
 async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
@@ -65,8 +64,12 @@ async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
   ];
   // Pas d'id de tag stable côté local : on remplace tout plutôt que de tenter
   // un diff précis, le volume par cheval est trop faible pour que ça coûte.
-  await supabase.from("horse_traits").delete().eq("horseId", horse.id);
-  if (traitRows.length > 0) await supabase.from("horse_traits").insert(traitRows);
+  const { error: deleteTraitsError } = await supabase.from("horse_traits").delete().eq("horseId", horse.id);
+  if (deleteTraitsError) console.warn("[cloudSync] suppression horse_traits échouée", deleteTraitsError);
+  if (traitRows.length > 0) {
+    const { error } = await supabase.from("horse_traits").insert(traitRows);
+    if (error) console.warn("[cloudSync] insertion horse_traits échouée", error);
+  }
 
   const now = new Date().toISOString();
   // recoveryStatus est NOT NULL côté DB ; le type local l'autorise à null tant
@@ -74,7 +77,7 @@ async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
   // formulaire bloque l'ajout avant qu'il soit renseigné — filtre défensif.
   const injuries = horse.injuries.filter((i) => i.recoveryStatus !== null);
   if (injuries.length > 0) {
-    await supabase.from("horse_injuries").upsert(
+    const { error } = await supabase.from("horse_injuries").upsert(
       injuries.map((i) => ({
         id: i.id,
         horseId: horse.id,
@@ -85,11 +88,19 @@ async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
         updatedAt: now,
       }))
     );
+    if (error) console.warn("[cloudSync] upsert horse_injuries échoué", error);
   }
-  const { data: remoteInjuries } = await supabase.from("horse_injuries").select("id").eq("horseId", horse.id);
+  const { data: remoteInjuries, error: selectInjuriesError } = await supabase
+    .from("horse_injuries")
+    .select("id")
+    .eq("horseId", horse.id);
+  if (selectInjuriesError) console.warn("[cloudSync] lecture horse_injuries échouée", selectInjuriesError);
   const injuryIds = injuries.map((i) => i.id);
   const staleInjuryIds = (remoteInjuries ?? []).map((r) => r.id).filter((id) => !injuryIds.includes(id));
-  if (staleInjuryIds.length > 0) await supabase.from("horse_injuries").delete().in("id", staleInjuryIds);
+  if (staleInjuryIds.length > 0) {
+    const { error } = await supabase.from("horse_injuries").delete().in("id", staleInjuryIds);
+    if (error) console.warn("[cloudSync] suppression horse_injuries obsolètes échouée", error);
+  }
 }
 
 export async function pushHorses(horses: Horse[]): Promise<void> {
@@ -105,7 +116,7 @@ export async function pushHorses(horses: Horse[]): Promise<void> {
 
   const now = new Date().toISOString();
   if (horses.length > 0) {
-    await supabase.from("horses").upsert(
+    const { error } = await supabase.from("horses").upsert(
       horses.map((h) => ({
         id: h.id,
         ownerId: profile.id,
@@ -124,15 +135,23 @@ export async function pushHorses(horses: Horse[]): Promise<void> {
         updatedAt: now,
       }))
     );
+    if (error) console.warn("[cloudSync] upsert horses échoué", error);
   }
 
   // Supprime côté distant les chevaux qui n'existent plus localement — pas de
   // suppression de cheval dans l'UI actuelle, mais garde la sync correcte le
   // jour où elle arrive plutôt que de laisser des chevaux fantômes.
-  const { data: remoteHorses } = await supabase.from("horses").select("id").eq("ownerId", profile.id);
+  const { data: remoteHorses, error: selectHorsesError } = await supabase
+    .from("horses")
+    .select("id")
+    .eq("ownerId", profile.id);
+  if (selectHorsesError) console.warn("[cloudSync] lecture horses échouée", selectHorsesError);
   const localIds = horses.map((h) => h.id);
   const staleHorseIds = (remoteHorses ?? []).map((r) => r.id).filter((id) => !localIds.includes(id));
-  if (staleHorseIds.length > 0) await supabase.from("horses").delete().in("id", staleHorseIds);
+  if (staleHorseIds.length > 0) {
+    const { error } = await supabase.from("horses").delete().in("id", staleHorseIds);
+    if (error) console.warn("[cloudSync] suppression horses obsolètes échouée", error);
+  }
 
   for (const horse of horses) {
     await pushHorseTraitsAndInjuries(horse);
@@ -365,7 +384,7 @@ function appointmentTypeFromDb(type: string): Appointment["type"] {
  * qu'aucun horseId n'est connu. */
 export async function pushAppointment(appt: Appointment): Promise<void> {
   if (!appt.horseId) return;
-  await supabase.from("appointments").upsert({
+  const { error } = await supabase.from("appointments").upsert({
     id: appt.id,
     horseId: appt.horseId,
     type: appointmentTypeToDb(appt.type),
@@ -379,10 +398,12 @@ export async function pushAppointment(appt: Appointment): Promise<void> {
     checklist: appt.checklist,
     updatedAt: new Date().toISOString(),
   });
+  if (error) console.warn("[cloudSync] pushAppointment échoué", error);
 }
 
 export async function deleteAppointmentRemote(apptId: string): Promise<void> {
-  await supabase.from("appointments").delete().eq("id", apptId);
+  const { error } = await supabase.from("appointments").delete().eq("id", apptId);
+  if (error) console.warn("[cloudSync] deleteAppointmentRemote échoué", error);
 }
 
 /** Restaure les rendez-vous visibles par l'utilisateur courant — possédés ET
@@ -429,7 +450,7 @@ function moodFromDb(mood: string): JournalEntry["mood"] {
 
 export async function pushJournalEntry(entry: JournalEntry): Promise<void> {
   if (!entry.horseId) return;
-  await supabase.from("journal_entries").upsert({
+  const { error } = await supabase.from("journal_entries").upsert({
     id: entry.id,
     horseId: entry.horseId,
     activityType: activityTypeToDb(entry.activityType),
@@ -440,10 +461,12 @@ export async function pushJournalEntry(entry: JournalEntry): Promise<void> {
     weather: entry.weather,
     updatedAt: new Date().toISOString(),
   });
+  if (error) console.warn("[cloudSync] pushJournalEntry échoué", error);
 }
 
 export async function deleteJournalEntryRemote(entryId: string): Promise<void> {
-  await supabase.from("journal_entries").delete().eq("id", entryId);
+  const { error } = await supabase.from("journal_entries").delete().eq("id", entryId);
+  if (error) console.warn("[cloudSync] deleteJournalEntryRemote échoué", error);
 }
 
 export async function pullJournalEntries(): Promise<JournalEntry[]> {
@@ -495,11 +518,10 @@ export async function pushHorseProgress(horseId: string, data: RemoteProgress): 
     programGeneratedAt: data.programGeneratedAt,
     updatedAt: new Date().toISOString(),
   };
-  if (existing) {
-    await supabase.from("horse_progress").update(fields).eq("id", existing.id);
-  } else {
-    await supabase.from("horse_progress").insert({ id: generateId(), horseId, ...fields });
-  }
+  const { error } = existing
+    ? await supabase.from("horse_progress").update(fields).eq("id", existing.id)
+    : await supabase.from("horse_progress").insert({ id: generateId(), horseId, ...fields });
+  if (error) console.warn("[cloudSync] pushHorseProgress échoué", error);
 }
 
 export async function pullAllHorseProgress(): Promise<Record<string, RemoteProgress>> {
@@ -530,11 +552,10 @@ export async function pushHorseProgram(horseId: string, data: RemoteProgramData)
     bilanDismissedAt: data.bilanDismissedAt,
     updatedAt: new Date().toISOString(),
   };
-  if (existing) {
-    await supabase.from("horse_programs").update(fields).eq("id", existing.id);
-  } else {
-    await supabase.from("horse_programs").insert({ id: generateId(), horseId, ...fields });
-  }
+  const { error } = existing
+    ? await supabase.from("horse_programs").update(fields).eq("id", existing.id)
+    : await supabase.from("horse_programs").insert({ id: generateId(), horseId, ...fields });
+  if (error) console.warn("[cloudSync] pushHorseProgram échoué", error);
 }
 
 export async function pullAllHorsePrograms(): Promise<Record<string, RemoteProgramData>> {

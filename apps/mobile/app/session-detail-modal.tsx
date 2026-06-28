@@ -201,7 +201,7 @@ export default function SessionDetailModal() {
                   </Text>
                 </TouchableOpacity>
               </>
-            ) : debrief ? (
+            ) : debrief && MOOD_META[debrief.mood] ? (
               <TouchableOpacity onPress={() => setEditingDebrief(true)} activeOpacity={0.7} className="gap-1.5">
                 <Text className="text-xs font-bold uppercase tracking-wide text-accent">
                   {MOOD_META[debrief.mood].emoji} Ressenti : {MOOD_META[debrief.mood].label}

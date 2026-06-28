@@ -256,13 +256,15 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       SecureStore.getItemAsync(SIGNATURES_KEY),
       SecureStore.getItemAsync(BILAN_DISMISSED_KEY),
       SecureStore.getItemAsync(AI_NOTES_KEY),
-    ]).then(([rawPrograms, rawSignatures, rawBilanDismissed, rawAiNotes]) => {
-      setAllPrograms(safeJsonParse<PersistedPrograms>(rawPrograms, {}));
-      setSignatures(safeJsonParse<PersistedSignatures>(rawSignatures, {}));
-      setBilanDismissedMap(safeJsonParse<Record<string, string>>(rawBilanDismissed, {}));
-      setAiNotes(safeJsonParse<PersistedAiNotes>(rawAiNotes, {}));
-      setLoading(false);
-    });
+    ])
+      .then(([rawPrograms, rawSignatures, rawBilanDismissed, rawAiNotes]) => {
+        setAllPrograms(safeJsonParse<PersistedPrograms>(rawPrograms, {}));
+        setSignatures(safeJsonParse<PersistedSignatures>(rawSignatures, {}));
+        setBilanDismissedMap(safeJsonParse<Record<string, string>>(rawBilanDismissed, {}));
+        setAiNotes(safeJsonParse<PersistedAiNotes>(rawAiNotes, {}));
+      })
+      .catch((e) => console.warn("[program] lecture SecureStore échouée, programmes par défaut", e))
+      .finally(() => setLoading(false));
   }, []);
 
   // Redéclenche une tentative d'éclairage IA une fois la session ouverte —

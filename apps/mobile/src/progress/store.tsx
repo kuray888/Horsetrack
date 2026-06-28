@@ -133,10 +133,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const prevEpochRef = useRef<string | null>(null);
 
   useEffect(() => {
-    SecureStore.getItemAsync(STORAGE_KEY).then((raw) => {
-      setAllData(safeJsonParse<PersistedAll>(raw, {}));
-      setLoading(false);
-    });
+    SecureStore.getItemAsync(STORAGE_KEY)
+      .then((raw) => setAllData(safeJsonParse<PersistedAll>(raw, {})))
+      .catch((e) => console.warn("[progress] lecture SecureStore échouée, progression par défaut", e))
+      .finally(() => setLoading(false));
   }, []);
 
   // Si le programme de ce cheval a été régénéré depuis la dernière visite,

@@ -216,14 +216,14 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)]).then(
-      ([rawHorses, rawSelected]) => {
+    Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)])
+      .then(([rawHorses, rawSelected]) => {
         const loaded: Horse[] = reviveHorses(safeJsonParse(rawHorses, DEFAULT_HORSES));
         setHorses(loaded);
         setSelectedHorseId(rawSelected ?? loaded.find((h) => h.isPrimary)?.id ?? loaded[0]?.id ?? null);
-        setLoading(false);
-      }
-    );
+      })
+      .catch((e) => console.warn("[horses] lecture SecureStore échouée, écurie par défaut", e))
+      .finally(() => setLoading(false));
   }, []);
 
   const persist = useCallback((next: Horse[]) => {
