@@ -6,7 +6,8 @@
     "dev": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@cheval/shared": "workspace:*",
@@ -37,6 +38,7 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~10.0.0",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.9"
   }
 }

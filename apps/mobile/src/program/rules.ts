@@ -1077,21 +1077,29 @@ function injuryNote(injury: Injury, level: InjuryCaution, isMusculoskeletal: boo
 
 /** Applique en une passe les restrictions de santé ET de blessures sur le
  * pool de types de séances et le plafond d'intensité, et collecte les notes
- * explicatives associées (affichées au cavalier). */
+ * explicatives associées (affichées au cavalier).
+ *
+ * `ceiling` est le plafond de sécurité pur, indépendant de `baseIntensity` —
+ * distinct de `intensity` (qui ne sert qu'à amorcer la progression des
+ * phases REPRISE/DEVELOPPEMENT/AFFIRMATION). `ceiling` doit être réappliqué
+ * par l'appelant APRÈS `intensityForPhase` sur CHAQUE semaine : la phase
+ * AFFIRMATION relève volontairement l'intensité d'un cran par rapport à
+ * `intensity`, ce qui peut dépasser une restriction de santé/blessure si on
+ * ne la borne plus qu'une seule fois en amont. */
 function applyHealthAndInjuryRestrictions(
   pool: SessionType[],
   baseIntensity: SessionIntensity,
   horse: Horse
-): { pool: SessionType[]; intensity: SessionIntensity; notes: string[] } {
+): { pool: SessionType[]; intensity: SessionIntensity; ceiling: SessionIntensity; notes: string[] } {
   const notes: string[] = [];
   let nextPool = pool;
-  let nextIntensity = baseIntensity;
+  let ceiling: SessionIntensity = "HIGH";
 
   for (const condition of horse.healthConditions) {
     const rule = HEALTH_CONDITION_RULES[condition];
     if (!rule) continue;
     nextPool = nextPool.filter((t) => !rule.excludeTypes.includes(t));
-    if (rule.maxIntensity) nextIntensity = capAt(nextIntensity, rule.maxIntensity);
+    if (rule.maxIntensity) ceiling = capAt(ceiling, rule.maxIntensity);
     notes.push(rule.note);
   }
 
@@ -1102,13 +1110,14 @@ function applyHealthAndInjuryRestrictions(
     if (isMusculoskeletal) {
       nextPool = nextPool.filter((t) => t !== "OBSTACLE" && !(level === "ACTIVE" && t === "BARRES_AU_SOL"));
     }
-    nextIntensity = capAt(nextIntensity, level === "ACTIVE" ? "LOW" : "MEDIUM");
+    ceiling = capAt(ceiling, level === "ACTIVE" ? "LOW" : "MEDIUM");
     notes.push(injuryNote(injury, level, isMusculoskeletal));
   }
 
   return {
     pool: nextPool.length > 0 ? nextPool : ["TRAVAIL_A_PIED", "RECUPERATION"],
-    intensity: nextIntensity,
+    intensity: capAt(baseIntensity, ceiling),
+    ceiling,
     notes,
   };
 }
@@ -1478,6 +1487,7 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
   const {
     pool: safePool,
     intensity: cappedBaseIntensity,
+    ceiling: healthInjuryCeiling,
     notes: restrictionNotes,
   } = applyHealthAndInjuryRestrictions(biasedPool, baseIntensity, horse);
   safetyNotes.push(...restrictionNotes);
@@ -1494,7 +1504,10 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
   const weeks = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
     const weekNumber = i + 1;
     const phase = phaseForWeek(weekNumber, TOTAL_WEEKS, rider.primaryGoal);
-    const weekIntensity = intensityForPhase(cappedBaseIntensity, phase, weekNumber);
+    // AFFIRMATION relève l'intensité d'un cran par rapport à cappedBaseIntensity
+    // (cf. intensityForPhase) — sans ce second plafonnage, ce cran supplémentaire
+    // pourrait repasser au-dessus d'une restriction de santé/blessure.
+    const weekIntensity = capAt(intensityForPhase(cappedBaseIntensity, phase, weekNumber), healthInjuryCeiling);
     const dayTypes = buildDayTypes(days, safePool, weekNumber - 1, horse.discipline);
 
     const sessions: SessionTemplate[] = dayTypes.map(({ dayOffset, type }) => {
