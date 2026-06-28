@@ -160,7 +160,7 @@ describe("generateProgram — jump height stays within level-appropriate bounds"
   });
 
   it("never lets a higher horse level produce a lower max jump height than a lower level", () => {
-    const levels: Array<["UNTRAINED" | "CLUB" | "AMATEUR" | "PRO", number]> = [
+    const levels: ["UNTRAINED" | "CLUB" | "AMATEUR" | "PRO", number][] = [
       ["UNTRAINED", 0],
       ["CLUB", 0],
       ["AMATEUR", 0],
