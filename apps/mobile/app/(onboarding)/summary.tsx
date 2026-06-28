@@ -56,7 +56,7 @@ export default function Summary() {
             {focus ? <PlanRow text={`Exercices ciblés : ${focus.toLowerCase()}`} /> : null}
             <PlanRow text="Suivi de progression & objectifs" />
             <PlanRow text="Julien, ton coach IA, disponible 24/7" />
-            <PlanRow text={`Toute ton écurie (${horses.length} cheval${horses.length > 1 ? "x" : ""}) suivie`} />
+            <PlanRow text={`Toute ton écurie (${horses.length} ${horses.length > 1 ? "chevaux" : "cheval"}) suivie`} />
           </View>
         </FadeInView>
 

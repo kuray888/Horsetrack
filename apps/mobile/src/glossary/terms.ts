@@ -12,6 +12,7 @@ const RAW_TERMS: GlossaryEntry[] = [
   { term: "Trot rassemblé", definition: "Trot raccourci où le cheval engage davantage ses postérieurs sous la masse et élève un peu plus ses membres — moins d'amplitude, plus d'équilibre." },
   { term: "Trot moyen", definition: "Trot avec plus d'amplitude et de poussée que le trot de travail, sans être au maximum (trot allongé)." },
   { term: "Pas allongé", definition: "Pas où le cheval étire son encolure et allonge sa foulée au maximum tout en restant calme, pour détendre le dos." },
+  { term: "Volte", definition: "Cercle de petit diamètre (généralement 10 à 20 m) tracé par le cheval, utilisé pour travailler la souplesse et l'incurvation." },
   { term: "Voltes", definition: "Cercles de petit diamètre (généralement 10 à 20 m) tracés par le cheval, utilisés pour travailler la souplesse et l'incurvation." },
   { term: "Diagonale", definition: "Au trot enlevé, le couple de membres sur lequel le cavalier se soulève — changer de diagonale répartit l'effort des deux côtés du dos du cheval." },
   { term: "Diagonales", definition: "Au trot enlevé, les couples de membres sur lesquels le cavalier se soulève — changer de diagonale répartit l'effort des deux côtés du dos du cheval. Désigne aussi les lignes droites tracées en diagonale dans la carrière." },

@@ -11,7 +11,7 @@ function HorseLimitReached({ limit }: { limit: number }) {
       <View className="flex-1 items-center justify-center gap-4 px-6">
         <Text className="text-3xl">🔒</Text>
         <Text className="text-center text-xl font-bold text-text">
-          Limite de {limit} cheval{limit > 1 ? "x" : ""} atteinte
+          Limite de {limit} {limit > 1 ? "chevaux" : "cheval"} atteinte
         </Text>
         <Text className="text-center text-sm text-muted">
           Passe à un palier supérieur ou ajoute un cheval supplémentaire à la carte pour agrandir ton écurie.
