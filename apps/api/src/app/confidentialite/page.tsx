@@ -14,7 +14,7 @@ export default function ConfidentialitePage() {
         (immatriculé sous le numéro 952 094 456 R.C.S. Nanterre) (« nous »), éditeur de l&apos;application
         Horsetrack, est responsable du traitement des données décrites dans cette politique.
       </p>
-      <p>Contact pour toute question relative à vos données : [EMAIL DE CONTACT].</p>
+      <p>Contact pour toute question relative à vos données : horsetrack.app@gmail.com.</p>
 
       <h2>2. Données que nous collectons</h2>
       <table>
@@ -156,7 +156,7 @@ export default function ConfidentialitePage() {
       </p>
       <ul>
         <li><strong>Suppression</strong> : directement depuis l&apos;Application, à tout moment, sans avoir besoin de nous contacter (Profil → Supprimer mon compte).</li>
-        <li><strong>Accès / rectification / autres demandes</strong> : en nous contactant à [EMAIL DE CONTACT].</li>
+        <li><strong>Accès / rectification / autres demandes</strong> : en nous contactant à horsetrack.app@gmail.com.</li>
         <li>Vous disposez également du droit d&apos;introduire une réclamation auprès de la CNIL (www.cnil.fr) si vous estimez que vos droits ne sont pas respectés.</li>
       </ul>
 
@@ -173,7 +173,7 @@ export default function ConfidentialitePage() {
 
       <h2>9. Mineurs</h2>
       <p>
-        L&apos;Application n&apos;est pas destinée aux enfants de moins de [16] ans sans l&apos;autorisation d&apos;un
+        L&apos;Application n&apos;est pas destinée aux enfants de moins de 16 ans sans l&apos;autorisation d&apos;un
         titulaire de l&apos;autorité parentale. Nous ne collectons pas sciemment de données concernant des enfants en
         dessous de cet âge sans cette autorisation.
       </p>
@@ -185,7 +185,7 @@ export default function ConfidentialitePage() {
       </p>
 
       <h2>11. Contact</h2>
-      <p>Pour toute question relative à cette politique ou à vos données personnelles : [EMAIL DE CONTACT].</p>
+      <p>Pour toute question relative à cette politique ou à vos données personnelles : horsetrack.app@gmail.com.</p>
     </LegalPage>
   );
 }

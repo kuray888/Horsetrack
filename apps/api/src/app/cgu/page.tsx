@@ -54,8 +54,8 @@ export default function CguPage() {
       <h2>4. Création de compte et âge minimum</h2>
       <p>L&apos;accès à l&apos;Application nécessite la création d&apos;un compte (adresse email et mot de passe).</p>
       <p>
-        L&apos;Application est réservée aux personnes âgées d&apos;au moins <strong>[16]</strong> ans. Les mineurs de moins
-        de [16] ans ne peuvent utiliser l&apos;Application qu&apos;avec l&apos;autorisation d&apos;un titulaire de
+        L&apos;Application est réservée aux personnes âgées d&apos;au moins <strong>16</strong> ans. Les mineurs de moins
+        de 16 ans ne peuvent utiliser l&apos;Application qu&apos;avec l&apos;autorisation d&apos;un titulaire de
         l&apos;autorité parentale, qui demeure responsable de l&apos;utilisation qui en est faite et, le cas échéant, des
         paiements effectués.
       </p>
@@ -162,7 +162,7 @@ export default function CguPage() {
       </p>
 
       <h2>13. Contact</h2>
-      <p>Pour toute question relative aux présentes CGU : [EMAIL DE CONTACT].</p>
+      <p>Pour toute question relative aux présentes CGU : horsetrack.app@gmail.com.</p>
     </LegalPage>
   );
 }

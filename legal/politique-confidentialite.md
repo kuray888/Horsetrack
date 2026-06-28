@@ -8,7 +8,7 @@
 
 Anis Armand MESLIN, Entreprise individuelle (EI), 60 Route des Gardes, Passerelle 8 – RDC G, 92190 Meudon (immatriculé sous le numéro 952 094 456 R.C.S. Nanterre) (« nous »), éditeur de l'application Horsetrack, est responsable du traitement des données décrites dans cette politique.
 
-Contact pour toute question relative à vos données : [EMAIL DE CONTACT].
+Contact pour toute question relative à vos données : horsetrack.app@gmail.com.
 
 ## 2. Données que nous collectons
 
@@ -63,7 +63,7 @@ Vos données sont conservées tant que votre compte est actif. Si vous supprimez
 Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation, d'opposition et de portabilité sur vos données.
 
 - **Suppression** : directement depuis l'Application, à tout moment, sans avoir besoin de nous contacter (Profil → Supprimer mon compte).
-- **Accès / rectification / autres demandes** : en nous contactant à [EMAIL DE CONTACT].
+- **Accès / rectification / autres demandes** : en nous contactant à horsetrack.app@gmail.com.
 - Vous disposez également du droit d'introduire une réclamation auprès de la CNIL (www.cnil.fr) si vous estimez que vos droits ne sont pas respectés.
 
 ## 8. Sécurité
@@ -74,7 +74,7 @@ Conformément au Règlement Général sur la Protection des Données (RGPD), vou
 
 ## 9. Mineurs
 
-L'Application n'est pas destinée aux enfants de moins de [16] ans sans l'autorisation d'un titulaire de l'autorité parentale. Nous ne collectons pas sciemment de données concernant des enfants en dessous de cet âge sans cette autorisation.
+L'Application n'est pas destinée aux enfants de moins de 16 ans sans l'autorisation d'un titulaire de l'autorité parentale. Nous ne collectons pas sciemment de données concernant des enfants en dessous de cet âge sans cette autorisation.
 
 ## 10. Modifications de cette politique
 
@@ -82,4 +82,4 @@ Cette politique peut être mise à jour pour refléter une évolution du service
 
 ## 11. Contact
 
-Pour toute question relative à cette politique ou à vos données personnelles : [EMAIL DE CONTACT].
+Pour toute question relative à cette politique ou à vos données personnelles : horsetrack.app@gmail.com.
