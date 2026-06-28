@@ -178,9 +178,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isPurchasesAvailable()) return;
       if (event === "SIGNED_IN" && session?.user) {
-        loginRevenueCat(session.user.id).then(refreshFromRevenueCat);
+        loginRevenueCat(session.user.id)
+          .then(refreshFromRevenueCat)
+          .catch((e) => console.warn("[subscription] loginRevenueCat/refresh échoué", e));
       } else if (event === "SIGNED_OUT") {
-        logoutRevenueCat().then(() => persistLocal(DEFAULT));
+        logoutRevenueCat()
+          .then(() => persistLocal(DEFAULT))
+          .catch((e) => console.warn("[subscription] logoutRevenueCat échoué", e));
       }
     });
     return () => sub.subscription.unsubscribe();

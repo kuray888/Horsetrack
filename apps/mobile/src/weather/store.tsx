@@ -32,13 +32,15 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      if (!(await isOnboardingCompleted())) {
+      try {
+        if (!(await isOnboardingCompleted())) return;
+        const next = await fetchWeatherForecast(5);
+        setForecast(next);
+      } catch (e) {
+        console.warn("[weather] chargement échoué", e);
+      } finally {
         setLoading(false);
-        return;
       }
-      const next = await fetchWeatherForecast(5);
-      setForecast(next);
-      setLoading(false);
     })();
   }, []);
 

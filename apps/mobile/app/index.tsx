@@ -17,8 +17,19 @@ export default function Index() {
   const [done, setDone] = useState<boolean | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
-    isOnboardingCompleted().then(setDone);
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setHasSession(!!data.session))
+      .catch((e) => {
+        console.warn("[index] getSession échoué, on suppose aucune session", e);
+        setHasSession(false);
+      });
+    isOnboardingCompleted()
+      .then(setDone)
+      .catch((e) => {
+        console.warn("[index] isOnboardingCompleted échoué, on repart sur l'onboarding", e);
+        setDone(false);
+      });
   }, []);
 
   if (hasSession === null || done === null) {
