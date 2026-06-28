@@ -120,6 +120,62 @@ describe("generateProgram — safety ceiling vs. AFFIRMATION ramp-up", () => {
   });
 });
 
+function jumpHeightsCm(program: ReturnType<typeof generateProgram>): number[] {
+  const heights: number[] = [];
+  for (const week of program.weeks) {
+    for (const session of week.sessions) {
+      if (session.type !== "OBSTACLE") continue;
+      for (const note of session.setupNotes) {
+        const match = /Hauteur indicative : ~(\d+) cm/.exec(note);
+        if (match) heights.push(Number(match[1]));
+      }
+    }
+  }
+  return heights;
+}
+
+describe("generateProgram — jump height stays within level-appropriate bounds", () => {
+  // Safety-relevant constants (JUMP_HEIGHT_RANGE_CM) — a regression here means
+  // an UNTRAINED horse could get programmed jump heights meant for a PRO one.
+  const rider = makeRider({ level: "PRO", primaryGoal: "COMPETE" });
+
+  it("keeps an UNTRAINED horse's jump heights within [20, 40] cm", () => {
+    const horse = makeHorse({ level: "UNTRAINED", discipline: "SHOW_JUMPING", fitnessLevel: "PEAK" });
+    const heights = jumpHeightsCm(generateProgram(rider, horse));
+    expect(heights.length).toBeGreaterThan(0);
+    for (const h of heights) {
+      expect(h).toBeGreaterThanOrEqual(20);
+      expect(h).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it("keeps a PRO horse's jump heights within [100, 120] cm", () => {
+    const horse = makeHorse({ level: "PRO", discipline: "SHOW_JUMPING", fitnessLevel: "PEAK" });
+    const heights = jumpHeightsCm(generateProgram(rider, horse));
+    expect(heights.length).toBeGreaterThan(0);
+    for (const h of heights) {
+      expect(h).toBeGreaterThanOrEqual(100);
+      expect(h).toBeLessThanOrEqual(120);
+    }
+  });
+
+  it("never lets a higher horse level produce a lower max jump height than a lower level", () => {
+    const levels: Array<["UNTRAINED" | "CLUB" | "AMATEUR" | "PRO", number]> = [
+      ["UNTRAINED", 0],
+      ["CLUB", 0],
+      ["AMATEUR", 0],
+      ["PRO", 0],
+    ];
+    const maxByLevel = levels.map(([level]) => {
+      const horse = makeHorse({ level, discipline: "SHOW_JUMPING", fitnessLevel: "PEAK" });
+      return Math.max(...jumpHeightsCm(generateProgram(rider, horse)));
+    });
+    for (let i = 1; i < maxByLevel.length; i++) {
+      expect(maxByLevel[i]).toBeGreaterThanOrEqual(maxByLevel[i - 1]);
+    }
+  });
+});
+
 describe("generateProgram — session frequency", () => {
   it("caps sessions per week at 2 when the horse is RESTING, regardless of rider availability", () => {
     const rider = makeRider({ rideFrequency: "DAILY" });
