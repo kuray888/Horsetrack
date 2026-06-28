@@ -15,7 +15,7 @@ export type PaidTier = Exclude<SubscriptionTier, "FREE">;
  * build natif. A repasser à `true` seulement si le SDK doit être désactivé
  * temporairement (debug, incident, etc.).
  */
-const TEMP_DISABLE_REVENUECAT = true;
+const TEMP_DISABLE_REVENUECAT = false;
 
 // require() plutôt qu'un import statique : permet de ne jamais charger le
 // module quand TEMP_DISABLE_REVENUECAT est actif, sans dépendre du SDK.

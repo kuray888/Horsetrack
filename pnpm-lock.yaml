@@ -115,8 +115,8 @@ importers:
         specifier: 0.81.5
         version: 0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0)
       react-native-purchases:
-        specifier: ^8.2.0
-        version: 8.12.0(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+        specifier: ^10.4.0
+        version: 10.4.0(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-reanimated:
         specifier: ~4.1.1
         version: 4.1.7(react-native-worklets@0.8.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -1562,8 +1562,14 @@ packages:
   '@react-navigation/routers@7.6.0':
     resolution: {integrity: sha512-lblhDXfS75jLc7G2K7BZGM+7cjqQXk13X/MA4fq/12r62zM+fBhhreLzYflSitrDDXFRJpSvJXy0ziiGU04Xow==}
 
-  '@revenuecat/purchases-typescript-internal@14.3.0':
-    resolution: {integrity: sha512-P3IhlWvH4wJAM9ypv8HamdIBMQfnLdU9PbjURw+s7NxHOL8LmPGhKuyv+gBINpka27mt1CAsDoOhNHjkexJhkg==}
+  '@revenuecat/purchases-js-hybrid-mappings@18.15.1':
+    resolution: {integrity: sha512-wJqvPiDE2ra9byoeOerBqNCJFzZQL8HNVbkhGRjAZZ3Us7kXzWvIT4LSgTO70bKre7iPaCYif10fd4Lh/eQi8w==}
+
+  '@revenuecat/purchases-js@1.42.4':
+    resolution: {integrity: sha512-Zayh/4VqjUa/iDtXpgDmur3Vp5r9dO3axGs1zNp9RIKv8iH/fufJOH64jCRcZ31Ft7O7c5UNjYWIThXDjCn1Iw==}
+
+  '@revenuecat/purchases-typescript-internal@18.15.1':
+    resolution: {integrity: sha512-OaaBxOpmO/Jp33DVCUfnqqOC+hFlXQyNXlZTgFrRCFWW3jVRo+8MQYOV8pVPo20cIrjlUQhnBB3qx+ECUkaJ+Q==}
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
@@ -4394,11 +4400,15 @@ packages:
       react: '*'
       react-native: '*'
 
-  react-native-purchases@8.12.0:
-    resolution: {integrity: sha512-0T6WtSDN96swsS6iLeTh7GEGLSedBr4FWP5JsGLnP6Ri7Rp754pf3UJ+S0+ZnT1cqUZ4W2z2oB6zTLyyfNfuKw==}
+  react-native-purchases@10.4.0:
+    resolution: {integrity: sha512-jM1FWdLKchMlBONoqIM+Fw9iGYloWPBx097iMVYk28V/BHY61tUS5YflGgmSHkL3rpJQQxBfsYWhAPpBSABvpg==}
     peerDependencies:
       react: '>= 16.6.3'
-      react-native: '*'
+      react-native: '>= 0.73.0'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native-web:
+        optional: true
 
   react-native-reanimated@4.1.7:
     resolution: {integrity: sha512-Q4H6xA3Tn7QL0/E/KjI86I1KK4tcf+ErRE04LH34Etka2oVQhW6oXQ+Q8ZcDCVxiWp5vgbBH6XcH8BOo4w/Rhg==}
@@ -6989,7 +6999,13 @@ snapshots:
     dependencies:
       nanoid: 3.3.13
 
-  '@revenuecat/purchases-typescript-internal@14.3.0': {}
+  '@revenuecat/purchases-js-hybrid-mappings@18.15.1':
+    dependencies:
+      '@revenuecat/purchases-js': 1.42.4
+
+  '@revenuecat/purchases-js@1.42.4': {}
+
+  '@revenuecat/purchases-typescript-internal@18.15.1': {}
 
   '@rtsao/scc@1.1.0': {}
 
@@ -10569,9 +10585,10 @@ snapshots:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0)
 
-  react-native-purchases@8.12.0(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
+  react-native-purchases@10.4.0(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
     dependencies:
-      '@revenuecat/purchases-typescript-internal': 14.3.0
+      '@revenuecat/purchases-js-hybrid-mappings': 18.15.1
+      '@revenuecat/purchases-typescript-internal': 18.15.1
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0)
 
