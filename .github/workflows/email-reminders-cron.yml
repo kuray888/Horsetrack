@@ -1,0 +1,25 @@
+name: Email reminders cron
+
+# Vercel Hobby only allows daily cron jobs, but reminders need ~15min
+# granularity to be meaningful ("1h before" an appointment). GitHub Actions
+# runs this on schedule instead and just calls the deployed endpoint, which
+# already enforces its own auth via CRON_SECRET (see apps/api/src/app/api/cron/email-reminders/route.ts).
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron/email-reminders
+        run: |
+          status=$(curl -s -o /tmp/body.txt -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.API_BASE_URL }}/api/cron/email-reminders")
+          cat /tmp/body.txt
+          if [ "$status" -ge 300 ]; then
+            echo "Request failed with HTTP $status"
+            exit 1
+          fi

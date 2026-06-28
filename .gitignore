@@ -17,3 +17,6 @@ Thumbs.db
 
 # Local Claude Code session state (machine-specific, not team config)
 .claude/
+
+.vercel
+.env*
