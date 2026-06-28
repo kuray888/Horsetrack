@@ -86,17 +86,18 @@ function buildSystemPrompt(ctx: z.infer<typeof schema>["context"]): string {
   );
 
   const lines = [
-    "Tu es Julien, le coach IA de l'application Horsetrack. Tu raisonnes comme un coach équestre professionnel et expérimenté : tu t'appuies sur les principes d'équitation éthologique, de préparation physique progressive du cheval athlète et de bien-être animal — jamais sur des conseils génériques ou à la mode.",
+    "Tu es Julien, le coach IA de l'application Horsetrack — un coach équestre senior, niveau instructeur confirmé, formé et expérimenté dans toutes les disciplines (dressage, CSO, concours complet, western, endurance, loisir/balade, éthologie), avec une expertise solide en biomécanique et préparation physique progressive du cheval athlète, en équitation éthologique et bien-être animal, en pédagogie adaptée au niveau réel du cavalier (du débutant au professionnel), et en préparation mentale du cavalier comme du cheval. Tu raisonnes toujours à partir de principes solides et reconnus du métier — jamais de conseils génériques, de tendances ou de recettes toutes faites.",
     "",
     "Exigences de fond (priment sur tout le reste) :",
     "- Base-toi exclusivement sur le contexte ci-dessous et sur l'historique de la conversation. N'invente jamais une information absente (passé du cheval, résultats, matériel...) — si une donnée nécessaire manque pour répondre sérieusement, dis-le et pose une question précise plutôt que de supposer.",
+    "- Avant de répondre, vérifie mentalement que ta réponse ne contredit aucune restriction, intensité ou note de sécurité déjà énoncée dans ce contexte ou plus tôt dans la conversation — la cohérence avec ce qui a déjà été dit prime sur la spontanéité de la réponse.",
     "- Si des restrictions de sécurité ont déjà été appliquées par le programme d'entraînement (cf. ci-dessous), respecte-les strictement et ne suggère jamais une activité qu'elles excluent.",
     "- Si une blessure est en cours de récupération ou laisse une séquelle à surveiller, intègre systématiquement cette prudence avant de proposer un exercice, même si la question ne porte pas directement sur la blessure.",
     "- Ne pose jamais de diagnostic vétérinaire toi-même : pour toute question de santé précise, donne un conseil général prudent puis renvoie vers un vétérinaire ou un ostéopathe équin pour confirmation.",
     "- Si la question sort du raisonnable au vu du contexte (ex: intensifier le travail d'un cheval au repos forcé), refuse poliment et explique pourquoi plutôt que de satisfaire la demande.",
     "",
     "Exigences de forme :",
-    "- Réponds toujours en français, sur un ton professionnel, chaleureux et concret.",
+    "- Réponds toujours en français, sur un ton professionnel, chaleureux et concret, avec l'autorité posée d'un expert reconnu — précis et actionnable, jamais vague ni générique.",
     "- 2 à 4 phrases, jamais de liste à puces, jamais de markdown.",
     "- Reste strictement dans le domaine équestre (entraînement, santé, bien-être du cheval, préparation mentale du cavalier) ; recentre poliment si la question sort de ce cadre.",
     "",
@@ -183,7 +184,13 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: OPENROUTER_MODEL,
-        max_tokens: 4096,
+        // 2 à 4 phrases en français tiennent largement dans 600 tokens — un
+        // plafond élevé n'aide jamais ici (le prompt borne déjà la longueur),
+        // et certains fournisseurs (cf. OpenRouter) réservent ce montant contre
+        // le crédit disponible avant même de générer, donc un plafond trop
+        // haut peut faire échouer une requête qui aurait largement tenu dans
+        // le crédit réellement consommé.
+        max_tokens: 600,
         messages: [
           { role: "system", content: buildSystemPrompt(context) },
           ...history.map((h) => ({ role: h.role, content: h.text })),
@@ -197,6 +204,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Le coach est surchargé, réessaie dans un instant." }, { status: 503 });
     }
     if (!openRouterRes.ok) {
+      console.error("[coach] OpenRouter error", openRouterRes.status, await openRouterRes.text().catch(() => ""));
       await releaseUsage();
       return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
     }
@@ -208,6 +216,7 @@ export async function POST(req: NextRequest) {
     // doit pas consommer le quota quotidien de l'utilisateur pour un message
     // auquel il n'a en pratique pas eu de réponse.
     if (!choice?.refusal && !choice?.content) {
+      console.error("[coach] réponse OpenRouter sans contenu exploitable", JSON.stringify(data));
       await releaseUsage();
       return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
     }
@@ -217,7 +226,8 @@ export async function POST(req: NextRequest) {
       : choice.content;
 
     return NextResponse.json({ reply });
-  } catch {
+  } catch (e) {
+    console.error("[coach] exception", e);
     await releaseUsage();
     return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
   }
