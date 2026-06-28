@@ -9,6 +9,12 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
+env:
+  # Pas un secret (c'est juste l'URL publique de l'API) — en dur ici plutôt
+  # que dans une variable GitHub pour éviter toute confusion d'onglet/scope
+  # (Secrets vs Variables vs Environments).
+  API_BASE_URL: https://api-mu-tan-94.vercel.app
+
 jobs:
   trigger:
     runs-on: ubuntu-latest
@@ -17,7 +23,7 @@ jobs:
         run: |
           status=$(curl -s -o /tmp/body.txt -w "%{http_code}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ vars.API_BASE_URL }}/api/cron/email-reminders")
+            "$API_BASE_URL/api/cron/email-reminders")
           cat /tmp/body.txt
           if [ "$status" -ge 300 ]; then
             echo "Request failed with HTTP $status"
