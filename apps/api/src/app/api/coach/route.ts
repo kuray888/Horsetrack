@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { isGrandPrixRider } from "@/lib/subscription";
 
-/** Phase de test : passe par OpenRouter (cf. OPENROUTER_API_KEY) au lieu d'Anthropic
- * en direct, le compte Anthropic étant à sec — à revenir sur le SDK Anthropic une fois
- * le crédit reconstitué (cf. mémoire projet "coach-mocked"). */
-const OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const MODEL = "claude-sonnet-4-6";
 
 /** Le Coach IA est réservé au palier Grand Prix (cf. grille tarifaire) — Free
  * et Paddock n'y ont pas accès du tout. Le plafond quotidien ci-dessous ne
@@ -176,57 +175,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        // 2 à 4 phrases en français tiennent largement dans 600 tokens — un
-        // plafond élevé n'aide jamais ici (le prompt borne déjà la longueur),
-        // et certains fournisseurs (cf. OpenRouter) réservent ce montant contre
-        // le crédit disponible avant même de générer, donc un plafond trop
-        // haut peut faire échouer une requête qui aurait largement tenu dans
-        // le crédit réellement consommé.
-        max_tokens: 600,
-        messages: [
-          { role: "system", content: buildSystemPrompt(context) },
-          ...history.map((h) => ({ role: h.role, content: h.text })),
-          { role: "user", content: message },
-        ],
-      }),
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      // 2 à 4 phrases en français tiennent largement dans 600 tokens — un
+      // plafond élevé n'aide jamais ici, le prompt borne déjà la longueur.
+      max_tokens: 600,
+      system: buildSystemPrompt(context),
+      messages: [
+        ...history.map((h) => ({ role: h.role, content: h.text })),
+        { role: "user" as const, content: message },
+      ],
     });
 
-    if (openRouterRes.status === 429) {
+    const block = response.content[0];
+
+    // Une réponse sans contenu exploitable ne doit pas consommer le quota
+    // quotidien de l'utilisateur pour un message auquel il n'a en pratique
+    // pas eu de réponse.
+    if (!block || block.type !== "text" || !block.text) {
+      console.error("[coach] réponse Anthropic sans contenu exploitable", JSON.stringify(response));
+      await releaseUsage();
+      return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
+    }
+
+    return NextResponse.json({ reply: block.text });
+  } catch (e) {
+    if (e instanceof Anthropic.RateLimitError) {
       await releaseUsage();
       return NextResponse.json({ error: "Le coach est surchargé, réessaie dans un instant." }, { status: 503 });
     }
-    if (!openRouterRes.ok) {
-      console.error("[coach] OpenRouter error", openRouterRes.status, await openRouterRes.text().catch(() => ""));
-      await releaseUsage();
-      return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
-    }
-
-    const data = await openRouterRes.json();
-    const choice = data.choices?.[0]?.message;
-
-    // Une réponse sans contenu exploitable (choices vide, content manquant) ne
-    // doit pas consommer le quota quotidien de l'utilisateur pour un message
-    // auquel il n'a en pratique pas eu de réponse.
-    if (!choice?.refusal && !choice?.content) {
-      console.error("[coach] réponse OpenRouter sans contenu exploitable", JSON.stringify(data));
-      await releaseUsage();
-      return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
-    }
-
-    const reply: string = choice.refusal
-      ? "Désolé, je ne peux pas répondre à ça — pose-moi une question sur l'entraînement, la santé ou la progression de ton cheval."
-      : choice.content;
-
-    return NextResponse.json({ reply });
-  } catch (e) {
     console.error("[coach] exception", e);
     await releaseUsage();
     return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });

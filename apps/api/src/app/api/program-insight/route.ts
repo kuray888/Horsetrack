@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { isGrandPrixRider } from "@/lib/subscription";
 
-/** Phase de test : même contournement OpenRouter que /api/coach (cf. ce
- * fichier) tant que le compte Anthropic est à sec. */
-const OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const MODEL = "claude-sonnet-4-6";
 
 /**
  * Complément IA au moteur de règles déterministe (cf. mobile/src/program/rules.ts) :
@@ -98,33 +98,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        max_tokens: 300,
-        // Les modèles Anthropic exigent au moins un message "user" — sans ça
-        // l'appel échoue systématiquement (cf. /api/coach, qui en a toujours
-        // un). Le contexte/les instructions restent dans le system prompt ;
-        // ce message ne fait que déclencher la réponse.
-        messages: [
-          { role: "system", content: buildSystemPrompt(parsed.data) },
-          { role: "user", content: "Donne ton éclairage sur ce contexte." },
-        ],
-      }),
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 300,
+      system: buildSystemPrompt(parsed.data),
+      // Les modèles Anthropic exigent au moins un message "user" — sans ça
+      // l'appel échoue systématiquement (cf. /api/coach, qui en a toujours
+      // un). Le contexte/les instructions restent dans le system prompt ;
+      // ce message ne fait que déclencher la réponse.
+      messages: [{ role: "user", content: "Donne ton éclairage sur ce contexte." }],
     });
 
-    if (!openRouterRes.ok) {
-      return NextResponse.json({ error: "Indisponible pour l'instant." }, { status: 502 });
-    }
-
-    const data = await openRouterRes.json();
-    const content: string | undefined = data.choices?.[0]?.message?.content;
-    const note = content?.trim();
+    const block = response.content[0];
+    const note = block?.type === "text" ? block.text.trim() : undefined;
 
     return NextResponse.json({ note: !note || note === "RIEN" ? null : note });
   } catch {
