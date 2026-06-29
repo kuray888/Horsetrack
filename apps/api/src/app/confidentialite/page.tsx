@@ -173,7 +173,7 @@ export default function ConfidentialitePage() {
 
       <h2>9. Mineurs</h2>
       <p>
-        L&apos;Application n&apos;est pas destinée aux enfants de moins de 16 ans sans l&apos;autorisation d&apos;un
+        L&apos;Application n&apos;est pas destinée aux enfants de moins de 15 ans sans l&apos;autorisation d&apos;un
         titulaire de l&apos;autorité parentale. Nous ne collectons pas sciemment de données concernant des enfants en
         dessous de cet âge sans cette autorisation.
       </p>

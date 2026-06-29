@@ -31,7 +31,7 @@ Le Coach IA fournit des conseils générés automatiquement à titre purement in
 
 L'accès à l'Application nécessite la création d'un compte (adresse email et mot de passe).
 
-L'Application est réservée aux personnes âgées d'au moins **16 ans**. Les mineurs de moins de 16 ans ne peuvent utiliser l'Application qu'avec l'autorisation d'un titulaire de l'autorité parentale, qui demeure responsable de l'utilisation qui en est faite et, le cas échéant, des paiements effectués.
+L'Application est réservée aux personnes âgées d'au moins **15 ans**. Les mineurs de moins de 15 ans ne peuvent utiliser l'Application qu'avec l'autorisation d'un titulaire de l'autorité parentale, qui demeure responsable de l'utilisation qui en est faite et, le cas échéant, des paiements effectués.
 
 L'Utilisateur s'engage à fournir des informations exactes lors de la création de son compte et à les maintenir à jour.
 

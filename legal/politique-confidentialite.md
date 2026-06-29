@@ -74,7 +74,7 @@ Conformément au Règlement Général sur la Protection des Données (RGPD), vou
 
 ## 9. Mineurs
 
-L'Application n'est pas destinée aux enfants de moins de 16 ans sans l'autorisation d'un titulaire de l'autorité parentale. Nous ne collectons pas sciemment de données concernant des enfants en dessous de cet âge sans cette autorisation.
+L'Application n'est pas destinée aux enfants de moins de 15 ans sans l'autorisation d'un titulaire de l'autorité parentale. Nous ne collectons pas sciemment de données concernant des enfants en dessous de cet âge sans cette autorisation.
 
 ## 10. Modifications de cette politique
 
