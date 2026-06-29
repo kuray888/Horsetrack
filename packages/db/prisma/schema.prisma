@@ -530,3 +530,15 @@ model EmailReminder {
   @@map("email_reminders")
 }
 
+/// Trace les events RevenueCat déjà traités (clé = `event.id` du payload
+/// webhook) — évite qu'un retry du même event (RevenueCat redélivre si on ne
+/// répond pas 200, ex: timeout réseau côté nous) ne re-déclenche le switch de
+/// /api/revenuecat/webhook. Juste l'id : aucun autre champ n'a besoin d'être
+/// gardé, on ne fait que vérifier "déjà vu ou pas".
+model RevenueCatWebhookEvent {
+  id          String   @id
+  processedAt DateTime @default(now())
+
+  @@map("revenuecat_webhook_events")
+}
+

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
+import { z } from "zod";
+import { db, Prisma, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
 
 /**
  * Entitlements RevenueCat — doivent correspondre exactement à ceux créés dans
@@ -10,14 +11,21 @@ const ENTITLEMENT_PADDOCK = "paddock";
 const ENTITLEMENT_GRAND_PRIX = "grand_prix";
 const ENTITLEMENT_EXTRA_HORSE = "extra_horse";
 
-type RevenueCatEvent = {
-  type: string;
-  app_user_id: string;
-  entitlement_ids?: string[];
-  period_type?: "TRIAL" | "INTRO" | "NORMAL";
-  product_id?: string;
-  expiration_at_ms?: number | null;
-};
+// Tous les champs restent optionnels (au lieu de `required`) pour ne pas
+// transformer un event sans entitlement pertinent — déjà ignoré plus bas via
+// `event?.app_user_id` — en rejet 400 : seule la FORME des champs présents
+// est vérifiée (ex: `id` doit être une string si fourni), pas leur présence.
+const eventSchema = z.object({
+  id: z.string().optional(),
+  type: z.string().optional(),
+  app_user_id: z.string().optional(),
+  entitlement_ids: z.array(z.string()).optional(),
+  period_type: z.enum(["TRIAL", "INTRO", "NORMAL"]).optional(),
+  product_id: z.string().optional(),
+  expiration_at_ms: z.number().nullable().optional(),
+});
+
+type RevenueCatEvent = z.infer<typeof eventSchema>;
 
 /** Best-effort : le SKU exact dépend des produits créés dans App Store Connect
  * / Play Console (pas encore le cas) — à remplacer par un mapping exact une
@@ -56,7 +64,11 @@ export async function POST(req: NextRequest) {
   let event: RevenueCatEvent;
   try {
     const body = await req.json();
-    event = body.event;
+    const parsed = eventSchema.safeParse(body.event ?? {});
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+    }
+    event = parsed.data;
   } catch {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -68,6 +80,19 @@ export async function POST(req: NextRequest) {
 
   if (!event?.app_user_id || (!hasGrandPrix && !hasPaddock && !hasExtraHorse)) {
     return NextResponse.json({ received: true });
+  }
+
+  // RevenueCat redélivre un event tant qu'on ne répond pas 200 (timeout réseau
+  // côté nous, par ex.) — `create` sur la PK fait office de claim atomique :
+  // si cet `event.id` est déjà passé, P2002 et on sort sans re-traiter.
+  if (event.id) {
+    try {
+      await db.revenueCatWebhookEvent.create({ data: { id: event.id } });
+    } catch (e) {
+      const alreadyProcessed = e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
+      if (alreadyProcessed) return NextResponse.json({ received: true });
+      throw e;
+    }
   }
 
   const userId = event.app_user_id;

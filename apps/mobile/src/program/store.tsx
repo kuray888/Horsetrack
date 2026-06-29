@@ -19,6 +19,7 @@ import { useHorses, type Horse } from "@/horses/store";
 import { useRiderProfile, type RiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
 import { useWeather } from "@/weather/store";
+import { useSubscription } from "@/subscription/store";
 
 /**
  * Programme d'entraînement — généré par cheval (cf. program/rules.ts) à
@@ -179,6 +180,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   const { riderProfile } = useRiderProfile();
   const { appointments } = useAgenda();
   const { forecast } = useWeather();
+  const { isGrandPrix } = useSubscription();
   const horseId = selectedHorse?.id ?? null;
 
   // Jours déclenchant un repos automatique : le lendemain d'un rendez-vous
@@ -472,9 +474,11 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   // Demande un éclairage IA sur le texte libre (notes du cavalier, notes de
   // blessure) — uniquement s'il y a vraiment du texte à interpréter, une
   // session active (peut ne pas encore exister pendant l'onboarding, cf.
-  // authEpoch ci-dessus), et pas déjà fait pour CE programme précis.
+  // authEpoch ci-dessus), pas déjà fait pour CE programme précis, et un palier
+  // Grand Prix (la route serveur la rejette de toute façon, cf.
+  // program-insight/route.ts — inutile de tenter l'appel pour les autres paliers).
   useEffect(() => {
-    if (loading || !horseId || !program || !selectedHorse) return;
+    if (loading || !horseId || !program || !selectedHorse || !isGrandPrix) return;
 
     const additionalInfo = riderProfile.additionalInfo.trim();
     const injuriesWithNotes = selectedHorse.injuries.filter((i) => i.note.trim().length > 0);
@@ -513,7 +517,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
         aiFetchingRef.current.delete(fetchKey);
       }
     })();
-  }, [loading, horseId, program, selectedHorse, riderProfile, aiNotes, authEpoch]);
+  }, [loading, horseId, program, selectedHorse, riderProfile, aiNotes, authEpoch, isGrandPrix]);
 
   // `program` doit exister explicitement avant de comparer les `generatedAt` :
   // sinon, tant qu'aucune note IA n'a encore été mise en cache ET qu'aucun

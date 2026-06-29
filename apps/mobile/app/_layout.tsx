@@ -9,6 +9,8 @@ import { ProgramProvider } from "@/program/store";
 import { AgendaProvider } from "@/agenda/store";
 import { GoalsProvider } from "@/goals/store";
 import { BadgeCelebration } from "@/components/BadgeCelebration";
+import { BiometricGate } from "@/components/BiometricGate";
+import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener";
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 
@@ -43,8 +45,12 @@ export default function RootLayout() {
                         <Stack.Screen name="session-detail-modal" options={{ presentation: "modal" }} />
                         <Stack.Screen name="bilan-modal" options={{ presentation: "modal" }} />
                         <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
+                        <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
+                        <Stack.Screen name="reset-password" />
                       </Stack>
                       <BadgeCelebration />
+                      <PasswordRecoveryListener />
+                      <BiometricGate />
                     </GoalsProvider>
                   </ProgressProvider>
                 </ProgramProvider>

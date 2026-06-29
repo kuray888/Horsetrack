@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
+import { isGrandPrixRider } from "@/lib/subscription";
 
 /** Phase de test : même contournement OpenRouter que /api/coach (cf. ce
  * fichier) tant que le compte Anthropic est à sec. */
@@ -16,19 +18,27 @@ const OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
  * séance. Appelée uniquement quand il y a du texte libre à interpréter (cf.
  * mobile/src/program/store.tsx), pas à chaque génération de programme.
  */
+// Mêmes bornes que /api/coach (cf. ce fichier) — même raison : sans elles,
+// rien ne plafonne le coût en tokens d'un appel au-delà du nombre d'appels.
+const MAX_SHORT_TEXT = 100;
+const MAX_NOTE_TEXT = 500;
+const MAX_LIST_LENGTH = 20;
+
 const schema = z.object({
-  horseName: z.string(),
-  discipline: z.string().nullable(),
-  riderGoal: z.string().nullable(),
-  additionalInfo: z.string(),
-  injuries: z.array(
-    z.object({
-      type: z.string(),
-      recoveryStatus: z.string().nullable(),
-      note: z.string().nullable(),
-    })
-  ),
-  safetyNotes: z.array(z.string()),
+  horseName: z.string().max(MAX_SHORT_TEXT),
+  discipline: z.string().max(MAX_SHORT_TEXT).nullable(),
+  riderGoal: z.string().max(MAX_SHORT_TEXT).nullable(),
+  additionalInfo: z.string().max(MAX_NOTE_TEXT),
+  injuries: z
+    .array(
+      z.object({
+        type: z.string().max(MAX_SHORT_TEXT),
+        recoveryStatus: z.string().max(MAX_SHORT_TEXT).nullable(),
+        note: z.string().max(MAX_NOTE_TEXT).nullable(),
+      })
+    )
+    .max(MAX_LIST_LENGTH),
+  safetyNotes: z.array(z.string().max(MAX_NOTE_TEXT)).max(MAX_LIST_LENGTH),
 });
 
 function buildSystemPrompt(ctx: z.infer<typeof schema>): string {
@@ -73,6 +83,18 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+  }
+
+  // Même restriction que /api/coach : l'éclairage IA du programme est réservé
+  // au pack Grand Prix, mais jusqu'ici ce n'était vérifié que côté UI mobile
+  // (cf. program/store.tsx) — n'importe quel compte authentifié pouvait
+  // appeler cette route directement et consommer du crédit OpenRouter.
+  const riderProfile = await db.riderProfile.findUnique({
+    where: { userId },
+    select: { subscriptionTier: true, subscriptionStatus: true, trialEndsAt: true },
+  });
+  if (!isGrandPrixRider(riderProfile)) {
+    return NextResponse.json({ error: "Cette fonctionnalité est réservée au pack Grand Prix." }, { status: 403 });
   }
 
   try {

@@ -24,10 +24,23 @@ export async function GET(req: NextRequest) {
 
   let sent = 0;
   for (const reminder of due) {
+    // Claim atomique avant l'envoi : si cette route tourne deux fois en
+    // parallèle (cron + appel manuel de test, explicitement permis cf.
+    // commentaire ci-dessus), seule l'exécution qui gagne la course met
+    // effectivement `sentAt` à jour — l'autre trouve `count: 0` et passe sans
+    // renvoyer le même rappel une seconde fois.
+    const claim = await db.emailReminder.updateMany({
+      where: { id: reminder.id, sentAt: null },
+      data: { sentAt: new Date() },
+    });
+    if (claim.count === 0) continue;
+
     const ok = await sendReminderEmail(reminder.user.email, reminder.subject, reminder.body);
     if (ok) {
-      await db.emailReminder.update({ where: { id: reminder.id }, data: { sentAt: new Date() } });
       sent++;
+    } else {
+      // Échec d'envoi : on libère le claim pour retenter au prochain passage du cron.
+      await db.emailReminder.update({ where: { id: reminder.id }, data: { sentAt: null } });
     }
   }
 

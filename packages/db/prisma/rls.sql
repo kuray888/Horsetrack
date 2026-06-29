@@ -107,6 +107,29 @@ as $$
     );
 $$;
 
+-- Nombre de chevaux autorisés pour un rider_profile donné — même grille que
+-- HORSE_LIMITS côté mobile (subscription/store.tsx). Jusqu'ici cette limite
+-- n'existait QUE côté client (bouton désactivé dans add-horse-modal.tsx) :
+-- rien n'empêchait un insert Supabase direct (même JWT légitime, juste en
+-- contournant l'app) de dépasser le palier. security definer : doit lire
+-- rider_profiles même quand l'appelant n'a pas encore de ligne horses pour
+-- s'appuyer sur une policy SELECT existante au moment du tout premier insert.
+create or replace function public.horse_limit_for_rider(_rider_profile_id text)
+returns integer
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select case rp."subscriptionTier"
+           when 'FREE' then 1
+           when 'PADDOCK' then 2
+           when 'GRAND_PRIX' then 3
+         end + rp."extraHorseSlots"
+  from public.rider_profiles rp
+  where rp.id = _rider_profile_id;
+$$;
+
 -- 3. Activer RLS sur toutes les tables --------------------------------------
 
 alter table public.users          enable row level security;
@@ -143,10 +166,47 @@ drop policy if exists "rider_profiles_all_own" on public.rider_profiles;
 create policy "rider_profiles_all_own" on public.rider_profiles
   for all using ("userId" = auth.uid()::text) with check ("userId" = auth.uid()::text);
 
--- horses : CRUD via le rider_profile parent
+-- RLS est ROW-level, pas COLUMN-level : la policy ci-dessus ne vérifie que la
+-- propriété de la ligne, donc sans ce REVOKE, rien n'empêchait un cavalier
+-- authentifié de faire un update direct sur sa PROPRE ligne pour s'attribuer
+-- lui-même `subscriptionTier: 'GRAND_PRIX'` — contournant entièrement
+-- RevenueCat et le webhook (source de vérité légitime, cf.
+-- /api/revenuecat/webhook, qui écrit via DATABASE_URL et bypass RLS). Risque
+-- nul aujourd'hui (tout le monde est déjà par défaut sur GRAND_PRIX tant que
+-- RevenueCat n'a jamais écrit), réel dès que ce défaut bascule sur FREE pour
+-- de vrais comptes payants.
+revoke insert (
+  "subscriptionTier", "subscriptionStatus", "billingPeriod", "trialEndsAt", "revenuecatId", "extraHorseSlots"
+) on public.rider_profiles from authenticated;
+revoke update (
+  "subscriptionTier", "subscriptionStatus", "billingPeriod", "trialEndsAt", "revenuecatId", "extraHorseSlots"
+) on public.rider_profiles from authenticated;
+
+-- horses : CRUD via le rider_profile parent. Scindée en 4 policies (au lieu
+-- d'une seule "for all") pour que la limite de quota ci-dessous ne s'applique
+-- qu'à la création d'un NOUVEAU cheval, jamais à la lecture/modification/
+-- suppression d'un cheval déjà existant (y compris après un downgrade de
+-- palier qui ferait repasser sous le quota).
 drop policy if exists "horses_all_own" on public.horses;
-create policy "horses_all_own" on public.horses
-  for all using (public.owns_rider_profile("ownerId")) with check (public.owns_rider_profile("ownerId"));
+
+drop policy if exists "horses_select_own" on public.horses;
+create policy "horses_select_own" on public.horses
+  for select using (public.owns_rider_profile("ownerId"));
+
+drop policy if exists "horses_insert_own" on public.horses;
+create policy "horses_insert_own" on public.horses
+  for insert with check (
+    public.owns_rider_profile("ownerId")
+    and (select count(*) from public.horses h where h."ownerId" = "ownerId") < public.horse_limit_for_rider("ownerId")
+  );
+
+drop policy if exists "horses_update_own" on public.horses;
+create policy "horses_update_own" on public.horses
+  for update using (public.owns_rider_profile("ownerId")) with check (public.owns_rider_profile("ownerId"));
+
+drop policy if exists "horses_delete_own" on public.horses;
+create policy "horses_delete_own" on public.horses
+  for delete using (public.owns_rider_profile("ownerId"));
 
 -- horse_traits : via le cheval parent
 drop policy if exists "horse_traits_all_own" on public.horse_traits;
@@ -176,11 +236,32 @@ drop policy if exists "email_reminders_select_own" on public.email_reminders;
 create policy "email_reminders_select_own" on public.email_reminders
   for select using ("userId" = auth.uid()::text);
 
--- documents : rattaché au rider_profile, CRUD complet écrit directement par
--- le client mobile (cf. lib/cloudSync.ts) — même pattern que goals_all_own.
+-- documents (coffre-fort) : rattaché au rider_profile, écrit directement par
+-- le client mobile (cf. lib/cloudSync.ts). Réservé à Paddock+ selon la grille
+-- tarifaire — jusqu'ici aucun gate, ni côté UI (agenda.tsx) ni ici, ne le
+-- vérifiait : scindée en 4 policies pour que le check de palier ne porte que
+-- sur la création (un downgrade ne doit pas faire perdre l'accès aux
+-- documents déjà déposés).
 drop policy if exists "documents_all_own" on public.documents;
-create policy "documents_all_own" on public.documents
-  for all using (public.owns_rider_profile("riderId")) with check (public.owns_rider_profile("riderId"));
+
+drop policy if exists "documents_select_own" on public.documents;
+create policy "documents_select_own" on public.documents
+  for select using (public.owns_rider_profile("riderId"));
+
+drop policy if exists "documents_insert_own" on public.documents;
+create policy "documents_insert_own" on public.documents
+  for insert with check (
+    public.owns_rider_profile("riderId")
+    and exists (select 1 from public.rider_profiles rp where rp.id = "riderId" and rp."subscriptionTier" <> 'FREE')
+  );
+
+drop policy if exists "documents_update_own" on public.documents;
+create policy "documents_update_own" on public.documents
+  for update using (public.owns_rider_profile("riderId")) with check (public.owns_rider_profile("riderId"));
+
+drop policy if exists "documents_delete_own" on public.documents;
+create policy "documents_delete_own" on public.documents
+  for delete using (public.owns_rider_profile("riderId"));
 
 -- Partage (cf. lib/sharing.ts) -----------------------------------------------
 
@@ -218,9 +299,36 @@ create policy "journal_entries_shared" on public.journal_entries
 -- acceptée (cf. can_access_horse, qui filtre par collaboratorUserId — sans
 -- cette 2e policy, can_access_horse ne verrait jamais sa propre ligne après
 -- acceptation si jamais le claim email venait à manquer/changer).
+-- Réservé à Paddock+ selon la grille tarifaire — jusqu'ici seul
+-- share-horse-modal.tsx le vérifiait (tier === "FREE" bloque l'écran), rien
+-- ne l'empêchait en base. Scindée pour que le check de palier ne porte que
+-- sur la création d'une NOUVELLE invitation : un downgrade ne doit pas
+-- révoquer automatiquement un partage déjà en place (gestion/révocation
+-- restent possibles à tout palier).
 drop policy if exists "horse_collaborators_owner_all" on public.horse_collaborators;
-create policy "horse_collaborators_owner_all" on public.horse_collaborators
-  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
+
+drop policy if exists "horse_collaborators_owner_select" on public.horse_collaborators;
+create policy "horse_collaborators_owner_select" on public.horse_collaborators
+  for select using (public.owns_horse("horseId"));
+
+drop policy if exists "horse_collaborators_owner_insert" on public.horse_collaborators;
+create policy "horse_collaborators_owner_insert" on public.horse_collaborators
+  for insert with check (
+    public.owns_horse("horseId")
+    and exists (
+      select 1 from public.horses h
+      join public.rider_profiles rp on rp.id = h."ownerId"
+      where h.id = "horseId" and rp."subscriptionTier" <> 'FREE'
+    )
+  );
+
+drop policy if exists "horse_collaborators_owner_update" on public.horse_collaborators;
+create policy "horse_collaborators_owner_update" on public.horse_collaborators
+  for update using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
+
+drop policy if exists "horse_collaborators_owner_delete" on public.horse_collaborators;
+create policy "horse_collaborators_owner_delete" on public.horse_collaborators
+  for delete using (public.owns_horse("horseId"));
 
 drop policy if exists "horse_collaborators_invitee_select" on public.horse_collaborators;
 create policy "horse_collaborators_invitee_select" on public.horse_collaborators

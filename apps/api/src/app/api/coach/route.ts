@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { db, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
+import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
+import { isGrandPrixRider } from "@/lib/subscription";
 
 /** Phase de test : passe par OpenRouter (cf. OPENROUTER_API_KEY) au lieu d'Anthropic
  * en direct, le compte Anthropic étant à sec — à revenir sur le SDK Anthropic une fois
@@ -19,50 +20,49 @@ const OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
  * webhook RevenueCat actif (cf. /api/revenuecat/webhook). */
 const DAILY_MESSAGE_LIMIT_GRAND_PRIX = 20;
 
-function isGrandPrixRider(
-  rider: { subscriptionTier: SubscriptionTier; subscriptionStatus: SubscriptionStatus; trialEndsAt: Date | null } | null
-): boolean {
-  if (!rider) return false;
-  if (rider.subscriptionTier !== SubscriptionTier.GRAND_PRIX) return false;
-  if (rider.subscriptionStatus === SubscriptionStatus.ACTIVE) return true;
-  if (rider.subscriptionStatus === SubscriptionStatus.TRIALING) {
-    return !rider.trialEndsAt || rider.trialEndsAt.getTime() > Date.now();
-  }
-  return false;
-}
+// `context` est reconstruit et re-tokenisé à CHAQUE message (pas juste une
+// fois) — sans bornes, son coût en tokens n'est plafonné par rien d'autre que
+// le nombre de messages/jour, pas leur taille. Ces limites suivent ce que
+// l'app envoie réellement (labels courts issus de listes fixes, notes libres
+// d'un paragraphe) plutôt que d'être arbitraires.
+const MAX_SHORT_TEXT = 100;
+const MAX_NOTE_TEXT = 500;
+const MAX_LIST_LENGTH = 20;
 
 const schema = z.object({
   message: z.string().min(1).max(2000),
-  history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string() })).max(20),
+  history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2000) })).max(20),
   context: z.object({
-    horseName: z.string(),
-    discipline: z.string().nullable(),
-    horseLevel: z.string().nullable(),
+    horseName: z.string().max(MAX_SHORT_TEXT),
+    discipline: z.string().max(MAX_SHORT_TEXT).nullable(),
+    horseLevel: z.string().max(MAX_SHORT_TEXT).nullable(),
     horseAge: z.number().nullable(),
-    fitnessLevel: z.string().nullable(),
-    workload: z.string().nullable(),
-    strengths: z.array(z.string()),
-    weaknesses: z.array(z.string()),
-    healthConditions: z.array(z.string()),
-    injuries: z.array(
-      z.object({
-        type: z.string(),
-        recoveryStatus: z.string().nullable(),
-        note: z.string().nullable(),
-      })
-    ),
-    riderLevel: z.string().nullable(),
-    riderGoal: z.string().nullable(),
-    additionalInfo: z.string(),
+    fitnessLevel: z.string().max(MAX_SHORT_TEXT).nullable(),
+    workload: z.string().max(MAX_SHORT_TEXT).nullable(),
+    strengths: z.array(z.string().max(MAX_SHORT_TEXT)).max(MAX_LIST_LENGTH),
+    weaknesses: z.array(z.string().max(MAX_SHORT_TEXT)).max(MAX_LIST_LENGTH),
+    healthConditions: z.array(z.string().max(MAX_SHORT_TEXT)).max(MAX_LIST_LENGTH),
+    injuries: z
+      .array(
+        z.object({
+          type: z.string().max(MAX_SHORT_TEXT),
+          recoveryStatus: z.string().max(MAX_SHORT_TEXT).nullable(),
+          note: z.string().max(MAX_NOTE_TEXT).nullable(),
+        })
+      )
+      .max(MAX_LIST_LENGTH),
+    riderLevel: z.string().max(MAX_SHORT_TEXT).nullable(),
+    riderGoal: z.string().max(MAX_SHORT_TEXT).nullable(),
+    additionalInfo: z.string().max(MAX_NOTE_TEXT),
     todaySession: z
       .object({
-        title: z.string(),
-        focus: z.string(),
-        intensity: z.string(),
-        exercises: z.array(z.string()),
+        title: z.string().max(MAX_SHORT_TEXT),
+        focus: z.string().max(MAX_SHORT_TEXT),
+        intensity: z.string().max(MAX_SHORT_TEXT),
+        exercises: z.array(z.string().max(MAX_SHORT_TEXT)).max(MAX_LIST_LENGTH),
       })
       .nullable(),
-    programSafetyNotes: z.array(z.string()),
+    programSafetyNotes: z.array(z.string().max(MAX_NOTE_TEXT)).max(MAX_LIST_LENGTH),
   }),
 });
 

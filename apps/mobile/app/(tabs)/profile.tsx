@@ -460,6 +460,14 @@ export default function ProfileScreen() {
         <View className="gap-3">
           <TouchableOpacity
             className="items-center rounded-card border border-border bg-surface p-4"
+            onPress={() => router.push("/change-password-modal")}
+            activeOpacity={0.85}
+          >
+            <Text className="font-semibold text-text">Changer le mot de passe</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="items-center rounded-card border border-border bg-surface p-4"
             onPress={signOut}
             activeOpacity={0.85}
           >
