@@ -177,7 +177,7 @@ export function HorseForm({
             value={birthYear ? String(birthYear) : ""}
             onChangeText={(t) => {
               const n = parseInt(t, 10);
-              setBirthYear(Number.isNaN(n) ? null : n);
+              setBirthYear(Number.isNaN(n) ? null : Math.min(n, currentYear));
             }}
           />
         </Field>

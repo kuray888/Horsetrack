@@ -65,7 +65,7 @@ export default function HorseBasics() {
           value={editingHorse.birthYear ? String(editingHorse.birthYear) : ""}
           onChangeText={(t) => {
             const n = parseInt(t, 10);
-            updateEditingHorse({ birthYear: Number.isNaN(n) ? null : n });
+            updateEditingHorse({ birthYear: Number.isNaN(n) ? null : Math.min(n, currentYear) });
           }}
         />
       </Field>

@@ -9,10 +9,12 @@ export default function EditHorseModal() {
   const { horses, updateHorse } = useHorses();
   const horse = horses.find((h) => h.id === id);
 
-  if (!horse) {
+  if (!horse || horse.sharedRole) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
-        <Text className="text-base text-muted">Cheval introuvable.</Text>
+        <Text className="text-base text-muted">
+          {horse?.sharedRole ? "Les chevaux partagés ne sont pas modifiables." : "Cheval introuvable."}
+        </Text>
       </SafeAreaView>
     );
   }

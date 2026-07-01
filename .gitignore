@@ -20,3 +20,7 @@ Thumbs.db
 
 .vercel
 .env*
+
+# Store metadata draft — contains the App Review test account password in
+# cleartext, never commit as-is.
+store/
