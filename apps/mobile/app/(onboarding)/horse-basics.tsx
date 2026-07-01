@@ -91,7 +91,7 @@ export default function HorseBasics() {
               value={editingHorse.heightCm ? String(editingHorse.heightCm) : ""}
               onChangeText={(t) => {
                 const n = parseInt(t, 10);
-                updateEditingHorse({ heightCm: Number.isNaN(n) ? null : n });
+                updateEditingHorse({ heightCm: Number.isNaN(n) ? null : Math.max(1, Math.min(n, 250)) });
               }}
             />
           </Field>
@@ -106,7 +106,7 @@ export default function HorseBasics() {
               value={editingHorse.weightKg ? String(editingHorse.weightKg) : ""}
               onChangeText={(t) => {
                 const n = parseInt(t, 10);
-                updateEditingHorse({ weightKg: Number.isNaN(n) ? null : n });
+                updateEditingHorse({ weightKg: Number.isNaN(n) ? null : Math.max(1, Math.min(n, 1500)) });
               }}
             />
           </Field>

@@ -32,7 +32,12 @@
     },
     "plugins": [
       "expo-router",
-      "expo-local-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Horsetrack utilise Face ID pour sécuriser l'accès à ton compte."
+        }
+      ],
       "expo-secure-store",
       "expo-notifications",
       [

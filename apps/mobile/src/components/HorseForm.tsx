@@ -199,7 +199,7 @@ export function HorseForm({
                 value={heightCm ? String(heightCm) : ""}
                 onChangeText={(t) => {
                   const n = parseInt(t, 10);
-                  setHeightCm(Number.isNaN(n) ? null : n);
+                  setHeightCm(Number.isNaN(n) ? null : Math.max(1, Math.min(n, 250)));
                 }}
               />
             </Field>
@@ -214,7 +214,7 @@ export function HorseForm({
                 value={weightKg ? String(weightKg) : ""}
                 onChangeText={(t) => {
                   const n = parseInt(t, 10);
-                  setWeightKg(Number.isNaN(n) ? null : n);
+                  setWeightKg(Number.isNaN(n) ? null : Math.max(1, Math.min(n, 1500)));
                 }}
               />
             </Field>
