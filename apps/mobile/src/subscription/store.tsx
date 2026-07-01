@@ -60,6 +60,8 @@ type SubscriptionContextValue = Persisted & {
   isPaddockOrAbove: boolean;
   /** true uniquement pour Grand Prix actif/en essai — gate le Coach IA et le programme. */
   isGrandPrix: boolean;
+  /** true si l'abonnement Grand Prix est en période d'essai (pas encore converti en payant). */
+  isTrialing: boolean;
   loading: boolean;
   /** Démarre l'essai 7 jours Grand Prix en mode simulation locale (utilisé
    * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
@@ -237,6 +239,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       isPremium: state.tier !== "FREE" && isActiveOrTrialing(state),
       isPaddockOrAbove: state.tier !== "FREE" && isActiveOrTrialing(state),
       isGrandPrix: state.tier === "GRAND_PRIX" && isActiveOrTrialing(state),
+      isTrialing: state.status === "trialing" && isActiveOrTrialing(state),
       loading,
       startTrial,
       subscribeToPaddock,

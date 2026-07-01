@@ -77,7 +77,7 @@ export default function PlanningScreen() {
   const { isDone, completedCount } = useProgress();
   const { program, weeks, allSessions, currentWeekNumber, getWeekDates, regenerate, feedbackNote, aiNote, adaptiveNote } =
     useProgram();
-  const { isGrandPrix } = useSubscription();
+  const { isGrandPrix, isTrialing } = useSubscription();
   const { selectedHorse } = useHorses();
 
   function confirmRegenerate() {
@@ -186,6 +186,7 @@ export default function PlanningScreen() {
             const weekDone = week.sessions.every((s) => isDone(s.id));
             const isSelected = week.weekNumber === selectedWeek;
             const isCurrent = week.weekNumber === currentWeekNumber;
+            const isWeekLocked = isTrialing && week.weekNumber > 1;
             return (
               <TouchableOpacity
                 key={week.weekNumber}
@@ -200,11 +201,11 @@ export default function PlanningScreen() {
                     : isCurrent
                       ? "border-2 border-primary bg-surface"
                       : "border border-border bg-surface"
-                }`}
+                } ${isWeekLocked ? "opacity-40" : ""}`}
               >
                 <Text className={`text-sm font-bold ${isSelected ? "text-on-primary" : "text-text"}`}>
-                  S{week.weekNumber}
-                  {weekDone ? " ✓" : ""}
+                  {isWeekLocked ? "🔒 " : ""}S{week.weekNumber}
+                  {!isWeekLocked && weekDone ? " ✓" : ""}
                 </Text>
               </TouchableOpacity>
             );
@@ -215,77 +216,103 @@ export default function PlanningScreen() {
       <FadeInView delay={160}>
         <View className="flex-row items-center justify-between">
           <Text className="text-xl font-bold text-text">Semaine {selectedWeek}</Text>
-          <Text className="text-sm text-muted">
-            {weekSessions.length} séances · {formatDuration(weekTotalMin)}
-          </Text>
+          {!(isTrialing && selectedWeek > 1) && (
+            <Text className="text-sm text-muted">
+              {weekSessions.length} séances · {formatDuration(weekTotalMin)}
+            </Text>
+          )}
         </View>
       </FadeInView>
 
-      <FadeInView delay={200}>
-        <View className="flex-row justify-between">
-          {weekDates.map((date, i) => {
-            const hasSession = weekSessions.some((s) => isSameDate(s.date, date));
-            const isToday = isSameDate(date, today);
-            const isSelected = selectedDay === i;
-            return (
-              <TouchableOpacity
-                key={i}
-                activeOpacity={0.8}
-                onPress={() => setSelectedDay(isSelected ? null : i)}
-                className="items-center gap-1.5"
-              >
-                <Text className="text-xs font-semibold text-muted">{WEEK_DAYS_SHORT[i]}</Text>
-                <View
-                  className={`h-10 w-10 items-center justify-center rounded-full ${
-                    isSelected
-                      ? "bg-primary"
-                      : isToday
-                        ? "border-2 border-primary bg-transparent"
-                        : "bg-surface"
-                  }`}
-                >
-                  <Text className={`text-sm font-bold ${isSelected ? "text-on-primary" : "text-text"}`}>
-                    {date.getDate()}
-                  </Text>
-                </View>
-                <View
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    hasSession ? (isSelected ? "bg-primary" : "bg-accent") : "bg-transparent"
-                  }`}
-                />
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </FadeInView>
-
-      {visibleSessions.length === 0 ? (
-        <FadeInView delay={260}>
-          <View className={`${CARD} items-center gap-1`}>
-            <Text className="text-2xl">🌿</Text>
-            <Text className="text-base font-semibold text-text">Jour de repos</Text>
-            {selectedHorse && selectedHorse.restDayActivities.length > 0 ? (
-              <Text className="text-center text-sm text-muted">
-                {selectedHorse.name} :{" "}
-                {selectedDay !== null
-                  ? restDayActivityFor(selectedHorse, selectedDay)?.toLowerCase()
-                  : selectedHorse.restDayActivities.join(", ").toLowerCase()}
-              </Text>
-            ) : (
-              <Text className="text-sm text-muted">Pas de séance prévue ce jour-là.</Text>
-            )}
+      {isTrialing && selectedWeek > 1 ? (
+        <FadeInView delay={200}>
+          <View className={`${CARD} items-center gap-4 py-8`}>
+            <Text className="text-4xl">🔒</Text>
+            <Text className="text-center text-base font-bold text-text">
+              Semaines 2 à {program?.totalWeeks ?? "—"} verrouillées
+            </Text>
+            <Text className="text-center text-sm leading-5 text-muted">
+              Ton essai te donne accès à la semaine 1 pour découvrir le programme.{"\n"}
+              Abonne-toi pour débloquer les {(program?.totalWeeks ?? 2) - 1} semaines suivantes.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/paywall")}
+              activeOpacity={0.85}
+              className="rounded-full bg-primary px-6 py-3"
+            >
+              <Text className="text-sm font-bold text-on-primary">Débloquer le programme complet</Text>
+            </TouchableOpacity>
           </View>
         </FadeInView>
       ) : (
-        visibleSessions.map((session, i) => (
-          <FadeInView key={session.id} delay={260 + i * 60}>
-            <SessionCard
-              session={session}
-              done={isDone(session.id)}
-              onPress={() => router.push({ pathname: "/session-detail-modal", params: { id: session.id } })}
-            />
+        <>
+          <FadeInView delay={200}>
+            <View className="flex-row justify-between">
+              {weekDates.map((date, i) => {
+                const hasSession = weekSessions.some((s) => isSameDate(s.date, date));
+                const isToday = isSameDate(date, today);
+                const isSelected = selectedDay === i;
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedDay(isSelected ? null : i)}
+                    className="items-center gap-1.5"
+                  >
+                    <Text className="text-xs font-semibold text-muted">{WEEK_DAYS_SHORT[i]}</Text>
+                    <View
+                      className={`h-10 w-10 items-center justify-center rounded-full ${
+                        isSelected
+                          ? "bg-primary"
+                          : isToday
+                            ? "border-2 border-primary bg-transparent"
+                            : "bg-surface"
+                      }`}
+                    >
+                      <Text className={`text-sm font-bold ${isSelected ? "text-on-primary" : "text-text"}`}>
+                        {date.getDate()}
+                      </Text>
+                    </View>
+                    <View
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        hasSession ? (isSelected ? "bg-primary" : "bg-accent") : "bg-transparent"
+                      }`}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </FadeInView>
-        ))
+
+          {visibleSessions.length === 0 ? (
+            <FadeInView delay={260}>
+              <View className={`${CARD} items-center gap-1`}>
+                <Text className="text-2xl">🌿</Text>
+                <Text className="text-base font-semibold text-text">Jour de repos</Text>
+                {selectedHorse && selectedHorse.restDayActivities.length > 0 ? (
+                  <Text className="text-center text-sm text-muted">
+                    {selectedHorse.name} :{" "}
+                    {selectedDay !== null
+                      ? restDayActivityFor(selectedHorse, selectedDay)?.toLowerCase()
+                      : selectedHorse.restDayActivities.join(", ").toLowerCase()}
+                  </Text>
+                ) : (
+                  <Text className="text-sm text-muted">Pas de séance prévue ce jour-là.</Text>
+                )}
+              </View>
+            </FadeInView>
+          ) : (
+            visibleSessions.map((session, i) => (
+              <FadeInView key={session.id} delay={260 + i * 60}>
+                <SessionCard
+                  session={session}
+                  done={isDone(session.id)}
+                  onPress={() => router.push({ pathname: "/session-detail-modal", params: { id: session.id } })}
+                />
+              </FadeInView>
+            ))
+          )}
+        </>
       )}
       </Screen>
       <GlossaryPopup />
