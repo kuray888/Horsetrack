@@ -37,9 +37,10 @@
       "@bacons/apple-targets",
       "expo-router",
       [
-        "expo-av",
+        "expo-speech-recognition",
         {
-          "microphonePermission": "Horsetrack utilise le micro pour dicter tes notes de journal après une séance."
+          "microphonePermission": "Horsetrack utilise le micro pour dicter tes notes de journal après une séance.",
+          "speechRecognitionPermission": "Horsetrack utilise la reconnaissance vocale pour transcrire tes notes de journal en texte."
         }
       ],
       [

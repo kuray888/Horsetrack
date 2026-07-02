@@ -1,43 +1,91 @@
-import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, Easing, Text, TouchableOpacity } from "react-native";
-import { Audio } from "expo-av";
-import { supabase } from "@/lib/supabase";
-
-type RecordingState = "idle" | "recording" | "processing";
+import { useRef, useState } from "react";
+import { Alert, Animated, Easing, Text, TouchableOpacity, View } from "react-native";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
 
 type Props = {
-  /** Appelé avec le texte transcrit à la fin — à toi d'ajouter aux notes. */
+  /** Appelé avec le texte transcrit final — à concaténer aux notes existantes. */
   onTranscription: (text: string) => void;
 };
 
-/** Durée max d'enregistrement : 90 secondes — largement suffisant pour une
- * note post-séance dictée, sans risquer un fichier audio trop lourd. */
-const MAX_RECORD_MS = 90_000;
-
+/**
+ * Bouton de dictée vocale — utilise la reconnaissance vocale native de l'appareil
+ * (SFSpeechRecognizer sur iOS, SpeechRecognizer sur Android). Aucun service
+ * externe : la transcription est faite par le système ou les serveurs Apple/Google,
+ * pas par une API tierce payante.
+ *
+ * Mode continuous pour que les pauses naturelles entre les phrases ne stoppent
+ * pas l'enregistrement — l'utilisateur arrête lui-même via le bouton ⏹.
+ * Chaque segment final est collecté et joint en un seul texte à la fin.
+ */
 export function VoiceNoteButton({ onTranscription }: Props) {
-  const [state, setState] = useState<RecordingState>("idle");
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [listening, setListening] = useState(false);
+  const [interim, setInterim] = useState("");
 
-  // Animation de pulsation pendant l'enregistrement
+  // Collecte tous les segments finaux (continuous mode → plusieurs résultats finaux)
+  const segmentsRef = useRef<string[]>([]);
+
+  // Animation de pulsation pendant l'écoute
   const pulse = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (state === "recording") {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulse, { toValue: 1.25, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-          Animated.timing(pulse, { toValue: 1, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        ])
-      ).start();
-    } else {
-      pulse.stopAnimation();
-      pulse.setValue(1);
-    }
-  }, [state, pulse]);
 
-  async function startRecording() {
-    const { status } = await Audio.requestPermissionsAsync();
-    if (status !== "granted") {
+  function startPulse() {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.2, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+  }
+
+  function stopPulse() {
+    pulse.stopAnimation();
+    pulse.setValue(1);
+  }
+
+  // ── Événements de reconnaissance ──────────────────────────────────────────
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const text = event.results[0]?.transcript ?? "";
+    if (event.isFinal) {
+      // Segment terminé → on le stocke, on efface l'aperçu
+      if (text) segmentsRef.current.push(text);
+      setInterim("");
+    } else {
+      // Résultat partiel → aperçu en direct
+      setInterim(text);
+    }
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    stopPulse();
+    setListening(false);
+    setInterim("");
+
+    const full = segmentsRef.current.join(" ").trim();
+    segmentsRef.current = [];
+
+    if (full) onTranscription(full);
+  });
+
+  useSpeechRecognitionEvent("error", (event) => {
+    stopPulse();
+    setListening(false);
+    setInterim("");
+    segmentsRef.current = [];
+
+    // "no-speech" et "aborted" sont des arrêts normaux, pas des erreurs à afficher
+    if (event.error !== "no-speech" && event.error !== "aborted") {
+      Alert.alert("Reconnaissance vocale", "Impossible de comprendre. Vérifie ta connexion et réessaie.");
+    }
+  });
+
+  // ── Contrôles ─────────────────────────────────────────────────────────────
+
+  async function start() {
+    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!granted) {
       Alert.alert(
         "Micro non autorisé",
         "Autorise l'accès au microphone dans les Réglages pour dicter tes notes."
@@ -45,89 +93,57 @@ export function VoiceNoteButton({ onTranscription }: Props) {
       return;
     }
 
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+    segmentsRef.current = [];
+    setInterim("");
+    setListening(true);
+    startPulse();
 
-    const { recording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    recordingRef.current = recording;
-    setState("recording");
-
-    // Arrêt automatique après MAX_RECORD_MS
-    autoStopRef.current = setTimeout(stopAndTranscribe, MAX_RECORD_MS);
+    ExpoSpeechRecognitionModule.start({
+      lang: "fr-FR",
+      interimResults: true,
+      maxAlternatives: 1,
+      continuous: true, // les pauses ne stoppent pas l'écoute
+      requiresOnDeviceRecognition: false, // utilise les serveurs Apple/Google pour meilleure précision
+    });
   }
 
-  async function stopAndTranscribe() {
-    if (autoStopRef.current) clearTimeout(autoStopRef.current);
-    const recording = recordingRef.current;
-    if (!recording) return;
-
-    setState("processing");
-    try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-      const uri = recording.getURI();
-      recordingRef.current = null;
-
-      if (!uri) throw new Error("URI manquant");
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Non connecté");
-
-      const formData = new FormData();
-      formData.append("audio", { uri, type: "audio/m4a", name: "note.m4a" } as never);
-
-      const res = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/transcribe`,
-        { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData }
-      );
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const { text } = await res.json() as { text: string };
-
-      if (text) onTranscription(text);
-    } catch (e) {
-      console.warn("[VoiceNoteButton] erreur", e);
-      Alert.alert("Transcription impossible", "Vérifie ta connexion et réessaie.");
-    } finally {
-      setState("idle");
-    }
+  function stop() {
+    ExpoSpeechRecognitionModule.stop();
+    // L'événement "end" gère la suite
   }
 
   function handlePress() {
-    if (state === "idle") startRecording();
-    else if (state === "recording") stopAndTranscribe();
-    // "processing" → bouton désactivé
+    if (listening) stop();
+    else start();
   }
 
-  const label =
-    state === "recording" ? "⏹ Stop" :
-    state === "processing" ? "…" :
-    "🎙";
+  // ── Rendu ─────────────────────────────────────────────────────────────────
 
   return (
-    <Animated.View style={{ transform: [{ scale: state === "recording" ? pulse : 1 }] }}>
-      <TouchableOpacity
-        onPress={handlePress}
-        disabled={state === "processing"}
-        activeOpacity={0.75}
-        className={`items-center justify-center rounded-full px-3 py-2 ${
-          state === "recording"
-            ? "bg-red-500"
-            : state === "processing"
-            ? "bg-border"
-            : "bg-accent/15"
-        }`}
-      >
-        <Text
-          className={`text-sm font-bold ${
-            state === "recording" ? "text-white" : "text-accent"
+    <View className="items-end gap-1">
+      {/* Aperçu du texte en cours de dictée */}
+      {interim ? (
+        <Text className="max-w-[200px] text-right text-xs italic text-muted" numberOfLines={2}>
+          {interim}
+        </Text>
+      ) : null}
+
+      <Animated.View style={{ transform: [{ scale: listening ? pulse : 1 }] }}>
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.75}
+          className={`flex-row items-center gap-1.5 rounded-full px-3 py-1.5 ${
+            listening ? "bg-red-500" : "bg-accent/15"
           }`}
         >
-          {label}
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
+          <Text className={`text-sm ${listening ? "text-white" : "text-accent"}`}>
+            {listening ? "⏹" : "🎙"}
+          </Text>
+          <Text className={`text-xs font-semibold ${listening ? "text-white" : "text-accent"}`}>
+            {listening ? "Stop" : "Dicter"}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
   );
 }

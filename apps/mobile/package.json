@@ -12,6 +12,7 @@
   "dependencies": {
     "@cheval/shared": "workspace:*",
     "@expo/vector-icons": "^15.1.1",
+    "@jamsch/expo-speech-recognition": "^0.2.15",
     "@supabase/supabase-js": "^2.48.1",
     "expo": "~54.0.35",
     "expo-av": "^16.0.8",
@@ -24,6 +25,7 @@
     "expo-notifications": "~0.32.17",
     "expo-router": "~6.0.24",
     "expo-secure-store": "~15.0.8",
+    "expo-speech-recognition": "^56.0.1",
     "expo-status-bar": "~3.0.9",
     "nativewind": "^4.2.5",
     "react": "19.1.0",
