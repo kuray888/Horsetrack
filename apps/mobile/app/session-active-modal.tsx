@@ -95,7 +95,7 @@ export default function SessionActiveModal() {
   useEffect(() => {
     if (secondsLeft !== 0 || isPaused || isComplete) return;
     const next = stepIndex + 1;
-    if (next >= exercises.length) {
+    if (next >= exerciseSeconds.length) {
       setIsComplete(true);
       return;
     }
