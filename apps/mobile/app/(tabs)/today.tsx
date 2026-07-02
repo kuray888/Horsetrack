@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { pushWidgetData } from "@/lib/widgetKit";
 import { CircularProgress } from "@/components/CircularProgress";
 import { FadeInView } from "@/components/FadeInView";
 import { WeekStreak } from "@/components/WeekStreak";
@@ -149,6 +151,19 @@ export default function TodayScreen() {
     const session = weekSessions.find((s) => s.dayIndex === i);
     return session ? isDone(session.id) : false;
   });
+
+  // Synchronise le widget iOS dès que les données de la journée ou la
+  // progression changent — best-effort, silencieux hors iOS/EAS build.
+  useEffect(() => {
+    pushWidgetData({
+      horseName: horse?.name ?? "Mon cheval",
+      todaySessionTitle: todaySession?.title ?? null,
+      todaySessionDurationMin: todaySession?.durationMin ?? null,
+      todaySessionTime: todaySession?.time ?? null,
+      weeklyDone: weekDoneCount,
+      weeklyTotal: weekSessions.length,
+    });
+  }, [horse?.name, todaySession?.title, todaySession?.durationMin, todaySession?.time, weekDoneCount, weekSessions.length]);
 
   return (
     <Screen>

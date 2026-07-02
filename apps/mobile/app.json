@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.horsetrack.app"
+      "bundleIdentifier": "com.horsetrack.app",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.horsetrack.app"]
+      }
     },
     "android": {
       "package": "com.horsetrack.app",
@@ -31,6 +34,7 @@
       ]
     },
     "plugins": [
+      "@bacons/apple-targets",
       "expo-router",
       [
         "expo-local-authentication",
