@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -55,11 +55,24 @@ export default function SessionActiveModal() {
   const exercises = session?.exercises ?? [];
   const sessionId = session?.id ?? "";
 
+  // Normalise les durées d'exercice pour que leur somme corresponde exactement
+  // à session.durationMin. Deux sources de décalage possibles :
+  //   1. Exercice bonus (5e étape) : les 5 parts somment à 1.15 × la durée totale
+  //   2. Adaptations adaptatives (véto, canicule, feedback) : session.durationMin
+  //      est rescalé dans program/store sans que exercises[i].durationMin le soit
+  // useMemo garantit une référence stable → pas de re-inscription inutile de l'effet
+  // d'auto-avance à chaque render.
+  const exerciseSeconds = useMemo(() => {
+    const rawTotal = exercises.reduce((s, e) => s + e.durationMin, 0);
+    const sessMin = session?.durationMin ?? rawTotal;
+    return exercises.map((e) =>
+      rawTotal > 0 ? Math.max(60, Math.round((e.durationMin / rawTotal) * sessMin * 60)) : 300
+    );
+  }, [exercises, session?.durationMin]);
+
   // ── État du timer ──────────────────────────────────────────────────────────
   const [stepIndex, setStepIndex] = useState(0);
-  const [secondsLeft, setSecondsLeft] = useState(
-    () => (exercises[0]?.durationMin ?? 5) * 60
-  );
+  const [secondsLeft, setSecondsLeft] = useState(() => exerciseSeconds[0] ?? 300);
   const [isPaused, setIsPaused] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [totalElapsed, setTotalElapsed] = useState(0);
@@ -87,13 +100,13 @@ export default function SessionActiveModal() {
       return;
     }
     setStepIndex(next);
-    setSecondsLeft((exercises[next]?.durationMin ?? 5) * 60);
-  }, [secondsLeft, isPaused, isComplete, stepIndex, exercises]);
+    setSecondsLeft(exerciseSeconds[next] ?? 300);
+  }, [secondsLeft, isPaused, isComplete, stepIndex, exerciseSeconds]);
 
   // ── Navigation inter-exercices ────────────────────────────────────────────
   function goToStep(index: number) {
     setStepIndex(index);
-    setSecondsLeft((exercises[index]?.durationMin ?? 5) * 60);
+    setSecondsLeft(exerciseSeconds[index] ?? 300);
   }
 
   function handlePrev() {
