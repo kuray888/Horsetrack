@@ -161,6 +161,9 @@ type ProgramContextValue = {
    * semaines pas encore vécues. Volontairement non persisté : recalculé à
    * chaque chargement à partir des débriefs réels, jamais figé. */
   recordFeedbackTrend: (trend: FeedbackTrend) => void;
+  /** Tendance brute issue des derniers débriefs (-1 allège, 0 stable, 1 intensifie)
+   * — exposée pour la prédiction de surmenage dans today.tsx. */
+  feedbackTrend: FeedbackTrend;
   /** Explique l'ajustement en cours (ou null si aucun) — affiché dans
    * Planning aux côtés des autres notes de personnalisation/sécurité. */
   feedbackNote: string | null;
@@ -628,6 +631,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       clearAll,
       hydrateFromCloud,
       recordFeedbackTrend,
+      feedbackTrend,
       feedbackNote,
       aiNote,
       adaptiveNote,
@@ -647,6 +651,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       clearAll,
       hydrateFromCloud,
       recordFeedbackTrend,
+      feedbackTrend,
       feedbackNote,
       aiNote,
       adaptiveNote,

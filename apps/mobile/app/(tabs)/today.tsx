@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { pushWidgetData } from "@/lib/widgetKit";
 import { scheduleWeeklySummary } from "@/lib/notifications";
+import { computeOvertrainingRisk } from "@/lib/overtrainingRisk";
 import { CircularProgress } from "@/components/CircularProgress";
 import { FadeInView } from "@/components/FadeInView";
 import { WeekStreak } from "@/components/WeekStreak";
@@ -90,7 +91,7 @@ function weeklyRecapMessage(done: number, total: number): string {
 export default function TodayScreen() {
   const { isDone, xp, xpIntoLevel, xpGoal, level, weekStreak, bestWeekStreak } = useProgress();
   const { horses, selectedHorse, selectHorse } = useHorses();
-  const { program, currentWeek, allSessions, isProgramComplete, bilanDismissed, adaptiveNote } = useProgram();
+  const { program, currentWeek, allSessions, isProgramComplete, bilanDismissed, adaptiveNote, feedbackTrend } = useProgram();
   const { appointments, journal } = useAgenda();
   const subscription = useSubscription();
   const { isGrandPrix } = subscription;
@@ -172,6 +173,22 @@ export default function TodayScreen() {
     if (!horse) return;
     scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
   }, [horse?.id, weekDoneCount, weekSessions.length]);
+
+  // Prédiction de surmenage — recalculée à chaque changement de feedbackTrend,
+  // workload ou cheval. Le dismiss se réinitialise automatiquement si le niveau
+  // de risque change (l'alerte redevient pertinente).
+  const risk = useMemo(
+    () => computeOvertrainingRisk(feedbackTrend ?? 0, workload, horse ?? null),
+    [feedbackTrend, workload, horse]
+  );
+  const [riskDismissed, setRiskDismissed] = useState(false);
+  const prevRiskLevel = useRef(risk.level);
+  useEffect(() => {
+    if (prevRiskLevel.current !== risk.level) {
+      setRiskDismissed(false);
+      prevRiskLevel.current = risk.level;
+    }
+  }, [risk.level]);
 
   return (
     <Screen>
@@ -272,6 +289,41 @@ export default function TodayScreen() {
       {/* Programme — réservé au pack Grand Prix (cf. grille tarifaire) */}
       {isGrandPrix ? (
         <>
+          {/* Alerte surmenage — masquée si risque nul ou ignorée par l'utilisateur */}
+          {risk.level !== "none" && !riskDismissed ? (
+            <FadeInView delay={70}>
+              <View
+                className={`rounded-card p-4 gap-2 border ${
+                  risk.level === "alert"
+                    ? "bg-warning/10 border-warning/40"
+                    : "bg-accent/8 border-accent/25"
+                }`}
+              >
+                <View className="flex-row items-start justify-between gap-2">
+                  <Text className="flex-1 text-sm font-bold text-text">{risk.title}</Text>
+                  <TouchableOpacity onPress={() => setRiskDismissed(true)} hitSlop={12}>
+                    <Text className="text-base text-muted">✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text className="text-sm leading-5 text-muted">{risk.message}</Text>
+                {risk.programAdapted ? (
+                  <Text className="text-xs font-semibold text-success">
+                    ✓ Programme des prochaines semaines allégé automatiquement
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => router.push("/(tabs)/planning")}
+                    activeOpacity={0.7}
+                  >
+                    <Text className="text-xs font-semibold text-accent">
+                      Voir le planning →
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </FadeInView>
+          ) : null}
+
           {/* CTA rapide */}
           <FadeInView delay={80}>
             <TouchableOpacity
