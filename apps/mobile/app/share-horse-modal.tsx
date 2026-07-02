@@ -202,7 +202,7 @@ export default function ShareHorseModal() {
             </Field>
             <PrimaryButton
               label={submitting ? "Envoi…" : "Envoyer l'invitation"}
-              disabled={submitting || !email.trim().includes("@")}
+              disabled={submitting || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}
               onPress={handleInvite}
             />
           </View>

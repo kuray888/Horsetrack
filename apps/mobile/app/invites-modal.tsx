@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useHorses } from "@/horses/store";
@@ -32,14 +32,16 @@ export default function InvitesModal() {
     setAcceptingId(invite.id);
     try {
       const ok = await acceptInvite(invite.id);
-      if (ok) {
-        // Fusionne le cheval nouvellement accepté (et tout autre déjà
-        // partagé) avec l'écurie possédée actuelle, sans attendre la
-        // prochaine connexion pour le voir apparaître.
-        const shared = await pullSharedHorses().catch(() => []);
-        const ownedOnly = horses.filter((h) => !h.sharedRole);
-        hydrateFromCloud([...ownedOnly, ...shared]);
+      if (!ok) {
+        Alert.alert("Erreur", "Impossible d'accepter l'invitation pour l'instant. Réessaie plus tard.");
+        return;
       }
+      // Fusionne le cheval nouvellement accepté (et tout autre déjà
+      // partagé) avec l'écurie possédée actuelle, sans attendre la
+      // prochaine connexion pour le voir apparaître.
+      const shared = await pullSharedHorses().catch(() => []);
+      const ownedOnly = horses.filter((h) => !h.sharedRole);
+      hydrateFromCloud([...ownedOnly, ...shared]);
       setInvites((list) => list.filter((i) => i.id !== invite.id));
     } finally {
       setAcceptingId(null);
