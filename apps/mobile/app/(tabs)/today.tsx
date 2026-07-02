@@ -3,6 +3,7 @@ import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-na
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { pushWidgetData } from "@/lib/widgetKit";
+import { scheduleWeeklySummary } from "@/lib/notifications";
 import { CircularProgress } from "@/components/CircularProgress";
 import { FadeInView } from "@/components/FadeInView";
 import { WeekStreak } from "@/components/WeekStreak";
@@ -164,6 +165,13 @@ export default function TodayScreen() {
       weeklyTotal: weekSessions.length,
     });
   }, [horse?.name, todaySession?.title, todaySession?.durationMin, todaySession?.time, weekDoneCount, weekSessions.length]);
+
+  // Programme le bilan du dimanche soir une fois par semaine.
+  // Guard dans scheduleWeeklySummary : aucun effect si déjà planifié cette semaine.
+  useEffect(() => {
+    if (!horse) return;
+    scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
+  }, [horse?.name, weekDoneCount, weekSessions.length]);
 
   return (
     <Screen>

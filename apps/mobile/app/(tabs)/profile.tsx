@@ -15,7 +15,7 @@ import {
   isBiometricLockEnabled,
   setBiometricLockEnabled,
 } from "@/lib/biometrics";
-import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
+import { cancelWeeklySummary, ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { deleteAccount } from "@/lib/account";
 import { clearLocalDataOwner } from "@/lib/deviceOwner";
@@ -140,6 +140,7 @@ export default function ProfileScreen() {
   }
 
   async function signOut() {
+    await cancelWeeklySummary();
     await supabase.auth.signOut();
     router.replace("/(auth)/login");
   }
@@ -202,6 +203,7 @@ export default function ProfileScreen() {
       // fraîche" — sinon le prochain compte créé sur cet appareil hériterait
       // de l'écurie, de la progression, de l'agenda ou de l'abo de l'ancien.
       await Promise.all([
+        cancelWeeklySummary(),
         resetOnboardingCompleted(),
         clearHorses(),
         clearRiderProfile(),
