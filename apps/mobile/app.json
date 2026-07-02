@@ -17,6 +17,9 @@
       "bundleIdentifier": "com.horsetrack.app",
       "entitlements": {
         "com.apple.security.application-groups": ["group.com.horsetrack.app"]
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
