@@ -43,6 +43,7 @@ export default function RootLayout() {
                         <Stack.Screen name="invites-modal" options={{ presentation: "modal" }} />
                         <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
                         <Stack.Screen name="session-detail-modal" options={{ presentation: "modal" }} />
+                        <Stack.Screen name="session-active-modal" options={{ presentation: "fullScreenModal" }} />
                         <Stack.Screen name="bilan-modal" options={{ presentation: "modal" }} />
                         <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
                         <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />

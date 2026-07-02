@@ -98,6 +98,16 @@ export default function SessionDetailModal() {
           </View>
         </View>
 
+        {!done ? (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: "/session-active-modal", params: { id: sessionId } })}
+            activeOpacity={0.85}
+            className="items-center rounded-full bg-primary py-4"
+          >
+            <Text className="text-base font-bold text-on-primary">▶  Commencer la séance</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <View className={`${CARD} gap-2`}>
           <Text className="text-sm font-bold uppercase tracking-wide text-accent">Matériel nécessaire</Text>
           {session.equipment.map((item, i) => (
