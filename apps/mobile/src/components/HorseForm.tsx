@@ -153,9 +153,16 @@ export function HorseForm({
               </View>
             )}
           </TouchableOpacity>
-          <Text className="mt-2 text-xs text-muted">
-            {photoUrl ? "Changer la photo" : "Ajouter une photo"}
-          </Text>
+          {photoUrl ? (
+            <View className="mt-2 flex-row items-center gap-4">
+              <Text className="text-xs text-muted">Changer la photo</Text>
+              <TouchableOpacity onPress={() => setPhotoUrl(null)} hitSlop={10}>
+                <Text className="text-xs font-semibold text-red-500">Supprimer</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text className="mt-2 text-xs text-muted">Ajouter une photo</Text>
+          )}
         </View>
 
         <Field label="Nom du cheval">

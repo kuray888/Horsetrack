@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Image, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -22,7 +22,7 @@ import { clearLocalDataOwner } from "@/lib/deviceOwner";
 import { resetOnboardingCompleted } from "@/onboarding/completion";
 import { formatDate } from "@/lib/dateFormat";
 import { useProgress } from "@/progress/store";
-import { useHorses } from "@/horses/store";
+import { useHorses, type Horse } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
 import { useProgram } from "@/program/store";
@@ -30,10 +30,14 @@ import { useGoals } from "@/goals/store";
 import { BADGES } from "@/program/badges";
 import {
   DISCIPLINES,
+  HORSE_FITNESS_LEVELS,
+  HORSE_LEVELS,
+  HORSE_SEXES,
+  HORSE_WORKLOADS,
+  NO_HEALTH_CONDITION,
   RIDER_LEVELS,
   RIDER_GOALS,
   RIDE_FREQUENCIES,
-  HORSE_LEVELS,
 } from "@/onboarding/options";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -138,6 +142,41 @@ export default function ProfileScreen() {
   async function signOut() {
     await supabase.auth.signOut();
     router.replace("/(auth)/login");
+  }
+
+  async function shareHorse(horse: Horse) {
+    const currentYear = new Date().getFullYear();
+    const lines: string[] = [`🐴 Fiche de ${horse.name}`, ""];
+
+    lines.push("📋 Profil");
+    if (horse.birthYear) lines.push(`• Âge : ${currentYear - horse.birthYear} ans (né en ${horse.birthYear})`);
+    if (horse.sex) lines.push(`• Sexe : ${labelOf(HORSE_SEXES, horse.sex)}`);
+    if (horse.breed) lines.push(`• Race : ${horse.breed}`);
+    if (horse.heightCm) lines.push(`• Taille : ${horse.heightCm} cm`);
+    if (horse.weightKg) lines.push(`• Poids : ${horse.weightKg} kg`);
+
+    lines.push("", "🏇 Activité");
+    lines.push(`• Discipline : ${labelOf(DISCIPLINES, horse.discipline)}`);
+    lines.push(`• Niveau : ${labelOf(HORSE_LEVELS, horse.level)}`);
+    if (horse.fitnessLevel) lines.push(`• Forme : ${labelOf(HORSE_FITNESS_LEVELS, horse.fitnessLevel)}`);
+    if (horse.workload) lines.push(`• Charge : ${labelOf(HORSE_WORKLOADS, horse.workload)}`);
+
+    if (horse.strengths.length > 0) lines.push("", `💪 Points forts : ${horse.strengths.join(", ")}`);
+    if (horse.weaknesses.length > 0) lines.push(`⚠️ À travailler : ${horse.weaknesses.join(", ")}`);
+
+    const activeConditions = horse.healthConditions.filter((c) => c !== NO_HEALTH_CONDITION);
+    const activeInjuries = horse.injuries.filter((i) => i.recoveryStatus !== "RECOVERED");
+    if (activeConditions.length > 0 || activeInjuries.length > 0) {
+      lines.push("", "🩺 Santé");
+      activeConditions.forEach((c) => lines.push(`• ${c}`));
+      activeInjuries.forEach((i) =>
+        lines.push(`• ${i.type}${i.note ? ` — ${i.note}` : ""}`)
+      );
+    }
+
+    lines.push("", "—", "Créé avec Horsetrack");
+
+    await Share.share({ message: lines.join("\n") });
   }
 
   function handleDeleteAccount() {
@@ -280,6 +319,9 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => router.push(`/share-horse-modal?horseId=${horse.id}`)} hitSlop={8}>
                     <Text className="px-1 text-xs font-semibold text-muted">Partager</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => shareHorse(horse)} hitSlop={8}>
+                    <Text className="px-1 text-xs font-semibold text-muted">↑ Fiche</Text>
                   </TouchableOpacity>
                 </View>
               )}
