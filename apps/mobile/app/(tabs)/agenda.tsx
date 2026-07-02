@@ -167,6 +167,7 @@ export default function AgendaScreen() {
 
   const [showApptForm, setShowApptForm] = useState(false);
   const [apptForm, setApptForm] = useState(emptyApptForm);
+  const [submittingAppt, setSubmittingAppt] = useState(false);
   const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
   const [showPastAppts, setShowPastAppts] = useState(false);
 
@@ -206,7 +207,8 @@ export default function AgendaScreen() {
 
   async function handleAddAppointment() {
     const date = apptForm.date;
-    if (!apptForm.title.trim() || !date) return;
+    if (!apptForm.title.trim() || !date || !horse || submittingAppt) return;
+    setSubmittingAppt(true);
 
     const title = apptForm.title.trim();
     const time = apptForm.time.trim();
@@ -232,20 +234,24 @@ export default function AgendaScreen() {
       emailReminderId = await scheduleEmailReminder(trigger, `Rappel : ${title}`, notifBody);
     }
 
-    addAppointment({
-      type: apptForm.type,
-      title,
-      date,
-      time,
-      location,
-      notes: "",
-      reminder,
-      reminderNotificationId,
-      emailReminderId,
-      checklist: apptForm.type === "concours" ? defaultChecklist() : [],
-    });
-    setApptForm(emptyApptForm);
-    setShowApptForm(false);
+    try {
+      addAppointment({
+        type: apptForm.type,
+        title,
+        date,
+        time,
+        location,
+        notes: "",
+        reminder,
+        reminderNotificationId,
+        emailReminderId,
+        checklist: apptForm.type === "concours" ? defaultChecklist() : [],
+      });
+      setApptForm(emptyApptForm);
+      setShowApptForm(false);
+    } finally {
+      setSubmittingAppt(false);
+    }
   }
 
   function handleAddDocument() {
@@ -427,8 +433,8 @@ export default function AgendaScreen() {
                   </TouchableOpacity>
                   <View className="flex-1">
                     <PrimaryButton
-                      label="Ajouter"
-                      disabled={!apptForm.title.trim() || !apptForm.date}
+                      label={submittingAppt ? "Un instant…" : "Ajouter"}
+                      disabled={!apptForm.title.trim() || !apptForm.date || submittingAppt}
                       onPress={handleAddAppointment}
                     />
                   </View>

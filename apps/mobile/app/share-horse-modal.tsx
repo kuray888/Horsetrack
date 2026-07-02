@@ -89,8 +89,8 @@ export default function ShareHorseModal() {
   const atLimit = collaborators.length >= 1;
 
   async function handleInvite() {
-    const trimmed = email.trim();
-    if (!trimmed.includes("@")) return;
+    const trimmed = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
     setSubmitting(true);
     try {
       const ok = await inviteCollaborator(horseId, trimmed, role);

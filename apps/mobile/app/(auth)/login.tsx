@@ -71,8 +71,6 @@ export default function LoginScreen() {
       }
     }
 
-    setLoading(false);
-
     // L'abonnement (RevenueCat, pas encore branché) n'est pas sauvegardé dans
     // le cloud — si cet appareil a servi à un AUTRE compte avant, on le vide
     // pour ne pas le montrer à celui-ci. Écurie, profil cavalier, coffre-fort,

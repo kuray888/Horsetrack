@@ -82,7 +82,7 @@ const SubscriptionContext = createContext<SubscriptionContextValue | null>(null)
 function isActiveOrTrialing(s: Pick<Persisted, "status" | "trialEndsAt">): boolean {
   if (s.status === "active") return true;
   if (s.status === "trialing") {
-    if (!s.trialEndsAt) return true;
+    if (!s.trialEndsAt) return false;
     return new Date(s.trialEndsAt).getTime() > Date.now();
   }
   return false;
