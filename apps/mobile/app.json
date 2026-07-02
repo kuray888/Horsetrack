@@ -37,6 +37,12 @@
       "@bacons/apple-targets",
       "expo-router",
       [
+        "expo-av",
+        {
+          "microphonePermission": "Horsetrack utilise le micro pour dicter tes notes de journal après une séance."
+        }
+      ],
+      [
         "expo-local-authentication",
         {
           "faceIDPermission": "Horsetrack utilise Face ID pour sécuriser l'accès à ton compte."
