@@ -164,14 +164,14 @@ export default function TodayScreen() {
       weeklyDone: weekDoneCount,
       weeklyTotal: weekSessions.length,
     });
-  }, [horse?.name, todaySession?.title, todaySession?.durationMin, todaySession?.time, weekDoneCount, weekSessions.length]);
+  }, [horse?.id, todaySession?.title, todaySession?.durationMin, todaySession?.time, weekDoneCount, weekSessions.length]);
 
   // Programme le bilan du dimanche soir une fois par semaine.
   // Guard dans scheduleWeeklySummary : aucun effect si déjà planifié cette semaine.
   useEffect(() => {
     if (!horse) return;
     scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
-  }, [horse?.name, weekDoneCount, weekSessions.length]);
+  }, [horse?.id, weekDoneCount, weekSessions.length]);
 
   return (
     <Screen>
