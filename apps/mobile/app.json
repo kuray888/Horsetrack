@@ -15,7 +15,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.horsetrack.app",
-      "jsEngine": "jsc",
       "entitlements": {
         "com.apple.security.application-groups": ["group.com.horsetrack.app"]
       },
@@ -68,7 +67,6 @@
         }
       ]
     ],
-    "newArchEnabled": false,
     "experiments": {
       "typedRoutes": true
     },
