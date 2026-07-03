@@ -374,7 +374,7 @@ export default function ProfileScreen() {
       {riderProfile.additionalInfo.trim() ? (
         <FadeInView delay={320}>
           <View className={`${CARD} gap-1`}>
-            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Pour Julien</Text>
+            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Note pour le Coach IA</Text>
             <Text className="text-sm text-text">{riderProfile.additionalInfo.trim()}</Text>
           </View>
         </FadeInView>
@@ -532,7 +532,7 @@ export default function ProfileScreen() {
       </FadeInView>
 
       <FadeInView delay={580}>
-        <Text className="pt-2 text-center text-xs text-muted">Horsetrack · v1.0.0</Text>
+        <Text className="pt-2 text-center text-xs text-muted">Horsetrack · v1.0.1</Text>
       </FadeInView>
     </Screen>
   );
