@@ -199,6 +199,11 @@ type HorsesContextValue = {
    * brouillons d'onboarding, et ne republie pas vers le cloud. */
   hydrateFromCloud: (horses: Horse[]) => void;
   updateHorsePhoto: (id: string, photoUrl: string) => void;
+  /** Retire un cheval possédé de l'écurie (jamais un cheval partagé) — no-op
+   * si c'est le dernier cheval possédé : Today/Programme/etc. supposent
+   * `selectedHorse` toujours non-null, l'écurie ne doit jamais devenir vide.
+   * Réassigne isPrimary/selectedHorse si le cheval supprimé les portait. */
+  removeHorse: (id: string) => void;
   /** Cheval actuellement sélectionné (cf. sélecteur sur Today) — pilote la
    * progression/programme affichés ailleurs dans l'app. */
   selectedHorse: Horse | null;
@@ -275,6 +280,30 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const removeHorse = useCallback(
+    (id: string) => {
+      const target = horses.find((h) => h.id === id);
+      if (!target || target.sharedRole) return;
+      if (horses.filter((h) => !h.sharedRole).length <= 1) return;
+
+      let next = horses.filter((h) => h.id !== id);
+      if (target.isPrimary) {
+        const newPrimaryId = next.find((h) => !h.sharedRole)?.id;
+        next = next.map((h) => (h.id === newPrimaryId ? { ...h, isPrimary: true } : h));
+      }
+      setHorses(next);
+      persist(next);
+
+      if (selectedHorseId === id) {
+        const fallbackId =
+          next.find((h) => h.isPrimary)?.id ?? next.find((h) => !h.sharedRole)?.id ?? next[0]?.id ?? null;
+        setSelectedHorseId(fallbackId);
+        if (fallbackId) SecureStore.setItemAsync(SELECTED_KEY, fallbackId);
+      }
+    },
+    [horses, persist, selectedHorseId]
+  );
+
   const updateHorsePhoto = useCallback(
     (id: string, photoUrl: string) => {
       setHorses((prev) => {
@@ -324,6 +353,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       replaceHorses,
       hydrateFromCloud,
       updateHorsePhoto,
+      removeHorse,
       selectedHorse,
       selectHorse,
       clearAll,
@@ -336,6 +366,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       replaceHorses,
       hydrateFromCloud,
       updateHorsePhoto,
+      removeHorse,
       selectedHorse,
       selectHorse,
       clearAll,

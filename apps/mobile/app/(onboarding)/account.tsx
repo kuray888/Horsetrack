@@ -17,7 +17,9 @@ const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-t
 export default function OnboardingAccount() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   // Horses/rider sont déjà écrasés par les réponses d'onboarding à l'étape
   // paywall (cf. (onboarding)/paywall.tsx) — seuls ces trois-là ne le sont
   // jamais et resteraient ceux d'un compte précédent sur cet appareil.
@@ -28,6 +30,10 @@ export default function OnboardingAccount() {
   const { clearAll: clearSubscription } = useSubscription();
 
   async function createAccount() {
+    if (password !== confirmPassword) {
+      Alert.alert("Erreur", "Les deux mots de passe ne correspondent pas.");
+      return;
+    }
     setLoading(true);
 
     // Si une tentative précédente a déjà créé ce compte (signUp réussi) mais
@@ -111,12 +117,25 @@ export default function OnboardingAccount() {
             secureTextEntry
           />
         </Field>
+
+        <Field label="Confirmer le mot de passe">
+          <TextInput
+            className={INPUT}
+            placeholder="Retape ton mot de passe"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+          {passwordsMismatch ? (
+            <Text className="text-xs text-red-500">Les mots de passe ne correspondent pas.</Text>
+          ) : null}
+        </Field>
       </View>
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
           label={loading ? "Création..." : "Créer mon compte"}
-          disabled={loading || !email.trim() || password.length < 6}
+          disabled={loading || !email.trim() || password.length < 6 || password !== confirmPassword}
           onPress={createAccount}
         />
         <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>

@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Alert, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { HorseForm } from "@/components/HorseForm";
@@ -6,8 +6,9 @@ import { useHorses } from "@/horses/store";
 
 export default function EditHorseModal() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { horses, updateHorse } = useHorses();
+  const { horses, updateHorse, removeHorse } = useHorses();
   const horse = horses.find((h) => h.id === id);
+  const ownedHorseCount = horses.filter((h) => !h.sharedRole).length;
 
   if (!horse || horse.sharedRole) {
     return (
@@ -16,6 +17,28 @@ export default function EditHorseModal() {
           {horse?.sharedRole ? "Les chevaux partagés ne sont pas modifiables." : "Cheval introuvable."}
         </Text>
       </SafeAreaView>
+    );
+  }
+
+  function confirmDelete() {
+    if (ownedHorseCount <= 1) {
+      Alert.alert("Impossible", "Tu dois garder au moins un cheval dans ton écurie.");
+      return;
+    }
+    Alert.alert(
+      "Supprimer ce cheval ?",
+      `${horse!.name} et tout son historique (programme, rendez-vous, journal) seront définitivement supprimés. Cette action est irréversible.`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: () => {
+            removeHorse(horse!.id);
+            router.back();
+          },
+        },
+      ]
     );
   }
 
@@ -28,6 +51,7 @@ export default function EditHorseModal() {
         updateHorse(horse.id, updated);
         router.back();
       }}
+      onDelete={confirmDelete}
     />
   );
 }

@@ -79,11 +79,15 @@ export function HorseForm({
   initial,
   submitLabel,
   onSubmit,
+  onDelete,
 }: {
   title: string;
   initial: HorseFormDraft;
   submitLabel: string;
   onSubmit: (horse: NewHorse) => void;
+  /** Fourni uniquement en édition (jamais à l'ajout) — affiche un bouton
+   * "Supprimer ce cheval" sous le bouton principal. */
+  onDelete?: () => void;
 }) {
   const currentYear = new Date().getFullYear();
 
@@ -312,12 +316,17 @@ export function HorseForm({
         </Field>
       </ScrollView>
 
-      <View className="px-5 pb-2 pt-3">
+      <View className="gap-2 px-5 pb-2 pt-3">
         <PrimaryButton
           label={submitLabel}
           disabled={name.trim().length === 0 || !discipline || !level}
           onPress={submit}
         />
+        {onDelete ? (
+          <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="items-center py-2">
+            <Text className="text-sm font-semibold text-red-500">Supprimer ce cheval</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <PickerOverlaySlot />
     </SafeAreaView>
