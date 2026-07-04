@@ -1,6 +1,9 @@
 import { Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { PurchasesPackage } from "react-native-purchases";
 import type { BillingPeriod, SubscriptionTier } from "@/subscription/store";
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 type PurchasesStatic = typeof import("react-native-purchases").default;
 
@@ -65,6 +68,13 @@ export function configurePurchases(): void {
       ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
       : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
   if (!apiKey) return;
+  // Les clés "test_" (Preview/Simulated Store) ne sont utilisables que dans
+  // Expo Go. Le SDK natif RevenueCat fait un fatalError volontaire s'il en
+  // détecte une dans un build standalone (TestFlight/App Store) — cf. crash
+  // Configuration.checkForSimulatedStoreAPIKeyInRelease du 2026-07-04. Tant
+  // que les vraies clés appl_/goog_ n'existent pas, on reste en simulation
+  // locale hors Expo Go plutôt que de planter.
+  if (apiKey.startsWith("test_") && !isExpoGo) return;
 
   Purchases.configure({ apiKey });
   configured = true;
