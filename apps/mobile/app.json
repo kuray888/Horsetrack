@@ -7,11 +7,6 @@
     "scheme": "horsetrack",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#e7ecef"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.horsetrack.app",
@@ -41,6 +36,14 @@
     "plugins": [
       "./plugins/withSwiftVersion",
       "./plugins/withPatchedPodspecs",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#e7ecef"
+        }
+      ],
       "@bacons/apple-targets",
       "expo-router",
       [
