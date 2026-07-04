@@ -1,5 +1,19 @@
 import "../global.css";
+import { Alert } from "react-native";
 import { Stack } from "expo-router";
+
+// Capture les erreurs JS fatales pour diagnostiquer les crashs au démarrage.
+// À supprimer une fois le crash identifié et corrigé.
+if (typeof ErrorUtils !== "undefined") {
+  const prev = ErrorUtils.getGlobalHandler();
+  ErrorUtils.setGlobalHandler((err, isFatal) => {
+    Alert.alert(
+      isFatal ? "Fatal JS Error" : "JS Error",
+      `${err?.message ?? "unknown"}\n\n${String(err?.stack ?? "").slice(0, 600)}`
+    );
+    prev?.(err, isFatal);
+  });
+}
 import { SubscriptionProvider } from "@/subscription/store";
 import { ProgressProvider } from "@/progress/store";
 import { HorsesProvider } from "@/horses/store";
