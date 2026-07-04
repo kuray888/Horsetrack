@@ -40,6 +40,7 @@
     },
     "plugins": [
       "./plugins/withSwiftVersion",
+      "./plugins/withPatchedPodspecs",
       "@bacons/apple-targets",
       "expo-router",
       [
