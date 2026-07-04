@@ -2,7 +2,7 @@
   "expo": {
     "name": "Horsetrack",
     "slug": "horsetrack",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "scheme": "horsetrack",
     "userInterfaceStyle": "automatic",
@@ -16,7 +16,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.horsetrack.app",
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.horsetrack.app"]
+        "com.apple.security.application-groups": [
+          "group.com.horsetrack.app"
+        ]
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -65,7 +67,8 @@
         {
           "locationWhenInUsePermission": "Horsetrack utilise ta position pour enregistrer la météo du jour sur ton journal de travail."
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
