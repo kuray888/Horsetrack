@@ -4,6 +4,11 @@ import { Stack } from "expo-router";
 
 // Capture les erreurs JS fatales pour diagnostiquer les crashs au démarrage.
 // À supprimer une fois le crash identifié et corrigé.
+// Important : on ne relaie PAS prev() pour les erreurs fatales — c'est ce
+// relais qui appelle NativeExceptionsManager.reportFatal côté natif et
+// déclenche un abort() immédiat (RCTFatal), avant même que l'Alert ait pu
+// s'afficher à l'écran. En release/TestFlight il n'y a pas de red box : une
+// exception JS non catchée fait planter l'app par design.
 if (typeof ErrorUtils !== "undefined") {
   const prev = ErrorUtils.getGlobalHandler();
   ErrorUtils.setGlobalHandler((err, isFatal) => {
@@ -11,7 +16,9 @@ if (typeof ErrorUtils !== "undefined") {
       isFatal ? "Fatal JS Error" : "JS Error",
       `${err?.message ?? "unknown"}\n\n${String(err?.stack ?? "").slice(0, 600)}`
     );
-    prev?.(err, isFatal);
+    if (!isFatal) {
+      prev?.(err, isFatal);
+    }
   });
 }
 import { SubscriptionProvider } from "@/subscription/store";
