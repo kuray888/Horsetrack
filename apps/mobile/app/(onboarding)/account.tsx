@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
+import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import { useProgress } from "@/progress/store";
 import { useProgram } from "@/program/store";
 import { useAgenda } from "@/agenda/store";
@@ -20,6 +22,7 @@ export default function OnboardingAccount() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+  const appleAvailable = useAppleSignInAvailable();
   // Horses/rider sont déjà écrasés par les réponses d'onboarding à l'étape
   // paywall (cf. (onboarding)/paywall.tsx) — seuls ces trois-là ne le sont
   // jamais et resteraient ceux d'un compte précédent sur cet appareil.
@@ -28,6 +31,42 @@ export default function OnboardingAccount() {
   const { clearAll: clearAgenda } = useAgenda();
   const { clearAll: clearGoals } = useGoals();
   const { clearAll: clearSubscription } = useSubscription();
+
+  // Si une session existe déjà (ex: Sign in with Apple utilisé depuis
+  // l'écran login, ou reprise d'une création interrompue — cf. le même
+  // contrôle dans createAccount), les champs email/mot de passe restent
+  // vides et le bouton "Créer mon compte" resterait désactivé sans porte
+  // de sortie : on saute directement au paywall dès que l'écran s'affiche.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace("/(onboarding)/paywall");
+    });
+  }, []);
+
+  async function afterAccountObtained(userId: string) {
+    const owner = await getLocalDataOwner();
+    if (owner && owner !== userId) {
+      await Promise.all([clearProgress(), clearProgram(), clearAgenda(), clearGoals(), clearSubscription()]);
+    }
+    await setLocalDataOwner(userId);
+  }
+
+  async function handleAppleSignIn() {
+    setLoading(true);
+    try {
+      const result = await signInWithApple();
+      if (result.cancelled) {
+        setLoading(false);
+        return;
+      }
+      await afterAccountObtained(result.userId);
+      setLoading(false);
+      router.push("/(onboarding)/paywall");
+    } catch (e) {
+      setLoading(false);
+      Alert.alert("Erreur", e instanceof Error ? e.message : "Connexion avec Apple impossible.");
+    }
+  }
 
   async function createAccount() {
     if (password !== confirmPassword) {
@@ -62,13 +101,7 @@ export default function OnboardingAccount() {
     }
 
     const userId = data.user?.id;
-    if (userId) {
-      const owner = await getLocalDataOwner();
-      if (owner && owner !== userId) {
-        await Promise.all([clearProgress(), clearProgram(), clearAgenda(), clearGoals(), clearSubscription()]);
-      }
-      await setLocalDataOwner(userId);
-    }
+    if (userId) await afterAccountObtained(userId);
 
     // Si le projet Supabase exige une confirmation par email, signUp() ne renvoie
     // pas de session tout de suite. On continue malgré tout vers le paywall (au
@@ -138,6 +171,22 @@ export default function OnboardingAccount() {
           disabled={loading || !email.trim() || password.length < 6 || password !== confirmPassword}
           onPress={createAccount}
         />
+        {appleAvailable ? (
+          <>
+            <View className="flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-xs text-muted">ou</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={12}
+              style={{ height: 48, width: "100%" }}
+              onPress={handleAppleSignIn}
+            />
+          </>
+        ) : null}
         <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
           <Text className="text-center text-sm font-semibold text-accent">
             Déjà un compte ? Se connecter

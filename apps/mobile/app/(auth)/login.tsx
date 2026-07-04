@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
+import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import {
   pullCloudData,
   pullDocuments,
@@ -31,6 +33,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const appleAvailable = useAppleSignInAvailable();
   const { clearAll: clearHorses, hydrateFromCloud } = useHorses();
   const { clearAll: clearRiderProfile, setRiderProfile } = useRiderProfile();
   const { clearAll: clearProgress, hydrateFromCloud: hydrateProgressFromCloud } = useProgress();
@@ -51,16 +54,10 @@ export default function LoginScreen() {
     if (invites.length > 0) router.push("/invites-modal");
   }
 
-  async function signIn() {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-
-    if (error) {
-      setLoading(false);
-      Alert.alert("Erreur", error.message);
-      return;
-    }
-
+  // Partagé entre la connexion par mot de passe et Sign in with Apple — les
+  // deux n'obtiennent une session Supabase que par des chemins différents,
+  // tout ce qui suit (biométrie, restauration cloud) est identique ensuite.
+  async function afterSuccessfulAuth(userId: string | undefined) {
     if (await isBiometricLockEnabled()) {
       const confirmed = await authenticateWithBiometrics("Confirmer avec Face ID");
       if (!confirmed) {
@@ -78,7 +75,6 @@ export default function LoginScreen() {
     // lib/cloudSync.ts) : un appareil qui n'a pas encore les données de CE
     // compte (nouveau téléphone, réinstallation...) essaie de les restaurer
     // plutôt que de renvoyer vers un onboarding qui écraserait tout.
-    const userId = data.user?.id;
     if (userId) {
       const owner = await getLocalDataOwner();
       if (owner !== userId) {
@@ -156,6 +152,34 @@ export default function LoginScreen() {
     await goToTodayOrInvites();
   }
 
+  async function signIn() {
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+
+    if (error) {
+      setLoading(false);
+      Alert.alert("Erreur", error.message);
+      return;
+    }
+
+    await afterSuccessfulAuth(data.user?.id);
+  }
+
+  async function handleAppleSignIn() {
+    setLoading(true);
+    try {
+      const result = await signInWithApple();
+      if (result.cancelled) {
+        setLoading(false);
+        return;
+      }
+      await afterSuccessfulAuth(result.userId);
+    } catch (e) {
+      setLoading(false);
+      Alert.alert("Erreur", e instanceof Error ? e.message : "Connexion avec Apple impossible.");
+    }
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-8">
@@ -207,6 +231,22 @@ export default function LoginScreen() {
           disabled={loading || !email.trim() || !password}
           onPress={signIn}
         />
+        {appleAvailable ? (
+          <>
+            <View className="flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-xs text-muted">ou</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={12}
+              style={{ height: 48, width: "100%" }}
+              onPress={handleAppleSignIn}
+            />
+          </>
+        ) : null}
         <TouchableOpacity onPress={() => router.push("/(onboarding)/welcome")}>
           <Text className="text-center text-sm font-semibold text-accent">
             Pas encore de compte ? S&apos;inscrire
