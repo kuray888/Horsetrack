@@ -10,11 +10,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.horsetrack.app",
-      "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.com.horsetrack.app"
-        ]
-      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -35,7 +30,7 @@
     },
     "plugins": [
       "./plugins/withSwiftVersion",
-      "./plugins/withPatchedPodspecs",
+      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -44,8 +39,6 @@
           "backgroundColor": "#e7ecef"
         }
       ],
-      "@bacons/apple-targets",
-      "expo-router",
       [
         "expo-local-authentication",
         {
