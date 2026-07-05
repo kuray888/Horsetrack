@@ -111,7 +111,7 @@ export default function OnboardingAccount() {
     if (!data.session) {
       Alert.alert(
         "Vérifie tes emails",
-        "Un lien de confirmation t'a été envoyé. Tu peux continuer dès maintenant."
+        "Un lien de confirmation t'a été envoyé. Clique dessus, puis reviens dans l'app et connecte-toi depuis l'écran de connexion (\"Déjà un compte ? Se connecter\") — en attendant, tu peux continuer ci-dessous, tes réponses sont sauvegardées."
       );
     }
 
