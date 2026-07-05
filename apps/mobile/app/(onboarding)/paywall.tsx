@@ -1,3 +1,4 @@
+import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
 import { useSubscribeFlow, type BillingPeriod } from "@/subscription/store";
@@ -6,19 +7,38 @@ import { markOnboardingCompleted } from "@/onboarding/completion";
 import { useOnboarding } from "@/onboarding/store";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
+import { pullCloudData } from "@/lib/cloudSync";
 import { pullPendingInvites } from "@/lib/sharing";
 
 export default function OnboardingPaywall() {
   const { rider, horses } = useOnboarding();
-  const { replaceHorses } = useHorses();
+  const { replaceHorses, hydrateFromCloud } = useHorses();
   const { setRiderProfile } = useRiderProfile();
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
 
   async function finish() {
-    // setRiderProfile()/replaceHorses() persistent localement ET poussent vers
-    // le cloud en best-effort (cf. lib/cloudSync.ts).
-    setRiderProfile(rider);
-    replaceHorses(horses);
+    // Ce compte a-t-il déjà terminé l'onboarding ailleurs ? Cas réel : sur
+    // account.tsx, un email déjà utilisé propose "connecte-toi plutôt" — une
+    // fois connecté, on atterrit quand même ici avec un brouillon d'onboarding
+    // local (chevaux/réponses bidon). Sans ce contrôle, replaceHorses()
+    // écraserait la vraie écurie du compte, et pushHorses() (cf. cloudSync.ts)
+    // supprimerait ensuite côté serveur tout cheval absent de ce brouillon —
+    // perte de données irréversible constatée en pratique. Erreur réseau ⇒ on
+    // suppose "compte neuf" comme avant plutôt que de bloquer tout l'onboarding.
+    const existing = await pullCloudData().catch(() => null);
+    if (existing) {
+      setRiderProfile(existing.rider);
+      hydrateFromCloud(existing.horses);
+      Alert.alert(
+        "Compte existant retrouvé",
+        "Ce compte avait déjà un programme — tes réponses d'inscription n'ont pas été utilisées, on a restauré tes données existantes."
+      );
+    } else {
+      // setRiderProfile()/replaceHorses() persistent localement ET poussent vers
+      // le cloud en best-effort (cf. lib/cloudSync.ts).
+      setRiderProfile(rider);
+      replaceHorses(horses);
+    }
     // Le compte créé juste avant (cf. account.tsx) donne une session dans le
     // cas standard. Si la confirmation par email est activée côté Supabase, la
     // session n'existe pas encore et le push échoue silencieusement — il sera
