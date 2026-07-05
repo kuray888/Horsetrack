@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useProgram } from "@/program/store";
 import { useProgress, type Mood } from "@/progress/store";
-import type { SessionIntensity, SessionStepPhase } from "@/program/types";
+import { computeExerciseSeconds, type SessionIntensity, type SessionStepPhase } from "@/program/types";
 import { WEEK_DAYS_FULL } from "@/lib/dateFormat";
 import { usePressScale } from "@/hooks/usePressScale";
 import { GlossaryText } from "@/components/GlossaryText";
@@ -70,6 +70,10 @@ export default function SessionDetailModal() {
 
   const sessionId = session.id;
   const intensity = INTENSITY_META[session.intensity];
+  // Même calcul que le chronomètre (session-active-modal) pour que le temps
+  // affiché ici corresponde exactement à ce que le compte à rebours donnera.
+  const exerciseSeconds = computeExerciseSeconds(session.exercises, session.durationMin);
+  const stepsWithSeconds = session.exercises.map((step, i) => ({ step, seconds: exerciseSeconds[i] }));
 
   function handleSaveDebrief() {
     if (!draftMood) return;
@@ -138,16 +142,16 @@ export default function SessionDetailModal() {
         ) : null}
 
         {PHASE_ORDER.map((phase) => {
-          const steps = session.exercises.filter((e) => e.phase === phase);
+          const steps = stepsWithSeconds.filter(({ step }) => step.phase === phase);
           if (steps.length === 0) return null;
           return (
             <View key={phase} className={`${CARD} gap-3`}>
               <Text className="text-sm font-bold uppercase tracking-wide text-accent">{PHASE_LABELS[phase]}</Text>
-              {steps.map((step, i) => (
+              {steps.map(({ step, seconds }, i) => (
                 <View key={i} className="gap-1">
                   <View className="flex-row items-center justify-between gap-2">
                     <Text className="flex-1 text-sm font-bold text-text">{step.title}</Text>
-                    <Text className="text-xs font-bold text-accent">{step.durationMin} min</Text>
+                    <Text className="text-xs font-bold text-accent">{Math.round(seconds / 60)} min</Text>
                   </View>
                   <GlossaryText text={step.description} className="text-sm leading-5 text-muted" />
                 </View>

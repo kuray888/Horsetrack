@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useProgram } from "@/program/store";
 import { useProgress, type Mood } from "@/progress/store";
-import type { SessionStepPhase } from "@/program/types";
+import { computeExerciseSeconds, type SessionStepPhase } from "@/program/types";
 
 // ─── Constantes d'affichage ──────────────────────────────────────────────────
 
@@ -55,20 +55,14 @@ export default function SessionActiveModal() {
   const exercises = session?.exercises ?? [];
   const sessionId = session?.id ?? "";
 
-  // Normalise les durées d'exercice pour que leur somme corresponde exactement
-  // à session.durationMin. Deux sources de décalage possibles :
-  //   1. Exercice bonus (5e étape) : les 5 parts somment à 1.15 × la durée totale
-  //   2. Adaptations adaptatives (véto, canicule, feedback) : session.durationMin
-  //      est rescalé dans program/store sans que exercises[i].durationMin le soit
+  // Partagé avec session-detail-modal (cf. computeExerciseSeconds) pour que le
+  // temps affiché avant de lancer la séance corresponde exactement au chrono.
   // useMemo garantit une référence stable → pas de re-inscription inutile de l'effet
   // d'auto-avance à chaque render.
-  const exerciseSeconds = useMemo(() => {
-    const rawTotal = exercises.reduce((s, e) => s + e.durationMin, 0);
-    const sessMin = session?.durationMin ?? rawTotal;
-    return exercises.map((e) =>
-      rawTotal > 0 ? Math.max(60, Math.round((e.durationMin / rawTotal) * sessMin * 60)) : 300
-    );
-  }, [exercises, session?.durationMin]);
+  const exerciseSeconds = useMemo(
+    () => computeExerciseSeconds(exercises, session?.durationMin ?? 0),
+    [exercises, session?.durationMin]
+  );
 
   // ── État du timer ──────────────────────────────────────────────────────────
   const [stepIndex, setStepIndex] = useState(0);
