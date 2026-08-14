@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { pushRiderProfile } from "@/lib/cloudSync";
-import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
+import type { Discipline, RiderGoal, RiderLevel, RideFrequency, PreferredTime } from "@/onboarding/store";
 
 /**
  * Profil cavalier, persisté localement et sauvegardé vers Supabase en
@@ -18,6 +18,7 @@ export type RiderProfile = {
   level: RiderLevel | null;
   mainDiscipline: Discipline | null;
   rideFrequency: RideFrequency | null;
+  preferredTime: PreferredTime | null;
   primaryGoal: RiderGoal | null;
   additionalInfo: string;
 };
@@ -26,6 +27,7 @@ const DEFAULT_RIDER_PROFILE: RiderProfile = {
   level: null,
   mainDiscipline: null,
   rideFrequency: null,
+  preferredTime: null,
   primaryGoal: null,
   additionalInfo: "",
 };

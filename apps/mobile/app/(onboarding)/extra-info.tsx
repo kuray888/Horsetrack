@@ -18,7 +18,7 @@ export default function ExtraInfo() {
 
   return (
     <OnboardingShell
-      step={10}
+      step={11}
       total={TOTAL_STEPS}
       title="Encore une chose…"
       subtitle="Objectifs précis, contraintes, ce qui compte pour toi : dis-nous tout ce qui peut aider à personnaliser ton programme."

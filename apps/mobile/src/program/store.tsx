@@ -3,53 +3,48 @@ import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { formatDate } from "@/lib/dateFormat";
 import { supabase } from "@/lib/supabase";
-import { askProgramInsight } from "@/lib/programInsight";
+import { askProgramInsight, type ProgramInsightBonusExercise } from "@/lib/programInsight";
 import { pushHorseProgram, type RemoteProgramData } from "@/lib/cloudSync";
 import { DISCIPLINES, RIDER_GOALS } from "@/onboarding/options";
 import {
-  generateProgram,
   lightSessionOverride,
   PRE_COMPETITION_RISK_TYPES,
   recuperationSession,
   rescaleDuration,
+  sessionTime,
   shiftIntensity,
 } from "./rules";
-import type { ExerciseStep, FeedbackTrend, GeneratedProgram, SessionIntensity, SessionType } from "./types";
-import { useHorses, type Horse } from "@/horses/store";
-import { useRiderProfile, type RiderProfile } from "@/rider/store";
+import type { ExerciseStep, FeedbackTrend, GeneratedProgram, ProgramWeek, SessionIntensity, SessionType } from "./types";
+import { useHorses } from "@/horses/store";
+import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
 import { useWeather } from "@/weather/store";
-import { useSubscription } from "@/subscription/store";
 
 /**
- * Programme d'entraînement — généré par cheval (cf. program/rules.ts) à
- * partir du profil cavalier + du cheval sélectionné, persisté localement.
- * Remplace l'ancien mock unique program/data.ts : chaque cheval a désormais
- * son propre programme, pas une trame identique pour tout le monde.
+ * Cursus d'entraînement — un programme PAR CHEVAL, persisté localement, qui
+ * grandit semaine après semaine plutôt que d'être régénéré en bloc tous les
+ * 8 jours. La semaine à venir est demandée à /api/program-week (cf.
+ * lib/programWeek.ts) dès qu'elle manque : l'IA choisit type/intensité de
+ * chaque séance à partir de l'historique réel du cheval (séances faites,
+ * ressenti), jamais une trame figée qui se répète à l'identique.
  *
- * Se régénère automatiquement quand un champ qui compte pour la sécurité/la
- * structure du programme change (cf. `importantSignature`) — pas sur un
- * changement cosmétique (nom, photo...). Le bouton "Nouveau programme" (cf.
- * Planning) permet de redemander une génération à tout moment, y compris
- * pour un changement non "important" (forces/faiblesses, tempérament...).
+ * Le contenu réel (exercices, matériel, hauteurs de saut...) et le filtre de
+ * sécurité (santé/blessures → types exclus, intensité plafonnée) restent
+ * exclusivement déterministes, calculés côté serveur avant que la proposition
+ * de l'IA n'atteigne jamais l'utilisateur — cf. apps/api/.../program-week et
+ * packages/shared/src/training.
  */
 
-// v7 : ordre chronologique des séances de la semaine désormais propre à
-// chaque discipline plutôt qu'un classement de charge universel (cf.
-// DISCIPLINE_SESSION_ORDER dans program/rules.ts) — un programme déjà en
-// cache a été généré avec l'ancien ordre, donc bumpée pour que chacun reçoive
-// le nouveau déroulé dès la prochaine régénération.
-const PROGRAMS_KEY = "programs_v7";
-const SIGNATURES_KEY = "program_signatures_v2";
-/** Mémorise, par cheval, la date de génération (`program.generatedAt`) du
- * dernier programme pour lequel l'utilisateur a ignoré le bilan de fin de
- * programme — se réinitialise naturellement à la prochaine régénération
- * (nouveau `generatedAt`), pas besoin de le nettoyer explicitement. */
-const BILAN_DISMISSED_KEY = "bilan_dismissed_v1";
+// v8 : cursus continu (IA + historique) au lieu d'un cycle fixe de 8 semaines
+// régénéré en bloc — un programme en cache v7 n'a plus la même forme
+// (totalWeeks n'est plus un plafond, `phase` est optionnelle, nouveau champ
+// `typeOccurrences`), donc bumpée pour repartir propre plutôt que de tenter
+// de migrer une structure qui n'a plus le même sens.
+const PROGRAMS_KEY = "programs_v8";
 /** Cache de l'éclairage IA (cf. /api/program-insight) par cheval — distinct
  * des programmes eux-mêmes : c'est un enrichissement async best-effort, pas
- * une donnée structurelle du moteur de règles. */
-const AI_NOTES_KEY = "program_ai_notes_v1";
+ * une donnée structurelle. */
+const AI_NOTES_KEY = "program_ai_notes_v2";
 
 export type PlannedSession = {
   id: string;
@@ -63,10 +58,14 @@ export type PlannedSession = {
   equipment: string[];
   setupNotes: string[];
   exercises: ExerciseStep[];
-  /** Type effectif de la séance — celui généré par le moteur de règles, sauf
-   * substitution par un ajustement dynamique (cf. `adaptedReason`), auquel cas
-   * il reflète le type réellement affiché (ex: RECUPERATION en repos auto). */
+  /** Type effectif de la séance — celui choisi par l'IA (cf. /api/program-week),
+   * sauf substitution par un ajustement dynamique (cf. `adaptedReason`), auquel
+   * cas il reflète le type réellement affiché (ex: RECUPERATION en repos auto). */
   type: SessionType;
+  /** Explication de Julien pour ce choix, tenant compte de l'historique réel
+   * du cheval — absente sur une séance issue d'un ajustement dynamique local
+   * (véto, chaleur, concours), qui a sa propre explication (cf. adaptedReason). */
+  rationale: string | null;
   /** Ajustement automatique appliqué à cette séance précise, ou null si
    * inchangée (cf. "IA adaptative" : repos auto après un rendez-vous
    * vétérinaire ou un concours, allègement en cas de forte chaleur prévue ou
@@ -75,13 +74,9 @@ export type PlannedSession = {
 };
 
 /** Seuil de température max (°C) au-delà duquel une séance prévue ce jour-là
- * est allégée d'un cran d'intensité — pas la définition officielle Météo-
- * France d'une canicule (qui se déclare sur plusieurs jours consécutifs),
- * mais un seuil de prudence ponctuel suffisant pour l'effort d'un cheval. */
+ * est allégée d'un cran d'intensité. */
 const HEAT_TAPER_THRESHOLD_C = 28;
 
-/** Clé jour (indépendante de l'heure) pour faire correspondre une date de
- * séance à un jour de rendez-vous/prévision météo. */
 function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
@@ -92,34 +87,15 @@ export type ProgramWeekView = {
 };
 
 type PersistedPrograms = Record<string, GeneratedProgram>;
-type PersistedSignatures = Record<string, string>;
-/** `note: null` = appel déjà fait, rien d'exploitable à afficher (cf.
- * sentinelle "RIEN" côté /api/program-insight) — distinct de "pas encore demandé".
- * `textSignature` couvre le texte libre (notes du cavalier, notes de blessure) :
- * ces champs ne font pas partie de `importantSignature` (qui ne régénère le
- * programme que sur un changement structurel/sécurité), donc sans ce second
- * signal le cache ne se rafraîchirait jamais après une simple modification de
- * texte tant que `program.generatedAt` reste le même. */
-type PersistedAiNotes = Record<string, { generatedAt: string; textSignature: string; note: string | null }>;
-
-/** Seuls les champs qui changent vraiment la structure ou la sécurité du
- * programme déclenchent une régénération automatique — un changement de nom
- * ou de photo ne doit pas réinitialiser la progression de la semaine. */
-function importantSignature(rider: RiderProfile, horse: Horse): string {
-  return JSON.stringify({
-    riderLevel: rider.level,
-    riderFrequency: rider.rideFrequency,
-    riderGoal: rider.primaryGoal,
-    horseDiscipline: horse.discipline,
-    horseLevel: horse.level,
-    horseFitness: horse.fitnessLevel,
-    horseWorkload: horse.workload,
-    healthConditions: [...horse.healthConditions].sort(),
-    injuries: horse.injuries
-      .map((i) => `${i.type}:${i.recoveryStatus}:${i.occurredAt ?? ""}`)
-      .sort(),
-  });
-}
+type PersistedAiNotes = Record<
+  string,
+  {
+    generatedAt: string;
+    textSignature: string;
+    note: string | null;
+    bonusExercise: ProgramInsightBonusExercise | null;
+  }
+>;
 
 function mondayOf(date: Date): Date {
   const d = new Date(date);
@@ -132,47 +108,57 @@ function mondayOf(date: Date): Date {
 type ProgramContextValue = {
   loading: boolean;
   program: GeneratedProgram | null;
-  /** Semaine du programme qui contient la date du jour (1 si le programme
-   * vient d'être généré). */
+  /** Semaine du programme qui contient la date du jour (1 si le cursus vient
+   * de démarrer pour ce cheval). */
   currentWeekNumber: number;
   currentWeek: ProgramWeekView | undefined;
   weeks: ProgramWeekView[];
   allSessions: PlannedSession[];
   getWeekDates: (weekNumber: number) => Date[];
-  /** Régénère le programme du cheval sélectionné à partir de son profil
-   * actuel — perd l'historique de complétion lié aux anciens ids de séance
-   * (cf. progress/store.tsx, qui détecte ce changement et se réinitialise). */
-  regenerate: () => void;
-  /** True une fois le dernier jour de la dernière semaine du programme atteint
-   * (indépendant du taux de complétion réel des séances). */
+  /** True pendant la génération de la semaine à venir — piloté par
+   * program/CurriculumEngine.tsx (cf. ce fichier), qui seul déclenche l'appel
+   * IA : ce provider n'expose que l'état, jamais le fetch lui-même, pour ne
+   * pas dépendre de progress/store.tsx (qui dépend déjà de lui). */
+  generatingWeek: boolean;
+  setGeneratingWeek: (v: boolean) => void;
+  /** Ajoute une semaine déjà générée (par CurriculumEngine) au cursus de ce
+   * cheval — démarre le programme si c'est la toute première semaine. */
+  appendGeneratedWeek: (
+    horseId: string,
+    week: ProgramWeek,
+    typeOccurrences: Record<string, number>,
+    safetyNotes: string[],
+    horseName: string
+  ) => void;
+  /** Toujours `false` : un cursus continu n'a pas de fin — conservé
+   * uniquement pour la compatibilité de l'écran bilan de fin de programme
+   * (cf. app/bilan-modal.tsx, (tabs)/today.tsx), devenu inatteignable avec le
+   * cursus continu mais pas retiré de l'app. */
   isProgramComplete: boolean;
-  /** True si l'utilisateur a déjà ignoré le bilan de fin de programme pour CE
-   * programme précis (réinitialisé à chaque régénération). */
+  /** Toujours `false`, même raison que isProgramComplete ci-dessus. */
   bilanDismissed: boolean;
+  /** No-op, même raison que isProgramComplete ci-dessus. */
   dismissBilan: () => void;
-  /** Efface les programmes générés/signatures locaux, tous chevaux confondus
-   * (cf. suppression de compte / changement de compte sur cet appareil dans
+  /** Réinitialise le cursus de ce cheval à zéro (efface toutes les semaines
+   * déjà générées) — CurriculumEngine redémarre alors à la semaine 1 au
+   * prochain rendu. Remplace l'ancienne "régénération en bloc" (cf. Planning,
+   * bouton "Nouveau programme") : on ne peut plus régénérer UNE semaine
+   * existante sans casser l'historique sur lequel l'IA s'appuie, seulement
+   * repartir de zéro. */
+  regenerate: () => void;
+  /** Efface les programmes générés localement, tous chevaux confondus (cf.
+   * suppression de compte / changement de compte sur cet appareil dans
    * Profil, login.tsx, (onboarding)/account.tsx). */
   clearAll: () => Promise<void>;
-  /** Restaure programmes/signatures/bilans depuis le cloud (cf. (auth)/login.tsx). */
+  /** Restaure les programmes depuis le cloud (cf. (auth)/login.tsx). */
   hydrateFromCloud: (byHorseId: Record<string, RemoteProgramData>) => void;
-  /** Pousse le ressenti récent (cf. progress/store.tsx, qui calcule la
-   * tendance à partir des derniers débriefs) pour ajuster l'intensité des
-   * semaines pas encore vécues. Volontairement non persisté : recalculé à
-   * chaque chargement à partir des débriefs réels, jamais figé. */
   recordFeedbackTrend: (trend: FeedbackTrend) => void;
   /** Tendance brute issue des derniers débriefs (-1 allège, 0 stable, 1 intensifie)
    * — exposée pour la prédiction de surmenage dans today.tsx. */
   feedbackTrend: FeedbackTrend;
-  /** Explique l'ajustement en cours (ou null si aucun) — affiché dans
-   * Planning aux côtés des autres notes de personnalisation/sécurité. */
   feedbackNote: string | null;
-  /** Éclairage IA sur le texte libre (cf. /api/program-insight) — null tant
-   * qu'il n'y a rien à interpréter, pas encore reçu, ou rien d'exploitable. */
   aiNote: string | null;
-  /** Explique le prochain ajustement automatique en cours (repos auto après
-   * un rendez-vous vétérinaire, allègement par forte chaleur), ou null si
-   * aucun n'est actif sur les jours à venir — cf. PlannedSession.adaptedReason. */
+  aiBonusExercise: ProgramInsightBonusExercise | null;
   adaptiveNote: string | null;
 };
 
@@ -183,13 +169,8 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   const { riderProfile } = useRiderProfile();
   const { appointments } = useAgenda();
   const { forecast } = useWeather();
-  const { isGrandPrix } = useSubscription();
   const horseId = selectedHorse?.id ?? null;
 
-  // Jours déclenchant un repos automatique : le lendemain d'un rendez-vous
-  // "vétérinaire" pour CE cheval (pas de distinction vaccin/visite de routine
-  // dans le modèle actuel — cf. Appointment.type, un seul type "veto" — donc
-  // toute visite vétérinaire déclenche la prudence, pas seulement un vaccin).
   const vetRestDays = useMemo(() => {
     const days = new Set<string>();
     if (!horseId) return days;
@@ -202,8 +183,6 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     return days;
   }, [appointments, horseId]);
 
-  // Jour précédant un concours : séance allégée pour arriver frais à
-  // l'épreuve plutôt que d'enchaîner un travail technique complet la veille.
   const competitionTaperDays = useMemo(() => {
     const days = new Set<string>();
     if (!horseId) return days;
@@ -216,8 +195,6 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     return days;
   }, [appointments, horseId]);
 
-  // Lendemain d'un concours : repos automatique pour récupérer de l'effort
-  // (physique et mental) de l'épreuve — même logique que vetRestDays.
   const competitionRecoveryDays = useMemo(() => {
     const days = new Set<string>();
     if (!horseId) return days;
@@ -230,10 +207,6 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     return days;
   }, [appointments, horseId]);
 
-  // Jours avec une chaleur prévue au-delà du seuil de prudence — uniquement
-  // sur la fenêtre couverte par la prévision (cf. weather/store.tsx, ~5 jours),
-  // les semaines plus lointaines du programme restent inchangées par manque
-  // de donnée, pas par choix.
   const heatTaperDays = useMemo(() => {
     const days = new Map<string, number>();
     for (const day of forecast ?? []) {
@@ -244,10 +217,9 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
 
   const [loading, setLoading] = useState(true);
   const [allPrograms, setAllPrograms] = useState<PersistedPrograms>({});
-  const [signatures, setSignatures] = useState<PersistedSignatures>({});
-  const [bilanDismissedMap, setBilanDismissedMap] = useState<Record<string, string>>({});
   const [feedbackTrend, setFeedbackTrend] = useState<FeedbackTrend>(0);
   const [aiNotes, setAiNotes] = useState<PersistedAiNotes>({});
+  const [generatingWeek, setGeneratingWeek] = useState(false);
   const aiFetchingRef = useRef<Set<string>>(new Set());
   const [authEpoch, setAuthEpoch] = useState(0);
 
@@ -256,25 +228,15 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    Promise.all([
-      SecureStore.getItemAsync(PROGRAMS_KEY),
-      SecureStore.getItemAsync(SIGNATURES_KEY),
-      SecureStore.getItemAsync(BILAN_DISMISSED_KEY),
-      SecureStore.getItemAsync(AI_NOTES_KEY),
-    ])
-      .then(([rawPrograms, rawSignatures, rawBilanDismissed, rawAiNotes]) => {
+    Promise.all([SecureStore.getItemAsync(PROGRAMS_KEY), SecureStore.getItemAsync(AI_NOTES_KEY)]).then(
+      ([rawPrograms, rawAiNotes]) => {
         setAllPrograms(safeJsonParse<PersistedPrograms>(rawPrograms, {}));
-        setSignatures(safeJsonParse<PersistedSignatures>(rawSignatures, {}));
-        setBilanDismissedMap(safeJsonParse<Record<string, string>>(rawBilanDismissed, {}));
         setAiNotes(safeJsonParse<PersistedAiNotes>(rawAiNotes, {}));
-      })
-      .catch((e) => console.warn("[program] lecture SecureStore échouée, programmes par défaut", e))
-      .finally(() => setLoading(false));
+        setLoading(false);
+      }
+    );
   }, []);
 
-  // Redéclenche une tentative d'éclairage IA une fois la session ouverte —
-  // utile car le programme est généré pendant l'onboarding (cf. (onboarding)/
-  // paywall.tsx), avant la création de compte ((onboarding)/account.tsx).
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") setAuthEpoch((e) => e + 1);
@@ -285,40 +247,6 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   const persistPrograms = useCallback((next: PersistedPrograms) => {
     SecureStore.setItemAsync(PROGRAMS_KEY, JSON.stringify(next));
   }, []);
-
-  const persistSignatures = useCallback((next: PersistedSignatures) => {
-    SecureStore.setItemAsync(SIGNATURES_KEY, JSON.stringify(next));
-  }, []);
-
-  const regenerate = useCallback(() => {
-    if (!selectedHorse) return;
-    const next = generateProgram(riderProfile, selectedHorse);
-    const sig = importantSignature(riderProfile, selectedHorse);
-
-    setAllPrograms((all) => {
-      const updated = { ...all, [selectedHorse.id]: next };
-      persistPrograms(updated);
-      return updated;
-    });
-    setSignatures((all) => {
-      const updated = { ...all, [selectedHorse.id]: sig };
-      persistSignatures(updated);
-      return updated;
-    });
-    // Best-effort, ne bloque jamais l'UI (cf. lib/cloudSync.ts) — pour
-    // survivre à un changement d'appareil/réinstallation. Un nouveau
-    // programme efface tout bilan ignoré précédent (nouveau generatedAt).
-    pushHorseProgram(selectedHorse.id, { program: next, signature: sig, bilanDismissedAt: null }).catch(() => {});
-  }, [selectedHorse, riderProfile, persistPrograms, persistSignatures]);
-
-  // Génère automatiquement le programme d'un cheval qui n'en a pas encore, et
-  // régénère dès qu'un champ "important" a changé depuis la dernière génération.
-  useEffect(() => {
-    if (loading || !horseId || !selectedHorse) return;
-    const hasProgram = Boolean(allPrograms[horseId]);
-    const sigChanged = signatures[horseId] !== importantSignature(riderProfile, selectedHorse);
-    if (!hasProgram || sigChanged) regenerate();
-  }, [loading, horseId, selectedHorse, riderProfile, allPrograms, signatures, regenerate]);
 
   const program = horseId ? allPrograms[horseId] ?? null : null;
 
@@ -342,17 +270,79 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     const start = mondayOf(new Date(program.generatedAt));
     const now = mondayOf(new Date());
     const diffWeeks = Math.round((now.getTime() - start.getTime()) / (7 * 86_400_000));
-    return Math.min(program.totalWeeks, Math.max(1, diffWeeks + 1));
+    return Math.max(1, diffWeeks + 1);
   }, [program]);
+
+  // Ajoute (ou démarre) une semaine déjà générée par program/CurriculumEngine.tsx
+  // — seule façon d'écrire dans `allPrograms`, pour que bootstrap et suite du
+  // cursus partagent exactement la même logique de persistance locale + cloud.
+  // Ce provider ne déclenche jamais lui-même l'appel IA (cf. déclaration du
+  // type ci-dessus) : CurriculumEngine a besoin à la fois de ce contexte ET de
+  // useProgress() (savoir quelles séances sont faites, avec quel ressenti),
+  // que ce provider ne peut pas lire sans dépendance circulaire.
+  const appendGeneratedWeek = useCallback(
+    (hId: string, week: ProgramWeek, typeOccurrences: Record<string, number>, safetyNotes: string[], horseName: string) => {
+      setAllPrograms((all) => {
+        const existing = all[hId];
+        const next: GeneratedProgram = existing
+          ? { ...existing, weeks: [...existing.weeks, week], typeOccurrences, safetyNotes }
+          : {
+              title: `Programme de ${horseName}`,
+              theme: "Un cursus qui s'adapte à chaque semaine, à partir de ce qui a vraiment été fait.",
+              totalWeeks: 1,
+              sessionsPerWeek: week.sessions.length,
+              weeks: [week],
+              personalizationNotes: [],
+              safetyNotes,
+              generatedAt: new Date().toISOString(),
+              typeOccurrences,
+            };
+        next.totalWeeks = next.weeks.length;
+        const updated = { ...all, [hId]: next };
+        persistPrograms(updated);
+        pushHorseProgram(hId, { program: next, signature: "", bilanDismissedAt: null }).catch(() => {});
+        return updated;
+      });
+    },
+    [persistPrograms]
+  );
+
+  // Repart de zéro pour ce cheval (cf. commentaire sur `regenerate` dans le
+  // type ci-dessus) — CurriculumEngine détecte l'absence de programme et
+  // relance la génération de la semaine 1 au prochain rendu.
+  const regenerate = useCallback(() => {
+    if (!horseId) return;
+    setAllPrograms((all) => {
+      const updated = { ...all };
+      delete updated[horseId];
+      persistPrograms(updated);
+      pushHorseProgram(horseId, {
+        program: {
+          title: "",
+          theme: "",
+          totalWeeks: 0,
+          sessionsPerWeek: 0,
+          weeks: [],
+          personalizationNotes: [],
+          safetyNotes: [],
+          generatedAt: new Date().toISOString(),
+          typeOccurrences: {},
+        },
+        signature: "",
+        bilanDismissedAt: null,
+      }).catch(() => {});
+      return updated;
+    });
+  }, [horseId, persistPrograms]);
+
+  const cachedAi = horseId ? aiNotes[horseId] : undefined;
+  const aiNote = program && cachedAi?.generatedAt === program.generatedAt ? cachedAi.note : null;
+  const aiBonusExercise = program && cachedAi?.generatedAt === program.generatedAt ? cachedAi.bonusExercise : null;
 
   const weeks = useMemo<ProgramWeekView[]>(() => {
     if (!program || !horseId || !selectedHorse) return [];
-    return program.weeks.map((week) => {
+    const built = program.weeks.map((week) => {
       const dates = getWeekDates(week.weekNumber);
-      // L'ajustement issu du ressenti réel (cf. progress/store.tsx) ne touche
-      // que les semaines pas encore vécues : on ne change jamais une semaine
-      // déjà en cours ou passée, pour ne pas modifier ce que le cavalier voit
-      // déjà au milieu de sa semaine.
       const applyTrend = feedbackTrend !== 0 && week.weekNumber > currentWeekNumber;
       return {
         weekNumber: week.weekNumber,
@@ -365,17 +355,12 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
           let setupNotes = s.setupNotes;
           let exercises = s.exercises;
           let type: SessionType = s.type;
+          let rationale: string | null = s.rationale ?? null;
           let adaptedReason: PlannedSession["adaptedReason"] = null;
 
           const date = dates[s.dayOffset];
           const key = date ? dayKey(date) : null;
 
-          // "IA adaptative" — priorité décroissante : repos médical (véto) >
-          // récupération post-concours (même mécanisme de repos complet,
-          // l'effort d'une épreuve méritant la même prudence) > allègement
-          // pré-concours > allègement canicule. Un repos complet couvre déjà
-          // le cas de la chaleur/du concours du lendemain, inutile de cumuler
-          // — et inutile sur un jour déjà RECUPERATION dans le programme de base.
           if (key && vetRestDays.has(key) && s.type !== "RECUPERATION") {
             const recup = recuperationSession(week.weekNumber - 1, selectedHorse);
             title = `🩺 ${recup.title}`;
@@ -386,6 +371,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
             exercises = recup.exercises;
             intensity = "LOW";
             type = "RECUPERATION";
+            rationale = null;
             adaptedReason = "VET_REST";
           } else if (key && competitionRecoveryDays.has(key) && s.type !== "RECUPERATION") {
             const recup = recuperationSession(week.weekNumber - 1, selectedHorse);
@@ -397,14 +383,9 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
             exercises = recup.exercises;
             intensity = "LOW";
             type = "RECUPERATION";
+            rationale = null;
             adaptedReason = "COMPETITION_RECOVERY";
           } else if (key && competitionTaperDays.has(key) && s.type !== "RECUPERATION") {
-            // Le saut/renforcement sont écartés la veille d'un concours (risque
-            // de fatigue/blessure de dernière minute) au profit d'un plat léger
-            // — un simple cran d'intensité en moins ne suffit pas, le cheval
-            // continuerait à sauter juste un peu plus bas. Les types déjà sans
-            // risque particulier (plat, sortie, travail à pied) restent les
-            // mêmes, juste allégés en intensité.
             if (PRE_COMPETITION_RISK_TYPES.has(s.type)) {
               const light = lightSessionOverride("ASSOUPLISSEMENT", week.weekNumber - 1, selectedHorse);
               title = `🏆 ${light.title}`;
@@ -415,6 +396,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
               exercises = light.exercises;
               intensity = "LOW";
               type = "ASSOUPLISSEMENT";
+              rationale = null;
             } else {
               const tapered = shiftIntensity(intensity, -1);
               durationMin = rescaleDuration(durationMin, intensity, tapered);
@@ -437,7 +419,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
             id: `${horseId}-w${week.weekNumber}-s${i}`,
             date,
             dayIndex: s.dayOffset,
-            time: s.time,
+            time: sessionTime(s.dayOffset, riderProfile.preferredTime),
             title,
             durationMin,
             focus,
@@ -446,11 +428,34 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
             setupNotes,
             exercises,
             type,
+            rationale,
             adaptedReason,
           };
         }),
       };
     });
+
+    if (aiBonusExercise) {
+      const now = Date.now();
+      outer: for (const week of built) {
+        for (const session of week.sessions) {
+          if (session.type === "RECUPERATION" || session.adaptedReason) continue;
+          if (!session.date || session.date.getTime() < now) continue;
+          session.exercises = [
+            ...session.exercises,
+            {
+              phase: "CORPS_DE_SEANCE",
+              title: `🗒️ ${aiBonusExercise.title}`,
+              description: aiBonusExercise.description,
+              durationMin: Math.max(5, Math.min(10, Math.round(session.durationMin * 0.15))),
+            },
+          ];
+          break outer;
+        }
+      }
+    }
+
+    return built;
   }, [
     program,
     horseId,
@@ -462,6 +467,8 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     heatTaperDays,
     competitionTaperDays,
     competitionRecoveryDays,
+    aiBonusExercise,
+    riderProfile.preferredTime,
   ]);
 
   const feedbackNote = useMemo(() => {
@@ -474,14 +481,8 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     return null;
   }, [feedbackTrend]);
 
-  // Demande un éclairage IA sur le texte libre (notes du cavalier, notes de
-  // blessure) — uniquement s'il y a vraiment du texte à interpréter, une
-  // session active (peut ne pas encore exister pendant l'onboarding, cf.
-  // authEpoch ci-dessus), pas déjà fait pour CE programme précis, et un palier
-  // Grand Prix (la route serveur la rejette de toute façon, cf.
-  // program-insight/route.ts — inutile de tenter l'appel pour les autres paliers).
   useEffect(() => {
-    if (loading || !horseId || !program || !selectedHorse || !isGrandPrix) return;
+    if (loading || !horseId || !program || !selectedHorse) return;
 
     const additionalInfo = riderProfile.additionalInfo.trim();
     const injuriesWithNotes = selectedHorse.injuries.filter((i) => i.note.trim().length > 0);
@@ -496,11 +497,11 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) return; // pas encore de compte créé — retentera via authEpoch
+      if (!data.session) return;
 
       aiFetchingRef.current.add(fetchKey);
       try {
-        const note = await askProgramInsight({
+        const { note, bonusExercise } = await askProgramInsight({
           horseName: selectedHorse.name,
           discipline: DISCIPLINES.find((d) => d.value === selectedHorse.discipline)?.label ?? selectedHorse.discipline,
           riderGoal: RIDER_GOALS.find((g) => g.value === riderProfile.primaryGoal)?.label ?? riderProfile.primaryGoal,
@@ -509,27 +510,17 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
           safetyNotes: program.safetyNotes,
         });
         setAiNotes((prev) => {
-          const next = { ...prev, [horseId]: { generatedAt: program.generatedAt, textSignature, note } };
+          const next = { ...prev, [horseId]: { generatedAt: program.generatedAt, textSignature, note, bonusExercise } };
           SecureStore.setItemAsync(AI_NOTES_KEY, JSON.stringify(next));
           return next;
         });
       } catch {
-        // Best-effort : pas d'erreur affichée, on retentera à la prochaine
-        // régénération ou ouverture de session plutôt que de bloquer l'écran.
+        // Best-effort.
       } finally {
         aiFetchingRef.current.delete(fetchKey);
       }
     })();
-  }, [loading, horseId, program, selectedHorse, riderProfile, aiNotes, authEpoch, isGrandPrix]);
-
-  // `program` doit exister explicitement avant de comparer les `generatedAt` :
-  // sinon, tant qu'aucune note IA n'a encore été mise en cache ET qu'aucun
-  // programme n'a encore été généré (juste après le montage, le temps que
-  // l'effet d'auto-génération ci-dessus se déclenche), les deux côtés valent
-  // `undefined` et `undefined === undefined` passe à `true` — on tente alors
-  // de lire `.note` sur `aiNotes[horseId]`, qui n'existe pas (crash).
-  const cachedNote = horseId ? aiNotes[horseId] : undefined;
-  const aiNote = program && cachedNote?.generatedAt === program.generatedAt ? cachedNote.note : null;
+  }, [loading, horseId, program, selectedHorse, riderProfile, aiNotes, authEpoch]);
 
   const allSessions = useMemo(() => weeks.flatMap((w) => w.sessions), [weeks]);
   const currentWeek = useMemo(
@@ -537,8 +528,6 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     [weeks, currentWeekNumber]
   );
 
-  // N'annonce que le PROCHAIN ajustement à venir (pas un cumul) — même logique
-  // d'affichage qu'un seul `feedbackNote` à la fois, pour rester lisible.
   const adaptiveNote = useMemo(() => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -559,61 +548,26 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     }
   }, [allSessions]);
 
-  const isProgramComplete = useMemo(() => {
-    if (!program) return false;
-    const lastDay = getWeekDates(program.totalWeeks)[6];
-    return lastDay !== undefined && new Date() >= lastDay;
-  }, [program, getWeekDates]);
-
-  const bilanDismissed = Boolean(horseId && program && bilanDismissedMap[horseId] === program.generatedAt);
-
-  const dismissBilan = useCallback(() => {
-    if (!horseId || !program) return;
-    setBilanDismissedMap((prev) => {
-      const next = { ...prev, [horseId]: program.generatedAt };
-      SecureStore.setItemAsync(BILAN_DISMISSED_KEY, JSON.stringify(next));
-      return next;
-    });
-    const signature = signatures[horseId];
-    if (signature) {
-      pushHorseProgram(horseId, { program, signature, bilanDismissedAt: program.generatedAt }).catch(() => {});
-    }
-  }, [horseId, program, signatures]);
-
   const clearAll = useCallback(async () => {
-    await Promise.all([
-      SecureStore.deleteItemAsync(PROGRAMS_KEY),
-      SecureStore.deleteItemAsync(SIGNATURES_KEY),
-      SecureStore.deleteItemAsync(BILAN_DISMISSED_KEY),
-      SecureStore.deleteItemAsync(AI_NOTES_KEY),
-    ]);
+    await Promise.all([SecureStore.deleteItemAsync(PROGRAMS_KEY), SecureStore.deleteItemAsync(AI_NOTES_KEY)]);
     setAllPrograms({});
-    setSignatures({});
-    setBilanDismissedMap({});
     setAiNotes({});
   }, []);
 
-  /** Restaure programmes/signatures/bilans depuis le cloud (cf. (auth)/login.tsx,
-   * quand cet appareil n'a pas encore les données du compte qui vient de se
-   * connecter) — remplace entièrement l'état local, jamais un merge. L'éclairage
-   * IA n'est volontairement pas restauré : simple cache best-effort, re-demandé
-   * automatiquement si besoin (cf. effet authEpoch ci-dessus). */
-  const hydrateFromCloud = useCallback((byHorseId: Record<string, RemoteProgramData>) => {
-    const programs: PersistedPrograms = {};
-    const sigs: PersistedSignatures = {};
-    const dismissed: Record<string, string> = {};
-    for (const [hId, p] of Object.entries(byHorseId)) {
-      programs[hId] = p.program;
-      sigs[hId] = p.signature;
-      if (p.bilanDismissedAt) dismissed[hId] = p.bilanDismissedAt;
-    }
-    setAllPrograms(programs);
-    setSignatures(sigs);
-    setBilanDismissedMap(dismissed);
-    persistPrograms(programs);
-    persistSignatures(sigs);
-    SecureStore.setItemAsync(BILAN_DISMISSED_KEY, JSON.stringify(dismissed));
-  }, [persistPrograms, persistSignatures]);
+  const hydrateFromCloud = useCallback(
+    (byHorseId: Record<string, RemoteProgramData>) => {
+      const programs: PersistedPrograms = {};
+      for (const [hId, p] of Object.entries(byHorseId)) {
+        // `typeOccurrences` : absent d'un programme poussé au cloud avant son
+        // introduction — comblé plutôt que de laisser `undefined` (même
+        // souci déjà rencontré sur Horse.restDayActivities, cf. horses/store.tsx).
+        programs[hId] = { ...p.program, typeOccurrences: p.program.typeOccurrences ?? {} };
+      }
+      setAllPrograms(programs);
+      persistPrograms(programs);
+    },
+    [persistPrograms]
+  );
 
   const value = useMemo<ProgramContextValue>(
     () => ({
@@ -624,16 +578,20 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       weeks,
       allSessions,
       getWeekDates,
+      generatingWeek,
+      setGeneratingWeek,
+      appendGeneratedWeek,
+      isProgramComplete: false,
+      bilanDismissed: false,
+      dismissBilan: () => {},
       regenerate,
-      isProgramComplete,
-      bilanDismissed,
-      dismissBilan,
       clearAll,
       hydrateFromCloud,
       recordFeedbackTrend,
       feedbackTrend,
       feedbackNote,
       aiNote,
+      aiBonusExercise,
       adaptiveNote,
     }),
     [
@@ -644,16 +602,16 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       weeks,
       allSessions,
       getWeekDates,
+      generatingWeek,
+      appendGeneratedWeek,
       regenerate,
-      isProgramComplete,
-      bilanDismissed,
-      dismissBilan,
       clearAll,
       hydrateFromCloud,
       recordFeedbackTrend,
       feedbackTrend,
       feedbackNote,
       aiNote,
+      aiBonusExercise,
       adaptiveNote,
     ]
   );

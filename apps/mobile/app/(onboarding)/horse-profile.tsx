@@ -11,7 +11,7 @@ export default function HorseProfile() {
 
   return (
     <OnboardingShell
-      step={6}
+      step={7}
       total={TOTAL_STEPS}
       title={`Le profil sportif de ${name}`}
       subtitle="On cible le travail là où il compte vraiment."

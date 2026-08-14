@@ -41,6 +41,7 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
     level: rider.level,
     mainDiscipline: rider.mainDiscipline,
     rideFrequency: rider.rideFrequency,
+    preferredTime: rider.preferredTime,
     primaryGoal: rider.primaryGoal,
     additionalInfo: rider.additionalInfo.trim() || null,
     // Ne se pose qu'une fois — sert de signal "ce compte a déjà un profil
@@ -189,6 +190,7 @@ export async function pullCloudData(): Promise<CloudData | null> {
     level: profile.level,
     mainDiscipline: profile.mainDiscipline,
     rideFrequency: profile.rideFrequency,
+    preferredTime: profile.preferredTime ?? null,
     primaryGoal: profile.primaryGoal,
     additionalInfo: profile.additionalInfo ?? "",
   };

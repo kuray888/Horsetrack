@@ -8,10 +8,11 @@ import type {
   HorseFitnessLevel,
   HorseWorkload,
   HorseRecoveryStatus,
+  PreferredTime,
 } from "./store";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 10;
+export const TOTAL_STEPS = 11;
 
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";
@@ -32,6 +33,12 @@ export const RIDE_FREQUENCIES: Option<RideFrequency>[] = [
   { value: "SEVERAL_PER_WEEK", label: "Plusieurs fois par semaine", emoji: "🐎" },
   { value: "WEEKEND", label: "Le week-end", emoji: "☀️" },
   { value: "OCCASIONAL", label: "De temps en temps", emoji: "🌿" },
+];
+
+export const PREFERRED_TIMES: Option<PreferredTime>[] = [
+  { value: "MORNING", label: "Le matin", emoji: "🌅" },
+  { value: "LUNCH", label: "En journée / pause déjeuner", emoji: "🌤️" },
+  { value: "EVENING", label: "En fin de journée", emoji: "🌆" },
 ];
 
 export const DISCIPLINES: Option<Discipline>[] = [

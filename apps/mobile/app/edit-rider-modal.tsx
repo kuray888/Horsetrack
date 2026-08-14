@@ -4,9 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { PrimaryButton, SingleSelect } from "@/components/onboarding";
 import { Field } from "@/components/Field";
-import { DISCIPLINES, RIDER_GOALS, RIDER_LEVELS, RIDE_FREQUENCIES } from "@/onboarding/options";
+import { DISCIPLINES, PREFERRED_TIMES, RIDER_GOALS, RIDER_LEVELS, RIDE_FREQUENCIES } from "@/onboarding/options";
 import { useRiderProfile } from "@/rider/store";
-import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
+import type { Discipline, RiderGoal, RiderLevel, RideFrequency, PreferredTime } from "@/onboarding/store";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -15,14 +15,16 @@ export default function EditRiderModal() {
   const [level, setLevel] = useState<RiderLevel | null>(riderProfile.level);
   const [mainDiscipline, setMainDiscipline] = useState<Discipline | null>(riderProfile.mainDiscipline);
   const [rideFrequency, setRideFrequency] = useState<RideFrequency | null>(riderProfile.rideFrequency);
+  const [preferredTime, setPreferredTime] = useState<PreferredTime | null>(riderProfile.preferredTime);
   const [primaryGoal, setPrimaryGoal] = useState<RiderGoal | null>(riderProfile.primaryGoal);
   const [additionalInfo, setAdditionalInfo] = useState(riderProfile.additionalInfo);
 
-  const canSave = level !== null && mainDiscipline !== null && rideFrequency !== null && primaryGoal !== null;
+  const canSave =
+    level !== null && mainDiscipline !== null && rideFrequency !== null && preferredTime !== null && primaryGoal !== null;
 
   function submit() {
     if (!canSave) return;
-    setRiderProfile({ level, mainDiscipline, rideFrequency, primaryGoal, additionalInfo });
+    setRiderProfile({ level, mainDiscipline, rideFrequency, preferredTime, primaryGoal, additionalInfo });
     router.back();
   }
 
@@ -46,6 +48,10 @@ export default function EditRiderModal() {
 
         <Field label="Fréquence de monte">
           <SingleSelect options={RIDE_FREQUENCIES} value={rideFrequency} onChange={setRideFrequency} />
+        </Field>
+
+        <Field label="Créneau habituel">
+          <SingleSelect options={PREFERRED_TIMES} value={preferredTime} onChange={setPreferredTime} />
         </Field>
 
         <Field label="Objectif principal">

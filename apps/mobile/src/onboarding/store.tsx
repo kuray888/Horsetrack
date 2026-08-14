@@ -29,6 +29,11 @@ export type HorseFitnessLevel = "RESTING" | "REOPENING" | "GOOD" | "PEAK";
 export type HorseWorkload = "NONE" | "ONE_TO_TWO" | "THREE_TO_FOUR" | "FIVE_TO_SIX" | "DAILY";
 export type HorseRecoveryStatus = "RECOVERED" | "IN_PROGRESS" | "ONGOING";
 
+/** Créneau où le cavalier monte habituellement — pilote l'heure affichée sur
+ * les séances générées (cf. program/rules.ts), plutôt qu'un horaire figé
+ * identique pour tout le monde. */
+export type PreferredTime = "MORNING" | "LUNCH" | "EVENING";
+
 export type InjuryDraft = {
   /** id local le temps de l'onboarding, remplacé en base */
   localId: string;
@@ -67,6 +72,7 @@ export type RiderDraft = {
   level: RiderLevel | null;
   mainDiscipline: Discipline | null;
   rideFrequency: RideFrequency | null;
+  preferredTime: PreferredTime | null;
   primaryGoal: RiderGoal | null;
   /** Contexte libre donné par le cavalier (dernière question d'onboarding) —
    * destiné à nourrir la personnalisation du programme par le Coach IA. */
@@ -120,7 +126,14 @@ type OnboardingContextValue = OnboardingState & {
 };
 
 const initialState: OnboardingState = {
-  rider: { level: null, mainDiscipline: null, rideFrequency: null, primaryGoal: null, additionalInfo: "" },
+  rider: {
+    level: null,
+    mainDiscipline: null,
+    rideFrequency: null,
+    preferredTime: null,
+    primaryGoal: null,
+    additionalInfo: "",
+  },
   horses: [newHorse(true)],
   editingIndex: 0,
 };

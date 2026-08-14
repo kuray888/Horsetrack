@@ -48,6 +48,10 @@ export type SessionTemplate = {
    * ressenti, pas des prescriptions strictes (cf. program/rules.ts). */
   setupNotes: string[];
   exercises: ExerciseStep[];
+  /** Explication de Julien (l'IA) pour ce choix précis, tenant compte de
+   * l'historique réel du cheval — cf. /api/program-week. Absent sur une
+   * séance issue du repli déterministe local (véto, chaleur, concours). */
+  rationale?: string;
 };
 
 /** Durées réelles (en secondes) de chaque exercice une fois calées sur la
@@ -67,13 +71,19 @@ export function computeExerciseSeconds(exercises: ExerciseStep[], sessionDuratio
 
 export type ProgramWeek = {
   weekNumber: number;
-  phase: ProgramPhase;
+  /** Absent sur une semaine générée par le cursus continu IA (cf.
+   * /api/program-week) — ce découpage figé n'a plus de sens quand la
+   * progression est dérivée de l'historique réel plutôt que d'un cycle de
+   * 8 semaines. Jamais lu par l'UI (aucun écran n'affiche `week.phase`). */
+  phase?: ProgramPhase;
   sessions: SessionTemplate[];
 };
 
 export type GeneratedProgram = {
   title: string;
   theme: string;
+  /** Nombre de semaines déjà générées pour ce cheval — grandit au fil du
+   * temps (cursus continu), ce n'est plus un plafond fixe à 8. */
   totalWeeks: number;
   sessionsPerWeek: number;
   weeks: ProgramWeek[];
@@ -83,5 +93,13 @@ export type GeneratedProgram = {
   /** Restrictions appliquées et pourquoi (blessure, santé, repos...) — à
    * afficher au cavalier pour qu'il comprenne les choix du programme. */
   safetyNotes: string[];
+  /** Date de la toute première semaine générée pour ce cheval — fixée une
+   * fois pour toutes (jamais réinitialisée par une régénération : cette
+   * notion n'existe plus, cf. program/store.tsx). Sert de point zéro pour
+   * calculer la semaine courante (cf. getWeekDates). */
   generatedAt: string;
+  /** Combien de fois chaque type de séance a déjà été programmé pour ce
+   * cheval, toute son histoire confondue — transmis à /api/program-week pour
+   * que la rotation des variantes d'exercices ne reparte jamais de zéro. */
+  typeOccurrences: Record<string, number>;
 };

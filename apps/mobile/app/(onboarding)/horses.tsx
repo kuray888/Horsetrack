@@ -19,7 +19,7 @@ export default function Horses() {
 
   return (
     <OnboardingShell
-      step={9}
+      step={10}
       total={TOTAL_STEPS}
       title="Ton écurie"
       subtitle="Ajoute autant de chevaux que tu veux — c'est inclus, sans supplément."

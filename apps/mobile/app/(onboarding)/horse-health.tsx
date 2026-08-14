@@ -23,7 +23,7 @@ export default function HorseHealth() {
 
   return (
     <OnboardingShell
-      step={8}
+      step={9}
       total={TOTAL_STEPS}
       title={`Santé & antécédents de ${name}`}
       subtitle="Pour que le programme respecte ses limites physiques."

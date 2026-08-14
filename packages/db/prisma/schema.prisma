@@ -36,6 +36,7 @@ model RiderProfile {
   level          RiderLevel?
   mainDiscipline Discipline?
   rideFrequency  RideFrequency?
+  preferredTime  PreferredTime?
   primaryGoal    RiderGoal?
   /// Contexte libre donné par le cavalier en fin d'onboarding — destiné à
   /// nourrir la personnalisation du programme par le Coach IA.
@@ -325,6 +326,17 @@ enum RideFrequency {
   @@map("ride_frequency")
 }
 
+/// Créneau de la journée où le cavalier monte habituellement — pilote
+/// l'heure affichée sur les séances générées (cf. rules.ts), qui était
+/// jusque-là figée à 18h en semaine / 10h le week-end pour tout le monde.
+enum PreferredTime {
+  MORNING
+  LUNCH
+  EVENING
+
+  @@map("preferred_time")
+}
+
 enum Discipline {
   SHOW_JUMPING // CSO
   DRESSAGE
@@ -491,21 +503,40 @@ model Session {
   @@map("sessions")
 }
 
-/// Compteur de messages envoyés au Coach IA par jour — le Coach n'est pas
-/// derrière le paywall, ce compteur limite le coût d'API par utilisateur
-/// (cf. apps/api/.../coach/route.ts). Écrit uniquement par le backend
-/// (connexion DATABASE_URL qui bypass RLS), jamais par le client.
+/// Compteur d'appels LLM par jour, par fonctionnalité — protège le coût d'API
+/// par utilisateur pour chaque route qui appelle OpenRouter (cf.
+/// apps/api/.../coach/route.ts et .../program-insight/route.ts). Écrit
+/// uniquement par le backend (connexion DATABASE_URL qui bypass RLS), jamais
+/// par le client.
 model CoachUsage {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Jour UTC au format "YYYY-MM-DD" — plus simple qu'une plage DateTime pour un upsert par jour.
   date      String
+  /// Distingue le quota "coach" (chat IA) du quota "program_insight"
+  /// (éclairage IA sur le texte libre) — même mécanisme de plafond quotidien,
+  /// budgets comptés séparément pour ne pas faire consommer le quota chat par
+  /// une fonctionnalité totalement différente. Défaut "coach" pour ne pas
+  /// invalider les lignes déjà écrites par l'ancienne version à 2 colonnes.
+  feature   String   @default("coach")
   count     Int      @default(0)
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, date])
+  @@unique([userId, date, feature])
   @@map("coach_usage")
+}
+
+/// Trace les events RevenueCat déjà traités (clé = `event.id` du payload
+/// webhook) — évite qu'un retry du même event (RevenueCat redélivre si on ne
+/// répond pas 200, ex: timeout réseau côté nous) ne re-déclenche le switch de
+/// /api/revenuecat/webhook. Juste l'id : aucun autre champ n'a besoin d'être
+/// gardé, on ne fait que vérifier "déjà vu ou pas".
+model RevenueCatWebhookEvent {
+  id          String   @id
+  processedAt DateTime @default(now())
+
+  @@map("revenuecat_webhook_events")
 }
 
 /// Rappel email programmé pour un rendez-vous d'agenda — pas un miroir complet
@@ -528,17 +559,5 @@ model EmailReminder {
   @@index([userId])
   @@index([sendAt, sentAt])
   @@map("email_reminders")
-}
-
-/// Trace les events RevenueCat déjà traités (clé = `event.id` du payload
-/// webhook) — évite qu'un retry du même event (RevenueCat redélivre si on ne
-/// répond pas 200, ex: timeout réseau côté nous) ne re-déclenche le switch de
-/// /api/revenuecat/webhook. Juste l'id : aucun autre champ n'a besoin d'être
-/// gardé, on ne fait que vérifier "déjà vu ou pas".
-model RevenueCatWebhookEvent {
-  id          String   @id
-  processedAt DateTime @default(now())
-
-  @@map("revenuecat_webhook_events")
 }
 
