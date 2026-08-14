@@ -14,7 +14,7 @@ export default function HorseTemperament() {
 
   return (
     <OnboardingShell
-      step={7}
+      step={8}
       total={TOTAL_STEPS}
       title={`Le caractère de ${name}`}
       subtitle="Pour adapter le ton et le rythme du programme à sa personnalité."

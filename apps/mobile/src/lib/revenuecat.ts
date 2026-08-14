@@ -6,6 +6,7 @@ import type { BillingPeriod, SubscriptionTier } from "@/subscription/store";
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 type PurchasesStatic = typeof import("react-native-purchases").default;
+type IntroEligibilityStatus = typeof import("react-native-purchases").INTRO_ELIGIBILITY_STATUS;
 
 /** Palier payant — FREE n'a pas de produit RevenueCat associé. */
 export type PaidTier = Exclude<SubscriptionTier, "FREE">;
@@ -20,12 +21,17 @@ export type PaidTier = Exclude<SubscriptionTier, "FREE">;
  */
 const TEMP_DISABLE_REVENUECAT = false;
 
-// require() plutôt qu'un import statique : permet de ne jamais charger le
-// module quand TEMP_DISABLE_REVENUECAT est actif, sans dépendre du SDK.
-const Purchases: PurchasesStatic | null = TEMP_DISABLE_REVENUECAT
-  ? null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  : (require("react-native-purchases").default as PurchasesStatic);
+// require() (module entier, pas juste `.default`) plutôt qu'un import statique :
+// permet de ne jamais charger le module quand TEMP_DISABLE_REVENUECAT est actif,
+// et donne accès à la fois à la classe Purchases et aux enums (ex.
+// INTRO_ELIGIBILITY_STATUS, cf. isGrandPrixTrialEligible) sans un second
+// require().
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const purchasesModule = TEMP_DISABLE_REVENUECAT ? null : (require("react-native-purchases") as {
+  default: PurchasesStatic;
+  INTRO_ELIGIBILITY_STATUS: IntroEligibilityStatus;
+});
+const Purchases: PurchasesStatic | null = purchasesModule?.default ?? null;
 
 /**
  * Identifiants d'entitlement RevenueCat — doivent correspondre exactement aux
@@ -114,6 +120,51 @@ export async function getAddonPackage(period: BillingPeriod): Promise<PurchasesP
   const current = offerings.current;
   if (!current) return null;
   return current.availablePackages.find((p) => p.identifier === ADDON_PACKAGE_IDENTIFIER[period]) ?? null;
+}
+
+/**
+ * Vérifie si le compte courant peut réellement bénéficier de l'essai gratuit
+ * Grand Prix promis par le paywall (cf. PaywallView) — deux conditions
+ * distinctes, toutes deux nécessaires :
+ * 1. Le produit lui-même doit avoir une offre d'introduction configurée côté
+ *    store (`product.introPrice`) : si l'offre d'essai n'existe pas dans App
+ *    Store Connect / Play Console pour ce produit, personne ne l'aura jamais,
+ *    quel que soit le compte.
+ * 2. CE compte doit encore y être éligible : Apple n'accorde l'essai gratuit
+ *    qu'une fois par groupe d'abonnement et par compte (family sharing
+ *    compris) — un testeur sandbox réutilisé, ou un abonné qui revient après
+ *    résiliation, est facturé immédiatement sans qu'aucun bug ne soit en
+ *    cause côté app.
+ * `null` = indéterminé (RevenueCat pas encore configuré, offering introuvable,
+ * erreur réseau/store) : ne PAS l'interpréter comme une confirmation
+ * d'éligibilité — seul `true` en est une. `false` est en revanche une
+ * confirmation négative fiable (offre absente du produit, ou compte non
+ * éligible côté Apple) et doit systématiquement faire disparaître la promesse
+ * d'essai gratuit de l'UI, pour ne jamais facturer quelqu'un à qui l'app
+ * venait d'annoncer "7 jours gratuits".
+ */
+export async function isGrandPrixTrialEligible(period: BillingPeriod): Promise<boolean | null> {
+  if (!configured || !Purchases) return null;
+  try {
+    const pkg = await getPackageForTier("GRAND_PRIX", period);
+    if (!pkg || !pkg.product.introPrice) return false;
+
+    if (Platform.OS !== "ios") {
+      // Android (Play Billing) : la présence de `introPrice` est le seul
+      // signal disponible côté RevenueCat pour ce SDK — pas d'appel
+      // d'éligibilité par compte équivalent à iOS.
+      return true;
+    }
+
+    const statusEnum = purchasesModule?.INTRO_ELIGIBILITY_STATUS;
+    if (!statusEnum) return null;
+    const eligibility = await Purchases.checkTrialOrIntroductoryPriceEligibility([pkg.product.identifier]);
+    return eligibility[pkg.product.identifier]?.status === statusEnum.INTRO_ELIGIBILITY_STATUS_ELIGIBLE;
+  } catch {
+    // Best-effort : une erreur réseau/store ne doit pas faire planter le
+    // paywall — l'appelant traite `null` comme "ne pas promettre l'essai".
+    return null;
+  }
 }
 
 export { Purchases };

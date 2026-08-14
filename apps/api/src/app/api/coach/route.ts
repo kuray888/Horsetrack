@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { isGrandPrixRider } from "@/lib/subscription";
+import { reserveDailyUsage } from "@/lib/usageLimit";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-4-6";
@@ -148,31 +149,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Le Coach IA est réservé au pack Grand Prix." }, { status: 403 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Incrémente d'abord, vérifie ensuite : un read-then-write (lire le compteur,
-  // comparer, puis écrire seulement après l'appel LLM) laisse une fenêtre de
-  // course où deux requêtes concurrentes lisent le même compteur avant
-  // incrément et passent toutes les deux la limite. L'incrément Prisma se
-  // traduit en `UPDATE ... SET count = count + 1`, atomique côté Postgres, donc
-  // plus de fenêtre de course. En contrepartie, on décrémente explicitement
-  // dans toutes les branches d'échec ci-dessous pour ne jamais facturer un
-  // message qui n'a pas obtenu de réponse exploitable.
-  const usage = await db.coachUsage.upsert({
-    where: { userId_date: { userId, date: today } },
-    update: { count: { increment: 1 } },
-    create: { userId, date: today, count: 1 },
-  });
-
-  const releaseUsage = () =>
-    db.coachUsage
-      .update({ where: { userId_date: { userId, date: today } }, data: { count: { decrement: 1 } } })
-      .catch(() => {});
-
-  if (usage.count > DAILY_MESSAGE_LIMIT_GRAND_PRIX) {
-    await releaseUsage();
+  const reservation = await reserveDailyUsage(userId, "coach", DAILY_MESSAGE_LIMIT_GRAND_PRIX);
+  if (!reservation.allowed) {
     return NextResponse.json({ error: "Limite quotidienne de messages atteinte. Réessaie demain." }, { status: 429 });
   }
+  const releaseUsage = reservation.release;
 
   try {
     const response = await anthropic.messages.create({

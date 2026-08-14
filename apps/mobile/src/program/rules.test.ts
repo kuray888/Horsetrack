@@ -8,6 +8,7 @@ function makeRider(overrides: Partial<RiderProfile> = {}): RiderProfile {
     level: "AMATEUR",
     mainDiscipline: "SHOW_JUMPING",
     rideFrequency: "DAILY",
+    preferredTime: null,
     primaryGoal: null,
     additionalInfo: "",
     ...overrides,

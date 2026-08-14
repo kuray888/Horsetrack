@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Animated, View, Text, TouchableOpacity, ScrollView, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/onboarding";
 import { usePressScale } from "@/hooks/usePressScale";
 import type { BillingPeriod } from "@/subscription/store";
-import type { PaidTier } from "@/lib/revenuecat";
+import { isGrandPrixTrialEligible, type PaidTier } from "@/lib/revenuecat";
 
 const PERIODS: { id: BillingPeriod; label: string }[] = [
   { id: "ANNUAL", label: "Annuel" },
@@ -149,6 +149,32 @@ export function PaywallView({
   // Non-null : `selected` ne prend que des valeurs présentes dans TIERS.
   const selectedTier = TIERS.find((t) => t.id === selected)!;
 
+  // Optimiste (true) tant que la vérification n'a pas répondu : le cas normal
+  // (premier abonnement) reste éligible, donc pas de flash de copy "sans
+  // essai" à chaque ouverture du paywall. Ne bascule à false que si le
+  // check confirme qu'AUCUN essai ne sera accordé (offre non configurée côté
+  // store, ou compte qui a déjà consommé son essai Grand Prix) — sans quoi
+  // le bouton "Commencer mes 7 jours gratuits" mentirait juste avant qu'Apple
+  // facture immédiatement (cf. mémoire projet "essai gratuit Grand Prix").
+  const [grandPrixTrialEligible, setGrandPrixTrialEligible] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Optimiste par défaut à chaque changement de période (cf. commentaire
+    // ci-dessus) : un `false` confirmé pour ANNUAL ne doit pas rester collé
+    // si le cavalier bascule ensuite sur MONTHLY, qui peut avoir sa propre
+    // éligibilité.
+    setGrandPrixTrialEligible(true);
+    isGrandPrixTrialEligible(period).then((eligible) => {
+      if (!cancelled && eligible === false) setGrandPrixTrialEligible(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [period]);
+
+  const showTrialCopy = selected === "GRAND_PRIX" && grandPrixTrialEligible;
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       {onClose ? (
@@ -196,7 +222,7 @@ export function PaywallView({
           label={
             submitting
               ? "Un instant…"
-              : selected === "GRAND_PRIX"
+              : showTrialCopy
                 ? "Commencer mes 7 jours gratuits"
                 : `Choisir ${selectedTier.title}`
           }
@@ -204,7 +230,7 @@ export function PaywallView({
           onPress={() => onSubscribe(selected, period)}
         />
         <Text className="text-center text-xs leading-4 text-muted">
-          {selected === "GRAND_PRIX"
+          {showTrialCopy
             ? `Essai gratuit de 7 jours, puis ${selectedTier.price[period]}.`
             : `${selectedTier.price[period]}.`}{" "}
           Renouvellement automatique, résiliable à tout moment dans les réglages.

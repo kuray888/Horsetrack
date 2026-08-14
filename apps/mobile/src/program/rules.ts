@@ -7,6 +7,7 @@ import type {
   RideFrequency,
   RiderGoal,
   RiderLevel,
+  PreferredTime,
 } from "@/onboarding/store";
 import type { Horse, Injury } from "@/horses/store";
 import type { RiderProfile } from "@/rider/store";
@@ -990,7 +991,7 @@ const TEMPERAMENT_NOTES: Record<string, string> = {
   Têtu: "Tempérament têtu : varier les approches évite les blocages et la lassitude.",
 };
 
-function computeSessionsPerWeek(rider: RiderProfile, horse: Horse): { count: number; notes: string[] } {
+export function computeSessionsPerWeek(rider: RiderProfile, horse: Horse): { count: number; notes: string[] } {
   const notes: string[] = [];
   const riderWish = rider.rideFrequency ? RIDER_FREQUENCY_SESSIONS[rider.rideFrequency] : 3;
   const horseCap = horse.workload ? WORKLOAD_CAP[horse.workload] : 4;
@@ -1231,13 +1232,13 @@ export function sessionLoad(type: SessionType): number {
 /** Jours samedi/dimanche (dayOffset : 0 = lundi) — seule la fréquence "Le
  * week-end" contraint des jours précis ; les autres fréquences n'imposent
  * qu'un nombre de séances et restent libres sur toute la semaine. */
-const WEEKEND_DAYS = [5, 6];
+export const WEEKEND_DAYS = [5, 6];
 
 /** Répartit `count` séances le plus régulièrement possible sur les jours
  * disponibles — toute la semaine par défaut, ou seulement `allowedDays` si
  * fourni (cf. WEEKEND_DAYS : un cavalier qui ne monte "que le week-end" ne
  * doit jamais se voir caler une séance un lundi ou un vendredi). */
-function spreadDays(count: number, allowedDays?: number[]): number[] {
+export function spreadDays(count: number, allowedDays?: number[]): number[] {
   const pool = allowedDays && allowedDays.length > 0 ? allowedDays : [0, 1, 2, 3, 4, 5, 6];
   const n = Math.min(pool.length, Math.max(1, count));
   const days = new Set<number>();
@@ -1474,6 +1475,23 @@ function programTheme(rider: RiderProfile): string {
   return rider.primaryGoal ? GOAL_THEME[rider.primaryGoal] : "Progresser ensemble, à votre rythme.";
 }
 
+/** Heure affichée sur une séance, selon le créneau déclaré par le cavalier
+ * (cf. onboarding "À quel moment montes-tu ?") plutôt qu'un horaire unique
+ * imposé à tout le monde. */
+const PREFERRED_TIME_HOUR: Record<PreferredTime, string> = {
+  MORNING: "09h00",
+  LUNCH: "12h30",
+  EVENING: "18h00",
+};
+
+/** `preferredTime` manquant (comptes créés avant l'ajout de ce champ, ou pas
+ * encore renseigné) : reprend l'ancien comportement par défaut — 18h en
+ * semaine, 10h le week-end — plutôt qu'un horaire arbitraire non représentatif. */
+export function sessionTime(dayOffset: number, preferredTime: PreferredTime | null): string {
+  if (preferredTime) return PREFERRED_TIME_HOUR[preferredTime];
+  return dayOffset >= 5 ? "10h00" : "18h00";
+}
+
 export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedProgram {
   const safetyNotes: string[] = [];
 
@@ -1517,7 +1535,7 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
       typeOccurrence.set(type, occurrence + 1);
       return {
         dayOffset,
-        time: dayOffset >= 5 ? "10h00" : "18h00",
+        time: sessionTime(dayOffset, rider.preferredTime),
         type,
         title: meta.title,
         durationMin,
@@ -1541,5 +1559,10 @@ export function generateProgram(rider: RiderProfile, horse: Horse): GeneratedPro
     personalizationNotes: buildPersonalizationNotes(rider, horse),
     safetyNotes,
     generatedAt: new Date().toISOString(),
+    // Cursus continu (cf. /api/program-week, program/CurriculumEngine.tsx) :
+    // cette fonction n'est plus appelée pour générer le programme réel — la
+    // rotation des variantes d'exercices reste locale à CET appel (le
+    // `typeOccurrence` interne à la boucle ci-dessus, jamais persisté).
+    typeOccurrences: {},
   };
 }

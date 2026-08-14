@@ -29,6 +29,7 @@ import { WeatherProvider } from "@/weather/store";
 import { ProgramProvider } from "@/program/store";
 import { AgendaProvider } from "@/agenda/store";
 import { GoalsProvider } from "@/goals/store";
+import { CurriculumEngine } from "@/program/CurriculumEngine";
 import { BadgeCelebration } from "@/components/BadgeCelebration";
 import { BiometricGate } from "@/components/BiometricGate";
 import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener";
@@ -51,6 +52,7 @@ export default function RootLayout() {
                 <ProgramProvider>
                   <ProgressProvider>
                     <GoalsProvider>
+                      <CurriculumEngine />
                       <Stack screenOptions={{ headerShown: false }}>
                         <Stack.Screen name="index" />
                         <Stack.Screen name="(auth)" />
