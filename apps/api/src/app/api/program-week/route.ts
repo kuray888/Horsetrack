@@ -190,7 +190,10 @@ export async function POST(req: NextRequest) {
     riderProfile?.subscriptionTier === SubscriptionTier.GRAND_PRIX &&
     (riderProfile.subscriptionStatus === SubscriptionStatus.ACTIVE ||
       (riderProfile.subscriptionStatus === SubscriptionStatus.TRIALING &&
-        (!riderProfile.trialEndsAt || riderProfile.trialEndsAt.getTime() > Date.now())));
+        // trialEndsAt manquant = essai non confirmé par RevenueCat : refuser,
+        // jamais accorder l'accès par défaut (cf. audit sécurité).
+        riderProfile.trialEndsAt !== null &&
+        riderProfile.trialEndsAt.getTime() > Date.now()));
   if (!isGrandPrix) {
     return NextResponse.json({ error: "Le programme personnalisé est réservé au pack Grand Prix." }, { status: 403 });
   }

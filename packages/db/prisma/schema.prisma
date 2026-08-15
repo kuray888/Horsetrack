@@ -43,17 +43,26 @@ model RiderProfile {
   additionalInfo String?
 
   // Entitlement abonnement (source de vérité côté store = RevenueCat)
-  /// Défaut généreux tant que RevenueCat n'a jamais écrit de vraie valeur via
-  /// le webhook (pas encore configuré) — même logique que l'ancien défaut
-  /// TRIALING : ne pas bloquer les comptes de test existants avant le go-live.
-  subscriptionTier   SubscriptionTier   @default(GRAND_PRIX)
-  subscriptionStatus SubscriptionStatus @default(TRIALING)
+  /// Défaut non-entitlant tant que RevenueCat n'a pas écrit de vraie valeur
+  /// via le webhook. L'ancien défaut GRAND_PRIX/TRIALING donnait un accès
+  /// payant illimité et gratuit à tout nouveau compte (cf. audit sécurité) :
+  /// combiné à l'absence de trialEndsAt à la création, la vérification
+  /// "trialing" côté API/app le laissait passer indéfiniment.
+  subscriptionTier   SubscriptionTier   @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(EXPIRED)
   billingPeriod      BillingPeriod?
   trialEndsAt        DateTime?
   revenuecatId       String?            @unique
   /// Add-on "cheval supplémentaire" acheté à la carte — vient en plus du
   /// quota de chevaux du palier (cf. HORSE_LIMITS côté mobile).
   extraHorseSlots    Int                @default(0)
+  /// Horodatage (event_timestamp_ms RevenueCat) du dernier événement webhook
+  /// appliqué à ce profil — sert de garde anti-réordonnancement : un retry
+  /// tardif d'un événement plus ancien que celui déjà appliqué (livraison
+  /// "at-least-once" non garantie dans l'ordre) ne doit jamais écraser un
+  /// état plus récent (ex. CANCELLATION retardé qui écraserait un RENEWAL
+  /// déjà traité). Cf. RevenueCatWebhookEvent pour la dédup à l'identique.
+  lastWebhookEventAt DateTime?
 
   onboardingCompletedAt DateTime?
   createdAt             DateTime  @default(now())

@@ -10,7 +10,11 @@ export function isGrandPrixRider(
   if (rider.subscriptionTier !== SubscriptionTier.GRAND_PRIX) return false;
   if (rider.subscriptionStatus === SubscriptionStatus.ACTIVE) return true;
   if (rider.subscriptionStatus === SubscriptionStatus.TRIALING) {
-    return !rider.trialEndsAt || rider.trialEndsAt.getTime() > Date.now();
+    // trialEndsAt manquant = essai non confirmé par RevenueCat : refuser,
+    // jamais accorder l'accès par défaut (cf. audit sécurité — combiné au
+    // défaut GRAND_PRIX/TRIALING de rider_profiles, ce fail-open donnait un
+    // accès Grand Prix illimité et gratuit à tout nouveau compte).
+    return rider.trialEndsAt !== null && rider.trialEndsAt.getTime() > Date.now();
   }
   return false;
 }

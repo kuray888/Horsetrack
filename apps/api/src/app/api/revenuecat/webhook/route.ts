@@ -19,6 +19,7 @@ const eventSchema = z.object({
   id: z.string().optional(),
   type: z.string().optional(),
   app_user_id: z.string().optional(),
+  event_timestamp_ms: z.number().optional(),
   entitlement_ids: z.array(z.string()).optional(),
   period_type: z.enum(["TRIAL", "INTRO", "NORMAL"]).optional(),
   product_id: z.string().optional(),
@@ -53,6 +54,13 @@ function billingPeriodFromProductId(productId: string | undefined): "MONTHLY" | 
  * séparés et proches, il n'y a pas de réconciliation fine entre eux au-delà
  * de ce que chaque événement porte individuellement — acceptable, zéro
  * abonné réel à ce jour.
+ *
+ * Idempotence et ordre : RevenueCat garantit une livraison "at-least-once",
+ * sans garantie d'ordre. `RevenueCatWebhookEvent` déduplique par `event.id`
+ * (le même événement rejoué deux fois ne s'applique qu'une fois) ;
+ * `rider_profiles.lastWebhookEventAt` empêche en plus un événement plus
+ * ancien (retry tardif, ex. une CANCELLATION livrée en retard) d'écraser un
+ * état déjà mis à jour par un événement plus récent (ex. un RENEWAL).
  */
 export async function POST(req: NextRequest) {
   const expected = process.env.REVENUECAT_WEBHOOK_SECRET;
@@ -101,6 +109,18 @@ export async function POST(req: NextRequest) {
     : hasPaddock
       ? SubscriptionTier.PADDOCK
       : null;
+  // Anti-réordonnancement (cf. audit sécurité) : RevenueCat garantit une
+  // livraison "at-least-once" mais pas l'ordre — sans cette garde, un retry
+  // tardif d'un événement périmé (ex. une CANCELLATION livrée en retard)
+  // pourrait écraser un état déjà mis à jour par un événement plus récent
+  // (ex. un RENEWAL). Sans event_timestamp_ms (absent du payload), on ne
+  // peut pas garantir l'ordre, donc on applique quand même (comportement
+  // inchangé) — le dedup par event.id ci-dessus reste la protection contre
+  // le rejeu exact du même événement.
+  const eventTimestamp = event.event_timestamp_ms ? new Date(event.event_timestamp_ms) : null;
+  const orderingWhere = eventTimestamp
+    ? { OR: [{ lastWebhookEventAt: null }, { lastWebhookEventAt: { lt: eventTimestamp } }] }
+    : {};
 
   switch (event.type) {
     case "INITIAL_PURCHASE":
@@ -119,21 +139,27 @@ export async function POST(req: NextRequest) {
         : {};
       const addonFields = hasExtraHorse ? { extraHorseSlots: 1 } : {};
       await db.riderProfile.updateMany({
-        where: { userId },
-        data: { revenuecatId: userId, ...tierFields, ...addonFields },
+        where: { userId, ...orderingWhere },
+        data: { revenuecatId: userId, ...tierFields, ...addonFields, lastWebhookEventAt: eventTimestamp ?? undefined },
       });
       break;
     }
     case "CANCELLATION": {
       const tierFields = tier ? { subscriptionStatus: SubscriptionStatus.CANCELLED } : {};
       const addonFields = hasExtraHorse ? { extraHorseSlots: 0 } : {};
-      await db.riderProfile.updateMany({ where: { userId }, data: { ...tierFields, ...addonFields } });
+      await db.riderProfile.updateMany({
+        where: { userId, ...orderingWhere },
+        data: { ...tierFields, ...addonFields, lastWebhookEventAt: eventTimestamp ?? undefined },
+      });
       break;
     }
     case "EXPIRATION": {
       const tierFields = tier ? { subscriptionStatus: SubscriptionStatus.EXPIRED } : {};
       const addonFields = hasExtraHorse ? { extraHorseSlots: 0 } : {};
-      await db.riderProfile.updateMany({ where: { userId }, data: { ...tierFields, ...addonFields } });
+      await db.riderProfile.updateMany({
+        where: { userId, ...orderingWhere },
+        data: { ...tierFields, ...addonFields, lastWebhookEventAt: eventTimestamp ?? undefined },
+      });
       break;
     }
     default:

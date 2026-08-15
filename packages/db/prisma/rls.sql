@@ -61,6 +61,12 @@ create trigger on_auth_user_created
 -- owns_horse contournent RLS pour leur propre lecture interne, cassant la
 -- boucle — exactement le même besoin que handle_new_user() ci-dessus, donc
 -- même mitigation (search_path figé pour ne pas être détourné).
+--
+-- IMPORTANT (cf. audit sécurité) : dans toutes les fonctions ci-dessous, un
+-- `trialEndsAt` absent (NULL) doit toujours REFUSER l'accès/le quota payant,
+-- jamais l'accorder par défaut — un essai TRIALING sans date de fin n'est pas
+-- un essai confirmé par RevenueCat. C'est la même logique de fail-closed que
+-- `isActiveOrTrialing` côté mobile et `isGrandPrixRider` côté API.
 create or replace function public.owns_rider_profile(_rider_profile_id text)
 returns boolean
 language sql
@@ -135,7 +141,7 @@ as $$
       select
         case
           when rp."subscriptionStatus" = 'ACTIVE'
-            or (rp."subscriptionStatus" = 'TRIALING' and (rp."trialEndsAt" is null or rp."trialEndsAt" > now()))
+            or (rp."subscriptionStatus" = 'TRIALING' and (rp."trialEndsAt" is not null and rp."trialEndsAt" > now()))
           then
             case rp."subscriptionTier"
               when 'GRAND_PRIX' then 3
@@ -170,7 +176,7 @@ as $$
       select rp."subscriptionTier" in ('PADDOCK', 'GRAND_PRIX')
         and (
           rp."subscriptionStatus" = 'ACTIVE'
-          or (rp."subscriptionStatus" = 'TRIALING' and (rp."trialEndsAt" is null or rp."trialEndsAt" > now()))
+          or (rp."subscriptionStatus" = 'TRIALING' and (rp."trialEndsAt" is not null and rp."trialEndsAt" > now()))
         )
       from public.horses h
       join public.rider_profiles rp on rp.id = h."ownerId"
@@ -178,6 +184,89 @@ as $$
     ),
     false
   );
+$$;
+
+-- Protection des champs d'entitlement de rider_profiles (cf. audit sécurité)
+-- ---------------------------------------------------------------------------
+-- `rider_profiles_all_own` (policy "for all" ci-dessous) ne restreint que la
+-- PROPRIÉTÉ de la ligne, pas les colonnes modifiables : sans ce trigger, un
+-- utilisateur authentifié peut s'auto-attribuer subscriptionTier=GRAND_PRIX/
+-- subscriptionStatus=ACTIVE/extraHorseSlots=999 via un simple update Supabase
+-- direct, en contournant totalement RevenueCat. Ces colonnes ne doivent être
+-- écrites QUE par le backend (webhook RevenueCat, connexion DATABASE_URL qui
+-- ne passe jamais par auth.uid()) — même distinction que coach_usage/
+-- email_reminders, mais ici via trigger plutôt que "pas de policy d'écriture"
+-- car les colonnes protégées cohabitent dans la même ligne que des colonnes
+-- librement éditables par le client (level, mainDiscipline...).
+create or replace function public.protect_rider_profile_entitlements()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- auth.uid() n'est non-null que pour une requête passée par l'API Supabase
+  -- (rôle authenticated, gouverné par RLS) — jamais pour la connexion directe
+  -- DATABASE_URL/Prisma du backend, seule habilitée à modifier ces champs.
+  if auth.uid() is not null then
+    if tg_op = 'UPDATE' then
+      new."subscriptionTier" := old."subscriptionTier";
+      new."subscriptionStatus" := old."subscriptionStatus";
+      new."trialEndsAt" := old."trialEndsAt";
+      new."extraHorseSlots" := old."extraHorseSlots";
+      new."revenuecatId" := old."revenuecatId";
+      new."lastWebhookEventAt" := old."lastWebhookEventAt";
+    elsif tg_op = 'INSERT' then
+      new."subscriptionTier" := 'FREE';
+      new."subscriptionStatus" := 'EXPIRED';
+      new."trialEndsAt" := null;
+      new."extraHorseSlots" := 0;
+      new."revenuecatId" := null;
+      new."lastWebhookEventAt" := null;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+-- Verrouillage des quotas chevaux/partage contre les inserts concurrents
+-- (cf. audit sécurité) --------------------------------------------------
+-- Les policies horses_insert_own / horse_collaborators_owner_insert vérifient
+-- déjà le quota via un `count(*) < limite` dans leur WITH CHECK, mais deux
+-- inserts simultanés (2 requêtes quasi simultanées sur le même compte)
+-- peuvent chacun lire le compte AVANT que l'autre ne commite et dépasser la
+-- limite (TOCTOU classique des contraintes basées sur une sous-requête). Le
+-- verrou advisory (portée transaction, keyé sur le propriétaire/cheval)
+-- sérialise ces inserts sans verrouiller toute la table ; la policy RLS reste
+-- en place en défense en profondeur.
+create or replace function public.enforce_horse_quota()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended('horses_quota:' || new."ownerId", 0));
+  if (select count(*) from public.horses h2 where h2."ownerId" = new."ownerId") >= public.effective_horse_limit(new."ownerId") then
+    raise exception 'horse quota exceeded for rider profile %', new."ownerId";
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.enforce_horse_collaborator_quota()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended('horse_collaborators_quota:' || new."horseId", 0));
+  if (select count(*) from public.horse_collaborators hc2 where hc2."horseId" = new."horseId") >= 1 then
+    raise exception 'horse % already has a collaborator', new."horseId";
+  end if;
+  return new;
+end;
 $$;
 
 -- 3. Activer RLS sur toutes les tables --------------------------------------
@@ -197,6 +286,7 @@ alter table public.journal_entries enable row level security;
 alter table public.horse_collaborators enable row level security;
 alter table public.horse_progress     enable row level security;
 alter table public.horse_programs     enable row level security;
+alter table public.revenuecat_webhook_events enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
 
@@ -215,6 +305,13 @@ create policy "users_update_own" on public.users
 drop policy if exists "rider_profiles_all_own" on public.rider_profiles;
 create policy "rider_profiles_all_own" on public.rider_profiles
   for all using ("userId" = auth.uid()::text) with check ("userId" = auth.uid()::text);
+
+-- Voir protect_rider_profile_entitlements ci-dessus : la policy "for all"
+-- au-dessus ne protège que la ligne, pas les colonnes d'entitlement.
+drop trigger if exists protect_rider_profile_entitlements on public.rider_profiles;
+create trigger protect_rider_profile_entitlements
+  before insert or update on public.rider_profiles
+  for each row execute function public.protect_rider_profile_entitlements();
 
 -- horses : CRUD via le rider_profile parent — 4 policies granulaires plutôt
 -- qu'une seule "for all" : seul l'INSERT doit vérifier le quota de chevaux du
@@ -243,6 +340,13 @@ create policy "horses_insert_own" on public.horses
     public.owns_rider_profile("ownerId")
     and (select count(*) from public.horses h2 where h2."ownerId" = "ownerId") < public.effective_horse_limit("ownerId")
   );
+
+-- Voir enforce_horse_quota ci-dessus : ferme la course entre inserts
+-- concurrents que le WITH CHECK seul ne peut pas empêcher.
+drop trigger if exists enforce_horse_quota on public.horses;
+create trigger enforce_horse_quota
+  before insert on public.horses
+  for each row execute function public.enforce_horse_quota();
 
 -- horse_traits : via le cheval parent
 drop policy if exists "horse_traits_all_own" on public.horse_traits;
@@ -341,6 +445,13 @@ create policy "horse_collaborators_owner_insert" on public.horse_collaborators
     and (select count(*) from public.horse_collaborators hc2 where hc2."horseId" = "horseId") < 1
   );
 
+-- Voir enforce_horse_collaborator_quota ci-dessus : même fermeture de race
+-- condition que enforce_horse_quota, pour la limite d'1 collaborateur/cheval.
+drop trigger if exists enforce_horse_collaborator_quota on public.horse_collaborators;
+create trigger enforce_horse_collaborator_quota
+  before insert on public.horse_collaborators
+  for each row execute function public.enforce_horse_collaborator_quota();
+
 drop policy if exists "horse_collaborators_invitee_select" on public.horse_collaborators;
 create policy "horse_collaborators_invitee_select" on public.horse_collaborators
   for select using (lower("invitedEmail") = lower(auth.jwt() ->> 'email'));
@@ -391,3 +502,9 @@ create policy "documents_storage_all_own" on storage.objects
 -- RLS activée sans aucune policy = personne ne peut y toucher via
 -- supabase-js (le rôle service/Prisma bypass RLS de toute façon).
 -- Candidate à la suppression du schéma si elle reste inutilisée.
+
+-- revenuecat_webhook_events : dédup du webhook RevenueCat (cf. route.ts) —
+-- écrite exclusivement par le backend (DATABASE_URL, bypass RLS), jamais
+-- lue ni écrite par un client. RLS activée sans aucune policy = même
+-- pattern que `sessions` ci-dessus : personne ne peut y toucher via
+-- supabase-js.
