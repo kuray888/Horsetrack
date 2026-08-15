@@ -170,12 +170,13 @@ export async function POST(req: NextRequest) {
 
     const block = response.content[0];
 
-    // Une réponse sans contenu exploitable ne doit pas consommer le quota
-    // quotidien de l'utilisateur pour un message auquel il n'a en pratique
-    // pas eu de réponse.
+    // Pas de releaseUsage() ici (cf. audit sécurité, "frais cachés") : la
+    // réponse a été reçue et donc DÉJÀ FACTURÉE par Anthropic, même si son
+    // contenu n'est pas exploitable — rembourser ce cas laisserait des
+    // appels réellement payés hors du plafond quotidien. Seuls les échecs
+    // AVANT génération (catch ci-dessous) sont remboursables.
     if (!block || block.type !== "text" || !block.text) {
       console.error("[coach] réponse Anthropic sans contenu exploitable", JSON.stringify(response));
-      await releaseUsage();
       return NextResponse.json({ error: "Le coach est indisponible pour l'instant." }, { status: 502 });
     }
 

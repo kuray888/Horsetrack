@@ -12,9 +12,12 @@ import { db } from "@cheval/db";
  * avant incrément et passent toutes les deux la limite. L'incrément Prisma se
  * traduit en `UPDATE ... SET count = count + 1`, atomique côté Postgres, donc
  * plus de fenêtre de course. En contrepartie, l'appelant DOIT appeler
- * `release()` dans toutes ses branches d'échec (réponse LLM non exploitable,
- * erreur réseau...) pour ne jamais facturer une requête qui n'a abouti à
- * rien.
+ * `release()`, mais UNIQUEMENT dans les branches d'échec AVANT génération
+ * (erreur réseau, timeout, rate-limit du provider...) où rien n'a été
+ * facturé. Une réponse reçue mais inexploitable (contenu vide, JSON
+ * invalide...) a déjà été facturée par le provider — ne JAMAIS appeler
+ * `release()` dans ce cas, sous peine de laisser des appels réellement payés
+ * hors du plafond quotidien (cf. audit sécurité, "frais cachés").
  */
 export async function reserveDailyUsage(
   userId: string,

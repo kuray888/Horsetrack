@@ -216,6 +216,12 @@ export async function POST(req: NextRequest) {
   }
 
   let aiSessions: z.infer<typeof aiResponseSchema>["sessions"] | null = null;
+  // Distingue un échec AVANT génération (rien facturé, remboursable) d'une
+  // réponse reçue mais inexploitable (JSON invalide, validation échouée...) :
+  // dans ce second cas Anthropic a DÉJÀ FACTURÉ la génération, rembourser
+  // laisserait un appel réellement payé hors du plafond quotidien (cf. audit
+  // sécurité, "frais cachés").
+  let requestSucceeded = false;
   try {
     const response = await anthropic.messages.create({
       model: MODEL,
@@ -223,6 +229,7 @@ export async function POST(req: NextRequest) {
       system: buildSystemPrompt(input, restrictions, allowedTypes),
       messages: [{ role: "user", content: "Génère la semaine." }],
     });
+    requestSucceeded = true;
 
     const block = response.content[0];
     if (block?.type === "text" && block.text) {
@@ -234,7 +241,7 @@ export async function POST(req: NextRequest) {
     // Best-effort : géré ci-dessous par le repli déterministe.
   }
 
-  if (!aiSessions) await reservation.release();
+  if (!aiSessions && !requestSucceeded) await reservation.release();
 
   // Une session par jour demandé — si l'IA en a oublié/dupliqué, on complète
   // avec le repli déterministe plutôt que de renvoyer une semaine incomplète.

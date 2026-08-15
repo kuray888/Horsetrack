@@ -165,7 +165,9 @@ export async function POST(req: NextRequest) {
     const block = response.content[0];
     const content = block?.type === "text" ? block.text.trim() : undefined;
 
-    if (!content) await reservation.release();
+    // Pas de reservation.release() ici (cf. audit sécurité, "frais cachés") :
+    // la réponse a été reçue et donc DÉJÀ FACTURÉE par Anthropic, même si
+    // son contenu est vide/inexploitable — cf. coach/route.ts, même logique.
     return NextResponse.json(content ? parseInsightResponse(content) : { note: null, bonusExercise: null });
   } catch {
     await reservation.release();
