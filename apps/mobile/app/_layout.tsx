@@ -22,15 +22,12 @@ if (typeof ErrorUtils !== "undefined") {
   });
 }
 import { SubscriptionProvider } from "@/subscription/store";
-import { ProgressProvider } from "@/progress/store";
 import { HorsesProvider } from "@/horses/store";
 import { RiderProfileProvider } from "@/rider/store";
 import { WeatherProvider } from "@/weather/store";
-import { ProgramProvider } from "@/program/store";
+import { SessionsProvider } from "@/sessions/store";
 import { AgendaProvider } from "@/agenda/store";
 import { GoalsProvider } from "@/goals/store";
-import { CurriculumEngine } from "@/program/CurriculumEngine";
-import { BadgeCelebration } from "@/components/BadgeCelebration";
 import { BiometricGate } from "@/components/BiometricGate";
 import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener";
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
@@ -44,40 +41,28 @@ export default function RootLayout() {
         <RiderProfileProvider>
           <HorsesProvider>
             <WeatherProvider>
-              {/* AgendaProvider doit englober ProgramProvider : le moteur de
-                  programme lit les rendez-vous (repos auto après un rendez-vous
-                  vétérinaire) et la météo (allègement en cas de forte chaleur),
-                  cf. program/store.tsx. */}
               <AgendaProvider>
-                <ProgramProvider>
-                  <ProgressProvider>
-                    <GoalsProvider>
-                      <CurriculumEngine />
-                      <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="index" />
-                        <Stack.Screen name="(auth)" />
-                        <Stack.Screen name="(onboarding)" />
-                        <Stack.Screen name="(tabs)" />
-                        <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="coach-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="share-horse-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="invites-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="session-detail-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="session-active-modal" options={{ presentation: "fullScreenModal" }} />
-                        <Stack.Screen name="bilan-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
-                        <Stack.Screen name="reset-password" />
-                      </Stack>
-                      <BadgeCelebration />
-                      <PasswordRecoveryListener />
-                      <BiometricGate />
-                    </GoalsProvider>
-                  </ProgressProvider>
-                </ProgramProvider>
+                <SessionsProvider>
+                  <GoalsProvider>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="index" />
+                      <Stack.Screen name="(auth)" />
+                      <Stack.Screen name="(onboarding)" />
+                      <Stack.Screen name="(tabs)" />
+                      <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="share-horse-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="invites-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="reset-password" />
+                    </Stack>
+                    <PasswordRecoveryListener />
+                    <BiometricGate />
+                  </GoalsProvider>
+                </SessionsProvider>
               </AgendaProvider>
             </WeatherProvider>
           </HorsesProvider>

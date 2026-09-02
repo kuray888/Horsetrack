@@ -14,15 +14,13 @@ import {
   pullDocuments,
   pullAppointments,
   pullJournalEntries,
-  pullAllHorseProgress,
-  pullAllHorsePrograms,
+  pullTrainingSessions,
 } from "@/lib/cloudSync";
 import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
-import { useProgress } from "@/progress/store";
-import { useProgram } from "@/program/store";
+import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals, pullAllGoals } from "@/goals/store";
 import { useSubscription } from "@/subscription/store";
@@ -36,8 +34,7 @@ export default function LoginScreen() {
   const appleAvailable = useAppleSignInAvailable();
   const { clearAll: clearHorses, hydrateFromCloud } = useHorses();
   const { clearAll: clearRiderProfile, setRiderProfile } = useRiderProfile();
-  const { clearAll: clearProgress, hydrateFromCloud: hydrateProgressFromCloud } = useProgress();
-  const { clearAll: clearProgram, hydrateFromCloud: hydrateProgramFromCloud } = useProgram();
+  const { clearAll: clearSessions, hydrateFromCloud: hydrateSessionsFromCloud } = useSessions();
   const { clearAll: clearAgenda, hydrateDocumentsFromCloud, hydrateAppointmentsFromCloud, hydrateJournalFromCloud } =
     useAgenda();
   const { clearAll: clearGoals, hydrateFromCloud: hydrateGoalsFromCloud } = useGoals();
@@ -71,7 +68,7 @@ export default function LoginScreen() {
     // L'abonnement (RevenueCat, pas encore branché) n'est pas sauvegardé dans
     // le cloud — si cet appareil a servi à un AUTRE compte avant, on le vide
     // pour ne pas le montrer à celui-ci. Écurie, profil cavalier, coffre-fort,
-    // calendrier, progression et programme, eux, sont sauvegardés (cf.
+    // calendrier et séances planifiées, eux, sont sauvegardés (cf.
     // lib/cloudSync.ts) : un appareil qui n'a pas encore les données de CE
     // compte (nouveau téléphone, réinstallation...) essaie de les restaurer
     // plutôt que de renvoyer vers un onboarding qui écraserait tout.
@@ -79,8 +76,7 @@ export default function LoginScreen() {
       const owner = await getLocalDataOwner();
       if (owner !== userId) {
         await Promise.all([
-          clearProgress(),
-          clearProgram(),
+          clearSessions(),
           clearAgenda(),
           clearGoals(),
           clearSubscription(),
@@ -92,21 +88,14 @@ export default function LoginScreen() {
             // Best-effort, ne lèvent jamais : cf. lib/cloudSync.ts et
             // lib/sharing.ts. Coffre-fort/calendrier/chevaux partagés sont
             // secondaires à l'écurie possédée/au profil — un échec ici ne
-            // doit pas faire échouer toute la restauration. Tout est récupéré
-            // EN PARALLÈLE puis appliqué d'un seul bloc synchrone ci-dessous
-            // (pas d'await entre les hydrateFromCloud) : si l'écurie/le profil
-            // étaient appliqués avant que le programme le soit, le moteur de
-            // programme (program/store.tsx, effet d'auto-génération) verrait
-            // un cheval sans programme entre les deux et en regénérerait un
-            // vide, écrasant la vraie restauration cloud.
-            const [sharedHorses, documents, appointments, journalEntries, progressByHorse, programsByHorse, goals] =
+            // doit pas faire échouer toute la restauration.
+            const [sharedHorses, documents, appointments, journalEntries, trainingSessions, goals] =
               await Promise.all([
                 pullSharedHorses().catch(() => []),
                 pullDocuments(),
                 pullAppointments(),
                 pullJournalEntries(),
-                pullAllHorseProgress(),
-                pullAllHorsePrograms(),
+                pullTrainingSessions(),
                 pullAllGoals(),
               ]);
 
@@ -115,8 +104,7 @@ export default function LoginScreen() {
             hydrateDocumentsFromCloud(documents);
             hydrateAppointmentsFromCloud(appointments);
             hydrateJournalFromCloud(journalEntries);
-            hydrateProgressFromCloud(progressByHorse);
-            hydrateProgramFromCloud(programsByHorse);
+            hydrateSessionsFromCloud(trainingSessions);
             hydrateGoalsFromCloud(goals);
 
             await markOnboardingCompleted();
@@ -192,7 +180,7 @@ export default function LoginScreen() {
           <Text className="text-2xl font-extrabold tracking-tight text-text">
             Connecte-toi à ton compte
           </Text>
-          <Text className="text-base text-muted">Retrouve ton programme et ton suivi.</Text>
+          <Text className="text-base text-muted">Retrouve ton planning et ton suivi.</Text>
         </View>
 
         <Field label="Email">

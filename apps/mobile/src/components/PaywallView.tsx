@@ -38,13 +38,11 @@ const TIERS: {
     price: { MONTHLY: "19,99 €/mois", ANNUAL: "169,99 €/an" },
     sub: { MONTHLY: "sans engagement", ANNUAL: "soit 14,17 €/mois · économise 29 %" },
     badge: "Le plus complet",
-    bullets: [
-      "3 chevaux",
-      "Tout Paddock",
-      "Julien, ton coach IA, disponible 24/7",
-      "Programme d'entraînement personnalisé",
-      "Statistiques avancées",
-    ],
+    // TODO(pivot sans IA) : différenciateur "Coach IA + programme" retiré
+    // avec la génération de programme par IA. Bullets à compléter une fois
+    // le suivi financier construit (cf. plan de pivot, palier Grand Prix
+    // redéfini autour de ça).
+    bullets: ["3 chevaux", "Tout Paddock"],
   },
 ];
 

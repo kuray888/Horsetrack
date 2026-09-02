@@ -19,8 +19,7 @@ import {
 
 /**
  * Entitlement d'abonnement, global à l'app. Pilote le gating « soft » des
- * visuels/stats (cf. composant <Locked>) et le gating « dur » du Coach IA /
- * du programme (réservés à Grand Prix).
+ * visuels/fonctionnalités premium (cf. composant <Locked>) selon le palier.
  *
  * Tant que le projet RevenueCat + les produits store ne sont pas créés
  * (cf. apps/mobile/.env), `isPurchasesAvailable()` reste false et on retombe
@@ -58,10 +57,6 @@ type SubscriptionContextValue = Persisted & {
   /** true tant qu'un abonnement Paddock OU Grand Prix (actif ou en essai) couvre le compte. */
   isPremium: boolean;
   isPaddockOrAbove: boolean;
-  /** true uniquement pour Grand Prix actif/en essai — gate le Coach IA et le programme. */
-  isGrandPrix: boolean;
-  /** true si l'abonnement Grand Prix est en période d'essai (pas encore converti en payant). */
-  isTrialing: boolean;
   loading: boolean;
   /** Démarre l'essai 7 jours Grand Prix en mode simulation locale (utilisé
    * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
@@ -238,8 +233,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       ...state,
       isPremium: state.tier !== "FREE" && isActiveOrTrialing(state),
       isPaddockOrAbove: state.tier !== "FREE" && isActiveOrTrialing(state),
-      isGrandPrix: state.tier === "GRAND_PRIX" && isActiveOrTrialing(state),
-      isTrialing: state.status === "trialing" && isActiveOrTrialing(state),
       loading,
       startTrial,
       subscribeToPaddock,

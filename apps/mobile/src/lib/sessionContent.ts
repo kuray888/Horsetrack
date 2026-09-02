@@ -1,31 +1,52 @@
-import type { Discipline, ExerciseStep, HorseLevel, SafetyHorseInput, SessionIntensity, SessionStepPhase, SessionType } from "./types";
+import type { Horse } from "@/horses/store";
+import type { HorseLevel, RiderGoal } from "@/onboarding/store";
 
 /**
- * Contenu réel des séances (exercices, matériel, repères techniques chiffrés)
- * — déplacé depuis apps/mobile/src/program/rules.ts pour que
- * /api/program-week puisse remplir une séance avec du contenu vétérinaire/
- * pédagogique déjà vérifié plutôt que de laisser l'IA inventer des chiffres
- * de sécurité (hauteur de saut, écartement de barres...). L'IA (cf. la route)
- * ne choisit que le TYPE et l'INTENSITÉ de la séance ; tout le contenu concret
- * vient d'ici.
+ * Bibliothèque de contenu de séance — exercices, matériel, repères
+ * techniques chiffrés et restrictions de santé/blessure. Extrait de
+ * l'ancien program/rules.ts (moteur de génération IA, retiré) : cette partie
+ * était déjà 100% déterministe et indépendante de l'IA, réutilisable telle
+ * quelle pour suggérer du contenu lors de la création manuelle d'une séance
+ * (cf. sessions/store.tsx) — seule la sélection automatique du programme
+ * (répartition sur la semaine, progression par phase) a été abandonnée avec
+ * l'IA, pas le contenu lui-même.
  */
 
-export const DISCIPLINE_POOL: Record<Discipline, SessionType[]> = {
-  SHOW_JUMPING: ["OBSTACLE", "BARRES_AU_SOL", "DRESSAGE_BASICS", "SORTIE_EXTERIEURE"],
-  DRESSAGE: ["DRESSAGE_BASICS", "ASSOUPLISSEMENT", "TRAVAIL_A_PIED", "SORTIE_EXTERIEURE"],
-  EVENTING: ["OBSTACLE", "DRESSAGE_BASICS", "SORTIE_EXTERIEURE", "RENFORCEMENT"],
-  WESTERN: ["DRESSAGE_BASICS", "ASSOUPLISSEMENT", "TRAVAIL_A_PIED", "SORTIE_EXTERIEURE"],
-  ENDURANCE: ["SORTIE_EXTERIEURE", "RENFORCEMENT", "ASSOUPLISSEMENT", "TRAVAIL_A_PIED"],
-  LEISURE: ["SORTIE_EXTERIEURE", "TRAVAIL_A_PIED", "ASSOUPLISSEMENT"],
-  ETHOLOGY: ["TRAVAIL_A_PIED", "ASSOUPLISSEMENT", "SORTIE_EXTERIEURE"],
+export type SessionType =
+  | "DRESSAGE_BASICS"
+  | "ASSOUPLISSEMENT"
+  | "BARRES_AU_SOL"
+  | "OBSTACLE"
+  | "SORTIE_EXTERIEURE"
+  | "TRAVAIL_A_PIED"
+  | "RENFORCEMENT"
+  | "RECUPERATION";
+
+export type SessionIntensity = "LOW" | "MEDIUM" | "HIGH";
+
+/** Phase d'une séance — sert à regrouper les exercices à l'affichage
+ * (échauffement / corps de séance / retour au calme). */
+export type SessionStepPhase = "ECHAUFFEMENT" | "CORPS_DE_SEANCE" | "RETOUR_AU_CALME";
+
+export type ExerciseStep = {
+  phase: SessionStepPhase;
+  title: string;
+  description: string;
+  /** Durée indicative de ce bloc précis, en minutes — calculée au prorata de
+   * la durée totale de la séance, pour qu'une séance se lise comme un vrai
+   * déroulé chronométré plutôt qu'une liste d'idées sans repère de temps. */
+  durationMin: number;
 };
 
 type ExerciseStepDraft = { phase: SessionStepPhase; title: string; description: string };
 
 /** 3 variantes par type pour qu'une même séance ne soit pas identique à
- * chaque occurrence — la rotation se fait sur le nombre de fois où CE type a
- * déjà été programmé pour ce cheval (cf. sessionLibrary.pickVariant), pas sur
- * un numéro de semaine brut. */
+ * chaque occurrence dans le programme — la rotation se fait sur le nombre de
+ * fois où CE type a déjà été programmé (cf. `buildExercises`), pas sur le
+ * numéro de semaine brut, donc même un cheval qui voit le même type revenir
+ * souvent ne retombe sur la même variante qu'après les 3 avoir vues. Chaque
+ * exercice porte une description (comment le faire / à quoi veiller) et une
+ * phase d'affichage. */
 export const SESSION_META: Record<
   SessionType,
   { title: string; focus: string; baseDurationMin: number; exerciseVariants: ExerciseStepDraft[][] }
@@ -615,8 +636,40 @@ export const SESSION_META: Record<
     ],
   },
 };
-
-/** Matériel typiquement nécessaire selon le type de séance. */
+/** Exercice "bonus" tenant compte explicitement de l'objectif déclaré par le
+ * cavalier à l'onboarding — injecté en complément du contenu de base (cf.
+ * buildExercises), pour qu'un objectif comme "préparer une échéance" ou
+ * "renforcer la complicité" se traduise en un vrai exercice concret plutôt
+ * que de rester un simple thème affiché en haut de l'écran Planning. */
+const GOAL_EXERCISE: Record<RiderGoal, ExerciseStepDraft> = {
+  COMPETE: {
+    phase: "CORPS_DE_SEANCE",
+    title: "Simulation d'épreuve, un seul passage",
+    description: "Réalise l'exercice du jour en conditions d'épreuve : un seul passage, sans répéter même en cas d'erreur, comme face à un jury. Note ensuite à chaud ce qui a fonctionné et ce qui demande encore du travail.",
+  },
+  BONDING: {
+    phase: "RETOUR_AU_CALME",
+    title: "5 min de complicité sans exigence",
+    description: "Termine par 5 minutes sans aucun objectif technique : caresses, voix, simple présence côte à côte. Le seul but est de renforcer le lien, hors de toute notion de performance.",
+  },
+  FITNESS: {
+    phase: "CORPS_DE_SEANCE",
+    title: "Bloc cardio supplémentaire : 6 min de trot soutenu",
+    description: "Ajoute 6 minutes de **trot enlevé** soutenu (ou un galop tranquille si le terrain le permet) en plus du travail prévu, pour développer le fond physique. Arrête immédiatement en cas d'essoufflement marqué ou d'inconfort.",
+  },
+  EVENT_PREP: {
+    phase: "CORPS_DE_SEANCE",
+    title: "Répétition dans les conditions réelles",
+    description: "Reproduis autant que possible les conditions de l'échéance à venir (matériel, horaire, terrain) pour habituer le cheval aux conditions exactes du jour J.",
+  },
+  CONFIDENCE: {
+    phase: "RETOUR_AU_CALME",
+    title: "Finir sur un exercice déjà maîtrisé",
+    description: "Termine la séance sur un exercice simple, déjà réussi récemment, pour clore sur une réussite nette et renforcer la confiance avant de redescendre de cheval.",
+  },
+};
+/** Matériel typiquement nécessaire selon le type de séance — déduit
+ * automatiquement, affiché au cavalier pour préparer la séance en amont. */
 export const SESSION_EQUIPMENT: Record<SessionType, string[]> = {
   DRESSAGE_BASICS: ["Aucun matériel particulier"],
   ASSOUPLISSEMENT: ["Aucun matériel particulier"],
@@ -627,24 +680,43 @@ export const SESSION_EQUIPMENT: Record<SessionType, string[]> = {
   RENFORCEMENT: ["Aucun matériel obligatoire", "Terrain varié en option (côte, sol meuble)"],
   RECUPERATION: ["Aucun matériel — privilégier le confort du cheval"],
 };
-
+/** Cheval de référence (≈ selle français/anglo-arabe moyen) sur lequel sont
+ * calibrés les écartements ci-dessous — mis à l'échelle de la taille déclarée
+ * du cheval (s'il y en a une) plutôt que figés : un poney et un grand cheval
+ * n'ont pas la même amplitude de foulée. */
 const REFERENCE_HEIGHT_CM = 160;
 
-const POLE_SPACING_BASE_CM: Record<"pas" | "trot" | "galop", number> = { pas: 85, trot: 135, galop: 330 };
+/** Écartement de barres au sol par allure, pour un cheval à hauteur de
+ * référence — repères couramment enseignés (FFE/BPJEPS), pas une norme
+ * absolue : la foulée réelle varie aussi avec l'équilibre et la décontraction
+ * du cheval, pas seulement sa taille. */
+const POLE_SPACING_BASE_CM: Record<"pas" | "trot" | "galop", number> = {
+  pas: 85,
+  trot: 135,
+  galop: 330,
+};
 
-function poleSpacingCm(gait: "pas" | "trot" | "galop", horse: SafetyHorseInput): number {
+function poleSpacingCm(gait: "pas" | "trot" | "galop", horse: Horse): number {
   const scale = (horse.heightCm ?? REFERENCE_HEIGHT_CM) / REFERENCE_HEIGHT_CM;
   return Math.round((POLE_SPACING_BASE_CM[gait] * scale) / 5) * 5;
 }
 
+/** Distance entre deux obstacles d'une ligne, pour un cheval à hauteur de
+ * référence : une foulée de galop (~3,50 m) par foulée demandée, plus un
+ * forfait d'appel + réception (~3,50 m) — repère classique pour une ligne
+ * "normale", à ajuster selon le profil de saut réel du cheval. */
 const CANTER_STRIDE_CM = 350;
 const LANDING_TAKEOFF_ALLOWANCE_CM = 350;
 
-function lineDistanceCm(strides: number, horse: SafetyHorseInput): number {
+function lineDistanceCm(strides: number, horse: Horse): number {
   const scale = (horse.heightCm ?? REFERENCE_HEIGHT_CM) / REFERENCE_HEIGHT_CM;
   return Math.round(((strides * CANTER_STRIDE_CM + LANDING_TAKEOFF_ALLOWANCE_CM) * scale) / 10) * 10;
 }
 
+/** Hauteur de saut indicative par niveau du cheval — point de départ
+ * raisonnable, pas une norme de concours (qui dépend du circuit réel, hors de
+ * ce que l'app connaît) : à ajuster au ressenti, idéalement avec un
+ * instructeur présent plutôt que suivi à la lettre. */
 const JUMP_HEIGHT_RANGE_CM: Record<HorseLevel, [number, number]> = {
   UNTRAINED: [20, 40],
   CLUB: [40, 60],
@@ -652,13 +724,17 @@ const JUMP_HEIGHT_RANGE_CM: Record<HorseLevel, [number, number]> = {
   PRO: [100, 120],
 };
 
-function jumpHeightCm(horse: SafetyHorseInput, intensity: SessionIntensity): number {
+function jumpHeightCm(horse: Horse, intensity: SessionIntensity): number {
   const [low, high] = JUMP_HEIGHT_RANGE_CM[horse.level];
   if (intensity === "LOW") return low;
   if (intensity === "HIGH") return high;
   return Math.round((low + high) / 2 / 5) * 5;
 }
 
+/** Nombre total d'efforts de saut (lignes comprises) jugé raisonnable sur UNE
+ * séance, par niveau et intensité — au-delà, le risque de surmenage articulaire
+ * dépasse le bénéfice technique, quel que soit le niveau du cheval. Repère de
+ * bien-être courant, pas une règle gravée dans le marbre. */
 const JUMP_COUNT_RANGE: Record<HorseLevel, [number, number]> = {
   UNTRAINED: [8, 12],
   CLUB: [12, 18],
@@ -666,13 +742,16 @@ const JUMP_COUNT_RANGE: Record<HorseLevel, [number, number]> = {
   PRO: [18, 25],
 };
 
-function jumpCount(horse: SafetyHorseInput, intensity: SessionIntensity): number {
+function jumpCount(horse: Horse, intensity: SessionIntensity): number {
   const [low, high] = JUMP_COUNT_RANGE[horse.level];
   if (intensity === "LOW") return low;
   if (intensity === "HIGH") return high;
   return Math.round((low + high) / 2);
 }
 
+/** Catégorie usuelle (poney/cheval, seuil légal FFE à 1,48 m au garrot) — sert
+ * surtout à formuler l'hypothèse de taille en clair plutôt qu'en centimètres
+ * abstraits quand la taille réelle du cheval n'est pas connue. */
 function horseSizeCategory(heightCm: number): string {
   if (heightCm < 120) return "petit poney";
   if (heightCm < 148) return "poney";
@@ -680,36 +759,54 @@ function horseSizeCategory(heightCm: number): string {
   return "grand cheval";
 }
 
-function heightAssumptionNote(horse: SafetyHorseInput): string {
+/** Rend explicite l'hypothèse de taille utilisée pour les écartements/hauteurs
+ * ci-dessus — un repère silencieux serait trompeur si la taille réelle (poney
+ * vs grand cheval) change beaucoup la pertinence du chiffre affiché. */
+function heightAssumptionNote(horse: Horse): string {
   if (horse.heightCm) {
     return `Repères ajustés à la taille de ${horse.name} (~${horse.heightCm} cm, ${horseSizeCategory(horse.heightCm)}).`;
   }
   return `Taille de ${horse.name} non renseignée : repères calculés pour un ${horseSizeCategory(REFERENCE_HEIGHT_CM)} standard (~${REFERENCE_HEIGHT_CM} cm) — renseigne sa taille au garrot dans sa fiche pour des repères ajustés à sa morphologie.`;
 }
 
+/** Nombre de transitions/changements d'allure visé sur la séance, proportionnel
+ * à sa durée — un repère de densité de travail plutôt qu'un compte à respecter
+ * à l'exercice près. */
 function transitionCount(durationMin: number): number {
   return Math.max(6, Math.round(durationMin / 4));
 }
 
+/** Répartition longe / travail en main sur la durée de la séance — pour
+ * donner un repère concret plutôt qu'un simple "un peu des deux". */
 function inHandSplitMin(durationMin: number): { longe: number; main: number } {
   const longe = Math.round((durationMin * 0.5) / 5) * 5;
   return { longe, main: durationMin - longe };
 }
 
+/** Nombre de répétitions de côte visé, par intensité de la semaine. */
 const HILL_REPS_RANGE: Record<SessionIntensity, [number, number]> = {
   LOW: [3, 4],
   MEDIUM: [5, 6],
   HIGH: [7, 8],
 };
 
+/** Part de la sortie consacrée au trot enlevé — le reste se répartit entre
+ * l'échauffement/retour au pas et un éventuel temps de galop. */
 function trotShareMin(durationMin: number): number {
   return Math.round((durationMin * 0.4) / 5) * 5;
 }
 
 /** Repères techniques chiffrés selon le type de séance — un complément
- * concret aux exercices, pas une prescription stricte : la hauteur/
- * l'écartement réels se règlent au ressenti du jour. */
-export function buildSetupNotes(type: SessionType, horse: SafetyHorseInput, intensity: SessionIntensity, durationMin: number): string[] {
+ * concret aux descriptions d'exercice (cf. SESSION_META), pas une
+ * prescription stricte : la hauteur/l'écartement réels se règlent au ressenti
+ * du jour, ce ne sont que des points de départ raisonnables. Vide pour les
+ * types où chiffrer n'apporte rien (récupération, repos actif). */
+export function buildSetupNotes(
+  type: SessionType,
+  horse: Horse,
+  intensity: SessionIntensity,
+  durationMin: number
+): string[] {
   switch (type) {
     case "BARRES_AU_SOL":
       return [
@@ -754,14 +851,145 @@ export function buildSetupNotes(type: SessionType, horse: SafetyHorseInput, inte
       return [];
   }
 }
-
-/** Pioche une variante d'exercices en rotation déterministe sur `occurrence`
- * (nombre de fois où ce type a déjà été programmé pour ce cheval) — jamais la
- * même variante deux fois de suite. */
-export function buildExercises(type: SessionType, occurrence: number, sessionDurationMin: number): ExerciseStep[] {
-  const meta = SESSION_META[type];
-  const variants = meta.exerciseVariants;
-  const variant = variants[occurrence % variants.length];
-  const shares = [0.2, 0.35, 0.3, 0.15];
-  return variant.map((step, i) => ({ ...step, durationMin: Math.max(1, Math.round(sessionDurationMin * (shares[i] ?? 0.25))) }));
+/** Restrictions spécifiques par condition de santé déclarée — seules les
+ * conditions ayant un impact connu sur l'effort/l'impact articulaire ont une
+ * règle ; les autres (allergies, coliques...) restent un point de vigilance
+ * sans restriction d'exercice (cf. buildPersonalizationNotes). */
+export const HEALTH_CONDITION_RULES: Record<string, { excludeTypes: SessionType[]; maxIntensity?: SessionIntensity; note: string }> = {
+  Arthrose: {
+    excludeTypes: ["OBSTACLE"],
+    maxIntensity: "MEDIUM",
+    note: "**Arthrose** signalée : travail de saut écarté, échauffement plus long recommandé.",
+  },
+  Fourbure: {
+    excludeTypes: ["OBSTACLE", "BARRES_AU_SOL"],
+    maxIntensity: "MEDIUM",
+    note: "**Fourbure** signalée : travail à fort impact écarté, terrain souple à privilégier.",
+  },
+  "Tendinite chronique": {
+    excludeTypes: ["OBSTACLE"],
+    maxIntensity: "MEDIUM",
+    note: "**Tendinite** chronique signalée : travail de saut écarté par précaution.",
+  },
+  "Problème de dos": {
+    excludeTypes: ["OBSTACLE"],
+    maxIntensity: "MEDIUM",
+    note: "Problème de dos signalé : saut écarté ; pense à faire vérifier la selle et l'équilibre du cavalier.",
+  },
+  "Problème de pieds / sabots": {
+    excludeTypes: ["OBSTACLE"],
+    maxIntensity: "MEDIUM",
+    note: "Problème de pieds/sabots signalé : terrain dur à éviter, saut écarté par précaution.",
+  },
+  "Souffle / problème respiratoire": {
+    excludeTypes: [],
+    maxIntensity: "MEDIUM",
+    note: "Problème respiratoire signalé : intensité plafonnée, surveille l'essoufflement à l'effort.",
+  },
+  "Problème de vue": {
+    excludeTypes: ["OBSTACLE"],
+    note: "Problème de vue signalé : terrain connu à privilégier, saut écarté par précaution.",
+  },
+};
+/** Types de séance dans lesquels il est pertinent de travailler concrètement
+ * un point faible déclaré — un point faible "Saut" n'a rien à faire sur une
+ * séance de dressage à plat sans matériel d'obstacle, par exemple. Les tags
+ * absents de cette table (Mental, Gestion du stress, Concentration...) sont
+ * transversaux : pertinents quel que soit le type de séance technique. */
+const WEAKNESS_RELEVANT_TYPES: Partial<Record<string, SessionType[]>> = {
+  "Dressage à plat": ["DRESSAGE_BASICS", "ASSOUPLISSEMENT"],
+  Saut: ["OBSTACLE", "BARRES_AU_SOL"],
+  "Contact / bouche": ["DRESSAGE_BASICS", "ASSOUPLISSEMENT", "OBSTACLE"],
+  Impulsion: ["DRESSAGE_BASICS", "RENFORCEMENT"],
+  Planeur: ["DRESSAGE_BASICS", "ASSOUPLISSEMENT"],
+  Endurance: ["SORTIE_EXTERIEURE", "RENFORCEMENT"],
+  Souplesse: ["ASSOUPLISSEMENT", "DRESSAGE_BASICS"],
+};
+/** Pioche un élément d'une liste en rotation déterministe sur l'index donné —
+ * utilisé pour faire tourner points faibles et variantes d'exercices au fil
+ * des semaines plutôt que de toujours utiliser le premier. */
+function rotate<T>(list: T[], index: number): T | undefined {
+  if (list.length === 0) return undefined;
+  return list[index % list.length];
 }
+const TECHNICAL_SESSION_TYPES: SessionType[] = [
+  "DRESSAGE_BASICS",
+  "OBSTACLE",
+  "BARRES_AU_SOL",
+  "ASSOUPLISSEMENT",
+  "RENFORCEMENT",
+  "SORTIE_EXTERIEURE",
+];
+
+/** Part de la durée totale de la séance allouée à chaque étape de base, par
+ * position (échauffement ~20 %, 2 blocs de corps de séance ~35 %/~30 %,
+ * retour au calme ~15 %) — structure standard d'une séance d'équitation,
+ * appliquée uniformément plutôt que recalculée par type. */
+const STEP_DURATION_SHARE = [0.2, 0.35, 0.3, 0.15];
+/** Part allouée à l'exercice "bonus" (point faible du cheval ou objectif du
+ * cavalier) quand il est ajouté en 5e étape — un supplément ciblé, pas un
+ * bloc de séance à part entière, donc volontairement plus court. */
+const BONUS_EXERCISE_SHARE = 0.15;
+function withDuration(draft: ExerciseStepDraft, sessionDurationMin: number, share: number): ExerciseStep {
+  return { ...draft, durationMin: Math.max(1, Math.round(sessionDurationMin * share)) };
+}
+/**
+ * `variantIndex` est le nombre de fois où CE type de séance a déjà été
+ * programmé plus tôt dans le programme (cf. `generateProgram`, compteur
+ * `typeOccurrence`) — pas le numéro de semaine. Avec un pool de discipline
+ * court (3-4 types), le numéro de semaine cyclerait le jour de la semaine où
+ * tombe chaque type bien avant d'avoir épuisé les variantes disponibles ;
+ * indexer sur l'occurrence réelle du type garantit que les 3 variantes sont
+ * vues avant qu'aucune ne se répète, peu important le rythme du cavalier.
+ * `recuperationSession` (substitution dynamique pour le repos auto, cf.
+ * program/store.tsx) continue de passer un simple numéro de semaine — usage
+ * secondaire, pas la rotation régulière du programme.
+ */
+export function buildExercises(
+  type: SessionType,
+  variantIndex: number,
+  horse: Horse,
+  goal: RiderGoal | null,
+  sessionDurationMin: number
+): ExerciseStep[] {
+  const meta = SESSION_META[type];
+  const variant = rotate(meta.exerciseVariants, variantIndex) ?? meta.exerciseVariants[0];
+  const base = variant.map((step, i) => withDuration(step, sessionDurationMin, STEP_DURATION_SHARE[i] ?? 0.25));
+
+  if (!TECHNICAL_SESSION_TYPES.includes(type)) return base;
+
+  // Ne cible que les points faibles pertinents pour CE type de séance (cf.
+  // WEAKNESS_RELEVANT_TYPES) — un tag transversal (absent de cette table)
+  // reste pertinent partout.
+  const relevantWeaknesses = horse.weaknesses.filter((w) => {
+    const relevantTypes = WEAKNESS_RELEVANT_TYPES[w];
+    return !relevantTypes || relevantTypes.includes(type);
+  });
+  const weakness = rotate(relevantWeaknesses, variantIndex);
+  const weaknessDraft: ExerciseStepDraft | null = weakness
+    ? {
+        phase: "CORPS_DE_SEANCE",
+        title: `Travail ciblé : ${weakness.toLowerCase()}`,
+        description: `Accorde une attention particulière à ce point faible signalé pendant la séance, sans le forcer.`,
+      }
+    : null;
+  const goalDraft = goal ? GOAL_EXERCISE[goal] : null;
+
+  // Si les deux s'appliquent, alterne d'une occurrence à l'autre plutôt que
+  // d'empiler systématiquement les deux — une séance reste lisible avec un
+  // seul exercice "bonus" à la fois.
+  const bonus =
+    weaknessDraft && goalDraft ? (variantIndex % 2 === 0 ? weaknessDraft : goalDraft) : weaknessDraft ?? goalDraft;
+
+  if (!bonus) return base;
+  return [...base, withDuration(bonus, sessionDurationMin, BONUS_EXERCISE_SHARE)];
+}
+
+/** Plafonne une intensité à un maximum donné — utilisé pour appliquer les
+ * restrictions de santé/blessure ci-dessus à l'intensité choisie par le
+ * cavalier lors de la création manuelle d'une séance. */
+export function capAt(current: SessionIntensity, max: SessionIntensity): SessionIntensity {
+  const order: SessionIntensity[] = ["LOW", "MEDIUM", "HIGH"];
+  return order.indexOf(current) > order.indexOf(max) ? max : current;
+}
+

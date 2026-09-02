@@ -8,8 +8,7 @@ import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
-import { useProgress } from "@/progress/store";
-import { useProgram } from "@/program/store";
+import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useSubscription } from "@/subscription/store";
@@ -26,8 +25,7 @@ export default function OnboardingAccount() {
   // Horses/rider sont déjà écrasés par les réponses d'onboarding à l'étape
   // paywall (cf. (onboarding)/paywall.tsx) — seuls ces trois-là ne le sont
   // jamais et resteraient ceux d'un compte précédent sur cet appareil.
-  const { clearAll: clearProgress } = useProgress();
-  const { clearAll: clearProgram } = useProgram();
+  const { clearAll: clearSessions } = useSessions();
   const { clearAll: clearAgenda } = useAgenda();
   const { clearAll: clearGoals } = useGoals();
   const { clearAll: clearSubscription } = useSubscription();
@@ -46,7 +44,7 @@ export default function OnboardingAccount() {
   async function afterAccountObtained(userId: string) {
     const owner = await getLocalDataOwner();
     if (owner && owner !== userId) {
-      await Promise.all([clearProgress(), clearProgram(), clearAgenda(), clearGoals(), clearSubscription()]);
+      await Promise.all([clearSessions(), clearAgenda(), clearGoals(), clearSubscription()]);
     }
     await setLocalDataOwner(userId);
   }

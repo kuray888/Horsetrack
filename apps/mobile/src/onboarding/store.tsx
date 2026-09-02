@@ -74,9 +74,6 @@ export type RiderDraft = {
   rideFrequency: RideFrequency | null;
   preferredTime: PreferredTime | null;
   primaryGoal: RiderGoal | null;
-  /** Contexte libre donné par le cavalier (dernière question d'onboarding) —
-   * destiné à nourrir la personnalisation du programme par le Coach IA. */
-  additionalInfo: string;
 };
 
 type OnboardingState = {
@@ -132,7 +129,6 @@ const initialState: OnboardingState = {
     rideFrequency: null,
     preferredTime: null,
     primaryGoal: null,
-    additionalInfo: "",
   },
   horses: [newHorse(true)],
   editingIndex: 0,

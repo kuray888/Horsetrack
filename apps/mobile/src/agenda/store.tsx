@@ -19,7 +19,6 @@ import {
   deleteJournalEntryRemote,
 } from "@/lib/cloudSync";
 import { safeJsonParse } from "@/lib/safeJsonParse";
-import type { Mood } from "@/progress/store";
 import { useHorses } from "@/horses/store";
 
 /**
@@ -34,6 +33,23 @@ export type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
 export type ActivityType = "dressage" | "cso" | "balade" | "longe" | "repos";
 
 export type ChecklistItem = { id: string; label: string; checked: boolean };
+
+/** Libellés/icônes d'affichage pour ActivityType — utilisé par le journal
+ * (cf. (tabs)/agenda.tsx) et par la planification manuelle de séances (cf.
+ * sessions/store.tsx, (tabs)/today.tsx, (tabs)/planning.tsx), donc défini ici
+ * plutôt que dupliqué dans chaque écran consommateur. */
+export const ACTIVITY_META: Record<ActivityType, { label: string; icon: string; chip: string; tag: string }> = {
+  dressage: { label: "Dressage", icon: "🐴", chip: "bg-primary/15", tag: "text-primary" },
+  cso: { label: "CSO", icon: "🤸", chip: "bg-accent/15", tag: "text-accent" },
+  balade: { label: "Balade", icon: "🌳", chip: "bg-success/15", tag: "text-success" },
+  longe: { label: "Longe", icon: "🔄", chip: "bg-warning/15", tag: "text-warning" },
+  repos: { label: "Repos", icon: "😴", chip: "bg-border", tag: "text-muted" },
+};
+
+/** Anciennement défini dans progress/store.tsx (système de badges/XP, retiré
+ * avec la génération de programme par IA) — relocalisé ici car c'est en
+ * réalité un concept de journal, pas de progression IA. */
+export type Mood = "great" | "good" | "okay" | "hard";
 
 export type WeatherSnapshot = { tempC: number; code: number; label: string; icon: string };
 

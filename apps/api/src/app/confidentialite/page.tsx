@@ -46,11 +46,6 @@ export default function ConfidentialitePage() {
             <td>Onboarding / modification du profil</td>
           </tr>
           <tr>
-            <td>Messages au Coach IA</td>
-            <td>Contenu des messages envoyés à l&apos;assistant conversationnel et historique de conversation récent</td>
-            <td>Utilisation du Coach IA</td>
-          </tr>
-          <tr>
             <td>Données d&apos;abonnement</td>
             <td>
               Statut d&apos;abonnement (essai, actif, expiré), identifiant RevenueCat — <strong>pas vos moyens de
@@ -79,11 +74,7 @@ export default function ConfidentialitePage() {
       <h2>3. À quoi servent ces données</h2>
       <ul>
         <li>Créer et gérer votre compte.</li>
-        <li>Générer et adapter votre programme d&apos;entraînement personnalisé.</li>
-        <li>
-          Faire fonctionner le Coach IA (vos messages sont transmis au fournisseur d&apos;intelligence artificielle
-          pour générer une réponse, cf. section 5).
-        </li>
+        <li>Vous permettre de planifier les séances d&apos;entraînement et le suivi de votre écurie.</li>
         <li>Gérer votre abonnement et votre période d&apos;essai.</li>
         <li>Assurer la sécurité du service (authentification, limitation d&apos;usage abusif).</li>
       </ul>
@@ -110,15 +101,7 @@ export default function ConfidentialitePage() {
           <tr>
             <td><strong>Supabase</strong></td>
             <td>Hébergement de la base de données et authentification (serveurs situés en Union Européenne)</td>
-            <td>Toutes les données listées en section 2, à l&apos;exception des messages au Coach IA</td>
-          </tr>
-          <tr>
-            <td><strong>OpenRouter</strong> (qui route la requête vers le modèle Claude d&apos;Anthropic)</td>
-            <td>Génération des réponses du Coach IA</td>
-            <td>
-              Contenu des messages envoyés au Coach IA, et contexte de votre profil cavalier/cheval transmis pour
-              personnaliser la réponse
-            </td>
+            <td>Toutes les données listées en section 2</td>
           </tr>
           <tr>
             <td><strong>RevenueCat</strong></td>
@@ -132,13 +115,6 @@ export default function ConfidentialitePage() {
           </tr>
         </tbody>
       </table>
-      <p>
-        OpenRouter et Anthropic étant basés aux États-Unis, l&apos;envoi des messages du Coach IA constitue un transfert de données
-        hors Union Européenne. Ce transfert est encadré par les clauses contractuelles types (CCT) prévues par la
-        réglementation européenne. [À vérifier/compléter avec les engagements contractuels réels d&apos;OpenRouter et
-        d&apos;Anthropic au moment de la publication — ce sous-traitant est amené à changer, cf. décision en cours sur
-        le fournisseur du Coach IA.]
-      </p>
 
       <h2>6. Durée de conservation</h2>
       <p>

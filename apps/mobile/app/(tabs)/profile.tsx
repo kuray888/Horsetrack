@@ -21,13 +21,10 @@ import { deleteAccount } from "@/lib/account";
 import { clearLocalDataOwner } from "@/lib/deviceOwner";
 import { resetOnboardingCompleted } from "@/onboarding/completion";
 import { formatDate } from "@/lib/dateFormat";
-import { useProgress } from "@/progress/store";
 import { useHorses, type Horse } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
-import { useProgram } from "@/program/store";
 import { useGoals } from "@/goals/store";
-import { BADGES } from "@/program/badges";
 import {
   DISCIPLINES,
   HORSE_FITNESS_LEVELS,
@@ -103,11 +100,9 @@ export default function ProfileScreen() {
   const subscription = useSubscription();
   const { status, tier, billingPeriod, trialEndsAt, isPremium, loading: subLoading, clearAll: clearSubscription } = subscription;
   const horseLimit = maxHorses(subscription);
-  const { unlockedBadges, clearAll: clearProgress } = useProgress();
   const { horses, updateHorsePhoto, clearAll: clearHorses } = useHorses();
   const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
   const { clearAll: clearAgenda } = useAgenda();
-  const { clearAll: clearProgram } = useProgram();
   const { goals, clearAll: clearGoals } = useGoals();
 
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -207,8 +202,6 @@ export default function ProfileScreen() {
         resetOnboardingCompleted(),
         clearHorses(),
         clearRiderProfile(),
-        clearProgress(),
-        clearProgram(),
         clearAgenda(),
         clearGoals(),
         clearSubscription(),
@@ -371,15 +364,6 @@ export default function ProfileScreen() {
         </View>
       </FadeInView>
 
-      {riderProfile.additionalInfo.trim() ? (
-        <FadeInView delay={320}>
-          <View className={`${CARD} gap-1`}>
-            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Note pour le Coach IA</Text>
-            <Text className="text-sm text-text">{riderProfile.additionalInfo.trim()}</Text>
-          </View>
-        </FadeInView>
-      ) : null}
-
       {/* Mes objectifs */}
       <FadeInView delay={330}>
         <SectionTitle>Mes objectifs</SectionTitle>
@@ -428,39 +412,6 @@ export default function ProfileScreen() {
             <Text className="text-lg font-bold text-primary">＋</Text>
             <Text className="text-base font-semibold text-primary">Ajouter un objectif</Text>
           </TouchableOpacity>
-        </View>
-      </FadeInView>
-
-      {/* Mes succès */}
-      <FadeInView delay={340}>
-        <View className="flex-row items-center justify-between">
-          <SectionTitle>Mes succès</SectionTitle>
-          <Text className="text-sm text-muted">
-            {unlockedBadges.length}/{BADGES.length}
-          </Text>
-        </View>
-      </FadeInView>
-
-      <FadeInView delay={380}>
-        <View className="flex-row flex-wrap gap-3">
-          {BADGES.map((badge) => {
-            const unlocked = unlockedBadges.some((b) => b.id === badge.id);
-            return (
-              <View key={badge.id} className={`${CARD} w-[47%] items-center gap-1.5`}>
-                <View
-                  className={`h-14 w-14 items-center justify-center rounded-full ${
-                    unlocked ? "bg-highlight" : "bg-border"
-                  }`}
-                >
-                  <Text className={`text-2xl ${unlocked ? "" : "opacity-30"}`}>{badge.icon}</Text>
-                </View>
-                <Text className={`text-center text-xs font-bold ${unlocked ? "text-text" : "text-muted"}`}>
-                  {badge.label}
-                </Text>
-                <Text className="text-center text-[11px] leading-4 text-muted">{badge.description}</Text>
-              </View>
-            );
-          })}
         </View>
       </FadeInView>
 

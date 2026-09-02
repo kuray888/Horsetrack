@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
 import type { Appointment, Doc, JournalEntry } from "@/agenda/store";
-import type { GeneratedProgram } from "@/program/types";
+import type { TrainingSession } from "@/sessions/store";
 
 /**
  * Sauvegarde cloud des données irremplaçables (écurie + profil cavalier,
@@ -43,7 +43,6 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
     rideFrequency: rider.rideFrequency,
     preferredTime: rider.preferredTime,
     primaryGoal: rider.primaryGoal,
-    additionalInfo: rider.additionalInfo.trim() || null,
     // Ne se pose qu'une fois — sert de signal "ce compte a déjà un profil
     // complet côté serveur" pour pullCloudData(), pas d'horodatage d'édition.
     onboardingCompletedAt: existing?.onboardingCompletedAt ?? now,
@@ -192,7 +191,6 @@ export async function pullCloudData(): Promise<CloudData | null> {
     rideFrequency: profile.rideFrequency,
     preferredTime: profile.preferredTime ?? null,
     primaryGoal: profile.primaryGoal,
-    additionalInfo: profile.additionalInfo ?? "",
   };
 
   const remoteHorses = (profile.horses ?? []) as RemoteHorse[];
@@ -489,87 +487,51 @@ export async function pullJournalEntries(): Promise<JournalEntry[]> {
 }
 
 /**
- * Progression d'entraînement et programme généré : contrairement à
- * l'écurie/au profil cavalier, ce sont des données purement personnelles au
- * cavalier propriétaire (pas partagées avec un demi-pensionnaire/coach, cf.
- * rls.sql) — un seul upsert par cheval (1-1), pas de push en masse ni de
- * suppression de lignes obsolètes comme pushHorses. `pullAll*` n'a pas
- * besoin d'argument horseId : RLS (`owns_horse`) limite déjà le résultat aux
- * propres chevaux de l'utilisateur courant, comme pullAppointments ci-dessus.
+ * Séances d'entraînement planifiées manuellement : même logique de partage
+ * que les rendez-vous/journal ci-dessus (scopées par horseId, RLS
+ * can_access_horse) — contrairement à l'ancienne progression/programme IA
+ * (jamais partagée, retirée avec la génération par IA), une séance planifiée
+ * doit être visible par un demi-pensionnaire/coach.
  */
 
-export type RemoteProgress = {
-  completed: Record<string, boolean>;
-  bestWeekStreak: number;
-  debriefs: Record<string, { mood: string; note: string }>;
-  programGeneratedAt: string | null;
-};
-
-/** `id`/`updatedAt` n'ont pas de vrai DEFAULT SQL (`@default(cuid())`/
- * `@updatedAt` sont des conventions du client Prisma, jamais utilisé ici —
- * cf. lib/sharing.ts) : un upsert direct sans fournir `id` échoue toujours
- * (NOT NULL), donc on suit le même pattern que pushRiderProfile — lire la
- * ligne existante par la clé naturelle (`horseId`), update en gardant son id
- * si elle existe, insert avec un nouvel id sinon. */
-export async function pushHorseProgress(horseId: string, data: RemoteProgress): Promise<void> {
-  const { data: existing } = await supabase.from("horse_progress").select("id").eq("horseId", horseId).maybeSingle();
-  const fields = {
-    completed: data.completed,
-    bestWeekStreak: data.bestWeekStreak,
-    debriefs: data.debriefs,
-    programGeneratedAt: data.programGeneratedAt,
+export async function pushTrainingSession(session: TrainingSession): Promise<void> {
+  if (!session.horseId) return;
+  const { error } = await supabase.from("training_sessions").upsert({
+    id: session.id,
+    horseId: session.horseId,
+    activityType: session.activityType.toUpperCase(),
+    date: session.date.toISOString(),
+    time: session.time,
+    durationMinutes: session.durationMinutes,
+    intensity: session.intensity,
+    notes: session.notes,
+    completed: session.completed,
     updatedAt: new Date().toISOString(),
-  };
-  const { error } = existing
-    ? await supabase.from("horse_progress").update(fields).eq("id", existing.id)
-    : await supabase.from("horse_progress").insert({ id: generateId(), horseId, ...fields });
-  if (error) console.warn("[cloudSync] pushHorseProgress échoué", error);
+  });
+  if (error) console.warn("[cloudSync] pushTrainingSession échoué", error);
 }
 
-export async function pullAllHorseProgress(): Promise<Record<string, RemoteProgress>> {
+export async function deleteTrainingSessionRemote(sessionId: string): Promise<void> {
+  const { error } = await supabase.from("training_sessions").delete().eq("id", sessionId);
+  if (error) console.warn("[cloudSync] deleteTrainingSessionRemote échoué", error);
+}
+
+/** Restaure les séances visibles par l'utilisateur courant — possédées ET
+ * partagées (géré entièrement par RLS, cf. pullAppointments ci-dessus). */
+export async function pullTrainingSessions(): Promise<TrainingSession[]> {
   const { data, error } = await supabase
-    .from("horse_progress")
-    .select("horseId, completed, bestWeekStreak, debriefs, programGeneratedAt");
-  if (error || !data) return {};
-  const result: Record<string, RemoteProgress> = {};
-  for (const row of data) {
-    result[row.horseId] = {
-      completed: (row.completed as Record<string, boolean>) ?? {},
-      bestWeekStreak: row.bestWeekStreak ?? 0,
-      debriefs: (row.debriefs as Record<string, { mood: string; note: string }>) ?? {},
-      programGeneratedAt: row.programGeneratedAt ?? null,
-    };
-  }
-  return result;
-}
-
-export type RemoteProgramData = { program: GeneratedProgram; signature: string; bilanDismissedAt: string | null };
-
-/** Même raison/pattern que pushHorseProgress ci-dessus. */
-export async function pushHorseProgram(horseId: string, data: RemoteProgramData): Promise<void> {
-  const { data: existing } = await supabase.from("horse_programs").select("id").eq("horseId", horseId).maybeSingle();
-  const fields = {
-    program: data.program,
-    signature: data.signature,
-    bilanDismissedAt: data.bilanDismissedAt,
-    updatedAt: new Date().toISOString(),
-  };
-  const { error } = existing
-    ? await supabase.from("horse_programs").update(fields).eq("id", existing.id)
-    : await supabase.from("horse_programs").insert({ id: generateId(), horseId, ...fields });
-  if (error) console.warn("[cloudSync] pushHorseProgram échoué", error);
-}
-
-export async function pullAllHorsePrograms(): Promise<Record<string, RemoteProgramData>> {
-  const { data, error } = await supabase.from("horse_programs").select("horseId, program, signature, bilanDismissedAt");
-  if (error || !data) return {};
-  const result: Record<string, RemoteProgramData> = {};
-  for (const row of data) {
-    result[row.horseId] = {
-      program: row.program as GeneratedProgram,
-      signature: row.signature,
-      bilanDismissedAt: row.bilanDismissedAt ?? null,
-    };
-  }
-  return result;
+    .from("training_sessions")
+    .select("id, horseId, activityType, date, time, durationMinutes, intensity, notes, completed");
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: row.id,
+    horseId: row.horseId,
+    activityType: (row.activityType as string).toLowerCase() as TrainingSession["activityType"],
+    date: new Date(row.date),
+    time: row.time,
+    durationMinutes: row.durationMinutes ?? null,
+    intensity: (row.intensity as TrainingSession["intensity"]) ?? null,
+    notes: row.notes,
+    completed: row.completed,
+  }));
 }

@@ -39,7 +39,7 @@ export default function Summary() {
         <FadeInView>
           <View className="gap-2">
             <Text className="text-3xl font-extrabold leading-tight tracking-tight text-text">
-              Le programme de {horseName} est prêt 🎉
+              L&apos;écurie de {horseName} est prête 🎉
             </Text>
             <Text className="text-base text-muted">
               Construit pour {goalPitch}, en {disciplineLabel.toLowerCase()}.
@@ -50,28 +50,17 @@ export default function Summary() {
         <FadeInView delay={120}>
           <View className="rounded-card bg-surface p-5 shadow-card">
             <Text className="mb-1 text-sm font-bold uppercase tracking-wide text-accent">
-              Ton plan personnalisé
+              Ce que tu peux faire dès maintenant
             </Text>
-            <PlanRow text={`Séances adaptées au niveau de ${horseName}`} />
-            {focus ? <PlanRow text={`Exercices ciblés : ${focus.toLowerCase()}`} /> : null}
-            <PlanRow text="Suivi de progression & objectifs" />
-            <PlanRow text="Julien, ton coach IA, disponible 24/7" />
+            <PlanRow text={`Planifie les séances de ${horseName}`} />
+            {focus ? <PlanRow text={`Point à travailler : ${focus.toLowerCase()}`} /> : null}
+            <PlanRow text="Suis les rendez-vous santé (véto, maréchal, ostéo, dentiste) avec rappels" />
+            <PlanRow text="Prépare tes concours" />
             <PlanRow text={`Toute ton écurie (${horses.length} ${horses.length > 1 ? "chevaux" : "cheval"}) suivie`} />
           </View>
         </FadeInView>
 
-        {rider.additionalInfo.trim() ? (
-          <FadeInView delay={220}>
-            <View className="rounded-card bg-surface p-5 shadow-card">
-              <Text className="mb-1 text-sm font-bold uppercase tracking-wide text-accent">
-                On a bien pris note 📝
-              </Text>
-              <Text className="text-base text-text">{rider.additionalInfo.trim()}</Text>
-            </View>
-          </FadeInView>
-        ) : null}
-
-        <FadeInView delay={rider.additionalInfo.trim() ? 300 : 220}>
+        <FadeInView delay={220}>
           <View className="rounded-card border border-border bg-highlight/40 p-4">
             <Text className="text-center text-base font-semibold text-primary">
               Essaie tout gratuitement pendant 7 jours.
@@ -80,12 +69,9 @@ export default function Summary() {
         </FadeInView>
       </ScrollView>
 
-      <FadeInView delay={rider.additionalInfo.trim() ? 380 : 300}>
+      <FadeInView delay={300}>
         <View className="px-5 pb-2 pt-3">
-          <PrimaryButton
-            label="Voir mon programme"
-            onPress={() => router.push("/(onboarding)/account")}
-          />
+          <PrimaryButton label="Continuer" onPress={() => router.push("/(onboarding)/account")} />
         </View>
       </FadeInView>
     </SafeAreaView>

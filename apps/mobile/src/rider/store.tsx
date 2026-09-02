@@ -20,7 +20,6 @@ export type RiderProfile = {
   rideFrequency: RideFrequency | null;
   preferredTime: PreferredTime | null;
   primaryGoal: RiderGoal | null;
-  additionalInfo: string;
 };
 
 const DEFAULT_RIDER_PROFILE: RiderProfile = {
@@ -29,7 +28,6 @@ const DEFAULT_RIDER_PROFILE: RiderProfile = {
   rideFrequency: null,
   preferredTime: null,
   primaryGoal: null,
-  additionalInfo: "",
 };
 
 type RiderProfileContextValue = {

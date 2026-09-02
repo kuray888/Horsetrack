@@ -16,7 +16,6 @@ import { fetchWeatherSnapshot } from "@/lib/weather";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
 import { useSubscription } from "@/subscription/store";
-import type { Mood } from "@/progress/store";
 import {
   useAgenda,
   daysFromNow,
@@ -27,6 +26,8 @@ import {
   type DocumentCategory,
   type JournalEntry,
   type ActivityType,
+  type Mood,
+  ACTIVITY_META,
 } from "@/agenda/store";
 
 const APPT_META: Record<AppointmentType, { label: string; icon: string; chip: string; tag: string }> = {
@@ -50,14 +51,6 @@ const REMINDER_META: Record<ReminderOption, { label: string; icon: string }> = {
   "1h": { label: "1 heure avant", icon: "🔔" },
   "1d": { label: "1 jour avant", icon: "🔔" },
   "1w": { label: "1 semaine avant", icon: "🔔" },
-};
-
-const ACTIVITY_META: Record<ActivityType, { label: string; icon: string; chip: string; tag: string }> = {
-  dressage: { label: "Dressage", icon: "🐴", chip: "bg-primary/15", tag: "text-primary" },
-  cso: { label: "CSO", icon: "🤸", chip: "bg-accent/15", tag: "text-accent" },
-  balade: { label: "Balade", icon: "🌳", chip: "bg-success/15", tag: "text-success" },
-  longe: { label: "Longe", icon: "🔄", chip: "bg-warning/15", tag: "text-warning" },
-  repos: { label: "Repos", icon: "😴", chip: "bg-border", tag: "text-muted" },
 };
 
 const MOOD_META: Record<Mood, { emoji: string; label: string }> = {

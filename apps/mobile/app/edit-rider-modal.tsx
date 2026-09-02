@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { PrimaryButton, SingleSelect } from "@/components/onboarding";
@@ -8,8 +8,6 @@ import { DISCIPLINES, PREFERRED_TIMES, RIDER_GOALS, RIDER_LEVELS, RIDE_FREQUENCI
 import { useRiderProfile } from "@/rider/store";
 import type { Discipline, RiderGoal, RiderLevel, RideFrequency, PreferredTime } from "@/onboarding/store";
 
-const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
-
 export default function EditRiderModal() {
   const { riderProfile, setRiderProfile } = useRiderProfile();
   const [level, setLevel] = useState<RiderLevel | null>(riderProfile.level);
@@ -17,14 +15,13 @@ export default function EditRiderModal() {
   const [rideFrequency, setRideFrequency] = useState<RideFrequency | null>(riderProfile.rideFrequency);
   const [preferredTime, setPreferredTime] = useState<PreferredTime | null>(riderProfile.preferredTime);
   const [primaryGoal, setPrimaryGoal] = useState<RiderGoal | null>(riderProfile.primaryGoal);
-  const [additionalInfo, setAdditionalInfo] = useState(riderProfile.additionalInfo);
 
   const canSave =
     level !== null && mainDiscipline !== null && rideFrequency !== null && preferredTime !== null && primaryGoal !== null;
 
   function submit() {
     if (!canSave) return;
-    setRiderProfile({ level, mainDiscipline, rideFrequency, preferredTime, primaryGoal, additionalInfo });
+    setRiderProfile({ level, mainDiscipline, rideFrequency, preferredTime, primaryGoal });
     router.back();
   }
 
@@ -56,18 +53,6 @@ export default function EditRiderModal() {
 
         <Field label="Objectif principal">
           <SingleSelect options={RIDER_GOALS} value={primaryGoal} onChange={setPrimaryGoal} />
-        </Field>
-
-        <Field label="Pour Julien (optionnel)">
-          <TextInput
-            className={INPUT}
-            placeholder="Objectifs précis, contraintes, ce qui compte pour toi…"
-            value={additionalInfo}
-            onChangeText={setAdditionalInfo}
-            multiline
-            numberOfLines={5}
-            style={{ minHeight: 120, textAlignVertical: "top" }}
-          />
         </Field>
       </ScrollView>
 

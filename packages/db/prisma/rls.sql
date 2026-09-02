@@ -278,14 +278,12 @@ alter table public.horse_traits   enable row level security;
 alter table public.horse_injuries enable row level security;
 alter table public.goals          enable row level security;
 alter table public.sessions       enable row level security;
-alter table public.coach_usage    enable row level security;
 alter table public.email_reminders enable row level security;
 alter table public.documents      enable row level security;
 alter table public.appointments   enable row level security;
 alter table public.journal_entries enable row level security;
 alter table public.horse_collaborators enable row level security;
-alter table public.horse_progress     enable row level security;
-alter table public.horse_programs     enable row level security;
+alter table public.training_sessions  enable row level security;
 alter table public.revenuecat_webhook_events enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
@@ -364,14 +362,8 @@ drop policy if exists "goals_all_own" on public.goals;
 create policy "goals_all_own" on public.goals
   for all using (public.owns_rider_profile("riderId")) with check (public.owns_rider_profile("riderId"));
 
--- coach_usage : lecture de son propre compteur seulement (écriture = API
--- backend uniquement, via connexion directe DATABASE_URL qui bypass RLS)
-drop policy if exists "coach_usage_select_own" on public.coach_usage;
-create policy "coach_usage_select_own" on public.coach_usage
-  for select using ("userId" = auth.uid()::text);
-
--- email_reminders : même logique que coach_usage — lecture seule pour le
--- propriétaire, écriture réservée au backend (création/cron via DATABASE_URL)
+-- email_reminders : lecture seule pour le propriétaire, écriture réservée au
+-- backend (création/cron via DATABASE_URL, bypass RLS)
 drop policy if exists "email_reminders_select_own" on public.email_reminders;
 create policy "email_reminders_select_own" on public.email_reminders
   for select using ("userId" = auth.uid()::text);
@@ -467,17 +459,14 @@ create policy "horse_collaborators_invitee_accept" on public.horse_collaborators
   for update using (lower("invitedEmail") = lower(auth.jwt() ->> 'email'))
   with check (lower("invitedEmail") = lower(auth.jwt() ->> 'email') and "collaboratorUserId" = auth.uid()::text);
 
--- horse_progress / horse_programs : continuité d'entraînement propre au
--- cavalier propriétaire — pas partagée avec un demi-pensionnaire/coach (pas
--- dans le brief de partage, contrairement au calendrier), donc owns_horse
--- plutôt que can_access_horse.
-drop policy if exists "horse_progress_all_own" on public.horse_progress;
-create policy "horse_progress_all_own" on public.horse_progress
-  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
-
-drop policy if exists "horse_programs_all_own" on public.horse_programs;
-create policy "horse_programs_all_own" on public.horse_programs
-  for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
+-- training_sessions : séances planifiées manuellement par le cavalier — même
+-- portée de partage que appointments/journal_entries (un collaborateur DP/
+-- coach doit voir le planning du cheval partagé), donc can_access_horse et
+-- pas owns_horse (contrairement à l'ancien horse_progress/horse_programs
+-- IA, jamais partagés, retirés avec la génération de programme par IA).
+drop policy if exists "training_sessions_shared" on public.training_sessions;
+create policy "training_sessions_shared" on public.training_sessions
+  for all using (public.can_access_horse("horseId")) with check (public.can_access_horse("horseId"));
 
 -- 5. Storage : bucket "documents" (coffre-fort) -----------------------------
 -- Bucket privé : un document (ordonnance, facture...) ne doit jamais être

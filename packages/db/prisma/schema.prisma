@@ -18,7 +18,6 @@ model User {
 
   sessions       Session[]
   riderProfile   RiderProfile?
-  coachUsages    CoachUsage[]
   emailReminders EmailReminder[]
 
   @@map("users")
@@ -38,9 +37,6 @@ model RiderProfile {
   rideFrequency  RideFrequency?
   preferredTime  PreferredTime?
   primaryGoal    RiderGoal?
-  /// Contexte libre donné par le cavalier en fin d'onboarding — destiné à
-  /// nourrir la personnalisation du programme par le Coach IA.
-  additionalInfo String?
 
   // Entitlement abonnement (source de vérité côté store = RevenueCat)
   /// Défaut non-entitlant tant que RevenueCat n'a pas écrit de vraie valeur
@@ -106,8 +102,7 @@ model Horse {
   appointments    Appointment[]
   journalEntries  JournalEntry[]
   collaborators   HorseCollaborator[]
-  progress        HorseProgress?
-  trainingProgram HorseProgram?
+  trainingSessions TrainingSession[]
 
   @@index([ownerId])
   @@map("horses")
@@ -244,6 +239,38 @@ model JournalEntry {
   @@map("journal_entries")
 }
 
+/// Séance d'entraînement planifiée manuellement par le cavalier (remplace le
+/// cursus généré par IA, retiré du produit) — même logique de rattachement au
+/// cheval que Appointment/JournalEntry, pour le même partage. Contrairement à
+/// Appointment/JournalEntry (création + suppression seulement), une séance
+/// planifiée doit pouvoir être éditée : déplacer une séance dans le temps est
+/// l'usage normal d'un planning, pas une correction d'erreur de saisie.
+model TrainingSession {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  activityType    ActivityType
+  date            DateTime
+  time            String
+  durationMinutes Int?
+  /// Intensité ressentie visée ("LOW"/"MEDIUM"/"HIGH") — texte libre plutôt
+  /// qu'un enum dédié, même logique que Appointment.reminder : 3 valeurs
+  /// fixes ne justifient pas un type Postgres séparé.
+  intensity String?
+  notes     String
+  /// Coché par le cavalier une fois la séance faite — pas de lien vers un
+  /// quelconque système de badges/XP (retiré avec l'IA), juste un suivi
+  /// simple "fait / pas fait".
+  completed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("training_sessions")
+}
+
 /// Accès partagé à un cheval (demi-pension / coach) — invité par email, lien
 /// avec un compte réel seulement à l'acceptation (cf. cf. lib/sharing.ts).
 model HorseCollaborator {
@@ -266,54 +293,6 @@ model HorseCollaborator {
   @@unique([horseId, invitedEmail])
   @@index([collaboratorUserId])
   @@map("horse_collaborators")
-}
-
-/// Progression d'entraînement (séances cochées, série de badges, débriefs de
-/// ressenti) — 1-1 par cheval, pour survivre à un changement d'appareil (cf.
-/// progress/store.tsx, jusqu'ici purement local). Donnée personnelle au
-/// cavalier propriétaire, pas partagée avec un demi-pensionnaire/coach (pas
-/// dans le brief de partage) — RLS owns_horse, pas can_access_horse.
-/// Blob JSON plutôt qu'une ligne par séance : les ids de séance sont dérivés
-/// du programme généré (`${horseId}-w{n}-s{i}`) et invalidés en bloc dès sa
-/// régénération (cf. programGeneratedAt) — pas des entités stables qu'on
-/// liste/édite une à une comme Document/Appointment.
-model HorseProgress {
-  id      String @id @default(cuid())
-  horseId String @unique
-  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
-
-  /// Record<sessionId, boolean>
-  completed      Json @default("{}")
-  bestWeekStreak Int  @default(0)
-  /// Record<sessionId, { mood, note }>
-  debriefs Json @default("{}")
-  /// generatedAt du programme contre lequel cette progression a été calculée
-  /// — sert à détecter une régénération côté client (cf. program/store.tsx).
-  programGeneratedAt String?
-
-  updatedAt DateTime @updatedAt
-
-  @@map("horse_progress")
-}
-
-/// Programme d'entraînement généré (8 semaines) — 1-1 par cheval, même
-/// portée RLS et même raison d'être que HorseProgress ci-dessus.
-model HorseProgram {
-  id      String @id @default(cuid())
-  horseId String @unique
-  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
-
-  /// GeneratedProgram (cf. program/types.ts) sérialisé tel quel.
-  program Json
-  /// Signature des champs structurants (cf. program/store.tsx importantSignature)
-  /// — sert à détecter qu'une régénération est due.
-  signature String
-  /// generatedAt du programme pour lequel le bilan de fin a déjà été ignoré, ou null.
-  bilanDismissedAt String?
-
-  updatedAt DateTime @updatedAt
-
-  @@map("horse_programs")
 }
 
 enum RiderLevel {
@@ -510,30 +489,6 @@ model Session {
   createdAt DateTime @default(now())
 
   @@map("sessions")
-}
-
-/// Compteur d'appels LLM par jour, par fonctionnalité — protège le coût d'API
-/// par utilisateur pour chaque route qui appelle OpenRouter (cf.
-/// apps/api/.../coach/route.ts et .../program-insight/route.ts). Écrit
-/// uniquement par le backend (connexion DATABASE_URL qui bypass RLS), jamais
-/// par le client.
-model CoachUsage {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// Jour UTC au format "YYYY-MM-DD" — plus simple qu'une plage DateTime pour un upsert par jour.
-  date      String
-  /// Distingue le quota "coach" (chat IA) du quota "program_insight"
-  /// (éclairage IA sur le texte libre) — même mécanisme de plafond quotidien,
-  /// budgets comptés séparément pour ne pas faire consommer le quota chat par
-  /// une fonctionnalité totalement différente. Défaut "coach" pour ne pas
-  /// invalider les lignes déjà écrites par l'ancienne version à 2 colonnes.
-  feature   String   @default("coach")
-  count     Int      @default(0)
-  updatedAt DateTime @updatedAt
-
-  @@unique([userId, date, feature])
-  @@map("coach_usage")
 }
 
 /// Trace les events RevenueCat déjà traités (clé = `event.id` du payload

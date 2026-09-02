@@ -4,7 +4,7 @@ import { deleteSupabaseAuthUser, getUserIdFromRequest } from "@/lib/supabaseAdmi
 
 /** Suppression de compte (exigée par la guideline App Store 5.1.1(v)) — supprime
  * d'abord les données Prisma (cascade : rider_profiles, horses, traits,
- * blessures, goals, coach_usage, sessions), puis le compte Supabase Auth. */
+ * blessures, goals, sessions), puis le compte Supabase Auth. */
 export async function DELETE(req: NextRequest) {
   const userId = await getUserIdFromRequest(req);
   if (!userId) {
