@@ -10,59 +10,57 @@ import {
   Purchases,
   configurePurchases,
   getAddonPackage,
-  getPackageForTier,
+  getSubscriptionPackage,
   isPurchasesAvailable,
   loginRevenueCat,
   logoutRevenueCat,
-  type PaidTier,
 } from "@/lib/revenuecat";
 
 /**
- * Entitlement d'abonnement, global à l'app. Pilote le gating « soft » des
- * visuels/fonctionnalités premium (cf. composant <Locked>) selon le palier.
+ * Entitlement d'abonnement, global à l'app. Pilote le gating de toute l'app
+ * (cf. composant <Locked>) — depuis le pivot tarifaire du 2026-09-03, un seul
+ * palier payant existe, donc plus de notion de tier ici : soit le compte est
+ * actif/en essai, soit il ne l'est pas (lecture seule, cf. rls.sql
+ * rider_is_active_or_trialing).
  *
  * Tant que le projet RevenueCat + les produits store ne sont pas créés
  * (cf. apps/mobile/.env), `isPurchasesAvailable()` reste false et on retombe
  * sur une simulation locale (SecureStore) identique au comportement d'avant
  * — à supprimer une fois les achats réels opérationnels.
  *
- * Valeurs alignées sur les enums Prisma SubscriptionStatus / SubscriptionTier
- * / BillingPeriod (+ 'free' = jamais abonné).
+ * Valeurs alignées sur l'enum Prisma SubscriptionStatus / BillingPeriod
+ * (+ 'free' = jamais abonné).
  */
 export type SubscriptionStatus = "free" | "trialing" | "active" | "expired" | "cancelled";
-export type SubscriptionTier = "FREE" | "PADDOCK" | "GRAND_PRIX";
 export type BillingPeriod = "MONTHLY" | "ANNUAL";
 
-/** Nombre de chevaux inclus par palier, avant ajout des add-ons achetés. */
-export const HORSE_LIMITS: Record<SubscriptionTier, number> = { FREE: 1, PADDOCK: 2, GRAND_PRIX: 3 };
+/** Nombre de chevaux inclus par l'abonnement, avant ajout des add-ons achetés. */
+export const HORSE_LIMIT = 3;
 
 const KEY = "subscription_state_v1";
 
 type Persisted = {
-  tier: SubscriptionTier;
   status: SubscriptionStatus;
   billingPeriod: BillingPeriod | null;
   trialEndsAt: string | null; // ISO
   extraHorseSlots: number;
 };
 
-const DEFAULT: Persisted = { tier: "FREE", status: "free", billingPeriod: null, trialEndsAt: null, extraHorseSlots: 0 };
+const DEFAULT: Persisted = { status: "free", billingPeriod: null, trialEndsAt: null, extraHorseSlots: 0 };
 
 /** Nombre de chevaux autorisés pour un état d'abonnement donné. */
-export function maxHorses(s: Pick<Persisted, "tier" | "extraHorseSlots">): number {
-  return HORSE_LIMITS[s.tier] + s.extraHorseSlots;
+export function maxHorses(s: Pick<Persisted, "extraHorseSlots">): number {
+  return HORSE_LIMIT + s.extraHorseSlots;
 }
 
 type SubscriptionContextValue = Persisted & {
-  /** true tant qu'un abonnement Paddock OU Grand Prix (actif ou en essai) couvre le compte. */
-  isPremium: boolean;
-  isPaddockOrAbove: boolean;
+  /** true tant qu'un abonnement (actif ou en essai) couvre le compte — seul
+   * gate de toute l'app depuis le pivot vers un palier unique. */
+  isActiveOrTrialing: boolean;
   loading: boolean;
-  /** Démarre l'essai 7 jours Grand Prix en mode simulation locale (utilisé
-   * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
+  /** Démarre l'essai de 2 mois en mode simulation locale (utilisé seulement
+   * si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
   startTrial: (period: BillingPeriod) => Promise<void>;
-  /** Active Paddock immédiatement (pas d'essai sur ce palier), même principe de simulation locale. */
-  subscribeToPaddock: (period: BillingPeriod) => Promise<void>;
   /** Active l'add-on "cheval supplémentaire" en simulation locale. */
   activateAddon: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -74,7 +72,7 @@ type SubscriptionContextValue = Persisted & {
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
-function isActiveOrTrialing(s: Pick<Persisted, "status" | "trialEndsAt">): boolean {
+function computeIsActiveOrTrialing(s: Pick<Persisted, "status" | "trialEndsAt">): boolean {
   if (s.status === "active") return true;
   if (s.status === "trialing") {
     if (!s.trialEndsAt) return false;
@@ -93,25 +91,16 @@ function billingPeriodFromProductId(productId: string): BillingPeriod | null {
   return null;
 }
 
-function tierFromActiveEntitlements(active: CustomerInfo["entitlements"]["active"]): SubscriptionTier {
-  if (active[ENTITLEMENT_ID.GRAND_PRIX]) return "GRAND_PRIX";
-  if (active[ENTITLEMENT_ID.PADDOCK]) return "PADDOCK";
-  return "FREE";
-}
-
 function persistedFromCustomerInfo(info: CustomerInfo): Persisted {
   const extraHorseSlots = info.entitlements.active[EXTRA_HORSE_ENTITLEMENT_ID] ? 1 : 0;
-  const tier = tierFromActiveEntitlements(info.entitlements.active);
-  if (tier === "FREE") return { ...DEFAULT, extraHorseSlots };
+  const entitlement = info.entitlements.active[ENTITLEMENT_ID];
+  if (!entitlement) return { ...DEFAULT, extraHorseSlots };
 
-  // Non-null : tier vient de tierFromActiveEntitlements, qui ne renvoie PADDOCK/GRAND_PRIX
-  // que si l'entitlement correspondant est bien présent dans `active`.
-  const entitlement = info.entitlements.active[ENTITLEMENT_ID[tier]]!;
   const billingPeriod = billingPeriodFromProductId(entitlement.productIdentifier);
   if (entitlement.periodType === "TRIAL") {
-    return { tier, status: "trialing", billingPeriod, trialEndsAt: entitlement.expirationDate, extraHorseSlots };
+    return { status: "trialing", billingPeriod, trialEndsAt: entitlement.expirationDate, extraHorseSlots };
   }
-  return { tier, status: "active", billingPeriod, trialEndsAt: null, extraHorseSlots };
+  return { status: "active", billingPeriod, trialEndsAt: null, extraHorseSlots };
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -149,7 +138,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const raw = await SecureStore.getItemAsync(KEY);
     const parsed: Persisted = { ...DEFAULT, ...safeJsonParse<Partial<Persisted>>(raw, {}) };
     // expiration de l'essai simulé gérée localement
-    if (parsed.status === "trialing" && parsed.trialEndsAt && !isActiveOrTrialing(parsed)) {
+    if (parsed.status === "trialing" && parsed.trialEndsAt && !computeIsActiveOrTrialing(parsed)) {
       parsed.status = "expired";
       await SecureStore.setItemAsync(KEY, JSON.stringify(parsed));
     }
@@ -187,31 +176,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [refresh, refreshFromRevenueCat, persistLocal]);
 
-  /** Simulation locale (7 jours), utilisée uniquement tant que RevenueCat
-   * n'est pas configuré — cf. useSubscribeFlow. Grand Prix est le seul palier
-   * avec essai. */
+  /** Simulation locale (2 mois), utilisée uniquement tant que RevenueCat
+   * n'est pas configuré — cf. useSubscribeFlow. */
   const startTrial = useCallback(
     async (period: BillingPeriod) => {
-      const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const trialEndsAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
       await persistLocal({
-        tier: "GRAND_PRIX",
         status: "trialing",
         billingPeriod: period,
         trialEndsAt,
-        extraHorseSlots: stateRef.current.extraHorseSlots,
-      });
-    },
-    [persistLocal]
-  );
-
-  /** Simulation locale : Paddock s'active immédiatement, pas d'essai sur ce palier. */
-  const subscribeToPaddock = useCallback(
-    async (period: BillingPeriod) => {
-      await persistLocal({
-        tier: "PADDOCK",
-        status: "active",
-        billingPeriod: period,
-        trialEndsAt: null,
         extraHorseSlots: stateRef.current.extraHorseSlots,
       });
     },
@@ -231,17 +204,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const value = useMemo<SubscriptionContextValue>(
     () => ({
       ...state,
-      isPremium: state.tier !== "FREE" && isActiveOrTrialing(state),
-      isPaddockOrAbove: state.tier !== "FREE" && isActiveOrTrialing(state),
+      isActiveOrTrialing: computeIsActiveOrTrialing(state),
       loading,
       startTrial,
-      subscribeToPaddock,
       activateAddon,
       refresh,
       applyCustomerInfo,
       clearAll,
     }),
-    [state, loading, startTrial, subscribeToPaddock, activateAddon, refresh, applyCustomerInfo, clearAll]
+    [state, loading, startTrial, activateAddon, refresh, applyCustomerInfo, clearAll]
   );
 
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
@@ -258,24 +229,23 @@ export function useSubscription() {
  * déclenché par <Locked>), pour qu'elle ne soit écrite qu'à un seul endroit.
  */
 export function useSubscribeFlow() {
-  const { startTrial, subscribeToPaddock, activateAddon, applyCustomerInfo } = useSubscription();
+  const { startTrial, activateAddon, applyCustomerInfo } = useSubscription();
   const [submitting, setSubmitting] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
   const subscribe = useCallback(
-    async (tier: PaidTier, period: BillingPeriod, onSuccess: () => void | Promise<void>) => {
+    async (period: BillingPeriod, onSuccess: () => void | Promise<void>) => {
       setSubmitting(true);
       try {
         if (!isPurchasesAvailable()) {
           // RevenueCat pas encore configuré (.env vide) : simulation locale,
           // identique au comportement avant le branchement RevenueCat.
-          if (tier === "GRAND_PRIX") await startTrial(period);
-          else await subscribeToPaddock(period);
+          await startTrial(period);
           await onSuccess();
           return;
         }
 
-        const pkg = await getPackageForTier(tier, period);
+        const pkg = await getSubscriptionPackage(period);
         if (!pkg) {
           Alert.alert("Indisponible", "Cette offre n'est pas encore configurée. Réessaie plus tard.");
           return;
@@ -291,7 +261,7 @@ export function useSubscribeFlow() {
         setSubmitting(false);
       }
     },
-    [startTrial, subscribeToPaddock, applyCustomerInfo]
+    [startTrial, applyCustomerInfo]
   );
 
   const purchaseAddon = useCallback(
@@ -332,7 +302,7 @@ export function useSubscribeFlow() {
       // Non-null : isPurchasesAvailable() vérifié juste au-dessus.
       const info = await Purchases!.restorePurchases();
       applyCustomerInfo(info);
-      const hasEntitlement = tierFromActiveEntitlements(info.entitlements.active) !== "FREE";
+      const hasEntitlement = !!info.entitlements.active[ENTITLEMENT_ID];
       Alert.alert(hasEntitlement ? "Abonnement restauré" : "Rien à restaurer", hasEntitlement ? "" : "Aucun achat actif trouvé pour ce compte.");
     } catch {
       Alert.alert("Oups", "Impossible de restaurer tes achats.");

@@ -54,7 +54,7 @@ function ShareLocked({ message }: { message: string }) {
 export default function ShareHorseModal() {
   const { horseId } = useLocalSearchParams<{ horseId: string }>();
   const { horses } = useHorses();
-  const { tier } = useSubscription();
+  const { isActiveOrTrialing } = useSubscription();
   const horse = horses.find((h) => h.id === horseId);
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -75,8 +75,8 @@ export default function ShareHorseModal() {
     refresh();
   }, [refresh]);
 
-  if (tier === "FREE") {
-    return <ShareLocked message="Le partage avec une demi-pension ou un coach est réservé au pack Paddock et plus." />;
+  if (!isActiveOrTrialing) {
+    return <ShareLocked message="Le partage avec une demi-pension ou un coach est réservé aux comptes abonnés." />;
   }
   if (!horse) {
     return (

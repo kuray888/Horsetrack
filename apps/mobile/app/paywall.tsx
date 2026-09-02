@@ -1,14 +1,13 @@
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
 import { useSubscribeFlow, type BillingPeriod } from "@/subscription/store";
-import type { PaidTier } from "@/lib/revenuecat";
 
 /** Paywall plein écran déclenché depuis l'app par un bouton « Débloquer » (<Locked>). */
 export default function AppPaywall() {
   const { submitting, subscribe, purchaseAddon, restoring, restore } = useSubscribeFlow();
 
-  async function onSubscribe(tier: PaidTier, period: BillingPeriod) {
-    await subscribe(tier, period, () => router.back());
+  async function onSubscribe(period: BillingPeriod) {
+    await subscribe(period, () => router.back());
   }
 
   async function onPurchaseAddon(period: BillingPeriod) {

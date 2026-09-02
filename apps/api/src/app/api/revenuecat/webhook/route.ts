@@ -3,12 +3,13 @@ import { z } from "zod";
 import { db, Prisma, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
 
 /**
- * Entitlements RevenueCat — doivent correspondre exactement à ceux créés dans
- * le dashboard (cf. apps/mobile/src/lib/revenuecat.ts). Le produit Grand Prix
- * est rattaché aux DEUX entitlements `paddock` et `grand_prix` (sur-ensemble).
+ * Entitlement RevenueCat du palier payant unique — doit correspondre
+ * exactement à celui créé dans le dashboard (cf.
+ * apps/mobile/src/lib/revenuecat.ts). Pivot tarifaire du 2026-09-03 : plus
+ * de distinction Paddock/Grand Prix, un seul entitlement (`grand_prix`,
+ * réutilisé tel quel pour ne pas dépendre d'une reconfiguration store).
  */
-const ENTITLEMENT_PADDOCK = "paddock";
-const ENTITLEMENT_GRAND_PRIX = "grand_prix";
+const ENTITLEMENT_ID = "grand_prix";
 const ENTITLEMENT_EXTRA_HORSE = "extra_horse";
 
 // Tous les champs restent optionnels (au lieu de `required`) pour ne pas
@@ -47,7 +48,7 @@ function billingPeriodFromProductId(productId: string | undefined): "MONTHLY" | 
  * `rider_profiles.userId` (le trigger `handle_new_user` recopie l'uuid
  * Supabase en texte dans public.users.id — cf. rls.sql).
  *
- * Un même événement peut concerner le palier (paddock/grand_prix) et/ou
+ * Un même événement peut concerner le palier payant (grand_prix) et/ou
  * l'add-on cheval supplémentaire (extra_horse) — ce sont des entitlements
  * indépendants, chacun mis à jour seulement s'il apparaît dans `entitlement_ids`.
  * Limite connue : si plusieurs entitlements évoluent dans des événements
@@ -82,11 +83,10 @@ export async function POST(req: NextRequest) {
   }
 
   const entitlementIds = event?.entitlement_ids ?? [];
-  const hasGrandPrix = entitlementIds.includes(ENTITLEMENT_GRAND_PRIX);
-  const hasPaddock = entitlementIds.includes(ENTITLEMENT_PADDOCK);
+  const hasEntitlement = entitlementIds.includes(ENTITLEMENT_ID);
   const hasExtraHorse = entitlementIds.includes(ENTITLEMENT_EXTRA_HORSE);
 
-  if (!event?.app_user_id || (!hasGrandPrix && !hasPaddock && !hasExtraHorse)) {
+  if (!event?.app_user_id || (!hasEntitlement && !hasExtraHorse)) {
     return NextResponse.json({ received: true });
   }
 
@@ -104,11 +104,7 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = event.app_user_id;
-  const tier: SubscriptionTier | null = hasGrandPrix
-    ? SubscriptionTier.GRAND_PRIX
-    : hasPaddock
-      ? SubscriptionTier.PADDOCK
-      : null;
+  const tier: SubscriptionTier | null = hasEntitlement ? SubscriptionTier.GRAND_PRIX : null;
   // Anti-réordonnancement (cf. audit sécurité) : RevenueCat garantit une
   // livraison "at-least-once" mais pas l'ordre — sans cette garde, un retry
   // tardif d'un événement périmé (ex. une CANCELLATION livrée en retard)

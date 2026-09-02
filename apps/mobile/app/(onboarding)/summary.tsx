@@ -63,7 +63,7 @@ export default function Summary() {
         <FadeInView delay={220}>
           <View className="rounded-card border border-border bg-highlight/40 p-4">
             <Text className="text-center text-base font-semibold text-primary">
-              Essaie tout gratuitement pendant 7 jours.
+              Essaie tout gratuitement pendant 2 mois.
             </Text>
           </View>
         </FadeInView>

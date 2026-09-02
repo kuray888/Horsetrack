@@ -1,15 +1,12 @@
 import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { PurchasesPackage } from "react-native-purchases";
-import type { BillingPeriod, SubscriptionTier } from "@/subscription/store";
+import type { BillingPeriod } from "@/subscription/store";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 type PurchasesStatic = typeof import("react-native-purchases").default;
 type IntroEligibilityStatus = typeof import("react-native-purchases").INTRO_ELIGIBILITY_STATUS;
-
-/** Palier payant — FREE n'a pas de produit RevenueCat associé. */
-export type PaidTier = Exclude<SubscriptionTier, "FREE">;
 
 /**
  * Coupe-circuit : désactive le SDK si aucune clé API n'est configurée pour la
@@ -34,24 +31,23 @@ const purchasesModule = TEMP_DISABLE_REVENUECAT ? null : (require("react-native-
 const Purchases: PurchasesStatic | null = purchasesModule?.default ?? null;
 
 /**
- * Identifiants d'entitlement RevenueCat — doivent correspondre exactement aux
- * entitlements créés dans le dashboard RevenueCat. Le produit Grand Prix doit
- * être rattaché aux DEUX entitlements `paddock` et `grand_prix` (Grand Prix
- * est un sur-ensemble de Paddock), Paddock uniquement à `paddock`.
+ * Identifiant d'entitlement RevenueCat du palier payant unique — cf. pivot
+ * tarifaire du 2026-09-03 (plus de distinction Paddock/Grand Prix). Réutilise
+ * délibérément l'identifiant `grand_prix` déjà créé dans le dashboard
+ * RevenueCat plutôt que d'en recréer un nouveau, pour ne pas dépendre d'une
+ * reconfiguration store externe pour ce renommage de code.
  */
-export const ENTITLEMENT_ID: Record<PaidTier, string> = {
-  PADDOCK: "paddock",
-  GRAND_PRIX: "grand_prix",
-};
+export const ENTITLEMENT_ID = "grand_prix";
 export const EXTRA_HORSE_ENTITLEMENT_ID = "extra_horse";
 
 /** Identifiants de package RevenueCat — custom (pas les `$rc_monthly`/`$rc_annual`
- * spéciaux, réservés à une offering à un seul produit) : 2 paliers × 2
- * fréquences + l'add-on × 2 fréquences, à créer avec ces identifiants exacts
- * dans le dashboard RevenueCat. */
-const PACKAGE_IDENTIFIER: Record<PaidTier, Record<BillingPeriod, string>> = {
-  PADDOCK: { MONTHLY: "paddock_monthly", ANNUAL: "paddock_annual" },
-  GRAND_PRIX: { MONTHLY: "grand_prix_monthly", ANNUAL: "grand_prix_annual" },
+ * spéciaux, réservés à une offering à un seul produit) : le palier unique ×
+ * 2 fréquences + l'add-on × 2 fréquences, à créer avec ces identifiants
+ * exacts dans le dashboard RevenueCat (le produit Paddock/ses packages sont
+ * à retirer de l'offering, cf. plan Phase 4). */
+const PACKAGE_IDENTIFIER: Record<BillingPeriod, string> = {
+  MONTHLY: "grand_prix_monthly",
+  ANNUAL: "grand_prix_annual",
 };
 const ADDON_PACKAGE_IDENTIFIER: Record<BillingPeriod, string> = {
   MONTHLY: "extra_horse_monthly",
@@ -103,15 +99,12 @@ export async function logoutRevenueCat(): Promise<void> {
   await Purchases.logOut();
 }
 
-export async function getPackageForTier(
-  tier: PaidTier,
-  period: BillingPeriod
-): Promise<PurchasesPackage | null> {
+export async function getSubscriptionPackage(period: BillingPeriod): Promise<PurchasesPackage | null> {
   if (!configured || !Purchases) return null;
   const offerings = await Purchases.getOfferings();
   const current = offerings.current;
   if (!current) return null;
-  return current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[tier][period]) ?? null;
+  return current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[period]) ?? null;
 }
 
 export async function getAddonPackage(period: BillingPeriod): Promise<PurchasesPackage | null> {
@@ -124,8 +117,8 @@ export async function getAddonPackage(period: BillingPeriod): Promise<PurchasesP
 
 /**
  * Vérifie si le compte courant peut réellement bénéficier de l'essai gratuit
- * Grand Prix promis par le paywall (cf. PaywallView) — deux conditions
- * distinctes, toutes deux nécessaires :
+ * promis par le paywall (cf. PaywallView) — deux conditions distinctes,
+ * toutes deux nécessaires :
  * 1. Le produit lui-même doit avoir une offre d'introduction configurée côté
  *    store (`product.introPrice`) : si l'offre d'essai n'existe pas dans App
  *    Store Connect / Play Console pour ce produit, personne ne l'aura jamais,
@@ -141,12 +134,12 @@ export async function getAddonPackage(period: BillingPeriod): Promise<PurchasesP
  * confirmation négative fiable (offre absente du produit, ou compte non
  * éligible côté Apple) et doit systématiquement faire disparaître la promesse
  * d'essai gratuit de l'UI, pour ne jamais facturer quelqu'un à qui l'app
- * venait d'annoncer "7 jours gratuits".
+ * venait d'annoncer "2 mois gratuits".
  */
-export async function isGrandPrixTrialEligible(period: BillingPeriod): Promise<boolean | null> {
+export async function isTrialEligible(period: BillingPeriod): Promise<boolean | null> {
   if (!configured || !Purchases) return null;
   try {
-    const pkg = await getPackageForTier("GRAND_PRIX", period);
+    const pkg = await getSubscriptionPackage(period);
     if (!pkg || !pkg.product.introPrice) return false;
 
     if (Platform.OS !== "ios") {

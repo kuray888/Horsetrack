@@ -98,7 +98,14 @@ function SettingRow({
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
   const subscription = useSubscription();
-  const { status, tier, billingPeriod, trialEndsAt, isPremium, loading: subLoading, clearAll: clearSubscription } = subscription;
+  const {
+    status,
+    billingPeriod,
+    trialEndsAt,
+    isActiveOrTrialing,
+    loading: subLoading,
+    clearAll: clearSubscription,
+  } = subscription;
   const horseLimit = maxHorses(subscription);
   const { horses, updateHorsePhoto, clearAll: clearHorses } = useHorses();
   const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
@@ -217,14 +224,12 @@ export default function ProfileScreen() {
 
   function subscriptionLabel(): string {
     if (subLoading) return "Chargement…";
-    if (tier === "FREE") return "Palier Free";
-    const tierName = tier === "GRAND_PRIX" ? "Grand Prix" : "Paddock";
-    if (status === "active") return `${tierName} · ${billingPeriod === "ANNUAL" ? "annuel" : "mensuel"}`;
+    if (status === "active") return `Abonné · ${billingPeriod === "ANNUAL" ? "annuel" : "mensuel"}`;
     if (status === "trialing") {
       const days = daysUntil(trialEndsAt);
-      return `Essai ${tierName} · ${days} jour${days !== 1 ? "s" : ""} restant${days !== 1 ? "s" : ""}`;
+      return `Essai · ${days} jour${days !== 1 ? "s" : ""} restant${days !== 1 ? "s" : ""}`;
     }
-    return "Palier Free";
+    return "Lecture seule";
   }
 
   return (
@@ -247,15 +252,15 @@ export default function ProfileScreen() {
       {/* Abonnement */}
       <FadeInView delay={60}>
         <View className={`${CARD} flex-row items-center gap-3`}>
-          <Text className="text-2xl">{isPremium ? "⭐" : "🔓"}</Text>
+          <Text className="text-2xl">{isActiveOrTrialing ? "⭐" : "🔓"}</Text>
           <View className="flex-1 gap-0.5">
             <Text className="text-base font-bold text-text">{subscriptionLabel()}</Text>
             <Text className="text-xs text-muted">
-              {isPremium ? "Profite de toutes les fonctionnalités" : "Débloque le suivi complet"}
+              {isActiveOrTrialing ? "Profite de toutes les fonctionnalités" : "Abonne-toi pour retrouver l'accès complet"}
             </Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8}>
-            <Text className="text-sm font-bold text-accent">{isPremium ? "Gérer" : "Voir les offres"}</Text>
+            <Text className="text-sm font-bold text-accent">{isActiveOrTrialing ? "Gérer" : "Voir les offres"}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>

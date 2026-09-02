@@ -23,9 +23,9 @@ export function Locked({
   message?: string;
   cta?: string;
 }) {
-  const { isPaddockOrAbove } = useSubscription();
+  const { isActiveOrTrialing } = useSubscription();
   const { scale, onPressIn, onPressOut } = usePressScale();
-  const unlocked = isPaddockOrAbove;
+  const unlocked = isActiveOrTrialing;
 
   if (unlocked) return <>{children}</>;
 

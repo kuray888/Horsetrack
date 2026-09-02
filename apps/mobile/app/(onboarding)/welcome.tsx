@@ -17,13 +17,13 @@ export default function Welcome() {
         </FadeInView>
         <FadeInView delay={100}>
           <Text className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-text">
-            Le coach de toi et ton cheval.
+            Toi et ton cheval, organisés.
           </Text>
         </FadeInView>
         <FadeInView delay={200}>
           <Text className="mt-4 text-lg text-muted">
-            Un programme sur-mesure pour progresser ensemble, suivre ta monte et garder ton cheval
-            au top — quelle que soit ta discipline.
+            Planning, rendez-vous santé, concours et suivi financier au même endroit, pour progresser
+            ensemble — quelle que soit ta discipline.
           </Text>
         </FadeInView>
       </View>
@@ -32,7 +32,7 @@ export default function Welcome() {
         <View className="gap-3 px-6 pb-2">
           <PrimaryButton label="Commencer" onPress={() => router.push("/(onboarding)/rider-level")} />
           <Text className="text-center text-xs text-muted">
-            Essai gratuit de 7 jours · sans engagement
+            Essai gratuit de 2 mois · sans engagement
           </Text>
         </View>
       </FadeInView>

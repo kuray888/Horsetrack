@@ -15,7 +15,7 @@ import { scheduleEmailReminder } from "@/lib/emailReminders";
 import { fetchWeatherSnapshot } from "@/lib/weather";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
-import { useSubscription } from "@/subscription/store";
+import { Locked } from "@/components/Locked";
 import { DISCIPLINES } from "@/onboarding/options";
 import type { Discipline } from "@/onboarding/store";
 import {
@@ -93,9 +93,6 @@ const MOOD_META: Record<Mood, { emoji: string; label: string }> = {
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
-
-/** Palier Free : historique (rendez-vous passés + documents) limité aux 14 derniers jours. */
-const HISTORY_LIMIT_DAYS = 14;
 
 function ChipSelect<T extends string>({
   options,
@@ -180,7 +177,6 @@ function formatAmount(amount: number, currency: string): string {
 
 export default function AgendaScreen() {
   const { selectedHorse: horse } = useHorses();
-  const { tier } = useSubscription();
   const {
     appointments,
     documents,
@@ -228,8 +224,6 @@ export default function AgendaScreen() {
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
 
   const today = daysFromNow(0);
-  const isFree = tier === "FREE";
-  const historyCutoff = daysFromNow(-HISTORY_LIMIT_DAYS);
 
   // Rendez-vous et journal sont rattachés à un cheval (cf. agenda/store.tsx) —
   // le partage DP/coach se fait par cheval, donc cet écran ne montre que ceux
@@ -241,17 +235,15 @@ export default function AgendaScreen() {
   const horseExpenses = expenses.filter((e) => e.horseId === horse?.id);
 
   const upcomingAppts = horseAppointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
-  const pastApptsAll = horseAppointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
-  const pastAppts = isFree ? pastApptsAll.filter((a) => a.date >= historyCutoff) : pastApptsAll;
-  const hiddenPastApptsCount = pastApptsAll.length - pastAppts.length;
+  // Historique complet pour tout le monde depuis le pivot tarifaire du
+  // 2026-09-03 — plus de palier Free avec un plafond de 14 jours, et un
+  // compte expiré garde la visibilité complète sur ses données (lecture
+  // seule, cf. rls.sql).
+  const pastAppts = horseAppointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
 
-  const sortedDocsAll = [...documents].sort((a, b) => b.date.getTime() - a.date.getTime());
-  const sortedDocs = isFree ? sortedDocsAll.filter((d) => d.date >= historyCutoff) : sortedDocsAll;
-  const hiddenDocsCount = sortedDocsAll.length - sortedDocs.length;
+  const sortedDocs = [...documents].sort((a, b) => b.date.getTime() - a.date.getTime());
 
-  const sortedJournalAll = [...horseJournal].sort((a, b) => b.date.getTime() - a.date.getTime());
-  const sortedJournal = isFree ? sortedJournalAll.filter((j) => j.date >= historyCutoff) : sortedJournalAll;
-  const hiddenJournalCount = sortedJournalAll.length - sortedJournal.length;
+  const sortedJournal = [...horseJournal].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const sortedExpenses = [...horseExpenses].sort((a, b) => b.date.getTime() - a.date.getTime());
   // Toutes les dépenses sont en EUR pour l'instant (cf. Expense.currency) —
@@ -278,11 +270,7 @@ export default function AgendaScreen() {
     const title = apptForm.title.trim();
     const time = apptForm.time.trim();
     const location = apptForm.location.trim();
-    // Free n'a "pas de rappels automatiques" (push ou email) selon la grille
-    // tarifaire — le champ Rappel est masqué côté UI pour ce palier, mais on
-    // re-vérifie ici pour ne jamais programmer un rappel à partir d'un état
-    // de formulaire resté à une valeur précédente (ex: downgrade de palier).
-    const reminder = isFree ? "none" : apptForm.reminder;
+    const reminder = apptForm.reminder;
     const trigger = computeReminderTrigger(date, time, reminder);
     const notifBody = `${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`;
     // L'échec de programmation du rappel (permission révoquée, erreur OS) ne
@@ -519,27 +507,17 @@ export default function AgendaScreen() {
                     onChangeText={(location) => setApptForm((f) => ({ ...f, location }))}
                   />
                 </Field>
-                {isFree ? (
-                  <Field label="Rappel">
-                    <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8}>
-                      <Text className="text-sm font-semibold text-accent">
-                        🔒 Rappels disponibles avec Paddock
-                      </Text>
-                    </TouchableOpacity>
-                  </Field>
-                ) : (
-                  <Field label="Rappel">
-                    <ChipSelect
-                      options={Object.entries(REMINDER_META).map(([value, meta]) => ({
-                        value: value as ReminderOption,
-                        label: meta.label,
-                        icon: meta.icon,
-                      }))}
-                      value={apptForm.reminder}
-                      onChange={(reminder) => setApptForm((f) => ({ ...f, reminder }))}
-                    />
-                  </Field>
-                )}
+                <Field label="Rappel">
+                  <ChipSelect
+                    options={Object.entries(REMINDER_META).map(([value, meta]) => ({
+                      value: value as ReminderOption,
+                      label: meta.label,
+                      icon: meta.icon,
+                    }))}
+                    value={apptForm.reminder}
+                    onChange={(reminder) => setApptForm((f) => ({ ...f, reminder }))}
+                  />
+                </Field>
                 {apptForm.type === "concours" ? (
                   <>
                     <Field label="Dossard (optionnel)">
@@ -613,7 +591,9 @@ export default function AgendaScreen() {
                 </View>
               </View>
             ) : (
-              <AddToggle label="Ajouter un rendez-vous" onPress={() => setShowApptForm(true)} />
+              <Locked message="Abonne-toi pour ajouter un rendez-vous">
+                <AddToggle label="Ajouter un rendez-vous" onPress={() => setShowApptForm(true)} />
+              </Locked>
             )}
           </FadeInView>
 
@@ -678,19 +658,6 @@ export default function AgendaScreen() {
                 </View>
               </FadeInView>
             ))}
-
-          {showPastAppts && hiddenPastApptsCount > 0 ? (
-            <FadeInView delay={pastAppts.length * 60}>
-              <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8} className={`${CARD} items-center gap-1`}>
-                <Text className="text-xl">🔒</Text>
-                <Text className="text-center text-sm font-semibold text-text">
-                  {hiddenPastApptsCount} rendez-vous plus ancien{hiddenPastApptsCount > 1 ? "s" : ""} masqué
-                  {hiddenPastApptsCount > 1 ? "s" : ""} (historique limité à {HISTORY_LIMIT_DAYS} jours)
-                </Text>
-                <Text className="text-sm font-bold text-accent">Débloque l&apos;historique complet avec Paddock</Text>
-              </TouchableOpacity>
-            </FadeInView>
-          ) : null}
         </>
       ) : section === "documents" ? (
         <>
@@ -757,7 +724,9 @@ export default function AgendaScreen() {
                 </View>
               </View>
             ) : (
-              <AddToggle label="Ajouter un document" onPress={() => setShowDocForm(true)} />
+              <Locked message="Abonne-toi pour ajouter un document">
+                <AddToggle label="Ajouter un document" onPress={() => setShowDocForm(true)} />
+              </Locked>
             )}
           </FadeInView>
 
@@ -780,19 +749,6 @@ export default function AgendaScreen() {
               </FadeInView>
             ))
           )}
-
-          {hiddenDocsCount > 0 ? (
-            <FadeInView delay={200 + sortedDocs.length * 60}>
-              <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8} className={`${CARD} items-center gap-1`}>
-                <Text className="text-xl">🔒</Text>
-                <Text className="text-center text-sm font-semibold text-text">
-                  {hiddenDocsCount} document{hiddenDocsCount > 1 ? "s" : ""} plus ancien{hiddenDocsCount > 1 ? "s" : ""} masqué
-                  {hiddenDocsCount > 1 ? "s" : ""} (historique limité à {HISTORY_LIMIT_DAYS} jours)
-                </Text>
-                <Text className="text-sm font-bold text-accent">Débloque l&apos;historique complet avec Paddock</Text>
-              </TouchableOpacity>
-            </FadeInView>
-          ) : null}
         </>
       ) : section === "journal" ? (
         <>
@@ -880,7 +836,9 @@ export default function AgendaScreen() {
                 </View>
               </View>
             ) : (
-              <AddToggle label="Ajouter une entrée de journal" onPress={() => setShowJournalForm(true)} />
+              <Locked message="Abonne-toi pour ajouter une entrée de journal">
+                <AddToggle label="Ajouter une entrée de journal" onPress={() => setShowJournalForm(true)} />
+              </Locked>
             )}
           </FadeInView>
 
@@ -903,19 +861,6 @@ export default function AgendaScreen() {
               </FadeInView>
             ))
           )}
-
-          {hiddenJournalCount > 0 ? (
-            <FadeInView delay={200 + sortedJournal.length * 60}>
-              <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8} className={`${CARD} items-center gap-1`}>
-                <Text className="text-xl">🔒</Text>
-                <Text className="text-center text-sm font-semibold text-text">
-                  {hiddenJournalCount} entrée{hiddenJournalCount > 1 ? "s" : ""} plus ancienne{hiddenJournalCount > 1 ? "s" : ""} masquée
-                  {hiddenJournalCount > 1 ? "s" : ""} (historique limité à {HISTORY_LIMIT_DAYS} jours)
-                </Text>
-                <Text className="text-sm font-bold text-accent">Débloque l&apos;historique complet avec Paddock</Text>
-              </TouchableOpacity>
-            </FadeInView>
-          ) : null}
         </>
       ) : (
         <>
@@ -1008,7 +953,9 @@ export default function AgendaScreen() {
                 </View>
               </View>
             ) : (
-              <AddToggle label="Ajouter une dépense" onPress={() => setShowExpenseForm(true)} />
+              <Locked message="Abonne-toi pour ajouter une dépense">
+                <AddToggle label="Ajouter une dépense" onPress={() => setShowExpenseForm(true)} />
+              </Locked>
             )}
           </FadeInView>
 

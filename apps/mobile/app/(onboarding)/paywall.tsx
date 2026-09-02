@@ -2,7 +2,6 @@ import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
 import { useSubscribeFlow, type BillingPeriod } from "@/subscription/store";
-import type { PaidTier } from "@/lib/revenuecat";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { useOnboarding } from "@/onboarding/store";
 import { useHorses } from "@/horses/store";
@@ -10,6 +9,11 @@ import { useRiderProfile } from "@/rider/store";
 import { pullCloudData } from "@/lib/cloudSync";
 import { pullPendingInvites } from "@/lib/sharing";
 
+/** Pivot tarifaire du 2026-09-03 : plus aucune fonctionnalité gratuite, donc
+ * plus de "Plus tard" ici (contrairement au paywall in-app depuis <Locked>,
+ * cf. app/paywall.tsx, qui reste fermable — l'utilisateur y revient déjà en
+ * lecture seule). Ce paywall d'onboarding est un vrai palier bloquant : sans
+ * démarrer l'essai, on ne peut pas continuer vers l'app. */
 export default function OnboardingPaywall() {
   const { rider, horses } = useOnboarding();
   const { replaceHorses, hydrateFromCloud } = useHorses();
@@ -53,27 +57,9 @@ export default function OnboardingPaywall() {
     if (invites.length > 0) router.push("/invites-modal");
   }
 
-  async function onSubscribe(tier: PaidTier, period: BillingPeriod) {
-    await subscribe(tier, period, finish);
+  async function onSubscribe(period: BillingPeriod) {
+    await subscribe(period, finish);
   }
 
-  // « Plus tard » : entre dans l'app en mode gaté (palier Free).
-  function onClose() {
-    finish();
-  }
-
-  // Aide à la décision : un cavalier qui a déjà saisi plus de chevaux que ne
-  // permet Paddock (2) doit voir Grand Prix présélectionné d'emblée.
-  const initialTier = horses.length > 2 ? "GRAND_PRIX" : horses.length === 2 ? "PADDOCK" : "GRAND_PRIX";
-
-  return (
-    <PaywallView
-      onSubscribe={onSubscribe}
-      onClose={onClose}
-      onRestore={restore}
-      submitting={submitting}
-      restoring={restoring}
-      initialTier={initialTier}
-    />
-  );
+  return <PaywallView onSubscribe={onSubscribe} onRestore={restore} submitting={submitting} restoring={restoring} />;
 }

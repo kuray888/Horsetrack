@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { db, SubscriptionTier } from "@cheval/db";
+import { db, SubscriptionStatus } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 
 const schema = z.object({
@@ -13,8 +13,9 @@ const schema = z.object({
  * Crée un rappel email programmé pour un rendez-vous d'agenda (l'agenda
  * lui-même reste local-first sur mobile, cf. agenda/store.tsx — ceci ne
  * stocke que le strict nécessaire pour pouvoir envoyer l'email plus tard,
- * cf. /api/cron/email-reminders). Réservé à Paddock+ : Free n'a "pas de
- * rappels automatiques" (push ou email) selon la grille tarifaire.
+ * cf. /api/cron/email-reminders). Réservé aux comptes abonnés/en essai —
+ * plus de palier Free depuis le pivot tarifaire du 2026-09-03, cf.
+ * rls.sql rider_is_active_or_trialing pour l'équivalent RLS.
  */
 export async function POST(req: NextRequest) {
   const userId = await getUserIdFromRequest(req);
@@ -30,10 +31,16 @@ export async function POST(req: NextRequest) {
 
   const riderProfile = await db.riderProfile.findUnique({
     where: { userId },
-    select: { subscriptionTier: true },
+    select: { subscriptionStatus: true, trialEndsAt: true },
   });
-  if (!riderProfile || riderProfile.subscriptionTier === SubscriptionTier.FREE) {
-    return NextResponse.json({ error: "Les rappels automatiques sont réservés au pack Paddock et plus." }, { status: 403 });
+  const isActiveOrTrialing =
+    !!riderProfile &&
+    (riderProfile.subscriptionStatus === SubscriptionStatus.ACTIVE ||
+      (riderProfile.subscriptionStatus === SubscriptionStatus.TRIALING &&
+        !!riderProfile.trialEndsAt &&
+        riderProfile.trialEndsAt > new Date()));
+  if (!isActiveOrTrialing) {
+    return NextResponse.json({ error: "Les rappels automatiques sont réservés aux comptes abonnés." }, { status: 403 });
   }
 
   const reminder = await db.emailReminder.create({
