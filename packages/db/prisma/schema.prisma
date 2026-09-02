@@ -103,6 +103,7 @@ model Horse {
   journalEntries  JournalEntry[]
   collaborators   HorseCollaborator[]
   trainingSessions TrainingSession[]
+  expenses        Expense[]
 
   @@index([ownerId])
   @@map("horses")
@@ -177,6 +178,8 @@ model Document {
   /// sensible (ordonnance, facture...) sans authentification.
   filePath String?
 
+  expenses Expense[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -213,6 +216,7 @@ model Appointment {
   dossard String?
 
   competitionEntries CompetitionEntry[]
+  expenses           Expense[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -294,6 +298,51 @@ model TrainingSession {
 
   @@index([horseId])
   @@map("training_sessions")
+}
+
+/// Dépense liée à un cheval — même logique de rattachement/partage que
+/// Appointment/JournalEntry/TrainingSession (can_access_horse), pas privée
+/// par riderId comme Document : le cas d'usage (répartition des coûts en
+/// demi-pension) exige la visibilité collaborateur.
+model Expense {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  amount   Decimal         @db.Decimal(10, 2)
+  currency String          @default("EUR")
+  category ExpenseCategory
+  date     DateTime
+  notes    String
+
+  /// Rattachement optionnel à un rendez-vous existant (ex : facture vétérinaire
+  /// liée au rendez-vous correspondant) — jamais créé automatiquement, cf.
+  /// suggestion de rapprochement côté mobile (agenda.tsx).
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  /// Rattachement optionnel à un reçu du coffre-fort (Document, privé par
+  /// riderId). Un collaborateur consultant une dépense partagée dont le reçu
+  /// est lié ne verra pas ce document (RLS `owns_rider_profile` sur
+  /// `documents`, jamais partagée) — comportement attendu, pas une fuite.
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("expenses")
+}
+
+enum ExpenseCategory {
+  VETO
+  MARECHAL
+  CONCOURS
+  ALIMENTATION
+  MATERIEL
+  AUTRE
+
+  @@map("expense_category")
 }
 
 /// Accès partagé à un cheval (demi-pension / coach) — invité par email, lien

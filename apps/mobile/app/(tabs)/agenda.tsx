@@ -27,6 +27,8 @@ import {
   type CompetitionEntry,
   type Doc,
   type DocumentCategory,
+  type Expense,
+  type ExpenseCategory,
   type JournalEntry,
   type ActivityType,
   type Mood,
@@ -58,6 +60,22 @@ const DOC_META: Record<DocumentCategory, { label: string; icon: string; chip: st
   ordonnance: { label: "Ordonnance", icon: "💊", chip: "bg-warning/15", tag: "text-warning" },
   autre: { label: "Autre", icon: "📎", chip: "bg-border", tag: "text-muted" },
 };
+
+const EXPENSE_META: Record<ExpenseCategory, { label: string; icon: string; chip: string; tag: string }> = {
+  veto: { label: "Vétérinaire", icon: "💉", chip: "bg-warning/15", tag: "text-warning" },
+  marechal: { label: "Maréchal-ferrant", icon: "🔨", chip: "bg-primary/15", tag: "text-primary" },
+  concours: { label: "Concours", icon: "🏆", chip: "bg-accent/15", tag: "text-accent" },
+  alimentation: { label: "Alimentation", icon: "🌾", chip: "bg-success/15", tag: "text-success" },
+  materiel: { label: "Matériel", icon: "🧰", chip: "bg-accent/15", tag: "text-accent" },
+  autre: { label: "Autre", icon: "📌", chip: "bg-border", tag: "text-muted" },
+};
+
+/** Catégories de dépense qui correspondent à un type de rendez-vous du même
+ * nom (cf. suggestion de rapprochement dans le formulaire d'ajout) — les
+ * valeurs locales des deux unions coïncident déjà (veto/marechal/concours). */
+function expenseCategoryToAppointmentType(category: ExpenseCategory): AppointmentType | null {
+  return category === "veto" || category === "marechal" || category === "concours" ? category : null;
+}
 
 const REMINDER_META: Record<ReminderOption, { label: string; icon: string }> = {
   none: { label: "Aucun", icon: "🔕" },
@@ -148,6 +166,17 @@ const emptyJournalForm = {
   date: daysFromNow(0) as Date | null,
   time: "09h00",
 };
+const emptyExpenseForm = {
+  category: "veto" as ExpenseCategory,
+  amount: "",
+  date: daysFromNow(0) as Date | null,
+  notes: "",
+  appointmentId: null as string | null,
+};
+
+function formatAmount(amount: number, currency: string): string {
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(amount);
+}
 
 export default function AgendaScreen() {
   const { selectedHorse: horse } = useHorses();
@@ -156,6 +185,7 @@ export default function AgendaScreen() {
     appointments,
     documents,
     journal,
+    expenses,
     addAppointment,
     deleteAppointment,
     saveResult,
@@ -169,8 +199,10 @@ export default function AgendaScreen() {
     deleteDocument,
     addJournalEntry,
     deleteJournalEntry,
+    addExpense,
+    deleteExpense,
   } = useAgenda();
-  const [section, setSection] = useState<"appointments" | "documents" | "journal">("appointments");
+  const [section, setSection] = useState<"appointments" | "documents" | "journal" | "finances">("appointments");
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -192,6 +224,9 @@ export default function AgendaScreen() {
   const [expandedJournalId, setExpandedJournalId] = useState<string | null>(null);
   const [savingJournal, setSavingJournal] = useState(false);
 
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
+
   const today = daysFromNow(0);
   const isFree = tier === "FREE";
   const historyCutoff = daysFromNow(-HISTORY_LIMIT_DAYS);
@@ -203,6 +238,7 @@ export default function AgendaScreen() {
   // scope du partage, cf. plan de la session sur le partage).
   const horseAppointments = appointments.filter((a) => a.horseId === horse?.id);
   const horseJournal = journal.filter((j) => j.horseId === horse?.id);
+  const horseExpenses = expenses.filter((e) => e.horseId === horse?.id);
 
   const upcomingAppts = horseAppointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
   const pastApptsAll = horseAppointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -216,6 +252,23 @@ export default function AgendaScreen() {
   const sortedJournalAll = [...horseJournal].sort((a, b) => b.date.getTime() - a.date.getTime());
   const sortedJournal = isFree ? sortedJournalAll.filter((j) => j.date >= historyCutoff) : sortedJournalAll;
   const hiddenJournalCount = sortedJournalAll.length - sortedJournal.length;
+
+  const sortedExpenses = [...horseExpenses].sort((a, b) => b.date.getTime() - a.date.getTime());
+  // Toutes les dépenses sont en EUR pour l'instant (cf. Expense.currency) —
+  // un total multi-devises n'aurait pas de sens sans conversion, hors scope.
+  const totalExpenses = sortedExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Suggestion de rapprochement (cf. plan Phase 3) : le rendez-vous le plus
+  // récent du même type pour ce cheval, jamais lié automatiquement — juste
+  // proposé, l'utilisateur choisit de le lier ou non.
+  function suggestedAppointmentFor(category: ExpenseCategory): Appointment | null {
+    const apptType = expenseCategoryToAppointmentType(category);
+    if (!apptType) return null;
+    const candidates = horseAppointments
+      .filter((a) => a.type === apptType)
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+    return candidates[0] ?? null;
+  }
 
   async function handleAddAppointment() {
     const date = apptForm.date;
@@ -328,6 +381,23 @@ export default function AgendaScreen() {
     }
   }
 
+  function handleAddExpense() {
+    const date = expenseForm.date;
+    const amount = Number(expenseForm.amount.replace(",", "."));
+    if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    addExpense({
+      amount,
+      currency: "EUR",
+      category: expenseForm.category,
+      date,
+      notes: expenseForm.notes.trim(),
+      appointmentId: expenseForm.appointmentId,
+      documentId: null,
+    });
+    setExpenseForm(emptyExpenseForm);
+    setShowExpenseForm(false);
+  }
+
   return (
     <>
     <Screen>
@@ -371,6 +441,17 @@ export default function AgendaScreen() {
               className={`text-sm font-bold ${section === "journal" ? "text-on-primary" : "text-muted"}`}
             >
               Journal
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSection("finances")}
+            activeOpacity={0.85}
+            className={`flex-1 items-center rounded-full p-2.5 ${section === "finances" ? "bg-primary" : ""}`}
+          >
+            <Text
+              className={`text-sm font-bold ${section === "finances" ? "text-on-primary" : "text-muted"}`}
+            >
+              Finances
             </Text>
           </TouchableOpacity>
         </View>
@@ -713,7 +794,7 @@ export default function AgendaScreen() {
             </FadeInView>
           ) : null}
         </>
-      ) : (
+      ) : section === "journal" ? (
         <>
           <FadeInView delay={100}>
             <Text className="text-sm text-muted">
@@ -835,6 +916,121 @@ export default function AgendaScreen() {
               </TouchableOpacity>
             </FadeInView>
           ) : null}
+        </>
+      ) : (
+        <>
+          {sortedExpenses.length > 0 ? (
+            <FadeInView delay={100}>
+              <View className={`${CARD} flex-row items-center justify-between`}>
+                <Text className="text-sm font-semibold text-muted">Total dépensé</Text>
+                <Text className="text-xl font-extrabold text-text">{formatAmount(totalExpenses, "EUR")}</Text>
+              </View>
+            </FadeInView>
+          ) : null}
+
+          <FadeInView delay={140}>
+            {showExpenseForm ? (
+              <View className={`${CARD} gap-3`}>
+                <Text className="text-sm font-bold uppercase tracking-wide text-accent">Nouvelle dépense</Text>
+                <Field label="Catégorie">
+                  <ChipSelect
+                    options={Object.entries(EXPENSE_META).map(([value, meta]) => ({
+                      value: value as ExpenseCategory,
+                      label: meta.label,
+                      icon: meta.icon,
+                    }))}
+                    value={expenseForm.category}
+                    onChange={(category) => setExpenseForm((f) => ({ ...f, category, appointmentId: null }))}
+                  />
+                </Field>
+                <Field label="Montant (€)">
+                  <TextInput
+                    className={INPUT}
+                    placeholder="Ex : 45"
+                    value={expenseForm.amount}
+                    onChangeText={(amount) => setExpenseForm((f) => ({ ...f, amount }))}
+                    keyboardType="decimal-pad"
+                  />
+                </Field>
+                <DatePickerField
+                  label="Date"
+                  value={expenseForm.date}
+                  onChange={(date) => setExpenseForm((f) => ({ ...f, date }))}
+                />
+                <View className="gap-1.5">
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Notes (optionnel)</Text>
+                  <TextInput
+                    className={INPUT}
+                    placeholder="Ex : Vermifuge d'automne"
+                    value={expenseForm.notes}
+                    onChangeText={(notes) => setExpenseForm((f) => ({ ...f, notes }))}
+                  />
+                </View>
+                {(() => {
+                  const suggestion = suggestedAppointmentFor(expenseForm.category);
+                  if (!suggestion) return null;
+                  const linked = expenseForm.appointmentId === suggestion.id;
+                  return (
+                    <TouchableOpacity
+                      onPress={() =>
+                        setExpenseForm((f) => ({ ...f, appointmentId: linked ? null : suggestion.id }))
+                      }
+                      activeOpacity={0.8}
+                      className={`flex-row items-center gap-2 rounded-card border p-3 ${
+                        linked ? "border-primary bg-highlight" : "border-dashed border-border"
+                      }`}
+                    >
+                      <Text className="text-base">{linked ? "✅" : "🔗"}</Text>
+                      <Text className="flex-1 text-sm text-text">
+                        {linked ? "Lié à " : "Lier à "}
+                        <Text className="font-semibold">{suggestion.title}</Text> ({formatDate(suggestion.date)})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()}
+                <View className="flex-row gap-2">
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowExpenseForm(false);
+                      setExpenseForm(emptyExpenseForm);
+                    }}
+                    className="flex-1 items-center rounded-card border border-border p-4"
+                  >
+                    <Text className="text-base font-semibold text-muted">Annuler</Text>
+                  </TouchableOpacity>
+                  <View className="flex-1">
+                    <PrimaryButton
+                      label="Ajouter"
+                      disabled={!expenseForm.amount.trim() || !expenseForm.date}
+                      onPress={handleAddExpense}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <AddToggle label="Ajouter une dépense" onPress={() => setShowExpenseForm(true)} />
+            )}
+          </FadeInView>
+
+          {sortedExpenses.length === 0 ? (
+            <FadeInView delay={200}>
+              <View className={`${CARD} items-center gap-1`}>
+                <Text className="text-2xl">💰</Text>
+                <Text className="text-sm text-muted">Aucune dépense pour l&apos;instant.</Text>
+              </View>
+            </FadeInView>
+          ) : (
+            sortedExpenses.map((expense, i) => (
+              <FadeInView key={expense.id} delay={200 + i * 60}>
+                <ExpenseCard
+                  expense={expense}
+                  linkedAppointment={horseAppointments.find((a) => a.id === expense.appointmentId) ?? null}
+                  linkedDocument={documents.find((d) => d.id === expense.documentId) ?? null}
+                  onDelete={() => deleteExpense(expense.id)}
+                />
+              </FadeInView>
+            ))
+          )}
         </>
       )}
     </Screen>
@@ -1272,6 +1468,56 @@ function JournalCard({
           {entry.notes ? <Text className="text-sm text-muted">{entry.notes}</Text> : null}
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
             <Text className="text-sm font-semibold text-danger">Supprimer cette entrée</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+function ExpenseCard({
+  expense,
+  linkedAppointment,
+  linkedDocument,
+  onDelete,
+}: {
+  expense: Expense;
+  linkedAppointment: Appointment | null;
+  linkedDocument: Doc | null;
+  onDelete: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const meta = EXPENSE_META[expense.category];
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={() => setExpanded((v) => !v)} className={CARD}>
+      <View className="flex-row items-center gap-3">
+        <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
+          <Text className="text-lg">{meta.icon}</Text>
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text className="text-base font-bold text-text">{meta.label}</Text>
+          <Text className="text-sm text-muted">{formatDate(expense.date)}</Text>
+        </View>
+        <Text className="text-base font-extrabold text-text">{formatAmount(expense.amount, expense.currency)}</Text>
+      </View>
+
+      {expanded ? (
+        <View className="mt-4 gap-2 border-t border-border pt-4">
+          {expense.notes ? <Text className="text-sm text-muted">{expense.notes}</Text> : null}
+          {linkedAppointment ? (
+            <Text className="text-sm text-text">
+              🔗 Lié à {linkedAppointment.title} ({formatDate(linkedAppointment.date)})
+            </Text>
+          ) : null}
+          {expense.documentId ? (
+            linkedDocument ? (
+              <Text className="text-sm text-text">🧾 Reçu : {linkedDocument.name}</Text>
+            ) : (
+              <Text className="text-sm text-muted">🔒 Reçu non disponible</Text>
+            )
+          ) : null}
+          <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
+            <Text className="text-sm font-semibold text-danger">Supprimer cette dépense</Text>
           </TouchableOpacity>
         </View>
       ) : null}

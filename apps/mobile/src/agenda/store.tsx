@@ -19,6 +19,8 @@ import {
   deleteJournalEntryRemote,
   pushCompetitionEntry,
   deleteCompetitionEntryRemote,
+  pushExpense,
+  deleteExpenseRemote,
 } from "@/lib/cloudSync";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { useHorses } from "@/horses/store";
@@ -34,6 +36,7 @@ import type { Discipline } from "@/onboarding/store";
 export type AppointmentType = "veto" | "osteo" | "marechal" | "dentiste" | "concours" | "autre";
 export type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
 export type ActivityType = "dressage" | "cso" | "balade" | "longe" | "repos";
+export type ExpenseCategory = "veto" | "marechal" | "concours" | "alimentation" | "materiel" | "autre";
 
 export type ChecklistItem = { id: string; label: string; checked: boolean };
 
@@ -146,9 +149,38 @@ export type JournalEntry = {
   weather: WeatherSnapshot | null;
 };
 
+/**
+ * Dépense liée à un cheval — même logique de rattachement/partage que
+ * Appointment/JournalEntry (horseId, can_access_horse), pas privée par
+ * cavalier comme Doc : le suivi de coûts en demi-pension exige que le
+ * collaborateur la voie aussi.
+ */
+export type Expense = {
+  id: string;
+  /** Même rôle que Appointment.horseId — voir son commentaire. */
+  horseId: string | null;
+  amount: number;
+  /** Toujours "EUR" pour l'instant — pas de sélecteur de devise côté UI. */
+  currency: string;
+  category: ExpenseCategory;
+  date: Date;
+  notes: string;
+  /** Rattachement optionnel à un rendez-vous existant (suggéré, jamais créé
+   * automatiquement — cf. (tabs)/agenda.tsx). Null si non rattachée. */
+  appointmentId: string | null;
+  /** Rattachement optionnel à un reçu du coffre-fort. Résolu localement
+   * contre la liste `documents` déjà chargée (cf. cloudSync.ts pullExpenses)
+   * — un collaborateur verra "reçu non disponible" si le document appartient
+   * au propriétaire, RLS documents n'étant jamais partagée. */
+  documentId: string | null;
+};
+
+export type NewExpense = Omit<Expense, "id" | "horseId">;
+
 const APPOINTMENTS_KEY = "agenda_appointments_v1";
 const DOCUMENTS_KEY = "agenda_documents_v1";
 const JOURNAL_KEY = "agenda_journal_v1";
+const EXPENSES_KEY = "agenda_expenses_v1";
 
 // Suffixe aléatoire en plus du timestamp : deux ajouts dans la même
 // milliseconde (double-tap sur "Ajouter") ne doivent jamais produire le même
@@ -281,10 +313,25 @@ const DEFAULT_DOCUMENTS: Doc[] = [
 
 const DEFAULT_JOURNAL: JournalEntry[] = [];
 
+const DEFAULT_EXPENSES: Expense[] = [
+  {
+    id: "e1",
+    horseId: null,
+    amount: 45,
+    currency: "EUR",
+    category: "marechal",
+    date: daysFromNow(-32),
+    notes: "Parage + ferrures avant",
+    appointmentId: null,
+    documentId: "d2",
+  },
+];
+
 type AgendaContextValue = {
   appointments: Appointment[];
   documents: Doc[];
   journal: JournalEntry[];
+  expenses: Expense[];
   addAppointment: (appt: NewAppointment) => void;
   deleteAppointment: (appt: Appointment) => void;
   saveResult: (apptId: string, result: string) => void;
@@ -304,7 +351,10 @@ type AgendaContextValue = {
   hydrateJournalFromCloud: (entries: JournalEntry[]) => void;
   addJournalEntry: (entry: Omit<JournalEntry, "id" | "horseId">) => void;
   deleteJournalEntry: (entryId: string) => void;
-  /** Efface rendez-vous + documents + journal locaux (cf. suppression de compte dans Profil). */
+  addExpense: (expense: NewExpense) => void;
+  deleteExpense: (expenseId: string) => void;
+  hydrateExpensesFromCloud: (expenses: Expense[]) => void;
+  /** Efface rendez-vous + documents + journal + dépenses locaux (cf. suppression de compte dans Profil). */
   clearAll: () => Promise<void>;
 };
 
@@ -315,16 +365,18 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   const [appointments, setAppointments] = useState<Appointment[]>(DEFAULT_APPOINTMENTS);
   const [documents, setDocuments] = useState<Doc[]>(DEFAULT_DOCUMENTS);
   const [journal, setJournal] = useState<JournalEntry[]>(DEFAULT_JOURNAL);
+  const [expenses, setExpenses] = useState<Expense[]>(DEFAULT_EXPENSES);
   const [loaded, setLoaded] = useState(false);
 
   // Charge les données persistées une fois au montage (sinon on garde les mocks par défaut).
   useEffect(() => {
     (async () => {
       try {
-        const [apptRaw, docRaw, journalRaw] = await Promise.all([
+        const [apptRaw, docRaw, journalRaw, expenseRaw] = await Promise.all([
           SecureStore.getItemAsync(APPOINTMENTS_KEY),
           SecureStore.getItemAsync(DOCUMENTS_KEY),
           SecureStore.getItemAsync(JOURNAL_KEY),
+          SecureStore.getItemAsync(EXPENSES_KEY),
         ]);
         const parsedAppts = safeJsonParse<Appointment[] | null>(apptRaw, null);
         if (parsedAppts) {
@@ -356,6 +408,18 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             parsedJournal.map((j) => ({ ...j, date: new Date(j.date), horseId: j.horseId ?? null, weather: j.weather ?? null }))
           );
         }
+        const parsedExpenses = safeJsonParse<Expense[] | null>(expenseRaw, null);
+        if (parsedExpenses) {
+          setExpenses(
+            parsedExpenses.map((e) => ({
+              ...e,
+              date: new Date(e.date),
+              horseId: e.horseId ?? null,
+              appointmentId: e.appointmentId ?? null,
+              documentId: e.documentId ?? null,
+            }))
+          );
+        }
       } catch (e) {
         console.warn("[agenda] lecture SecureStore échouée, agenda par défaut", e);
       } finally {
@@ -365,15 +429,17 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Rattache au cheval sélectionné/primaire les rendez-vous/entrées de
-  // journal créés avant l'introduction de horseId (cf. son commentaire sur
-  // Appointment) — attend que l'écurie ait fini de charger pour ne pas
-  // rattacher par erreur au cheval de démo par défaut le temps du chargement.
+  // journal/dépenses créés avant l'introduction de horseId (cf. son
+  // commentaire sur Appointment) — attend que l'écurie ait fini de charger
+  // pour ne pas rattacher par erreur au cheval de démo par défaut le temps du
+  // chargement.
   useEffect(() => {
     if (!loaded || horsesLoading) return;
     const fallbackHorseId = selectedHorse?.id ?? horses.find((h) => h.isPrimary)?.id ?? horses[0]?.id ?? null;
     if (!fallbackHorseId) return;
     setAppointments((list) => (list.every((a) => a.horseId) ? list : list.map((a) => (a.horseId ? a : { ...a, horseId: fallbackHorseId }))));
     setJournal((list) => (list.every((j) => j.horseId) ? list : list.map((j) => (j.horseId ? j : { ...j, horseId: fallbackHorseId }))));
+    setExpenses((list) => (list.every((e) => e.horseId) ? list : list.map((e) => (e.horseId ? e : { ...e, horseId: fallbackHorseId }))));
   }, [loaded, horsesLoading, horses, selectedHorse]);
 
   // Persiste à chaque changement, une fois le chargement initial terminé
@@ -392,6 +458,11 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     if (!loaded) return;
     SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(journal));
   }, [journal, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(expenses));
+  }, [expenses, loaded]);
 
   const addAppointment = useCallback(
     (appt: NewAppointment) => {
@@ -571,15 +642,36 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     deleteJournalEntryRemote(entryId).catch(() => {});
   }, []);
 
+  const addExpense = useCallback(
+    (expense: NewExpense) => {
+      const next: Expense = { ...expense, id: generateId("e"), horseId: selectedHorse?.id ?? null };
+      setExpenses((list) => [...list, next]);
+      pushExpense(next).catch(() => {});
+    },
+    [selectedHorse]
+  );
+
+  const deleteExpense = useCallback((expenseId: string) => {
+    setExpenses((list) => list.filter((e) => e.id !== expenseId));
+    deleteExpenseRemote(expenseId).catch(() => {});
+  }, []);
+
+  const hydrateExpensesFromCloud = useCallback((next: Expense[]) => {
+    setExpenses(next);
+    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(next));
+  }, []);
+
   const clearAll = useCallback(async () => {
     await Promise.all([
       SecureStore.deleteItemAsync(APPOINTMENTS_KEY),
       SecureStore.deleteItemAsync(DOCUMENTS_KEY),
       SecureStore.deleteItemAsync(JOURNAL_KEY),
+      SecureStore.deleteItemAsync(EXPENSES_KEY),
     ]);
     setAppointments(DEFAULT_APPOINTMENTS);
     setDocuments(DEFAULT_DOCUMENTS);
     setJournal(DEFAULT_JOURNAL);
+    setExpenses(DEFAULT_EXPENSES);
   }, []);
 
   const value = useMemo<AgendaContextValue>(
@@ -587,6 +679,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       appointments,
       documents,
       journal,
+      expenses,
       addAppointment,
       deleteAppointment,
       saveResult,
@@ -603,12 +696,16 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       hydrateJournalFromCloud,
       addJournalEntry,
       deleteJournalEntry,
+      addExpense,
+      deleteExpense,
+      hydrateExpensesFromCloud,
       clearAll,
     }),
     [
       appointments,
       documents,
       journal,
+      expenses,
       addAppointment,
       deleteAppointment,
       saveResult,
@@ -625,6 +722,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       hydrateJournalFromCloud,
       addJournalEntry,
       deleteJournalEntry,
+      addExpense,
+      deleteExpense,
+      hydrateExpensesFromCloud,
       clearAll,
     ]
   );

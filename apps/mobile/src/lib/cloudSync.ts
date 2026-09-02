@@ -2,7 +2,7 @@ import { File } from "expo-file-system";
 import { supabase } from "@/lib/supabase";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
-import type { Appointment, CompetitionEntry, Doc, JournalEntry } from "@/agenda/store";
+import type { Appointment, CompetitionEntry, Doc, Expense, JournalEntry } from "@/agenda/store";
 import type { TrainingSession } from "@/sessions/store";
 
 /**
@@ -570,5 +570,69 @@ export async function pullTrainingSessions(): Promise<TrainingSession[]> {
     intensity: (row.intensity as TrainingSession["intensity"]) ?? null,
     notes: row.notes,
     completed: row.completed,
+  }));
+}
+
+/**
+ * Dépenses : même portée de partage que training_sessions ci-dessus
+ * (horseId, RLS can_access_horse) — synchronisées une à une comme les
+ * documents/épreuves (cf. pushDocument/pushCompetitionEntry), pas de
+ * remplacement en masse.
+ */
+
+function expenseCategoryToDb(category: Expense["category"]): string {
+  return category.toUpperCase();
+}
+
+function expenseCategoryFromDb(category: string): Expense["category"] {
+  return category.toLowerCase() as Expense["category"];
+}
+
+export async function pushExpense(expense: Expense): Promise<void> {
+  if (!expense.horseId) return;
+  const { error } = await supabase.from("expenses").upsert({
+    id: expense.id,
+    horseId: expense.horseId,
+    amount: expense.amount,
+    currency: expense.currency,
+    category: expenseCategoryToDb(expense.category),
+    date: expense.date.toISOString(),
+    notes: expense.notes,
+    appointmentId: expense.appointmentId,
+    documentId: expense.documentId,
+    updatedAt: new Date().toISOString(),
+  });
+  if (error) console.warn("[cloudSync] pushExpense échoué", error);
+}
+
+export async function deleteExpenseRemote(expenseId: string): Promise<void> {
+  const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
+  if (error) console.warn("[cloudSync] deleteExpenseRemote échoué", error);
+}
+
+/** Restaure les dépenses visibles par l'utilisateur courant — possédées ET
+ * partagées (géré entièrement par RLS, cf. pullAppointments ci-dessus). Le
+ * lien vers un document (reçu) n'est PAS résolu ici en jointure imbriquée :
+ * un collaborateur consultant une dépense partagée dont le reçu appartient
+ * au propriétaire (RLS `documents` = owns_rider_profile, jamais partagée) ne
+ * l'aura de toute façon jamais dans son propre `pullDocuments()` — l'écran
+ * (cf. agenda.tsx) affiche "reçu non disponible" en croisant localement
+ * `documentId` avec la liste de documents déjà chargée par l'utilisateur
+ * courant, sans appel réseau supplémentaire ni fuite. */
+export async function pullExpenses(): Promise<Expense[]> {
+  const { data, error } = await supabase
+    .from("expenses")
+    .select("id, horseId, amount, currency, category, date, notes, appointmentId, documentId");
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: row.id,
+    horseId: row.horseId,
+    amount: Number(row.amount),
+    currency: row.currency,
+    category: expenseCategoryFromDb(row.category),
+    date: new Date(row.date),
+    notes: row.notes,
+    appointmentId: row.appointmentId ?? null,
+    documentId: row.documentId ?? null,
   }));
 }

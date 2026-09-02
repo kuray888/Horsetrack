@@ -15,6 +15,7 @@ import {
   pullAppointments,
   pullJournalEntries,
   pullTrainingSessions,
+  pullExpenses,
 } from "@/lib/cloudSync";
 import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
@@ -35,8 +36,13 @@ export default function LoginScreen() {
   const { clearAll: clearHorses, hydrateFromCloud } = useHorses();
   const { clearAll: clearRiderProfile, setRiderProfile } = useRiderProfile();
   const { clearAll: clearSessions, hydrateFromCloud: hydrateSessionsFromCloud } = useSessions();
-  const { clearAll: clearAgenda, hydrateDocumentsFromCloud, hydrateAppointmentsFromCloud, hydrateJournalFromCloud } =
-    useAgenda();
+  const {
+    clearAll: clearAgenda,
+    hydrateDocumentsFromCloud,
+    hydrateAppointmentsFromCloud,
+    hydrateJournalFromCloud,
+    hydrateExpensesFromCloud,
+  } = useAgenda();
   const { clearAll: clearGoals, hydrateFromCloud: hydrateGoalsFromCloud } = useGoals();
   const { clearAll: clearSubscription } = useSubscription();
 
@@ -89,13 +95,14 @@ export default function LoginScreen() {
             // lib/sharing.ts. Coffre-fort/calendrier/chevaux partagés sont
             // secondaires à l'écurie possédée/au profil — un échec ici ne
             // doit pas faire échouer toute la restauration.
-            const [sharedHorses, documents, appointments, journalEntries, trainingSessions, goals] =
+            const [sharedHorses, documents, appointments, journalEntries, trainingSessions, expenses, goals] =
               await Promise.all([
                 pullSharedHorses().catch(() => []),
                 pullDocuments(),
                 pullAppointments(),
                 pullJournalEntries(),
                 pullTrainingSessions(),
+                pullExpenses(),
                 pullAllGoals(),
               ]);
 
@@ -105,6 +112,7 @@ export default function LoginScreen() {
             hydrateAppointmentsFromCloud(appointments);
             hydrateJournalFromCloud(journalEntries);
             hydrateSessionsFromCloud(trainingSessions);
+            hydrateExpensesFromCloud(expenses);
             hydrateGoalsFromCloud(goals);
 
             await markOnboardingCompleted();

@@ -285,6 +285,7 @@ alter table public.journal_entries enable row level security;
 alter table public.horse_collaborators enable row level security;
 alter table public.training_sessions  enable row level security;
 alter table public.competition_entries enable row level security;
+alter table public.expenses           enable row level security;
 alter table public.revenuecat_webhook_events enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
@@ -485,6 +486,15 @@ create policy "horse_collaborators_invitee_accept" on public.horse_collaborators
 -- IA, jamais partagés, retirés avec la génération de programme par IA).
 drop policy if exists "training_sessions_shared" on public.training_sessions;
 create policy "training_sessions_shared" on public.training_sessions
+  for all using (public.can_access_horse("horseId")) with check (public.can_access_horse("horseId"));
+
+-- expenses : même portée de partage que training_sessions/appointments
+-- (can_access_horse) — pas de restriction de palier ici, cf. Phase 4 de la
+-- grille tarifaire (pas encore implémentée) qui ajoutera la vérification
+-- Paddock+ via horse_owner_is_paddock_or_above, même mécanisme que
+-- horse_collaborators_owner_insert.
+drop policy if exists "expenses_shared" on public.expenses;
+create policy "expenses_shared" on public.expenses
   for all using (public.can_access_horse("horseId")) with check (public.can_access_horse("horseId"));
 
 -- 5. Storage : bucket "documents" (coffre-fort) -----------------------------
