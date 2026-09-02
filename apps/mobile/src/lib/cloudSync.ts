@@ -2,7 +2,7 @@ import { File } from "expo-file-system";
 import { supabase } from "@/lib/supabase";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
-import type { Appointment, Doc, JournalEntry } from "@/agenda/store";
+import type { Appointment, CompetitionEntry, Doc, JournalEntry } from "@/agenda/store";
 import type { TrainingSession } from "@/sessions/store";
 
 /**
@@ -396,6 +396,7 @@ export async function pushAppointment(appt: Appointment): Promise<void> {
     reminder: appt.reminder,
     result: appt.result,
     checklist: appt.checklist,
+    dossard: appt.dossard,
     updatedAt: new Date().toISOString(),
   });
   if (error) console.warn("[cloudSync] pushAppointment échoué", error);
@@ -407,11 +408,16 @@ export async function deleteAppointmentRemote(apptId: string): Promise<void> {
 }
 
 /** Restaure les rendez-vous visibles par l'utilisateur courant — possédés ET
- * partagés (cf. ci-dessus, géré entièrement par RLS). */
+ * partagés (cf. ci-dessus, géré entièrement par RLS). Les épreuves sont
+ * restaurées via la jointure imbriquée `competition_entries(*)` (même
+ * technique que `pullCloudData` pour horse_traits/horse_injuries), pas un
+ * appel séparé. */
 export async function pullAppointments(): Promise<Appointment[]> {
   const { data, error } = await supabase
     .from("appointments")
-    .select("id, horseId, type, title, date, time, location, notes, reminder, result, checklist");
+    .select(
+      "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, competition_entries(id, name, discipline, time, result)"
+    );
   if (error || !data) return [];
   return data.map((row) => ({
     id: row.id,
@@ -429,7 +435,38 @@ export async function pullAppointments(): Promise<Appointment[]> {
     emailReminderId: null,
     result: row.result ?? null,
     checklist: (row.checklist as Appointment["checklist"]) ?? [],
+    dossard: row.dossard ?? null,
+    competitionEntries: ((row.competition_entries ?? []) as RemoteCompetitionEntry[]).map((e) => ({
+      id: e.id,
+      name: e.name,
+      discipline: e.discipline as CompetitionEntry["discipline"],
+      time: e.time,
+      result: e.result ?? null,
+    })),
   }));
+}
+
+type RemoteCompetitionEntry = { id: string; name: string; discipline: string; time: string; result: string | null };
+
+/** Une épreuve à la fois (upsert) — même logique que les documents (cf.
+ * pushDocument) : pas d'opération de remplacement en masse, le volume par
+ * rendez-vous reste faible. */
+export async function pushCompetitionEntry(appointmentId: string, entry: CompetitionEntry): Promise<void> {
+  const { error } = await supabase.from("competition_entries").upsert({
+    id: entry.id,
+    appointmentId,
+    name: entry.name,
+    discipline: entry.discipline,
+    time: entry.time,
+    result: entry.result,
+    updatedAt: new Date().toISOString(),
+  });
+  if (error) console.warn("[cloudSync] pushCompetitionEntry échoué", error);
+}
+
+export async function deleteCompetitionEntryRemote(entryId: string): Promise<void> {
+  const { error } = await supabase.from("competition_entries").delete().eq("id", entryId);
+  if (error) console.warn("[cloudSync] deleteCompetitionEntryRemote échoué", error);
 }
 
 function activityTypeToDb(type: JournalEntry["activityType"]): string {

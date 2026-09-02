@@ -208,12 +208,37 @@ model Appointment {
   /// Checklist de préparation (concours uniquement), sérialisée en JSON —
   /// volume/complexité trop faible pour justifier une table dédiée.
   checklist Json?
+  /// Numéro de dossard (concours uniquement) — un dossard par cheval par
+  /// concours, pas par épreuve.
+  dossard String?
+
+  competitionEntries CompetitionEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([horseId])
   @@map("appointments")
+}
+
+/// Épreuve d'un concours — N par rendez-vous de type CONCOURS. Table dédiée
+/// (pas un champ JSON comme Appointment.checklist) car plus riche par ligne
+/// (nom, discipline, horaire, résultat) et destinée à grandir en nombre.
+model CompetitionEntry {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  name       String
+  discipline Discipline
+  time       String
+  result     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([appointmentId])
+  @@map("competition_entries")
 }
 
 /// Entrée de journal de travail libre — même logique de rattachement à un

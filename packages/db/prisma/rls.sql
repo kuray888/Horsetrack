@@ -284,6 +284,7 @@ alter table public.appointments   enable row level security;
 alter table public.journal_entries enable row level security;
 alter table public.horse_collaborators enable row level security;
 alter table public.training_sessions  enable row level security;
+alter table public.competition_entries enable row level security;
 alter table public.revenuecat_webhook_events enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
@@ -402,6 +403,24 @@ create policy "appointments_shared" on public.appointments
 drop policy if exists "journal_entries_shared" on public.journal_entries;
 create policy "journal_entries_shared" on public.journal_entries
   for all using (public.can_access_horse("horseId")) with check (public.can_access_horse("horseId"));
+
+-- competition_entries : épreuves d'un concours — pas de horseId direct (child
+-- d'Appointment, cf. schema.prisma), donc on remonte au cheval du rendez-vous
+-- parent. Même portée de partage que appointments (can_access_horse).
+drop policy if exists "competition_entries_shared" on public.competition_entries;
+create policy "competition_entries_shared" on public.competition_entries
+  for all using (
+    exists (
+      select 1 from public.appointments a
+      where a.id = "appointmentId" and public.can_access_horse(a."horseId")
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.appointments a
+      where a.id = "appointmentId" and public.can_access_horse(a."horseId")
+    )
+  );
 
 -- horse_collaborators : le propriétaire du cheval gère ses invitations
 -- (créer/lister/révoquer) ; l'invité voit et accepte sa propre ligne avant

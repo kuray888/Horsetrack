@@ -17,9 +17,12 @@ import {
   deleteAppointmentRemote,
   pushJournalEntry,
   deleteJournalEntryRemote,
+  pushCompetitionEntry,
+  deleteCompetitionEntryRemote,
 } from "@/lib/cloudSync";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { useHorses } from "@/horses/store";
+import type { Discipline } from "@/onboarding/store";
 
 /**
  * Rendez-vous et documents, persistés localement (en attendant Supabase) —
@@ -33,6 +36,19 @@ export type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
 export type ActivityType = "dressage" | "cso" | "balade" | "longe" | "repos";
 
 export type ChecklistItem = { id: string; label: string; checked: boolean };
+
+/** Épreuve d'un concours — N par rendez-vous de type "concours" (cf.
+ * CompetitionEntry côté schema.prisma). Table dédiée côté serveur plutôt
+ * qu'un champ JSON comme ChecklistItem : plus riche par ligne et destinée à
+ * grandir en nombre. */
+export type CompetitionEntry = {
+  id: string;
+  name: string;
+  discipline: Discipline;
+  time: string;
+  /** Résultat saisi après l'épreuve. Null tant que pas encore renseigné. */
+  result: string | null;
+};
 
 /** Libellés/icônes d'affichage pour ActivityType — utilisé par le journal
  * (cf. (tabs)/agenda.tsx) et par la planification manuelle de séances (cf.
@@ -77,12 +93,21 @@ export type Appointment = {
   result: string | null;
   /** Checklist de préparation (concours uniquement). Vide pour les autres types. */
   checklist: ChecklistItem[];
+  /** Numéro de dossard (concours uniquement) — un dossard par cheval par
+   * concours, pas par épreuve. Null pour les autres types. */
+  dossard: string | null;
+  /** Épreuves du concours (concours uniquement). Vide pour les autres types. */
+  competitionEntries: CompetitionEntry[];
 };
 
 /** `horseId` n'est pas fourni par l'appelant : `addAppointment` le rattache
  * automatiquement au cheval actuellement sélectionné (cf. AgendaProvider). */
-export type NewAppointment = Omit<Appointment, "id" | "horseId" | "result" | "checklist"> & {
+export type NewAppointment = Omit<
+  Appointment,
+  "id" | "horseId" | "result" | "checklist" | "competitionEntries"
+> & {
   checklist?: ChecklistItem[];
+  competitionEntries?: CompetitionEntry[];
 };
 
 export type Doc = {
@@ -171,6 +196,8 @@ const DEFAULT_APPOINTMENTS: Appointment[] = [
     emailReminderId: null,
     result: null,
     checklist: [],
+    dossard: null,
+    competitionEntries: [],
   },
   {
     id: "a2",
@@ -186,6 +213,8 @@ const DEFAULT_APPOINTMENTS: Appointment[] = [
     emailReminderId: null,
     result: null,
     checklist: [],
+    dossard: null,
+    competitionEntries: [],
   },
   {
     id: "a3",
@@ -201,6 +230,8 @@ const DEFAULT_APPOINTMENTS: Appointment[] = [
     emailReminderId: null,
     result: null,
     checklist: [],
+    dossard: null,
+    competitionEntries: [],
   },
   {
     id: "a4",
@@ -216,6 +247,10 @@ const DEFAULT_APPOINTMENTS: Appointment[] = [
     emailReminderId: null,
     result: null,
     checklist: defaultChecklist(),
+    dossard: "142",
+    competitionEntries: [
+      { id: "ce1", name: "Épreuve club 2 — 1m10", discipline: "SHOW_JUMPING", time: "09h15", result: null },
+    ],
   },
   {
     id: "a5",
@@ -231,6 +266,10 @@ const DEFAULT_APPOINTMENTS: Appointment[] = [
     emailReminderId: null,
     result: null,
     checklist: defaultChecklist().map((c) => ({ ...c, checked: true })),
+    dossard: "87",
+    competitionEntries: [
+      { id: "ce2", name: "Épreuve club 1 — 1m00", discipline: "SHOW_JUMPING", time: "09h00", result: "4ème, 0 point" },
+    ],
   },
 ];
 
@@ -252,6 +291,9 @@ type AgendaContextValue = {
   toggleChecklistItem: (apptId: string, itemId: string) => void;
   addChecklistItem: (apptId: string, label: string) => void;
   removeChecklistItem: (apptId: string, itemId: string) => void;
+  addCompetitionEntry: (apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => void;
+  updateCompetitionEntryResult: (apptId: string, entryId: string, result: string) => void;
+  deleteCompetitionEntry: (apptId: string, entryId: string) => void;
   addDocument: (doc: Omit<Doc, "id" | "filePath">) => void;
   deleteDocument: (docId: string) => void;
   /** Remplace les documents locaux par ceux restaurés depuis le cloud (cf.
@@ -294,6 +336,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
               emailReminderId: a.emailReminderId ?? null,
               result: a.result ?? null,
               checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
+              dossard: a.dossard ?? null,
+              competitionEntries: a.competitionEntries ?? [],
             }))
           );
         }
@@ -357,9 +401,17 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         horseId: selectedHorse?.id ?? null,
         result: null,
         checklist: appt.checklist ?? [],
+        competitionEntries: appt.competitionEntries ?? [],
       };
       setAppointments((list) => [...list, next]);
       pushAppointment(next).catch(() => {});
+      // Épreuves saisies dans le sous-formulaire à la création (cf.
+      // agenda.tsx) : chacune vit dans sa propre table côté serveur
+      // (contrairement à checklist, sérialisée dans la ligne appointment),
+      // donc un push par épreuve après la création du rendez-vous parent.
+      for (const entry of next.competitionEntries) {
+        pushCompetitionEntry(next.id, entry).catch(() => {});
+      }
     },
     [selectedHorse]
   );
@@ -421,6 +473,50 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       const next = { ...target, checklist: target.checklist.filter((c) => c.id !== itemId) };
       setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
       pushAppointment(next).catch(() => {});
+    },
+    [appointments]
+  );
+
+  // Épreuves de concours : contrairement à la checklist ci-dessus, chaque
+  // épreuve est une ligne dans sa propre table côté serveur (cf.
+  // CompetitionEntry, schema.prisma) — on pousse donc l'épreuve modifiée
+  // individuellement (pushCompetitionEntry), jamais tout le rendez-vous.
+  const addCompetitionEntry = useCallback(
+    (apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const newEntry: CompetitionEntry = { ...entry, id: generateId("ce"), result: null };
+      const next = { ...target, competitionEntries: [...target.competitionEntries, newEntry] };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      pushCompetitionEntry(apptId, newEntry).catch(() => {});
+    },
+    [appointments]
+  );
+
+  const updateCompetitionEntryResult = useCallback(
+    (apptId: string, entryId: string, result: string) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const updated = target.competitionEntries.find((e) => e.id === entryId);
+      if (!updated) return;
+      const nextEntry = { ...updated, result };
+      const next = {
+        ...target,
+        competitionEntries: target.competitionEntries.map((e) => (e.id === entryId ? nextEntry : e)),
+      };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      pushCompetitionEntry(apptId, nextEntry).catch(() => {});
+    },
+    [appointments]
+  );
+
+  const deleteCompetitionEntry = useCallback(
+    (apptId: string, entryId: string) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const next = { ...target, competitionEntries: target.competitionEntries.filter((e) => e.id !== entryId) };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      deleteCompetitionEntryRemote(entryId).catch(() => {});
     },
     [appointments]
   );
@@ -497,6 +593,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleChecklistItem,
       addChecklistItem,
       removeChecklistItem,
+      addCompetitionEntry,
+      updateCompetitionEntryResult,
+      deleteCompetitionEntry,
       addDocument,
       deleteDocument,
       hydrateDocumentsFromCloud,
@@ -516,6 +615,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleChecklistItem,
       addChecklistItem,
       removeChecklistItem,
+      addCompetitionEntry,
+      updateCompetitionEntryResult,
+      deleteCompetitionEntry,
       addDocument,
       deleteDocument,
       hydrateDocumentsFromCloud,

@@ -16,12 +16,15 @@ import { fetchWeatherSnapshot } from "@/lib/weather";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
 import { useSubscription } from "@/subscription/store";
+import { DISCIPLINES } from "@/onboarding/options";
+import type { Discipline } from "@/onboarding/store";
 import {
   useAgenda,
   daysFromNow,
   defaultChecklist,
   type Appointment,
   type AppointmentType,
+  type CompetitionEntry,
   type Doc,
   type DocumentCategory,
   type JournalEntry,
@@ -29,6 +32,16 @@ import {
   type Mood,
   ACTIVITY_META,
 } from "@/agenda/store";
+
+const DISCIPLINE_META: Record<Discipline, { label: string; icon: string }> = Object.fromEntries(
+  DISCIPLINES.map((d) => [d.value, { label: d.label, icon: d.emoji ?? "🏇" }])
+) as Record<Discipline, { label: string; icon: string }>;
+
+/** id local le temps du formulaire de création (avant que l'épreuve ait un
+ * vrai id, généré par addCompetitionEntry/addAppointment côté store). */
+function newDraftEntryId(): string {
+  return `draft${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
 
 const APPT_META: Record<AppointmentType, { label: string; icon: string; chip: string; tag: string }> = {
   veto: { label: "Vétérinaire", icon: "💉", chip: "bg-warning/15", tag: "text-warning" },
@@ -119,6 +132,8 @@ const emptyApptForm = {
   time: "09h00",
   location: "",
   reminder: "1d" as ReminderOption,
+  dossard: "",
+  competitionEntries: [] as CompetitionEntry[],
 };
 const emptyDocForm = {
   category: "facture" as DocumentCategory,
@@ -147,6 +162,9 @@ export default function AgendaScreen() {
     toggleChecklistItem,
     addChecklistItem,
     removeChecklistItem,
+    addCompetitionEntry,
+    updateCompetitionEntryResult,
+    deleteCompetitionEntry,
     addDocument,
     deleteDocument,
     addJournalEntry,
@@ -228,6 +246,7 @@ export default function AgendaScreen() {
       emailReminderId = await scheduleEmailReminder(trigger, `Rappel : ${title}`, notifBody);
     }
 
+    const isConcours = apptForm.type === "concours";
     try {
       addAppointment({
         type: apptForm.type,
@@ -239,13 +258,38 @@ export default function AgendaScreen() {
         reminder,
         reminderNotificationId,
         emailReminderId,
-        checklist: apptForm.type === "concours" ? defaultChecklist() : [],
+        checklist: isConcours ? defaultChecklist() : [],
+        dossard: isConcours ? apptForm.dossard.trim() || null : null,
+        competitionEntries: isConcours
+          ? apptForm.competitionEntries.filter((e) => e.name.trim() && e.time.trim())
+          : [],
       });
       setApptForm(emptyApptForm);
       setShowApptForm(false);
     } finally {
       setSubmittingAppt(false);
     }
+  }
+
+  function addApptFormEntry() {
+    setApptForm((f) => ({
+      ...f,
+      competitionEntries: [
+        ...f.competitionEntries,
+        { id: newDraftEntryId(), name: "", discipline: "SHOW_JUMPING", time: "", result: null },
+      ],
+    }));
+  }
+
+  function updateApptFormEntry(id: string, patch: Partial<CompetitionEntry>) {
+    setApptForm((f) => ({
+      ...f,
+      competitionEntries: f.competitionEntries.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+    }));
+  }
+
+  function removeApptFormEntry(id: string) {
+    setApptForm((f) => ({ ...f, competitionEntries: f.competitionEntries.filter((e) => e.id !== id) }));
   }
 
   function handleAddDocument() {
@@ -415,6 +459,59 @@ export default function AgendaScreen() {
                     />
                   </Field>
                 )}
+                {apptForm.type === "concours" ? (
+                  <>
+                    <Field label="Dossard (optionnel)">
+                      <TextInput
+                        className={INPUT}
+                        placeholder="Ex : 142"
+                        value={apptForm.dossard}
+                        onChangeText={(dossard) => setApptForm((f) => ({ ...f, dossard }))}
+                        keyboardType="number-pad"
+                      />
+                    </Field>
+                    <View className="gap-2">
+                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
+                      {apptForm.competitionEntries.map((entry) => (
+                        <View key={entry.id} className="gap-2 rounded-card border border-border p-3">
+                          <View className="flex-row items-center gap-2">
+                            <TextInput
+                              className={`${INPUT} flex-1`}
+                              placeholder="Ex : Épreuve club 2 — 1m10"
+                              value={entry.name}
+                              onChangeText={(name) => updateApptFormEntry(entry.id, { name })}
+                            />
+                            <TouchableOpacity onPress={() => removeApptFormEntry(entry.id)} hitSlop={8} activeOpacity={0.7}>
+                              <Text className="text-sm text-muted">✕</Text>
+                            </TouchableOpacity>
+                          </View>
+                          <ChipSelect
+                            options={Object.entries(DISCIPLINE_META).map(([value, meta]) => ({
+                              value: value as Discipline,
+                              label: meta.label,
+                              icon: meta.icon,
+                            }))}
+                            value={entry.discipline}
+                            onChange={(discipline) => updateApptFormEntry(entry.id, { discipline })}
+                          />
+                          <TextInput
+                            className={INPUT}
+                            placeholder="Heure de l'épreuve (ex : 09h15)"
+                            value={entry.time}
+                            onChangeText={(time) => updateApptFormEntry(entry.id, { time })}
+                          />
+                        </View>
+                      ))}
+                      <TouchableOpacity
+                        onPress={addApptFormEntry}
+                        activeOpacity={0.8}
+                        className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-3"
+                      >
+                        <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : null}
                 <View className="flex-row gap-2">
                   <TouchableOpacity
                     onPress={() => {
@@ -462,6 +559,9 @@ export default function AgendaScreen() {
                   onToggleChecklistItem={(itemId) => toggleChecklistItem(appt.id, itemId)}
                   onAddChecklistItem={(label) => addChecklistItem(appt.id, label)}
                   onRemoveChecklistItem={(itemId) => removeChecklistItem(appt.id, itemId)}
+                  onAddCompetitionEntry={(entry) => addCompetitionEntry(appt.id, entry)}
+                  onUpdateCompetitionEntryResult={(entryId, result) => updateCompetitionEntryResult(appt.id, entryId, result)}
+                  onDeleteCompetitionEntry={(entryId) => deleteCompetitionEntry(appt.id, entryId)}
                 />
               </FadeInView>
             ))
@@ -490,6 +590,9 @@ export default function AgendaScreen() {
                     onToggleChecklistItem={(itemId) => toggleChecklistItem(appt.id, itemId)}
                     onAddChecklistItem={(label) => addChecklistItem(appt.id, label)}
                     onRemoveChecklistItem={(itemId) => removeChecklistItem(appt.id, itemId)}
+                    onAddCompetitionEntry={(entry) => addCompetitionEntry(appt.id, entry)}
+                    onUpdateCompetitionEntryResult={(entryId, result) => updateCompetitionEntryResult(appt.id, entryId, result)}
+                    onDeleteCompetitionEntry={(entryId) => deleteCompetitionEntry(appt.id, entryId)}
                   />
                 </View>
               </FadeInView>
@@ -749,6 +852,9 @@ function AppointmentCard({
   onToggleChecklistItem,
   onAddChecklistItem,
   onRemoveChecklistItem,
+  onAddCompetitionEntry,
+  onUpdateCompetitionEntryResult,
+  onDeleteCompetitionEntry,
 }: {
   appt: Appointment;
   expanded: boolean;
@@ -758,6 +864,9 @@ function AppointmentCard({
   onToggleChecklistItem: (itemId: string) => void;
   onAddChecklistItem: (label: string) => void;
   onRemoveChecklistItem: (itemId: string) => void;
+  onAddCompetitionEntry: (entry: Omit<CompetitionEntry, "id" | "result">) => void;
+  onUpdateCompetitionEntryResult: (entryId: string, result: string) => void;
+  onDeleteCompetitionEntry: (entryId: string) => void;
 }) {
   const meta = APPT_META[appt.type];
   const [editingResult, setEditingResult] = useState(false);
@@ -871,6 +980,29 @@ function AppointmentCard({
             </View>
           ) : null}
 
+          {isConcours ? (
+            <View className="mt-2 gap-2 border-t border-border pt-3">
+              {appt.dossard ? <Text className="text-sm text-text">🔢 Dossard {appt.dossard}</Text> : null}
+              <Text className="text-xs font-bold uppercase tracking-wide text-accent">Épreuves</Text>
+              {appt.competitionEntries.length > 0 ? (
+                <View className="gap-2">
+                  {appt.competitionEntries.map((entry) => (
+                    <CompetitionEntryRow
+                      key={entry.id}
+                      entry={entry}
+                      isPast={isPastConcours}
+                      onSaveResult={(result) => onUpdateCompetitionEntryResult(entry.id, result)}
+                      onDelete={() => onDeleteCompetitionEntry(entry.id)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <Text className="text-sm text-muted">Aucune épreuve renseignée.</Text>
+              )}
+              <AddCompetitionEntryForm onAdd={onAddCompetitionEntry} />
+            </View>
+          ) : null}
+
           {isPastConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
               {editingResult ? (
@@ -916,6 +1048,146 @@ function AppointmentCard({
         </View>
       ) : null}
     </TouchableOpacity>
+  );
+}
+
+function CompetitionEntryRow({
+  entry,
+  isPast,
+  onSaveResult,
+  onDelete,
+}: {
+  entry: CompetitionEntry;
+  isPast: boolean;
+  onSaveResult: (result: string) => void;
+  onDelete: () => void;
+}) {
+  const [editingResult, setEditingResult] = useState(false);
+  const [draftResult, setDraftResult] = useState(entry.result ?? "");
+  const meta = DISCIPLINE_META[entry.discipline];
+
+  function handleSave() {
+    if (!draftResult.trim()) return;
+    onSaveResult(draftResult.trim());
+    setEditingResult(false);
+  }
+
+  return (
+    <View className="gap-1.5 rounded-card border border-border p-3">
+      <View className="flex-row items-center justify-between gap-2">
+        <View className="flex-1 gap-0.5">
+          <Text className="text-sm font-semibold text-text">{entry.name}</Text>
+          <Text className="text-xs text-muted">
+            {meta.icon} {meta.label} · {entry.time}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={onDelete} hitSlop={8} activeOpacity={0.7}>
+          <Text className="text-sm text-muted">✕</Text>
+        </TouchableOpacity>
+      </View>
+
+      {isPast ? (
+        editingResult ? (
+          <View className="gap-2">
+            <TextInput
+              className={INPUT}
+              placeholder="Ex : 3ème, parcours sans faute"
+              value={draftResult}
+              onChangeText={setDraftResult}
+              multiline
+            />
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={!draftResult.trim()}
+              activeOpacity={0.85}
+              className={`items-center rounded-full p-2.5 ${draftResult.trim() ? "bg-primary" : "border border-border"}`}
+            >
+              <Text className={`text-sm font-bold ${draftResult.trim() ? "text-on-primary" : "text-muted"}`}>
+                Enregistrer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : entry.result ? (
+          <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-0.5">
+            <Text className="text-xs font-bold uppercase tracking-wide text-accent">🏆 Résultat</Text>
+            <Text className="text-sm text-text">{entry.result}</Text>
+            <Text className="text-xs font-semibold text-accent">Modifier</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7}>
+            <Text className="text-sm font-semibold text-accent">+ Ajouter le résultat</Text>
+          </TouchableOpacity>
+        )
+      ) : null}
+    </View>
+  );
+}
+
+function AddCompetitionEntryForm({ onAdd }: { onAdd: (entry: Omit<CompetitionEntry, "id" | "result">) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [discipline, setDiscipline] = useState<Discipline>("SHOW_JUMPING");
+  const [time, setTime] = useState("");
+
+  function handleAdd() {
+    if (!name.trim() || !time.trim()) return;
+    onAdd({ name: name.trim(), discipline, time: time.trim() });
+    setName("");
+    setDiscipline("SHOW_JUMPING");
+    setTime("");
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <TouchableOpacity
+        onPress={() => setOpen(true)}
+        activeOpacity={0.8}
+        className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-2.5"
+      >
+        <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View className="gap-2 rounded-card border border-border p-3">
+      <TextInput
+        className={INPUT}
+        placeholder="Ex : Épreuve club 2 — 1m10"
+        value={name}
+        onChangeText={setName}
+      />
+      <ChipSelect
+        options={Object.entries(DISCIPLINE_META).map(([value, meta]) => ({
+          value: value as Discipline,
+          label: meta.label,
+          icon: meta.icon,
+        }))}
+        value={discipline}
+        onChange={setDiscipline}
+      />
+      <TextInput className={INPUT} placeholder="Heure de l'épreuve (ex : 09h15)" value={time} onChangeText={setTime} />
+      <View className="flex-row gap-2">
+        <TouchableOpacity
+          onPress={() => setOpen(false)}
+          activeOpacity={0.8}
+          className="flex-1 items-center rounded-card border border-border p-2.5"
+        >
+          <Text className="text-sm font-semibold text-muted">Annuler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleAdd}
+          disabled={!name.trim() || !time.trim()}
+          activeOpacity={0.85}
+          className={`flex-1 items-center rounded-card p-2.5 ${name.trim() && time.trim() ? "bg-primary" : "border border-border"}`}
+        >
+          <Text className={`text-sm font-bold ${name.trim() && time.trim() ? "text-on-primary" : "text-muted"}`}>
+            Ajouter
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
