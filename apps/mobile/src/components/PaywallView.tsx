@@ -16,13 +16,13 @@ const PERIODS: { id: BillingPeriod; label: string }[] = [
 // Pivot freemium du 2026-09-03 (v2) : prix confirmés par le produit —
 // à recréer côté App Store Connect/RevenueCat avec ces montants exacts
 // (cf. plan Phase 4).
-const PRICE: Record<BillingPeriod, string> = { MONTHLY: "3,99 €/mois", ANNUAL: "34,99 €/an" };
+const PRICE: Record<BillingPeriod, string> = { MONTHLY: "3,99 €/mois", ANNUAL: "39,99 €/an" };
 const PRICE_SUB: Record<BillingPeriod, string> = {
   MONTHLY: "sans engagement",
   // "2 mois offerts" évité ici : ambigu à côté du vrai essai affiché juste
   // en dessous (cf. trialEligible) — ce sous-titre ne parle que de
   // l'économie annuel vs mensuel, pas de l'essai.
-  ANNUAL: "soit 2,92 €/mois · économise 27 % vs mensuel",
+  ANNUAL: "soit 3,33 €/mois · économise 16 % vs mensuel",
 };
 
 /** Palier gratuit — cf. rls.sql, tout ce qui n'appelle pas
