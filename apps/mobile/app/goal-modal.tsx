@@ -61,7 +61,7 @@ export default function GoalModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="text-2xl font-extrabold tracking-tight text-text">
+        <Text className="text-2xl font-display tracking-tight text-text">
           {editing ? "Modifier l'objectif" : "Nouvel objectif"}
         </Text>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">

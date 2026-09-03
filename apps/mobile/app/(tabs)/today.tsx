@@ -142,7 +142,7 @@ export default function TodayScreen() {
       <FadeInView>
         <View className="flex-row items-center justify-between">
           <View className="gap-0.5">
-            <Text className="text-2xl font-extrabold tracking-tight text-text">{greeting()}</Text>
+            <Text className="text-2xl font-display tracking-tight text-text">{greeting()}</Text>
             <Text className="text-base text-muted">Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?</Text>
           </View>
           <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-highlight">

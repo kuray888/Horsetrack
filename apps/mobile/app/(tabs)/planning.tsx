@@ -466,7 +466,7 @@ export default function PlanningScreen() {
     <Screen>
       <FadeInView>
         <View className="gap-1">
-          <Text className="text-3xl font-extrabold tracking-tight text-text">Planning</Text>
+          <Text className="text-3xl font-display tracking-tight text-text">Planning</Text>
           <Text className="text-base text-muted">Séances d&apos;entraînement de {selectedHorse?.name ?? "ton cheval"}</Text>
         </View>
       </FadeInView>

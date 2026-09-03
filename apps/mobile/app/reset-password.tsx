@@ -49,7 +49,7 @@ export default function ResetPasswordScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
-          <Text className="text-2xl font-extrabold tracking-tight text-text">Nouveau mot de passe</Text>
+          <Text className="text-2xl font-display tracking-tight text-text">Nouveau mot de passe</Text>
           <Text className="text-base text-muted">Choisis un nouveau mot de passe pour ton compte.</Text>
         </View>
 

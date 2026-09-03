@@ -134,7 +134,7 @@ export async function getAddonPackage(period: BillingPeriod): Promise<PurchasesP
  * confirmation négative fiable (offre absente du produit, ou compte non
  * éligible côté Apple) et doit systématiquement faire disparaître la promesse
  * d'essai gratuit de l'UI, pour ne jamais facturer quelqu'un à qui l'app
- * venait d'annoncer "2 mois gratuits".
+ * venait d'annoncer "1 mois gratuit".
  */
 export async function isTrialEligible(period: BillingPeriod): Promise<boolean | null> {
   if (!configured || !Purchases) return null;

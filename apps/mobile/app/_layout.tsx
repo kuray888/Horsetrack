@@ -1,6 +1,14 @@
 import "../global.css";
+import { useEffect } from "react";
 import { Alert } from "react-native";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque";
+
+// Garde le splash natif affiché tant que la police d'affichage n'est pas
+// chargée — sans ça, les titres (font-display) flasheraient un instant dans
+// la police système avant de basculer, à chaque démarrage de l'app.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Capture les erreurs JS fatales pour diagnostiquer les crashs au démarrage.
 // À supprimer une fois le crash identifié et corrigé.
@@ -35,6 +43,14 @@ import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({ BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold });
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
   return (
     <ThemeProvider>
     <PickerOverlayProvider>

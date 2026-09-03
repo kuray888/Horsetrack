@@ -135,7 +135,7 @@ export default function ShareHorseModal() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <ScrollView contentContainerClassName="gap-5 px-5 pt-4 pb-8" showsVerticalScrollIndicator={false}>
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-extrabold tracking-tight text-text">Partager {horse.name}</Text>
+          <Text className="text-2xl font-display tracking-tight text-text">Partager {horse.name}</Text>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
             <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
           </TouchableOpacity>

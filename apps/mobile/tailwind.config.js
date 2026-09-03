@@ -35,8 +35,17 @@ module.exports = {
         muted: themed("--color-text-muted"),
         "on-primary": themed("--color-text-on-primary"),
       },
+      // Police d'affichage (titres d'écran, en-têtes de section, titre du
+      // paywall) — chargée dans app/_layout.tsx (useFonts). Volontairement
+      // limitée aux titres plutôt qu'appliquée partout : le corps de texte
+      // reste sur la police système (SF Pro/Roboto), déjà parfaitement
+      // lisible et gratuite en poids de bundle — cf. plan refonte visuelle.
+      fontFamily: {
+        display: ["BricolageGrotesque_800ExtraBold"],
+        "display-bold": ["BricolageGrotesque_700Bold"],
+      },
       borderRadius: {
-        card: "18px",
+        card: "20px",
       },
       boxShadow: {
         // Ombre de carte neutre — pas pilotée par le thème (les shadows RN ne

@@ -37,7 +37,7 @@ export default function ForgotPasswordScreen() {
           resizeMode="contain"
         />
         <View className="gap-2">
-          <Text className="text-2xl font-extrabold tracking-tight text-text">Mot de passe oublié</Text>
+          <Text className="text-2xl font-display tracking-tight text-text">Mot de passe oublié</Text>
           <Text className="text-base text-muted">
             Indique ton email, on t&apos;envoie un lien pour le réinitialiser.
           </Text>

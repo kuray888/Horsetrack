@@ -462,7 +462,7 @@ export default function AgendaScreen() {
     <Screen>
       <FadeInView>
         <View className="gap-1">
-          <Text className="text-3xl font-extrabold tracking-tight text-text">Agenda</Text>
+          <Text className="text-3xl font-display tracking-tight text-text">Agenda</Text>
           <Text className="text-base text-muted">Rendez-vous et documents de {horse?.name ?? "ton cheval"}</Text>
         </View>
       </FadeInView>

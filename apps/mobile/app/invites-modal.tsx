@@ -65,7 +65,7 @@ export default function InvitesModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-6">
-        <Text className="text-2xl font-extrabold tracking-tight text-text">
+        <Text className="text-2xl font-display tracking-tight text-text">
           {invites.length > 1 ? "Invitations en attente" : "Invitation en attente"}
         </Text>
         {invites.map((invite) => (

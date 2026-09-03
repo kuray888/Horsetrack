@@ -53,7 +53,7 @@ function daysUntil(dateIso: string | null): number {
 }
 
 function SectionTitle({ children }: { children: string }) {
-  return <Text className="text-xl font-bold text-text">{children}</Text>;
+  return <Text className="text-xl font-display-bold text-text">{children}</Text>;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -246,12 +246,12 @@ export default function ProfileScreen() {
       <FadeInView>
         <View className="flex-row items-center gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
-            <Text className="text-2xl font-extrabold text-primary">
+            <Text className="text-2xl font-display text-primary">
               {(user?.email ?? "?").charAt(0).toUpperCase()}
             </Text>
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="text-2xl font-extrabold tracking-tight text-text">Mon profil</Text>
+            <Text className="text-2xl font-display tracking-tight text-text">Mon profil</Text>
             <Text className="text-sm text-muted">{user?.email ?? "Non connecté"}</Text>
           </View>
         </View>

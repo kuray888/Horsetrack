@@ -38,7 +38,7 @@ export default function Summary() {
       <ScrollView contentContainerClassName="px-5 pt-8 pb-4 gap-5" showsVerticalScrollIndicator={false}>
         <FadeInView>
           <View className="gap-2">
-            <Text className="text-3xl font-extrabold leading-tight tracking-tight text-text">
+            <Text className="text-3xl font-display leading-tight tracking-tight text-text">
               L&apos;écurie de {horseName} est prête 🎉
             </Text>
             <Text className="text-base text-muted">
@@ -63,7 +63,7 @@ export default function Summary() {
         <FadeInView delay={220}>
           <View className="rounded-card border border-border bg-highlight/40 p-4">
             <Text className="text-center text-base font-semibold text-primary">
-              Essaie tout gratuitement pendant 2 mois.
+              Gratuit pour commencer — Premium à l&apos;essai 1 mois, sans engagement.
             </Text>
           </View>
         </FadeInView>

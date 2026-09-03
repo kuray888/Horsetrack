@@ -28,7 +28,7 @@ export default function EditRiderModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="text-2xl font-extrabold tracking-tight text-text">Mon profil cavalier</Text>
+        <Text className="text-2xl font-display tracking-tight text-text">Mon profil cavalier</Text>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
           <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>

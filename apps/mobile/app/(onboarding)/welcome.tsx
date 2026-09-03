@@ -16,7 +16,7 @@ export default function Welcome() {
           />
         </FadeInView>
         <FadeInView delay={100}>
-          <Text className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-text">
+          <Text className="mt-6 text-4xl font-display leading-tight tracking-tight text-text">
             Toi et ton cheval, organisés.
           </Text>
         </FadeInView>
@@ -32,7 +32,7 @@ export default function Welcome() {
         <View className="gap-3 px-6 pb-2">
           <PrimaryButton label="Commencer" onPress={() => router.push("/(onboarding)/rider-level")} />
           <Text className="text-center text-xs text-muted">
-            Essai gratuit de 2 mois · sans engagement
+            Gratuit pour commencer · Premium en option
           </Text>
         </View>
       </FadeInView>

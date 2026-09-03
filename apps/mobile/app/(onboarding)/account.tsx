@@ -120,7 +120,7 @@ export default function OnboardingAccount() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
-          <Text className="text-2xl font-extrabold tracking-tight text-text">
+          <Text className="text-2xl font-display tracking-tight text-text">
             Crée ton compte pour sauvegarder ton écurie
           </Text>
           <Text className="text-base text-muted">

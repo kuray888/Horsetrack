@@ -75,7 +75,7 @@ export function OnboardingShell({
       >
         <FadeInView>
           <View className="gap-2">
-            <Text className="text-2xl font-extrabold tracking-tight text-text">{title}</Text>
+            <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
             {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
           </View>
         </FadeInView>

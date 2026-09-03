@@ -185,7 +185,7 @@ export default function LoginScreen() {
           resizeMode="contain"
         />
         <View className="gap-2">
-          <Text className="text-2xl font-extrabold tracking-tight text-text">
+          <Text className="text-2xl font-display tracking-tight text-text">
             Connecte-toi à ton compte
           </Text>
           <Text className="text-base text-muted">Retrouve ton planning et ton suivi.</Text>
