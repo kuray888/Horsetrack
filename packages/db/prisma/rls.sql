@@ -175,6 +175,8 @@ $$;
 -- fois l'ancienne notion de palier (FREE/PADDOCK/GRAND_PRIX) ET l'ancienne
 -- fonction horse_owner_is_paddock_or_above : il n'y a plus qu'un seul niveau
 -- d'accès, donc plus besoin de comparer un palier, juste le statut.
+drop function if exists public.horse_owner_is_paddock_or_above(text);
+
 create or replace function public.rider_is_active_or_trialing(_rider_profile_id text)
 returns boolean
 language sql
