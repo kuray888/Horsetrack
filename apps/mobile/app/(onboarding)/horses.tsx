@@ -24,7 +24,7 @@ export default function Horses() {
       step={9}
       total={TOTAL_STEPS}
       title="Ton écurie"
-      subtitle="Ajoute autant de chevaux que tu veux — c'est inclus, sans supplément."
+      subtitle="Ajoute tous les chevaux de ton écurie — le premier est gratuit, les suivants avec Horsetrack Premium."
       ctaLabel="C'est tout, continuer"
       onNext={() => router.push("/(onboarding)/summary")}
     >

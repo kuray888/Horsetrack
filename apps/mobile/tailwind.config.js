@@ -4,8 +4,9 @@
  * palette choisie dans Profil → Apparence redéfinit ces variables, donc
  * chaque classe ci-dessous (bg-primary, text-accent…) suit le thème actif en
  * direct, sans recompilation. Format Tailwind standard "opacité + variable
- * RGB" — la variable stocke "R G B" (espaces, pas virgules), cf.
- * cssVarsForTheme.
+ * RGB" — la variable stocke "R, G, B" (virgules : `rgba(var(--x), 0.5)`
+ * n'est du CSS valide qu'avec des composantes séparées par des virgules, pas
+ * des espaces), cf. cssVarsForTheme.
  */
 function themed(varName) {
   return ({ opacityValue }) =>

@@ -132,12 +132,17 @@ function hexToRgbTriplet(hex: string): string {
   const r = parseInt(clean.slice(0, 2), 16);
   const g = parseInt(clean.slice(2, 4), 16);
   const b = parseInt(clean.slice(4, 6), 16);
-  return `${r} ${g} ${b}`;
+  // Séparateur virgule, pas espace : tailwind.config.js compose
+  // `rgba(var(--x), opacity)` pour les classes avec opacité (bg-primary/15…)
+  // — `rgba(39 76 119, 0.5)` (espaces) n'est pas du CSS valide, seul
+  // `rgba(39, 76, 119, 0.5)` (tout en virgules) l'est.
+  return `${r}, ${g}, ${b}`;
 }
 
-/** Construit l'objet de variables CSS (format "R G B" attendu par les
- * classes Tailwind `rgb(var(--x) / <alpha-value>)`, cf. tailwind.config.js)
- * pour une palette donnée — consommé par ThemeProvider via `vars()`. */
+/** Construit l'objet de variables CSS (format "R, G, B" attendu par les
+ * classes Tailwind `rgba(var(--x), opacity)` / `rgb(var(--x))`, cf.
+ * tailwind.config.js) pour une palette donnée — consommé par ThemeProvider
+ * via `vars()`. */
 export function cssVarsForTheme(id: ThemeId): Record<string, string> {
   const p = PALETTES[id];
   return {

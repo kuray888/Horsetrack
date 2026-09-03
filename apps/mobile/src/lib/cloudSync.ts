@@ -114,27 +114,32 @@ export async function pushHorses(horses: Horse[]): Promise<void> {
   if (!profile) return;
 
   const now = new Date().toISOString();
-  if (horses.length > 0) {
-    const { error } = await supabase.from("horses").upsert(
-      horses.map((h) => ({
-        id: h.id,
-        ownerId: profile.id,
-        name: h.name,
-        photoUrl: h.photoUrl,
-        birthYear: h.birthYear,
-        sex: h.sex,
-        breed: h.breed,
-        heightCm: h.heightCm,
-        weightKg: h.weightKg,
-        discipline: h.discipline,
-        level: h.level,
-        fitnessLevel: h.fitnessLevel,
-        workload: h.workload,
-        isPrimary: h.isPrimary,
-        updatedAt: now,
-      }))
-    );
-    if (error) console.warn("[cloudSync] upsert horses échoué", error);
+  // Un cheval à la fois, pas un upsert groupé : Postgres/RLS rejette un
+  // upsert multi-lignes EN BLOC si UNE SEULE ligne viole le WITH CHECK (cf.
+  // rls.sql horses_insert_own, quota du palier) — avec un upsert groupé, un
+  // compte resté gratuit après avoir créé 2 chevaux en onboarding perdait
+  // silencieusement les DEUX (pas juste le 2ᵉ en trop), cf. audit du
+  // 2026-09-03. Séparé, seul le cheval en trop échoue ; les autres, dans la
+  // limite, sont bien sauvegardés.
+  for (const h of horses) {
+    const { error } = await supabase.from("horses").upsert({
+      id: h.id,
+      ownerId: profile.id,
+      name: h.name,
+      photoUrl: h.photoUrl,
+      birthYear: h.birthYear,
+      sex: h.sex,
+      breed: h.breed,
+      heightCm: h.heightCm,
+      weightKg: h.weightKg,
+      discipline: h.discipline,
+      level: h.level,
+      fitnessLevel: h.fitnessLevel,
+      workload: h.workload,
+      isPrimary: h.isPrimary,
+      updatedAt: now,
+    });
+    if (error) console.warn("[cloudSync] upsert horse échoué", h.id, error);
   }
 
   // Supprime côté distant les chevaux qui n'existent plus localement — pas de
