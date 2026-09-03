@@ -247,7 +247,8 @@ type AgendaContextValue = {
   addCompetitionEntry: (apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => void;
   updateCompetitionEntryResult: (apptId: string, entryId: string, result: string) => void;
   deleteCompetitionEntry: (apptId: string, entryId: string) => void;
-  addDocument: (doc: Omit<Doc, "id" | "filePath">) => void;
+  /** Retourne l'id généré localement — cf. addDocument dans le provider. */
+  addDocument: (doc: Omit<Doc, "id" | "filePath">) => string;
   deleteDocument: (docId: string) => void;
   /** Remplace les documents locaux par ceux restaurés depuis le cloud (cf.
    * (auth)/login.tsx) — n'écrit que l'état + SecureStore, ne relance jamais
@@ -260,6 +261,7 @@ type AgendaContextValue = {
   addExpense: (expense: NewExpense) => void;
   deleteExpense: (expenseId: string) => void;
   toggleExpensePaid: (expenseId: string) => void;
+  linkExpenseDocument: (expenseId: string, documentId: string | null) => void;
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
   /** Efface rendez-vous + documents + journal + dépenses locaux (cf. suppression de compte dans Profil). */
   clearAll: () => Promise<void>;
@@ -514,6 +516,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {});
+    // Retourné pour permettre de lier immédiatement le document tout juste
+    // créé (ex : reçu joint depuis le formulaire de dépense, cf.
+    // (tabs)/agenda.tsx handleAddExpense) sans attendre un aller-retour cloud.
+    return id;
   }, []);
 
   const deleteDocument = useCallback((docId: string) => {
@@ -573,6 +579,17 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  /** Lie (ou délie, avec `documentId: null`) un reçu du coffre-fort à une
+   * dépense existante — cf. bouton "Joindre une facture" côté agenda.tsx. */
+  const linkExpenseDocument = useCallback((expenseId: string, documentId: string | null) => {
+    setExpenses((list) => {
+      const next = list.map((e) => (e.id === expenseId ? { ...e, documentId } : e));
+      const updated = next.find((e) => e.id === expenseId);
+      if (updated) pushExpense(updated).catch(() => {});
+      return next;
+    });
+  }, []);
+
   const hydrateExpensesFromCloud = useCallback((next: Expense[]) => {
     setExpenses(next);
     SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(next));
@@ -616,6 +633,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addExpense,
       deleteExpense,
       toggleExpensePaid,
+      linkExpenseDocument,
       hydrateExpensesFromCloud,
       clearAll,
     }),
@@ -643,6 +661,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addExpense,
       deleteExpense,
       toggleExpensePaid,
+      linkExpenseDocument,
       hydrateExpensesFromCloud,
       clearAll,
     ]

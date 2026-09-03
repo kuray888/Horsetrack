@@ -184,6 +184,10 @@ const emptyExpenseForm = {
   date: daysFromNow(0) as Date | null,
   notes: "",
   appointmentId: null as string | null,
+  /** Photo de facture prise/choisie avant soumission — devient un Document
+   * du coffre-fort (catégorie facture) au moment de l'ajout, cf.
+   * handleAddExpense. Fonctionnalité Premium comme le reste du coffre-fort. */
+  fileUri: null as string | null,
 };
 
 function formatAmount(amount: number, currency: string): string {
@@ -214,6 +218,7 @@ export default function AgendaScreen() {
     addExpense,
     deleteExpense,
     toggleExpensePaid,
+    linkExpenseDocument,
   } = useAgenda();
   const [section, setSection] = useState<"appointments" | "documents" | "journal" | "finances">("appointments");
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
@@ -402,6 +407,19 @@ export default function AgendaScreen() {
     const date = expenseForm.date;
     const amount = Number(expenseForm.amount.replace(",", "."));
     if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    // La facture jointe devient un document du coffre-fort (catégorie
+    // "facture"), lié à la dépense — seulement si Premium (coffre-fort
+    // gaté, cf. Locked sur le bouton "Joindre une facture" plus bas) et si
+    // une photo a effectivement été prise.
+    const documentId =
+      isActiveOrTrialing && expenseForm.fileUri
+        ? addDocument({
+            category: "facture",
+            name: `Facture ${EXPENSE_META[expenseForm.category].label.toLowerCase()} — ${formatDate(date)}`,
+            date,
+            fileUri: expenseForm.fileUri,
+          })
+        : null;
     addExpense({
       amount,
       currency: "EUR",
@@ -409,7 +427,7 @@ export default function AgendaScreen() {
       date,
       notes: expenseForm.notes.trim(),
       appointmentId: expenseForm.appointmentId,
-      documentId: null,
+      documentId,
       // Le statut payé/à régler se règle après coup depuis la liste (cf.
       // toggle Premium sur chaque dépense) — une dépense vient d'être créée,
       // elle est donc "à régler" par défaut.
@@ -417,6 +435,26 @@ export default function AgendaScreen() {
     });
     setExpenseForm(emptyExpenseForm);
     setShowExpenseForm(false);
+  }
+
+  async function handlePickExpensePhoto() {
+    const uri = await pickAndPersistImage();
+    if (uri) setExpenseForm((f) => ({ ...f, fileUri: uri }));
+  }
+
+  /** Joint une facture à une dépense déjà créée (contrairement à
+   * handleAddExpense, qui le fait à la création) — même principe : nouveau
+   * document du coffre-fort, puis lien via linkExpenseDocument. */
+  async function handleAttachReceipt(expense: Expense) {
+    const uri = await pickAndPersistImage();
+    if (!uri) return;
+    const documentId = addDocument({
+      category: "facture",
+      name: `Facture ${EXPENSE_META[expense.category].label.toLowerCase()} — ${formatDate(expense.date)}`,
+      date: expense.date,
+      fileUri: uri,
+    });
+    linkExpenseDocument(expense.id, documentId);
   }
 
   return (
@@ -978,6 +1016,23 @@ export default function AgendaScreen() {
                     </TouchableOpacity>
                   );
                 })()}
+                <Locked message="Joindre une facture réservé à l'abonnement Premium (coffre-fort)">
+                  {expenseForm.fileUri ? (
+                    <TouchableOpacity onPress={handlePickExpensePhoto} activeOpacity={0.8} className="gap-2">
+                      <Image source={{ uri: expenseForm.fileUri }} className="h-32 w-full rounded-card" resizeMode="cover" />
+                      <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={handlePickExpensePhoto}
+                      activeOpacity={0.8}
+                      className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
+                    >
+                      <MaterialCommunityIcons name="paperclip" size={17} color={colors.textMuted} />
+                      <Text className="text-sm font-semibold text-muted">Joindre une facture</Text>
+                    </TouchableOpacity>
+                  )}
+                </Locked>
                 <View className="flex-row gap-2">
                   <TouchableOpacity
                     onPress={() => {
@@ -1020,6 +1075,8 @@ export default function AgendaScreen() {
                   linkedDocument={documents.find((d) => d.id === expense.documentId) ?? null}
                   onDelete={() => deleteExpense(expense.id)}
                   onTogglePaid={() => toggleExpensePaid(expense.id)}
+                  onAttachReceipt={() => handleAttachReceipt(expense)}
+                  onRemoveReceipt={() => linkExpenseDocument(expense.id, null)}
                 />
               </FadeInView>
             ))
@@ -1492,12 +1549,16 @@ function ExpenseCard({
   linkedDocument,
   onDelete,
   onTogglePaid,
+  onAttachReceipt,
+  onRemoveReceipt,
 }: {
   expense: Expense;
   linkedAppointment: Appointment | null;
   linkedDocument: Doc | null;
   onDelete: () => void;
   onTogglePaid: () => void;
+  onAttachReceipt: () => void;
+  onRemoveReceipt: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const meta = EXPENSE_META[expense.category];
@@ -1532,9 +1593,14 @@ function ExpenseCard({
           ) : null}
           {expense.documentId ? (
             linkedDocument ? (
-              <View className="flex-row items-center gap-1.5">
-                <MaterialCommunityIcons name="receipt" size={15} color={colors.textMuted} />
-                <Text className="text-sm text-text">Reçu : {linkedDocument.name}</Text>
+              <View className="flex-row items-center justify-between gap-1.5">
+                <View className="flex-1 flex-row items-center gap-1.5">
+                  <MaterialCommunityIcons name="receipt" size={15} color={colors.textMuted} />
+                  <Text className="text-sm text-text">Reçu : {linkedDocument.name}</Text>
+                </View>
+                <TouchableOpacity onPress={onRemoveReceipt} hitSlop={8} activeOpacity={0.7}>
+                  <Text className="text-sm font-semibold text-danger">Retirer</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View className="flex-row items-center gap-1.5">
@@ -1542,7 +1608,14 @@ function ExpenseCard({
                 <Text className="text-sm text-muted">Reçu non disponible</Text>
               </View>
             )
-          ) : null}
+          ) : (
+            <Locked message="Joindre une facture réservé à l'abonnement Premium (coffre-fort)">
+              <TouchableOpacity onPress={onAttachReceipt} activeOpacity={0.7} className="flex-row items-center gap-1.5">
+                <MaterialCommunityIcons name="paperclip" size={15} color={colors.accent} />
+                <Text className="text-sm font-semibold text-accent">Joindre une facture</Text>
+              </TouchableOpacity>
+            </Locked>
+          )}
           <Locked message="Basculer le statut payé/à régler réservé à l'abonnement Premium">
             <TouchableOpacity onPress={onTogglePaid} activeOpacity={0.7} className="mt-1">
               <Text className="text-sm font-semibold text-accent">
