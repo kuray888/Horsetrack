@@ -6,6 +6,7 @@ import { pushWidgetData } from "@/lib/widgetKit";
 import { scheduleWeeklySummary } from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
 import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
+import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
 import { colors as staticColors } from "@/theme/colors";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -140,17 +141,39 @@ export default function TodayScreen() {
     <Screen>
       {/* En-tête */}
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <View className="gap-0.5">
-            <Text className="text-2xl font-display tracking-tight text-text">{greeting()}</Text>
-            <Text className="text-base text-muted">Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?</Text>
+        <View className="gap-4 rounded-card bg-primary p-5">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 gap-0.5 pr-3">
+              <Text className="text-2xl font-display tracking-tight text-on-primary">{greeting()}</Text>
+              <Text className="text-[15px] text-on-primary/80">
+                Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?
+              </Text>
+            </View>
+            <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-on-primary/15">
+              {horse?.photoUrl ? (
+                <Image source={{ uri: horse.photoUrl }} className="h-14 w-14" />
+              ) : (
+                <MaterialCommunityIcons name="horse-variant" size={26} color={colors.textOnPrimary} />
+              )}
+            </View>
           </View>
-          <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-highlight">
-            {horse?.photoUrl ? (
-              <Image source={{ uri: horse.photoUrl }} className="h-14 w-14" />
-            ) : (
-              <MaterialCommunityIcons name="horse-variant" size={26} color={colors.primary} />
-            )}
+
+          {/* Bilan de la semaine — anneau animé, généré à partir des vraies séances cochées */}
+          <View className="flex-row items-center gap-3 rounded-card bg-on-primary/10 p-3">
+            <CircularProgress
+              progress={weekSessions.length > 0 ? weekDoneCount / weekSessions.length : 0}
+              size={44}
+              strokeWidth={5}
+              trackColor="rgba(255,255,255,0.25)"
+              progressColor={colors.textOnPrimary}
+            >
+              <Text className="text-[11px] font-bold text-on-primary">
+                {weekDoneCount}/{weekSessions.length}
+              </Text>
+            </CircularProgress>
+            <Text className="flex-1 text-[13px] leading-[17px] text-on-primary/90">
+              {weeklyRecapMessage(weekDoneCount, weekSessions.length)}
+            </Text>
           </View>
         </View>
       </FadeInView>
@@ -241,27 +264,14 @@ export default function TodayScreen() {
         </TouchableOpacity>
       </FadeInView>
 
-      {/* Bilan de la semaine — généré à partir des vraies séances cochées */}
-      <FadeInView delay={120}>
-        <View className={`${CARD} flex-row gap-3`}>
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/15">
-            <MaterialCommunityIcons name="chart-line" size={20} color={colors.accent} />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">Bilan de la semaine</Text>
-            <Text className="text-[15px] leading-5 text-text">{weeklyRecapMessage(weekDoneCount, weekSessions.length)}</Text>
-          </View>
-        </View>
-      </FadeInView>
-
-      {/* Conseil du jour */}
+      {/* Conseil du jour — teinté pour se distinguer des cartes neutres ci-dessous */}
       <FadeInView delay={160}>
-        <View className={`${CARD} flex-row gap-3`}>
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/15">
-            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.accent} />
+        <View className="flex-row gap-3 rounded-card bg-highlight p-5">
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-surface">
+            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.primary} />
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+            <Text className="text-sm font-bold uppercase tracking-wide text-primary">
               Conseil du jour
             </Text>
             <Text className="text-[15px] leading-5 text-text">{dailyTip()}</Text>

@@ -25,23 +25,48 @@ const PRICE_SUB: Record<BillingPeriod, string> = {
   ANNUAL: "soit 2,92 €/mois · économise 27 % vs mensuel",
 };
 
-/** Palier Premium depuis le pivot freemium du 2026-09-03 (v2) — n'inclut QUE
- * ce qui n'est pas déjà dans le palier gratuit (planning, agenda, journal,
- * dépenses de base et objectifs sont gratuits, cf. rls.sql). */
-const BULLETS: string[] = [
-  "3 chevaux (au lieu d'1)",
-  "Partage avec 1 collaborateur·rice (demi-pension, coach, cavalière, groom)",
+/** Palier gratuit — cf. rls.sql, tout ce qui n'appelle pas
+ * rider_is_active_or_trialing. */
+const FREE_BULLETS: string[] = ["1 cheval", "Planning & agenda", "Journal d'entraînement", "Dépenses de base", "Objectifs"];
+
+/** Palier Premium — n'inclut QUE ce qui n'est pas déjà dans le palier
+ * gratuit ci-dessus. */
+const PREMIUM_BULLETS: string[] = [
+  "3 chevaux",
+  "Partage (demi-pension, coach, cavalière, groom)",
   "Coffre-fort numérique",
   "Concours multi-épreuves",
-  "Rappels automatiques (push + email)",
+  "Rappels automatiques",
 ];
 
-function Bullet({ text }: { text: string }) {
+/** Comparatif gratuit/Premium en deux colonnes — répond directement à "qu'est-ce
+ * que je gagne en payant ?", plutôt que de ne montrer que la liste Premium
+ * seule (l'ancien PlanCard) sans repère de ce qui est déjà inclus gratuitement. */
+function ComparisonCard() {
   const colors = useThemeColors();
   return (
-    <View className="flex-row items-center gap-2.5">
-      <MaterialCommunityIcons name="check-circle" size={17} color={colors.success} />
-      <Text className="flex-1 text-[15px] text-text">{text}</Text>
+    <View className="flex-row overflow-hidden rounded-card border border-border">
+      <View className="flex-1 gap-2.5 bg-surface p-4">
+        <Text className="text-[11px] font-bold uppercase tracking-wide text-muted">Gratuit</Text>
+        {FREE_BULLETS.map((b) => (
+          <View key={b} className="flex-row items-start gap-1.5">
+            <MaterialCommunityIcons name="check" size={14} color={colors.textMuted} style={{ marginTop: 2 }} />
+            <Text className="flex-1 text-[13px] leading-4 text-text">{b}</Text>
+          </View>
+        ))}
+      </View>
+      <View className="flex-1 gap-2.5 border-l border-primary/20 bg-highlight p-4">
+        <View className="flex-row items-center gap-1">
+          <MaterialCommunityIcons name="star" size={12} color={colors.primary} />
+          <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">Premium</Text>
+        </View>
+        {PREMIUM_BULLETS.map((b) => (
+          <View key={b} className="flex-row items-start gap-1.5">
+            <MaterialCommunityIcons name="check" size={14} color={colors.primary} style={{ marginTop: 2 }} />
+            <Text className="flex-1 text-[13px] leading-4 font-medium text-text">{b}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -71,17 +96,10 @@ function PlanCard({ period }: { period: BillingPeriod }) {
         activeOpacity={1}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        className="gap-2.5 rounded-card border border-primary bg-highlight p-4"
+        className="flex-row items-center justify-between rounded-card border border-primary bg-highlight p-4"
       >
-        <View>
-          <Text className="text-xl font-extrabold text-primary">{PRICE[period]}</Text>
-          <Text className="text-sm text-muted">{PRICE_SUB[period]}</Text>
-        </View>
-        <View className="gap-1.5 pt-1">
-          {BULLETS.map((b) => (
-            <Bullet key={b} text={b} />
-          ))}
-        </View>
+        <Text className="text-xl font-display text-primary">{PRICE[period]}</Text>
+        <Text className="text-sm text-muted">{PRICE_SUB[period]}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -158,6 +176,8 @@ export function PaywallView({
           <Text className="text-3xl font-display leading-tight tracking-tight text-text">{title}</Text>
           <Text className="text-base text-muted">Annulable à tout moment depuis les réglages.</Text>
         </View>
+
+        <ComparisonCard />
 
         <PeriodToggle value={period} onChange={setPeriod} />
 
