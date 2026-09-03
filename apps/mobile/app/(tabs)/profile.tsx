@@ -257,26 +257,35 @@ export default function ProfileScreen() {
         </View>
       </FadeInView>
 
-      {/* Abonnement */}
+      {/* Abonnement — teinté quand Premium est actif, pour que le statut se
+          voie d'un coup d'œil plutôt que de se lire dans une carte neutre. */}
       <FadeInView delay={60}>
-        <View className={`${CARD} flex-row items-center gap-3`}>
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
+        <View
+          className={`flex-row items-center gap-3 rounded-card p-5 shadow-card ${
+            isActiveOrTrialing ? "bg-primary" : "bg-surface"
+          }`}
+        >
+          <View className={`h-10 w-10 items-center justify-center rounded-full ${isActiveOrTrialing ? "bg-on-primary/15" : "bg-highlight"}`}>
             <MaterialCommunityIcons
               name={isActiveOrTrialing ? "star-outline" : "star-off-outline"}
               size={20}
-              color={colors.primary}
+              color={isActiveOrTrialing ? colors.textOnPrimary : colors.primary}
             />
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="text-base font-bold text-text">{subscriptionLabel()}</Text>
-            <Text className="text-xs text-muted">
+            <Text className={`text-base font-display-bold ${isActiveOrTrialing ? "text-on-primary" : "text-text"}`}>
+              {subscriptionLabel()}
+            </Text>
+            <Text className={`text-xs ${isActiveOrTrialing ? "text-on-primary/80" : "text-muted"}`}>
               {isActiveOrTrialing
                 ? "Profite de toutes les fonctionnalités Premium"
                 : "1 cheval, planning et agenda gratuits — passe à Premium pour plus"}
             </Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8}>
-            <Text className="text-sm font-bold text-accent">{isActiveOrTrialing ? "Gérer" : "Voir Premium"}</Text>
+            <Text className={`text-sm font-bold ${isActiveOrTrialing ? "text-on-primary" : "text-accent"}`}>
+              {isActiveOrTrialing ? "Gérer" : "Voir Premium"}
+            </Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
@@ -314,7 +323,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <View className="flex-1 gap-0.5">
                 <View className="flex-row items-center gap-1.5">
-                  <Text className="text-base font-bold text-text">{horse.name}</Text>
+                  <Text className="text-base font-display-bold text-text">{horse.name}</Text>
                   {horse.isPrimary ? <MaterialCommunityIcons name="star" size={14} color={colors.warning} /> : null}
                 </View>
                 <Text className="text-sm text-muted">
