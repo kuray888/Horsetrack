@@ -9,7 +9,8 @@ import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Locked } from "@/components/Locked";
 import { maxHorses, useSubscription } from "@/subscription/store";
-import { colors } from "@/theme/colors";
+import { useThemeColors, useTheme } from "@/theme/ThemeProvider";
+import { THEME_ORDER, THEME_LABELS, PALETTES } from "@/theme/palettes";
 import {
   isBiometricsAvailable,
   authenticateWithBiometrics,
@@ -79,6 +80,7 @@ function SettingRow({
   onValueChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  const colors = useThemeColors();
   return (
     <View className="flex-row items-center gap-3 py-3">
       <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
@@ -100,6 +102,8 @@ function SettingRow({
 }
 
 export default function ProfileScreen() {
+  const colors = useThemeColors();
+  const { themeId, setThemeId } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const subscription = useSubscription();
   const {
@@ -439,6 +443,48 @@ export default function ProfileScreen() {
             <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
             <Text className="text-base font-semibold text-primary">Ajouter un objectif</Text>
           </TouchableOpacity>
+        </View>
+      </FadeInView>
+
+      {/* Apparence */}
+      <FadeInView delay={400}>
+        <SectionTitle>Apparence</SectionTitle>
+      </FadeInView>
+
+      <FadeInView delay={410}>
+        <View className={`${CARD} gap-3`}>
+          <Text className="text-sm text-muted">Choisis la palette de couleur de l&apos;app.</Text>
+          <View className="flex-row flex-wrap gap-3">
+            {THEME_ORDER.map((id) => {
+              const selected = id === themeId;
+              const swatch = PALETTES[id];
+              return (
+                <TouchableOpacity
+                  key={id}
+                  onPress={() => setThemeId(id)}
+                  activeOpacity={0.8}
+                  accessibilityLabel={THEME_LABELS[id]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  className="w-[30%] items-center gap-1.5"
+                >
+                  <View
+                    className="h-12 w-12 items-center justify-center rounded-full"
+                    style={{
+                      backgroundColor: swatch.primary,
+                      borderWidth: selected ? 3 : 0,
+                      borderColor: colors.text,
+                    }}
+                  >
+                    {selected ? <MaterialCommunityIcons name="check" size={18} color={swatch.textOnPrimary} /> : null}
+                  </View>
+                  <Text className={`text-xs font-semibold ${selected ? "text-text" : "text-muted"}`}>
+                    {THEME_LABELS[id]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </FadeInView>
 

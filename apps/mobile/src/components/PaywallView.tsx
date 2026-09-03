@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { usePressScale } from "@/hooks/usePressScale";
-import { colors } from "@/theme/colors";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { BillingPeriod } from "@/subscription/store";
 import { isTrialEligible } from "@/lib/revenuecat";
 
@@ -37,6 +37,7 @@ const BULLETS: string[] = [
 ];
 
 function Bullet({ text }: { text: string }) {
+  const colors = useThemeColors();
   return (
     <View className="flex-row items-center gap-2.5">
       <MaterialCommunityIcons name="check-circle" size={17} color={colors.success} />
@@ -115,6 +116,7 @@ export function PaywallView({
   restoring?: boolean;
   title?: string;
 }) {
+  const colors = useThemeColors();
   const [period, setPeriod] = useState<BillingPeriod>("ANNUAL");
 
   // Optimiste (true) tant que la vérification n'a pas répondu : le cas normal

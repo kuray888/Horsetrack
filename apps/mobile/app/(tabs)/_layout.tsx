@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Tabs } from "expo-router";
 import { Animated } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { colors } from "@/theme/colors";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   today: "home-variant-outline",
@@ -20,6 +20,7 @@ const TAB_ICONS_FOCUSED: Record<string, keyof typeof MaterialCommunityIcons.glyp
 const AnimatedIcon = Animated.createAnimatedComponent(MaterialCommunityIcons);
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
+  const colors = useThemeColors();
   const scale = useRef(new Animated.Value(1)).current;
 
   // Petit rebond quand l'onglet devient actif, pour marquer le changement.
@@ -40,6 +41,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 export default function TabsLayout() {
+  const colors = useThemeColors();
   return (
     <Tabs
       screenOptions={{

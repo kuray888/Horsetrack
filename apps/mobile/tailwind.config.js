@@ -1,4 +1,16 @@
-const { colors } = require("./src/theme/tokens.cjs");
+/**
+ * Couleurs sémantiques pilotées par variables CSS (cf. src/theme/palettes.ts
+ * + ThemeProvider.tsx, qui les injecte via `vars()` NativeWind) : chaque
+ * palette choisie dans Profil → Apparence redéfinit ces variables, donc
+ * chaque classe ci-dessous (bg-primary, text-accent…) suit le thème actif en
+ * direct, sans recompilation. Format Tailwind standard "opacité + variable
+ * RGB" — la variable stocke "R G B" (espaces, pas virgules), cf.
+ * cssVarsForTheme.
+ */
+function themed(varName) {
+  return ({ opacityValue }) =>
+    opacityValue !== undefined ? `rgba(var(${varName}), ${opacityValue})` : `rgb(var(${varName}))`;
+}
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -7,17 +19,31 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ...colors,
+        primary: themed("--color-primary"),
+        accent: themed("--color-accent"),
+        highlight: themed("--color-highlight"),
+        background: themed("--color-background"),
+        surface: themed("--color-surface"),
+        text: themed("--color-text"),
+        textMuted: themed("--color-text-muted"),
+        textOnPrimary: themed("--color-text-on-primary"),
+        border: themed("--color-border"),
+        success: themed("--color-success"),
+        warning: themed("--color-warning"),
+        danger: themed("--color-danger"),
         // alias kebab-case pour les classes (text-muted, text-on-primary…)
-        muted: colors.textMuted,
-        "on-primary": colors.textOnPrimary,
+        muted: themed("--color-text-muted"),
+        "on-primary": themed("--color-text-on-primary"),
       },
       borderRadius: {
         card: "18px",
       },
       boxShadow: {
-        // ombre de carte teintée navy
-        card: "0px 4px 12px rgba(39, 76, 119, 0.08)",
+        // Ombre de carte neutre — pas pilotée par le thème (les shadows RN ne
+        // suivent pas les variables CSS comme les couleurs de fond/texte),
+        // volontairement discrète (opacité 8%) pour rester correcte quelle
+        // que soit la palette active.
+        card: "0px 4px 12px rgba(20, 20, 30, 0.08)",
       },
     },
   },

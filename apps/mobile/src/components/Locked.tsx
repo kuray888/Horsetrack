@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSubscription } from "@/subscription/store";
 import { usePressScale } from "@/hooks/usePressScale";
-import { colors } from "@/theme/colors";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 /**
  * Gating « soft » d'un visuel premium.
@@ -26,6 +26,7 @@ export function Locked({
   cta?: string;
 }) {
   const { isActiveOrTrialing } = useSubscription();
+  const colors = useThemeColors();
   const { scale, onPressIn, onPressOut } = usePressScale();
   const unlocked = isActiveOrTrialing;
 

@@ -7,7 +7,8 @@ import { scheduleWeeklySummary } from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
 import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
 import { Screen } from "@/components/Screen";
-import { colors } from "@/theme/colors";
+import { colors as staticColors } from "@/theme/colors";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { MONTHS, isSameDate } from "@/lib/dateFormat";
 import { restDayActivityFor, useHorses } from "@/horses/store";
 import { useSessions, type TrainingSession } from "@/sessions/store";
@@ -47,13 +48,13 @@ const TYPE_META: Record<
   UpcomingType,
   { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; chip: string; tint: string; tag: string }
 > = {
-  seance: { label: "Séance", icon: "horse-variant", chip: "bg-primary/15", tint: colors.event.seance, tag: "text-primary" },
-  veto: { label: "Vétérinaire", icon: "needle", chip: "bg-warning/15", tint: colors.event.veto, tag: "text-warning" },
-  osteo: { label: "Ostéopathe", icon: "bone", chip: "bg-accent/15", tint: colors.event.osteo, tag: "text-accent" },
-  marechal: { label: "Maréchal-ferrant", icon: "hammer", chip: "bg-primary/15", tint: colors.event.marechal, tag: "text-primary" },
-  dentiste: { label: "Dentiste équin", icon: "tooth-outline", chip: "bg-success/15", tint: colors.event.dentiste, tag: "text-success" },
-  concours: { label: "Compétition", icon: "trophy-outline", chip: "bg-accent/15", tint: colors.event.concours, tag: "text-accent" },
-  autre: { label: "Rendez-vous", icon: "calendar-blank-outline", chip: "bg-border", tint: colors.event.autre, tag: "text-muted" },
+  seance: { label: "Séance", icon: "horse-variant", chip: "bg-primary/15", tint: staticColors.event.seance, tag: "text-primary" },
+  veto: { label: "Vétérinaire", icon: "needle", chip: "bg-warning/15", tint: staticColors.event.veto, tag: "text-warning" },
+  osteo: { label: "Ostéopathe", icon: "bone", chip: "bg-accent/15", tint: staticColors.event.osteo, tag: "text-accent" },
+  marechal: { label: "Maréchal-ferrant", icon: "hammer", chip: "bg-primary/15", tint: staticColors.event.marechal, tag: "text-primary" },
+  dentiste: { label: "Dentiste équin", icon: "tooth-outline", chip: "bg-success/15", tint: staticColors.event.dentiste, tag: "text-success" },
+  concours: { label: "Compétition", icon: "trophy-outline", chip: "bg-accent/15", tint: staticColors.event.concours, tag: "text-accent" },
+  autre: { label: "Rendez-vous", icon: "calendar-blank-outline", chip: "bg-border", tint: staticColors.event.autre, tag: "text-muted" },
 };
 
 // Carte blanche standard, réutilisée tel quel
@@ -80,6 +81,7 @@ function weeklyRecapMessage(done: number, total: number): string {
 }
 
 export default function TodayScreen() {
+  const colors = useThemeColors();
   const { horses, selectedHorse, selectHorse } = useHorses();
   const { sessions, toggleCompleted } = useSessions();
   const { appointments } = useAgenda();

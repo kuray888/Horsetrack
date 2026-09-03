@@ -21,6 +21,7 @@ if (typeof ErrorUtils !== "undefined") {
     }
   });
 }
+import { ThemeProvider } from "@/theme/ThemeProvider";
 import { SubscriptionProvider } from "@/subscription/store";
 import { HorsesProvider } from "@/horses/store";
 import { RiderProfileProvider } from "@/rider/store";
@@ -35,6 +36,7 @@ import { PickerOverlayProvider } from "@/components/PickerOverlay";
 
 export default function RootLayout() {
   return (
+    <ThemeProvider>
     <PickerOverlayProvider>
     <GlossaryProvider>
       <SubscriptionProvider>
@@ -70,5 +72,6 @@ export default function RootLayout() {
       </SubscriptionProvider>
     </GlossaryProvider>
     </PickerOverlayProvider>
+    </ThemeProvider>
   );
 }
