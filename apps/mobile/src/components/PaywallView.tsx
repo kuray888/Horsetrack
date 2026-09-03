@@ -18,7 +18,10 @@ const PERIODS: { id: BillingPeriod; label: string }[] = [
 const PRICE: Record<BillingPeriod, string> = { MONTHLY: "3,99 €/mois", ANNUAL: "39,99 €/an" };
 const PRICE_SUB: Record<BillingPeriod, string> = {
   MONTHLY: "sans engagement",
-  ANNUAL: "soit 3,33 €/mois · 2 mois offerts",
+  // "2 mois offerts" évité ici : ambigu à côté du vrai essai de 2 mois
+  // affiché juste en dessous (cf. trialEligible) — ce sous-titre ne parle
+  // que de l'économie annuel vs mensuel, pas de l'essai.
+  ANNUAL: "soit 3,33 €/mois · économise 16 % vs mensuel",
 };
 
 /** Un seul palier depuis le pivot tarifaire du 2026-09-03 : plus de
