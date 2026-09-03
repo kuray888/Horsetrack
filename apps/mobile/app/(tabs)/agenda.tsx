@@ -937,15 +937,15 @@ export default function AgendaScreen() {
                 <View className={`${CARD} flex-row items-center justify-between`}>
                   <View className="items-center gap-0.5">
                     <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Total</Text>
-                    <Text className="text-lg font-extrabold text-text">{formatAmount(totalExpenses, "EUR")}</Text>
+                    <Text className="text-lg font-display text-text">{formatAmount(totalExpenses, "EUR")}</Text>
                   </View>
                   <View className="items-center gap-0.5">
                     <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Payé</Text>
-                    <Text className="text-lg font-extrabold text-success">{formatAmount(paidExpenses, "EUR")}</Text>
+                    <Text className="text-lg font-display text-success">{formatAmount(paidExpenses, "EUR")}</Text>
                   </View>
                   <View className="items-center gap-0.5">
                     <Text className="text-xs font-semibold uppercase tracking-wide text-muted">À payer</Text>
-                    <Text className="text-lg font-extrabold text-danger">{formatAmount(pendingExpenses, "EUR")}</Text>
+                    <Text className="text-lg font-display text-danger">{formatAmount(pendingExpenses, "EUR")}</Text>
                   </View>
                 </View>
               </Locked>

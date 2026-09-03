@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Animated, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FadeInView } from "@/components/FadeInView";
+import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -9,7 +10,8 @@ import { TimePickerField } from "@/components/TimePickerField";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { PrimaryButton } from "@/components/onboarding";
 import { usePressScale } from "@/hooks/usePressScale";
-import { colors } from "@/theme/colors";
+import { colors as staticColors } from "@/theme/colors";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDate, formatDuration, isSameDate, MONTHS } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
 import { ACTIVITY_META, type ActivityType } from "@/agenda/store";
@@ -29,9 +31,9 @@ const REPEAT_OPTIONS = [
 ];
 
 const INTENSITY_META: Record<SessionIntensity, { label: string; icon: IconSpec }> = {
-  low: { label: "Légère", icon: { name: "circle", color: colors.success } },
-  medium: { label: "Modérée", icon: { name: "circle", color: colors.warning } },
-  high: { label: "Intense", icon: { name: "circle", color: colors.danger } },
+  low: { label: "Légère", icon: { name: "circle", color: staticColors.success } },
+  medium: { label: "Modérée", icon: { name: "circle", color: staticColors.warning } },
+  high: { label: "Intense", icon: { name: "circle", color: staticColors.danger } },
 };
 
 function startOfMonth(d: Date): Date {
@@ -116,6 +118,7 @@ function ChipSelect<T extends string>({
 }
 
 function AddToggle({ label, onPress }: { label: string; onPress: () => void }) {
+  const colors = useThemeColors();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -179,6 +182,7 @@ function SessionCard({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const colors = useThemeColors();
   const { scale, onPressIn, onPressOut } = usePressScale();
   const meta = ACTIVITY_META[session.activityType];
   return (
@@ -284,6 +288,7 @@ function MonthGrid({
   onChangeMonth: (delta: number) => void;
   sessionsByDay: Map<string, TrainingSession[]>;
 }) {
+  const colors = useThemeColors();
   const todayKey = new Date().toDateString();
   const days = buildMonthGrid(monthCursor);
   return (
@@ -342,6 +347,7 @@ function MonthGrid({
 }
 
 export default function PlanningScreen() {
+  const colors = useThemeColors();
   const { selectedHorse } = useHorses();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
 
@@ -490,15 +496,23 @@ export default function PlanningScreen() {
 
       {weekSessions.length > 0 ? (
         <FadeInView delay={40}>
-          <View className={`${CARD} flex-row gap-3`}>
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/15">
-              <MaterialCommunityIcons name="chart-line" size={20} color={colors.accent} />
-            </View>
+          <View className="flex-row items-center gap-3 rounded-card bg-primary p-4">
+            <CircularProgress
+              progress={weekSessions.length > 0 ? weekDone / weekSessions.length : 0}
+              size={44}
+              strokeWidth={5}
+              trackColor="rgba(255,255,255,0.25)"
+              progressColor={colors.textOnPrimary}
+            >
+              <Text className="text-[11px] font-bold text-on-primary">
+                {weekDone}/{weekSessions.length}
+              </Text>
+            </CircularProgress>
             <View className="flex-1 gap-0.5">
-              <Text className="text-sm font-bold uppercase tracking-wide text-accent">Cette semaine</Text>
-              <Text className="text-[15px] leading-5 text-text">
-                {weekDone}/{weekSessions.length} séance{weekSessions.length > 1 ? "s" : ""} faite
-                {weekDone > 1 ? "s" : ""} · {formatDuration(weekMinutes)} au programme
+              <Text className="text-sm font-bold uppercase tracking-wide text-on-primary/80">Cette semaine</Text>
+              <Text className="text-[15px] leading-5 text-on-primary">
+                {weekDone} séance{weekDone > 1 ? "s" : ""} faite{weekDone > 1 ? "s" : ""} · {formatDuration(weekMinutes)} au
+                programme
               </Text>
             </View>
           </View>
