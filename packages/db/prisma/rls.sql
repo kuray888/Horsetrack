@@ -129,14 +129,13 @@ $$;
 -- qu'à SES propres lignes via RLS — mêmes garanties que owns_rider_profile/
 -- owns_horse ci-dessus (search_path figé, lecture interne qui ne re-déclenche
 -- pas la RLS de rider_profiles).
--- Pivot tarifaire du 2026-09-03 : un seul palier payant (fini FREE/PADDOCK/
--- GRAND_PRIX à features différentes), essai de 2 mois, aucune fonctionnalité
--- gratuite en dehors de l'essai. Plutôt que de migrer l'enum SubscriptionTier
--- sur des données de prod réelles, on la garde telle quelle (le webhook
--- RevenueCat mappe désormais le produit unique sur GRAND_PRIX, cf. route.ts)
--- et le gating passe entièrement par le STATUT (`subscriptionStatus`), plus
--- par le palier. `effective_horse_limit` ci-dessous n'a donc plus besoin de
--- distinguer les paliers, juste actif-ou-en-essai vs le reste.
+-- Pivot freemium du 2026-09-03 (v2) : retour à un palier gratuit permanent
+-- (1 cheval, planning/agenda/journal/dépenses de base) + un palier Premium
+-- payant (3 chevaux + add-on, partage, coffre-fort, concours multi-épreuves,
+-- rappels automatiques), essai Premium d'1 mois. Le gating continue de
+-- reposer sur le STATUT (`subscriptionStatus`/`trialEndsAt`), pas sur
+-- `subscriptionTier` (resté FREE en base pour tout le monde, cf.
+-- protect_rider_profile_entitlements — pas de migration de données requise).
 create or replace function public.effective_horse_limit(_rider_profile_id text)
 returns integer
 language sql
@@ -151,17 +150,11 @@ as $$
           when rp."subscriptionStatus" = 'ACTIVE'
             or (rp."subscriptionStatus" = 'TRIALING' and (rp."trialEndsAt" is not null and rp."trialEndsAt" > now()))
           then 3
-          -- EXPIRED/CANCELLED (ou jamais abonné) : PAS 0. Le tout premier
-          -- cheval de l'onboarding est poussé juste après l'achat d'essai
-          -- (cf. (onboarding)/paywall.tsx finish()), avant que le webhook
-          -- RevenueCat n'ait forcément eu le temps de mettre à jour
-          -- subscriptionStatus en base (latence réseau asynchrone) — sans ce
-          -- palier de grâce à 1, cette course perdrait silencieusement le
-          -- premier cheval d'un client qui vient littéralement de payer.
-          -- Un compte réellement expiré garde donc 1 cheval "en lecture
-          -- quasi-seule" (aucune autre table n'est accessible en écriture
-          -- pour lui, cf. rider_is_active_or_trialing ci-dessous), jamais un
-          -- vrai palier gratuit.
+          -- Palier gratuit standard (jamais abonné, essai/abo expiré ou
+          -- annulé) : 1 cheval, pas une simple "grâce" temporaire — c'est la
+          -- vraie limite du palier Free, cf. subscription/logic.ts
+          -- FREE_HORSE_LIMIT côté mobile (doit rester synchronisé avec cette
+          -- valeur).
           else 1
         end + rp."extraHorseSlots"
       from public.rider_profiles rp
@@ -171,10 +164,13 @@ as $$
   );
 $$;
 
--- Vérité unique de l'accès payant (actif ou en essai valide) — remplace à la
--- fois l'ancienne notion de palier (FREE/PADDOCK/GRAND_PRIX) ET l'ancienne
--- fonction horse_owner_is_paddock_or_above : il n'y a plus qu'un seul niveau
--- d'accès, donc plus besoin de comparer un palier, juste le statut.
+-- Vérité unique de l'accès Premium (actif ou en essai valide) — utilisée pour
+-- gater les fonctionnalités payantes uniquement (coffre-fort, partage,
+-- concours multi-épreuves, mise à jour du profil cheval/cavalier au-delà de
+-- la création). Les fonctionnalités du palier gratuit (agenda, journal,
+-- planning, dépenses de base, objectifs) n'appellent PAS cette fonction —
+-- voir les policies correspondantes plus bas, qui ne vérifient que la
+-- propriété/le partage.
 drop function if exists public.horse_owner_is_paddock_or_above(text);
 
 create or replace function public.rider_is_active_or_trialing(_rider_profile_id text)
@@ -328,13 +324,11 @@ drop policy if exists "users_update_own" on public.users;
 create policy "users_update_own" on public.users
   for update using (id = auth.uid()::text) with check (id = auth.uid()::text);
 
--- rider_profiles : 1-1 avec users. SELECT/INSERT restent inconditionnels
--- (l'INSERT bootstrap le tout premier profil pendant l'onboarding, AVANT que
--- le webhook RevenueCat n'ait pu écrire un vrai statut — le gater créerait la
--- même course que celle documentée sur effective_horse_limit ci-dessus,
--- version pire : plus aucun profil ne pourrait jamais se créer). Seul
--- l'UPDATE (édition du profil après l'onboarding, largement après que le
--- webhook a eu le temps d'arriver) est soumis à abonnement actif/en essai.
+-- rider_profiles : 1-1 avec users. Le profil cavalier lui-même (niveau,
+-- discipline, objectif...) fait partie du palier gratuit — seules les
+-- colonnes d'entitlement (subscriptionTier/Status, trialEndsAt...) sont
+-- protégées, via le trigger protect_rider_profile_entitlements ci-dessus, pas
+-- via cette policy.
 drop policy if exists "rider_profiles_all_own" on public.rider_profiles;
 
 drop policy if exists "rider_profiles_select_own" on public.rider_profiles;
@@ -347,8 +341,8 @@ create policy "rider_profiles_insert_own" on public.rider_profiles
 
 drop policy if exists "rider_profiles_update_own" on public.rider_profiles;
 create policy "rider_profiles_update_own" on public.rider_profiles
-  for update using ("userId" = auth.uid()::text and public.rider_is_active_or_trialing(id))
-  with check ("userId" = auth.uid()::text and public.rider_is_active_or_trialing(id));
+  for update using ("userId" = auth.uid()::text)
+  with check ("userId" = auth.uid()::text);
 
 -- Voir protect_rider_profile_entitlements ci-dessus : la policy "for all"
 -- au-dessus ne protège que la ligne, pas les colonnes d'entitlement.
@@ -367,18 +361,17 @@ drop policy if exists "horses_select_own" on public.horses;
 create policy "horses_select_own" on public.horses
   for select using (public.owns_rider_profile("ownerId"));
 
--- update/delete d'un cheval déjà créé : jamais sur le chemin critique de
--- l'onboarding (qui ne fait que des INSERT, cf. effective_horse_limit
--- ci-dessus) — safe de gater par abonnement actif/en essai sans risquer la
--- même course.
+-- update/delete d'un cheval déjà créé : la fiche du cheval (unique en
+-- gratuit) fait partie du palier gratuit — seul le NOMBRE de chevaux est
+-- payant (cf. horses_insert_own/effective_horse_limit ci-dessus).
 drop policy if exists "horses_update_own" on public.horses;
 create policy "horses_update_own" on public.horses
-  for update using (public.owns_rider_profile("ownerId") and public.rider_is_active_or_trialing("ownerId"))
-  with check (public.owns_rider_profile("ownerId") and public.rider_is_active_or_trialing("ownerId"));
+  for update using (public.owns_rider_profile("ownerId"))
+  with check (public.owns_rider_profile("ownerId"));
 
 drop policy if exists "horses_delete_own" on public.horses;
 create policy "horses_delete_own" on public.horses
-  for delete using (public.owns_rider_profile("ownerId") and public.rider_is_active_or_trialing("ownerId"));
+  for delete using (public.owns_rider_profile("ownerId"));
 
 -- Compte les chevaux déjà possédés (hors celui en cours d'insertion, pas
 -- encore commité) et compare au quota du palier — bloque l'ajout au-delà de
@@ -397,17 +390,13 @@ create trigger enforce_horse_quota
   before insert on public.horses
   for each row execute function public.enforce_horse_quota();
 
--- horse_traits / horse_injuries : via le cheval parent — délibérément PAS
--- gatées par abonnement actif/en essai (contrairement à la plupart des
--- tables ci-dessous depuis le pivot tarifaire du 2026-09-03), car
--- pushHorseTraitsAndInjuries() est appelé dans le MÊME lot que la création
--- du premier cheval en onboarding (cf. paywall.tsx finish() → pushHorses()),
--- sur le même chemin critique juste après l'achat que celui documenté sur
--- effective_horse_limit. Un gate ici perdrait silencieusement les
--- traits/blessures saisis en onboarding le temps que le webhook RevenueCat
--- arrive. Portée réelle de l'exception : un compte expiré garde la capacité
--- d'éditer les tags/blessures de son unique cheval de grâce, rien de plus
--- (aucune autre table n'est accessible en écriture pour lui).
+-- horse_traits / horse_injuries : via le cheval parent — non gatées par
+-- abonnement, comme le reste de la fiche cheval (horses_update_own
+-- ci-dessus) : ces tags/blessures font partie du palier gratuit. Accessoirement,
+-- ça évite aussi tout risque de perdre silencieusement les traits/blessures
+-- saisis en onboarding (pushHorseTraitsAndInjuries() est appelé dans le même
+-- lot que la création du premier cheval, cf. paywall.tsx finish() →
+-- pushHorses()) le temps que le webhook RevenueCat arrive.
 drop policy if exists "horse_traits_all_own" on public.horse_traits;
 create policy "horse_traits_all_own" on public.horse_traits
   for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
@@ -417,8 +406,8 @@ create policy "horse_injuries_all_own" on public.horse_injuries
   for all using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
 
 -- goals : rattaché au rider_profile (et parfois à un cheval, mais le
--- propriétaire de référence reste toujours le rider_profile) — jamais touché
--- pendant l'onboarding (créés plus tard par le cavalier), safe de gater.
+-- propriétaire de référence reste toujours le rider_profile) — fait partie du
+-- palier gratuit (se fixer des objectifs n'est pas un argument payant).
 drop policy if exists "goals_all_own" on public.goals;
 
 drop policy if exists "goals_select_own" on public.goals;
@@ -427,16 +416,16 @@ create policy "goals_select_own" on public.goals
 
 drop policy if exists "goals_insert_own" on public.goals;
 create policy "goals_insert_own" on public.goals
-  for insert with check (public.owns_rider_profile("riderId") and public.rider_is_active_or_trialing("riderId"));
+  for insert with check (public.owns_rider_profile("riderId"));
 
 drop policy if exists "goals_update_own" on public.goals;
 create policy "goals_update_own" on public.goals
-  for update using (public.owns_rider_profile("riderId") and public.rider_is_active_or_trialing("riderId"))
-  with check (public.owns_rider_profile("riderId") and public.rider_is_active_or_trialing("riderId"));
+  for update using (public.owns_rider_profile("riderId"))
+  with check (public.owns_rider_profile("riderId"));
 
 drop policy if exists "goals_delete_own" on public.goals;
 create policy "goals_delete_own" on public.goals
-  for delete using (public.owns_rider_profile("riderId") and public.rider_is_active_or_trialing("riderId"));
+  for delete using (public.owns_rider_profile("riderId"));
 
 -- email_reminders : lecture seule pour le propriétaire, écriture réservée au
 -- backend (création/cron via DATABASE_URL, bypass RLS)
@@ -445,8 +434,9 @@ create policy "email_reminders_select_own" on public.email_reminders
   for select using ("userId" = auth.uid()::text);
 
 -- documents : rattaché au rider_profile, CRUD complet écrit directement par
--- le client mobile (cf. lib/cloudSync.ts) — jamais touché pendant
--- l'onboarding, safe de gater comme goals ci-dessus.
+-- le client mobile (cf. lib/cloudSync.ts) — le coffre-fort numérique est une
+-- fonctionnalité Premium (cf. audit produit/plan freemium du 2026-09-03),
+-- donc gaté par abonnement actif/en essai, contrairement à goals ci-dessus.
 drop policy if exists "documents_all_own" on public.documents;
 
 drop policy if exists "documents_select_own" on public.documents;
@@ -485,11 +475,15 @@ create policy "horse_injuries_select_shared" on public.horse_injuries
   for select using (public.can_access_horse("horseId"));
 
 -- appointments / journal_entries : propriétaire ET collaborateur accepté ont
--- un accès complet — "le calendrier" du brief. Jamais touchées pendant
--- l'onboarding (créées plus tard, dans l'app), donc safe de gater l'écriture
--- par abonnement actif/en essai. SELECT reste inconditionnel (can_access_horse
--- seul) : un compte expiré garde la visibilité sur tout son historique, en
--- lecture seule — c'est tout le sens du pivot tarifaire du 2026-09-03.
+-- un accès complet — "le calendrier" du brief. Le suivi de base (rendez-vous,
+-- journal) fait partie du palier gratuit, y compris les rendez-vous de type
+-- concours (checklist/dossard/notes) : seules les épreuves détaillées
+-- (competition_entries, cf. plus bas) et les rappels programmés (gérés côté
+-- app/API, pas par une colonne ici) restent Premium. Écriture non gatée par
+-- abonnement, donc — can_access_horse seul suffit, propriétaire ou
+-- collaborateur (le partage lui-même reste Premium, cf.
+-- horse_collaborators_owner_insert plus bas : un compte gratuit n'a donc de
+-- toute façon jamais de collaborateur).
 drop policy if exists "appointments_shared" on public.appointments;
 
 drop policy if exists "appointments_select_shared" on public.appointments;
@@ -498,16 +492,16 @@ create policy "appointments_select_shared" on public.appointments
 
 drop policy if exists "appointments_insert_shared" on public.appointments;
 create policy "appointments_insert_shared" on public.appointments
-  for insert with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for insert with check (public.can_access_horse("horseId"));
 
 drop policy if exists "appointments_update_shared" on public.appointments;
 create policy "appointments_update_shared" on public.appointments
-  for update using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"))
-  with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for update using (public.can_access_horse("horseId"))
+  with check (public.can_access_horse("horseId"));
 
 drop policy if exists "appointments_delete_shared" on public.appointments;
 create policy "appointments_delete_shared" on public.appointments
-  for delete using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for delete using (public.can_access_horse("horseId"));
 
 drop policy if exists "journal_entries_shared" on public.journal_entries;
 
@@ -517,21 +511,24 @@ create policy "journal_entries_select_shared" on public.journal_entries
 
 drop policy if exists "journal_entries_insert_shared" on public.journal_entries;
 create policy "journal_entries_insert_shared" on public.journal_entries
-  for insert with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for insert with check (public.can_access_horse("horseId"));
 
 drop policy if exists "journal_entries_update_shared" on public.journal_entries;
 create policy "journal_entries_update_shared" on public.journal_entries
-  for update using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"))
-  with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for update using (public.can_access_horse("horseId"))
+  with check (public.can_access_horse("horseId"));
 
 drop policy if exists "journal_entries_delete_shared" on public.journal_entries;
 create policy "journal_entries_delete_shared" on public.journal_entries
-  for delete using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for delete using (public.can_access_horse("horseId"));
 
 -- competition_entries : épreuves d'un concours — pas de horseId direct (child
 -- d'Appointment, cf. schema.prisma), donc on remonte au cheval du rendez-vous
--- parent à chaque fois. Même logique lecture-inconditionnelle/écriture-gatée
--- que appointments ci-dessus.
+-- parent à chaque fois. Contrairement à appointments (gratuit), l'écriture
+-- ici reste Premium : "concours multi-épreuves" est le vrai argument payant
+-- (un rendez-vous concours seul, avec checklist/dossard, reste gratuit —
+-- seul le détail par épreuve est verrouillé). Lecture inconditionnelle comme
+-- partout ailleurs.
 drop policy if exists "competition_entries_shared" on public.competition_entries;
 
 drop policy if exists "competition_entries_select_shared" on public.competition_entries;
@@ -637,11 +634,11 @@ create policy "horse_collaborators_invitee_accept" on public.horse_collaborators
   for update using (lower("invitedEmail") = lower(auth.jwt() ->> 'email'))
   with check (lower("invitedEmail") = lower(auth.jwt() ->> 'email') and "collaboratorUserId" = auth.uid()::text);
 
--- training_sessions : séances planifiées manuellement par le cavalier — même
--- portée de partage que appointments/journal_entries (un collaborateur DP/
--- coach doit voir le planning du cheval partagé), donc can_access_horse et
--- pas owns_horse. Jamais touchée pendant l'onboarding, safe de gater
--- l'écriture comme appointments/journal_entries ci-dessus.
+-- training_sessions : séances planifiées manuellement par le cavalier — le
+-- planning est la fonctionnalité coeur du palier gratuit, non gatée. Même
+-- portée de partage que appointments/journal_entries (can_access_horse), même
+-- si un compte gratuit n'a jamais de collaborateur en pratique (le partage
+-- lui-même est Premium).
 drop policy if exists "training_sessions_shared" on public.training_sessions;
 
 drop policy if exists "training_sessions_select_shared" on public.training_sessions;
@@ -650,19 +647,20 @@ create policy "training_sessions_select_shared" on public.training_sessions
 
 drop policy if exists "training_sessions_insert_shared" on public.training_sessions;
 create policy "training_sessions_insert_shared" on public.training_sessions
-  for insert with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for insert with check (public.can_access_horse("horseId"));
 
 drop policy if exists "training_sessions_update_shared" on public.training_sessions;
 create policy "training_sessions_update_shared" on public.training_sessions
-  for update using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"))
-  with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for update using (public.can_access_horse("horseId"))
+  with check (public.can_access_horse("horseId"));
 
 drop policy if exists "training_sessions_delete_shared" on public.training_sessions;
 create policy "training_sessions_delete_shared" on public.training_sessions
-  for delete using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for delete using (public.can_access_horse("horseId"));
 
--- expenses : même portée de partage que training_sessions/appointments
--- (can_access_horse) — jamais touchée pendant l'onboarding, safe de gater.
+-- expenses : le suivi de dépenses de base fait partie du palier gratuit (le
+-- statut payé/à régler détaillé restera, lui, une distinction Premium côté
+-- app — cf. plan freemium). Même portée de partage que training_sessions ci-dessus.
 drop policy if exists "expenses_shared" on public.expenses;
 
 drop policy if exists "expenses_select_shared" on public.expenses;
@@ -671,16 +669,16 @@ create policy "expenses_select_shared" on public.expenses
 
 drop policy if exists "expenses_insert_shared" on public.expenses;
 create policy "expenses_insert_shared" on public.expenses
-  for insert with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for insert with check (public.can_access_horse("horseId"));
 
 drop policy if exists "expenses_update_shared" on public.expenses;
 create policy "expenses_update_shared" on public.expenses
-  for update using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"))
-  with check (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for update using (public.can_access_horse("horseId"))
+  with check (public.can_access_horse("horseId"));
 
 drop policy if exists "expenses_delete_shared" on public.expenses;
 create policy "expenses_delete_shared" on public.expenses
-  for delete using (public.can_access_horse("horseId") and public.horse_owner_is_active_or_trialing("horseId"));
+  for delete using (public.can_access_horse("horseId"));
 
 -- 5. Storage : bucket "documents" (coffre-fort) -----------------------------
 -- Bucket privé : un document (ordonnance, facture...) ne doit jamais être

@@ -15,6 +15,7 @@ import { scheduleEmailReminder } from "@/lib/emailReminders";
 import { fetchWeatherSnapshot } from "@/lib/weather";
 import { pickAndPersistImage } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
+import { useSubscription } from "@/subscription/store";
 import { Locked } from "@/components/Locked";
 import { DISCIPLINES } from "@/onboarding/options";
 import type { Discipline } from "@/onboarding/store";
@@ -191,6 +192,7 @@ function formatAmount(amount: number, currency: string): string {
 
 export default function AgendaScreen() {
   const { selectedHorse: horse } = useHorses();
+  const { isActiveOrTrialing } = useSubscription();
   const {
     appointments,
     documents,
@@ -249,10 +251,9 @@ export default function AgendaScreen() {
   const horseExpenses = expenses.filter((e) => e.horseId === horse?.id);
 
   const upcomingAppts = horseAppointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
-  // Historique complet pour tout le monde depuis le pivot tarifaire du
-  // 2026-09-03 — plus de palier Free avec un plafond de 14 jours, et un
-  // compte expiré garde la visibilité complète sur ses données (lecture
-  // seule, cf. rls.sql).
+  // Historique complet pour tout le monde, gratuit comme Premium — pas de
+  // plafond du type "14 jours en gratuit" (cf. rls.sql appointments_shared,
+  // non gaté par abonnement).
   const pastAppts = horseAppointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const sortedDocs = [...documents].sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -284,7 +285,10 @@ export default function AgendaScreen() {
     const title = apptForm.title.trim();
     const time = apptForm.time.trim();
     const location = apptForm.location.trim();
-    const reminder = apptForm.reminder;
+    // Les rappels programmés (push + email) sont Premium (cf. champ "Rappel"
+    // verrouillé dans le formulaire) — sans ce clamp, un compte gratuit
+    // soumettrait quand même la valeur par défaut du formulaire ("1d").
+    const reminder: ReminderOption = isActiveOrTrialing ? apptForm.reminder : "none";
     const trigger = computeReminderTrigger(date, time, reminder);
     const notifBody = `${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`;
     // L'échec de programmation du rappel (permission révoquée, erreur OS) ne
@@ -315,9 +319,15 @@ export default function AgendaScreen() {
         emailReminderId,
         checklist: isConcours ? defaultChecklist() : [],
         dossard: isConcours ? apptForm.dossard.trim() || null : null,
-        competitionEntries: isConcours
-          ? apptForm.competitionEntries.filter((e) => e.name.trim() && e.time.trim())
-          : [],
+        // Plusieurs épreuves par concours est Premium (cf. section "Épreuves"
+        // verrouillée dans le formulaire, et competition_entries_insert_shared
+        // côté rls.sql) — sans ce clamp, un compte gratuit créerait des
+        // entrées localement qu'un push cloud rejetterait ensuite, désynchro-
+        // nisant l'app du serveur.
+        competitionEntries:
+          isConcours && isActiveOrTrialing
+            ? apptForm.competitionEntries.filter((e) => e.name.trim() && e.time.trim())
+            : [],
       });
       setApptForm(emptyApptForm);
       setShowApptForm(false);
@@ -521,17 +531,19 @@ export default function AgendaScreen() {
                     onChangeText={(location) => setApptForm((f) => ({ ...f, location }))}
                   />
                 </Field>
-                <Field label="Rappel">
-                  <ChipSelect
-                    options={Object.entries(REMINDER_META).map(([value, meta]) => ({
-                      value: value as ReminderOption,
-                      label: meta.label,
-                      icon: meta.icon,
-                    }))}
-                    value={apptForm.reminder}
-                    onChange={(reminder) => setApptForm((f) => ({ ...f, reminder }))}
-                  />
-                </Field>
+                <Locked message="Rappels automatiques réservés à l'abonnement Premium">
+                  <Field label="Rappel">
+                    <ChipSelect
+                      options={Object.entries(REMINDER_META).map(([value, meta]) => ({
+                        value: value as ReminderOption,
+                        label: meta.label,
+                        icon: meta.icon,
+                      }))}
+                      value={apptForm.reminder}
+                      onChange={(reminder) => setApptForm((f) => ({ ...f, reminder }))}
+                    />
+                  </Field>
+                </Locked>
                 {apptForm.type === "concours" ? (
                   <>
                     <Field label="Dossard (optionnel)">
@@ -543,46 +555,48 @@ export default function AgendaScreen() {
                         keyboardType="number-pad"
                       />
                     </Field>
-                    <View className="gap-2">
-                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
-                      {apptForm.competitionEntries.map((entry) => (
-                        <View key={entry.id} className="gap-2 rounded-card border border-border p-3">
-                          <View className="flex-row items-center gap-2">
-                            <TextInput
-                              className={`${INPUT} flex-1`}
-                              placeholder="Ex : Épreuve club 2 — 1m10"
-                              value={entry.name}
-                              onChangeText={(name) => updateApptFormEntry(entry.id, { name })}
+                    <Locked message="Plusieurs épreuves par concours réservé à l'abonnement Premium">
+                      <View className="gap-2">
+                        <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
+                        {apptForm.competitionEntries.map((entry) => (
+                          <View key={entry.id} className="gap-2 rounded-card border border-border p-3">
+                            <View className="flex-row items-center gap-2">
+                              <TextInput
+                                className={`${INPUT} flex-1`}
+                                placeholder="Ex : Épreuve club 2 — 1m10"
+                                value={entry.name}
+                                onChangeText={(name) => updateApptFormEntry(entry.id, { name })}
+                              />
+                              <TouchableOpacity onPress={() => removeApptFormEntry(entry.id)} hitSlop={8} activeOpacity={0.7}>
+                                <Text className="text-sm text-muted">✕</Text>
+                              </TouchableOpacity>
+                            </View>
+                            <ChipSelect
+                              options={Object.entries(DISCIPLINE_META).map(([value, meta]) => ({
+                                value: value as Discipline,
+                                label: meta.label,
+                                icon: meta.icon,
+                              }))}
+                              value={entry.discipline}
+                              onChange={(discipline) => updateApptFormEntry(entry.id, { discipline })}
                             />
-                            <TouchableOpacity onPress={() => removeApptFormEntry(entry.id)} hitSlop={8} activeOpacity={0.7}>
-                              <Text className="text-sm text-muted">✕</Text>
-                            </TouchableOpacity>
+                            <TextInput
+                              className={INPUT}
+                              placeholder="Heure de l'épreuve (ex : 09h15)"
+                              value={entry.time}
+                              onChangeText={(time) => updateApptFormEntry(entry.id, { time })}
+                            />
                           </View>
-                          <ChipSelect
-                            options={Object.entries(DISCIPLINE_META).map(([value, meta]) => ({
-                              value: value as Discipline,
-                              label: meta.label,
-                              icon: meta.icon,
-                            }))}
-                            value={entry.discipline}
-                            onChange={(discipline) => updateApptFormEntry(entry.id, { discipline })}
-                          />
-                          <TextInput
-                            className={INPUT}
-                            placeholder="Heure de l'épreuve (ex : 09h15)"
-                            value={entry.time}
-                            onChangeText={(time) => updateApptFormEntry(entry.id, { time })}
-                          />
-                        </View>
-                      ))}
-                      <TouchableOpacity
-                        onPress={addApptFormEntry}
-                        activeOpacity={0.8}
-                        className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-3"
-                      >
-                        <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
-                      </TouchableOpacity>
-                    </View>
+                        ))}
+                        <TouchableOpacity
+                          onPress={addApptFormEntry}
+                          activeOpacity={0.8}
+                          className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-3"
+                        >
+                          <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Locked>
                   </>
                 ) : null}
                 <View className="flex-row gap-2">
@@ -605,9 +619,7 @@ export default function AgendaScreen() {
                 </View>
               </View>
             ) : (
-              <Locked message="Abonne-toi pour ajouter un rendez-vous">
-                <AddToggle label="Ajouter un rendez-vous" onPress={() => setShowApptForm(true)} />
-              </Locked>
+              <AddToggle label="Ajouter un rendez-vous" onPress={() => setShowApptForm(true)} />
             )}
           </FadeInView>
 
@@ -844,9 +856,7 @@ export default function AgendaScreen() {
                 </View>
               </View>
             ) : (
-              <Locked message="Abonne-toi pour ajouter une entrée de journal">
-                <AddToggle label="Ajouter une entrée de journal" onPress={() => setShowJournalForm(true)} />
-              </Locked>
+              <AddToggle label="Ajouter une entrée de journal" onPress={() => setShowJournalForm(true)} />
             )}
           </FadeInView>
 
@@ -967,9 +977,7 @@ export default function AgendaScreen() {
                 </View>
               </View>
             ) : (
-              <Locked message="Abonne-toi pour ajouter une dépense">
-                <AddToggle label="Ajouter une dépense" onPress={() => setShowExpenseForm(true)} />
-              </Locked>
+              <AddToggle label="Ajouter une dépense" onPress={() => setShowExpenseForm(true)} />
             )}
           </FadeInView>
 
@@ -1168,7 +1176,9 @@ function AppointmentCard({
               ) : (
                 <Text className="text-sm text-muted">Aucune épreuve renseignée.</Text>
               )}
-              <AddCompetitionEntryForm onAdd={onAddCompetitionEntry} />
+              <Locked message="Plusieurs épreuves par concours réservé à l'abonnement Premium">
+                <AddCompetitionEntryForm onAdd={onAddCompetitionEntry} />
+              </Locked>
             </View>
           ) : null}
 

@@ -228,12 +228,12 @@ export default function ProfileScreen() {
 
   function subscriptionLabel(): string {
     if (subLoading) return "Chargement…";
-    if (status === "active") return `Abonné · ${billingPeriod === "ANNUAL" ? "annuel" : "mensuel"}`;
+    if (status === "active") return `Premium · ${billingPeriod === "ANNUAL" ? "annuel" : "mensuel"}`;
     if (status === "trialing") {
       const days = daysUntil(trialEndsAt);
-      return `Essai · ${days} jour${days !== 1 ? "s" : ""} restant${days !== 1 ? "s" : ""}`;
+      return `Essai Premium · ${days} jour${days !== 1 ? "s" : ""} restant${days !== 1 ? "s" : ""}`;
     }
-    return "Lecture seule";
+    return "Palier gratuit";
   }
 
   return (
@@ -258,7 +258,7 @@ export default function ProfileScreen() {
         <View className={`${CARD} flex-row items-center gap-3`}>
           <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
             <MaterialCommunityIcons
-              name={isActiveOrTrialing ? "star-outline" : "lock-open-variant-outline"}
+              name={isActiveOrTrialing ? "star-outline" : "star-off-outline"}
               size={20}
               color={colors.primary}
             />
@@ -266,11 +266,13 @@ export default function ProfileScreen() {
           <View className="flex-1 gap-0.5">
             <Text className="text-base font-bold text-text">{subscriptionLabel()}</Text>
             <Text className="text-xs text-muted">
-              {isActiveOrTrialing ? "Profite de toutes les fonctionnalités" : "Abonne-toi pour retrouver l'accès complet"}
+              {isActiveOrTrialing
+                ? "Profite de toutes les fonctionnalités Premium"
+                : "1 cheval, planning et agenda gratuits — passe à Premium pour plus"}
             </Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8}>
-            <Text className="text-sm font-bold text-accent">{isActiveOrTrialing ? "Gérer" : "Voir les offres"}</Text>
+            <Text className="text-sm font-bold text-accent">{isActiveOrTrialing ? "Gérer" : "Voir Premium"}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>

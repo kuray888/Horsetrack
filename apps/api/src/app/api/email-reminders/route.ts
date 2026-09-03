@@ -13,9 +13,9 @@ const schema = z.object({
  * Crée un rappel email programmé pour un rendez-vous d'agenda (l'agenda
  * lui-même reste local-first sur mobile, cf. agenda/store.tsx — ceci ne
  * stocke que le strict nécessaire pour pouvoir envoyer l'email plus tard,
- * cf. /api/cron/email-reminders). Réservé aux comptes abonnés/en essai —
- * plus de palier Free depuis le pivot tarifaire du 2026-09-03, cf.
- * rls.sql rider_is_active_or_trialing pour l'équivalent RLS.
+ * cf. /api/cron/email-reminders). Réservé aux comptes Premium (abonnés/en
+ * essai) — les rappels automatiques ne font pas partie du palier gratuit,
+ * cf. rls.sql rider_is_active_or_trialing pour l'équivalent côté RLS.
  */
 export async function POST(req: NextRequest) {
   const userId = await getUserIdFromRequest(req);

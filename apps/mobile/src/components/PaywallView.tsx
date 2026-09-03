@@ -13,30 +13,27 @@ const PERIODS: { id: BillingPeriod; label: string }[] = [
   { id: "MONTHLY", label: "Mensuel" },
 ];
 
-// TODO(pivot tarifaire 2026-09-03) : le mensuel (3,99 €) vient de l'utilisateur ;
-// l'annuel ci-dessous est un calcul provisoire (10 mois sur 12, cohérent avec
-// le mensuel donné) — à confirmer/ajuster une fois le produit créé côté
-// App Store Connect/RevenueCat (cf. plan Phase 4).
-const PRICE: Record<BillingPeriod, string> = { MONTHLY: "3,99 €/mois", ANNUAL: "39,99 €/an" };
+// Pivot freemium du 2026-09-03 (v2) : prix confirmés par le produit —
+// à recréer côté App Store Connect/RevenueCat avec ces montants exacts
+// (cf. plan Phase 4).
+const PRICE: Record<BillingPeriod, string> = { MONTHLY: "3,99 €/mois", ANNUAL: "34,99 €/an" };
 const PRICE_SUB: Record<BillingPeriod, string> = {
   MONTHLY: "sans engagement",
-  // "2 mois offerts" évité ici : ambigu à côté du vrai essai de 2 mois
-  // affiché juste en dessous (cf. trialEligible) — ce sous-titre ne parle
-  // que de l'économie annuel vs mensuel, pas de l'essai.
-  ANNUAL: "soit 3,33 €/mois · économise 16 % vs mensuel",
+  // "2 mois offerts" évité ici : ambigu à côté du vrai essai affiché juste
+  // en dessous (cf. trialEligible) — ce sous-titre ne parle que de
+  // l'économie annuel vs mensuel, pas de l'essai.
+  ANNUAL: "soit 2,92 €/mois · économise 27 % vs mensuel",
 };
 
-/** Un seul palier depuis le pivot tarifaire du 2026-09-03 : plus de
- * distinction Paddock/Grand Prix, l'abonnement débloque tout. */
+/** Palier Premium depuis le pivot freemium du 2026-09-03 (v2) — n'inclut QUE
+ * ce qui n'est pas déjà dans le palier gratuit (planning, agenda, journal,
+ * dépenses de base et objectifs sont gratuits, cf. rls.sql). */
 const BULLETS: string[] = [
-  "3 chevaux",
-  "Planification manuelle illimitée",
-  "Calendrier complet & rappels illimités",
-  "Historique à vie",
+  "3 chevaux (au lieu d'1)",
+  "Partage avec 1 demi-pension ou coach",
   "Coffre-fort numérique",
-  "Partage avec 1 demi-pension",
   "Concours multi-épreuves",
-  "Suivi financier par cheval",
+  "Rappels automatiques (push + email)",
 ];
 
 function Bullet({ text }: { text: string }) {
@@ -90,23 +87,28 @@ function PlanCard({ period }: { period: BillingPeriod }) {
 }
 
 /**
- * Vue du paywall, réutilisée par l'onboarding (hard gate, pas de `onClose` —
- * cf. (onboarding)/paywall.tsx) et le paywall accessible depuis l'app
- * (déclenché par <Locked>, `onClose` présent pour revenir en lecture seule).
- * Purement présentationnelle : la logique d'achat est injectée via
- * `onSubscribe`/`onPurchaseAddon`.
+ * Vue du paywall, réutilisée par l'onboarding (`onSkip` présent, pas
+ * `onClose` — cf. (onboarding)/paywall.tsx) et le paywall accessible depuis
+ * l'app (déclenché par <Locked>, `onClose` présent pour revenir à l'écran
+ * précédent). Purement présentationnelle : la logique d'achat est injectée
+ * via `onSubscribe`/`onPurchaseAddon`.
  */
 export function PaywallView({
   onSubscribe,
   onClose,
+  onSkip,
   onRestore,
   onPurchaseAddon,
   submitting = false,
   restoring = false,
-  title = "Débloque Horsetrack.",
+  title = "Passe à Horsetrack Premium.",
 }: {
   onSubscribe: (period: BillingPeriod) => void;
   onClose?: () => void;
+  /** Affiche un lien "Continuer avec le palier gratuit" — utilisé uniquement
+   * par le paywall d'onboarding (cf. (onboarding)/paywall.tsx), qui n'a pas
+   * de bouton de fermeture puisqu'il n'y a rien à "fermer" à ce stade. */
+  onSkip?: () => void;
   onRestore: () => void;
   onPurchaseAddon?: (period: BillingPeriod) => void;
   submitting?: boolean;
@@ -176,14 +178,19 @@ export function PaywallView({
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
-          label={submitting ? "Un instant…" : trialEligible ? "Commencer mes 2 mois gratuits" : "S'abonner"}
+          label={submitting ? "Un instant…" : trialEligible ? "Commencer mon mois gratuit" : "S'abonner"}
           disabled={submitting}
           onPress={() => onSubscribe(period)}
         />
         <Text className="text-center text-xs leading-4 text-muted">
-          {trialEligible ? `Essai gratuit de 2 mois, puis ${PRICE[period]}.` : `${PRICE[period]}.`} Renouvellement
+          {trialEligible ? `Essai gratuit d'1 mois, puis ${PRICE[period]}.` : `${PRICE[period]}.`} Renouvellement
           automatique, résiliable à tout moment dans les réglages.
         </Text>
+        {onSkip ? (
+          <TouchableOpacity onPress={onSkip} disabled={submitting} hitSlop={8}>
+            <Text className="text-center text-sm font-semibold text-muted">Continuer avec le palier gratuit</Text>
+          </TouchableOpacity>
+        ) : null}
         <View className="flex-row justify-center gap-5">
           <TouchableOpacity onPress={onRestore} disabled={restoring}>
             <Text className="text-xs font-semibold text-accent">

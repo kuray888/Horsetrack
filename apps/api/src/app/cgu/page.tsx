@@ -21,15 +21,23 @@ export default function CguPage() {
       </p>
 
       <h2>2. Description du service</h2>
-      <p>Horsetrack est une application de gestion et de suivi équestre qui permet à l&apos;Utilisateur de :</p>
+      <p>
+        Horsetrack est une application de gestion et de suivi équestre, disponible en accès gratuit et en
+        abonnement Premium, qui permet à l&apos;Utilisateur de :
+      </p>
       <ul>
-        <li>créer un profil cavalier et un ou plusieurs profils cheval (discipline, niveau, forme physique, antécédents de blessure, etc.) ;</li>
+        <li>créer un profil cavalier et un profil cheval (discipline, niveau, forme physique, antécédents de blessure, etc.) ;</li>
         <li>planifier manuellement ses séances d&apos;entraînement et suivre leur réalisation ;</li>
-        <li>gérer un agenda de rendez-vous (vétérinaire, ostéopathe, maréchal, dentiste, concours) avec rappels ;</li>
-        <li>tenir un journal d&apos;entraînement et un coffre-fort numérique de documents (factures, ordonnances, rapports) ;</li>
-        <li>suivre les dépenses liées à chaque cheval et se fixer des objectifs ;</li>
-        <li>partager l&apos;accès à un cheval avec une demi-pension ou un coach.</li>
+        <li>gérer un agenda de rendez-vous (vétérinaire, ostéopathe, maréchal, dentiste, concours) ;</li>
+        <li>tenir un journal d&apos;entraînement (humeur, activité, météo) ;</li>
+        <li>suivre les dépenses liées à son cheval et se fixer des objectifs.</li>
       </ul>
+      <p>
+        L&apos;abonnement Premium (cf. article 5) débloque en plus : plusieurs chevaux, le coffre-fort numérique de
+        documents (factures, ordonnances, rapports), le partage de l&apos;accès à un cheval avec une demi-pension ou
+        un coach, le suivi détaillé de plusieurs épreuves par concours, et les rappels automatiques programmés
+        (notification et email).
+      </p>
 
       <h2>3. Avertissement important</h2>
       <p>
@@ -57,14 +65,15 @@ export default function CguPage() {
 
       <h2>5. Abonnements, essai gratuit et paiement</h2>
       <p>
-        L&apos;accès aux fonctionnalités de l&apos;Application (planning, agenda, coffre-fort, partage, suivi financier)
-        est réservé aux Utilisateurs disposant d&apos;un abonnement payant ou d&apos;un essai gratuit en cours ; en
-        dehors de cette période, le compte reste consultable en lecture seule.
+        Les fonctionnalités listées à l&apos;article 2 (hors abonnement Premium) sont accessibles gratuitement et
+        sans limite de durée, dans la limite d&apos;un cheval. L&apos;abonnement Premium, optionnel, débloque les
+        fonctionnalités supplémentaires décrites à l&apos;article 2.
       </p>
       <ul>
         <li>
-          <strong>Essai gratuit</strong> : un essai gratuit de 2 mois peut être proposé à la souscription. Sauf
-          annulation avant son terme, il se transforme automatiquement en abonnement payant.
+          <strong>Essai gratuit</strong> : un essai gratuit d&apos;1 mois de l&apos;abonnement Premium peut être
+          proposé à la souscription. Sauf annulation avant son terme, il se transforme automatiquement en
+          abonnement payant.
         </li>
         <li><strong>Formules</strong> : abonnement mensuel ou annuel, dont le prix est affiché dans l&apos;Application avant tout engagement.</li>
         <li>

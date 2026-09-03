@@ -22,7 +22,6 @@ export default function AppPaywall() {
       onPurchaseAddon={onPurchaseAddon}
       submitting={submitting}
       restoring={restoring}
-      title="Débloque tout l'accès"
     />
   );
 }

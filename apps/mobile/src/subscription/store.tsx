@@ -18,17 +18,19 @@ import {
 import {
   DEFAULT_SUBSCRIPTION_STATE as DEFAULT,
   computeIsActiveOrTrialing,
-  HORSE_LIMIT,
+  FREE_HORSE_LIMIT,
+  PREMIUM_HORSE_LIMIT,
   maxHorses,
 } from "./logic";
 import type { SubscriptionStatus, BillingPeriod, Persisted } from "./logic";
 
 /**
  * Entitlement d'abonnement, global à l'app. Pilote le gating de toute l'app
- * (cf. composant <Locked>) — depuis le pivot tarifaire du 2026-09-03, un seul
- * palier payant existe, donc plus de notion de tier ici : soit le compte est
- * actif/en essai, soit il ne l'est pas (lecture seule, cf. rls.sql
- * rider_is_active_or_trialing).
+ * (cf. composant <Locked>) — depuis le pivot freemium du 2026-09-03 (v2) :
+ * un palier gratuit permanent (1 cheval, agenda/planning/journal/dépenses de
+ * base) et un palier Premium payant (3 chevaux + add-on, partage, coffre-fort,
+ * concours multi-épreuves, rappels automatiques), cf. rls.sql
+ * rider_is_active_or_trialing pour l'équivalent côté base.
  *
  * Tant que le projet RevenueCat + les produits store ne sont pas créés
  * (cf. apps/mobile/.env), `isPurchasesAvailable()` reste false et on retombe
@@ -40,17 +42,17 @@ import type { SubscriptionStatus, BillingPeriod, Persisted } from "./logic";
  * limite de chevaux) vit dans ./logic.ts, testée séparément.
  */
 export type { SubscriptionStatus, BillingPeriod, Persisted };
-export { HORSE_LIMIT, maxHorses, computeIsActiveOrTrialing };
+export { FREE_HORSE_LIMIT, PREMIUM_HORSE_LIMIT, maxHorses, computeIsActiveOrTrialing };
 
 const KEY = "subscription_state_v1";
 
 type SubscriptionContextValue = Persisted & {
-  /** true tant qu'un abonnement (actif ou en essai) couvre le compte — seul
-   * gate de toute l'app depuis le pivot vers un palier unique. */
+  /** true tant qu'un abonnement Premium (actif ou en essai) couvre le
+   * compte — gate des fonctionnalités payantes uniquement, cf. <Locked>. */
   isActiveOrTrialing: boolean;
   loading: boolean;
-  /** Démarre l'essai de 2 mois en mode simulation locale (utilisé seulement
-   * si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
+  /** Démarre l'essai Premium d'1 mois en mode simulation locale (utilisé
+   * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
   startTrial: (period: BillingPeriod) => Promise<void>;
   /** Active l'add-on "cheval supplémentaire" en simulation locale. */
   activateAddon: () => Promise<void>;
@@ -158,11 +160,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [refresh, refreshFromRevenueCat, persistLocal]);
 
-  /** Simulation locale (2 mois), utilisée uniquement tant que RevenueCat
+  /** Simulation locale (1 mois), utilisée uniquement tant que RevenueCat
    * n'est pas configuré — cf. useSubscribeFlow. */
   const startTrial = useCallback(
     async (period: BillingPeriod) => {
-      const trialEndsAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
       await persistLocal({
         status: "trialing",
         billingPeriod: period,

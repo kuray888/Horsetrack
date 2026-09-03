@@ -9,11 +9,10 @@ import { useRiderProfile } from "@/rider/store";
 import { pullCloudData } from "@/lib/cloudSync";
 import { pullPendingInvites } from "@/lib/sharing";
 
-/** Pivot tarifaire du 2026-09-03 : plus aucune fonctionnalité gratuite, donc
- * plus de "Plus tard" ici (contrairement au paywall in-app depuis <Locked>,
- * cf. app/paywall.tsx, qui reste fermable — l'utilisateur y revient déjà en
- * lecture seule). Ce paywall d'onboarding est un vrai palier bloquant : sans
- * démarrer l'essai, on ne peut pas continuer vers l'app. */
+/** Pivot freemium du 2026-09-03 (v2) : présente l'abonnement Premium à la fin
+ * de l'onboarding, mais reste "skippable" via onSkip — contrairement à
+ * l'ancien palier unique, il existe un vrai palier gratuit permanent pour
+ * continuer sans payer (cf. PaywallView "Continuer avec le palier gratuit"). */
 export default function OnboardingPaywall() {
   const { rider, horses } = useOnboarding();
   const { replaceHorses, hydrateFromCloud } = useHorses();
@@ -61,5 +60,13 @@ export default function OnboardingPaywall() {
     await subscribe(period, finish);
   }
 
-  return <PaywallView onSubscribe={onSubscribe} onRestore={restore} submitting={submitting} restoring={restoring} />;
+  return (
+    <PaywallView
+      onSubscribe={onSubscribe}
+      onSkip={finish}
+      onRestore={restore}
+      submitting={submitting}
+      restoring={restoring}
+    />
+  );
 }

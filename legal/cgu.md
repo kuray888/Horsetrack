@@ -12,14 +12,15 @@ En créant un compte ou en utilisant l'Application, l'utilisateur (« l'Utilisat
 
 ## 2. Description du service
 
-Horsetrack est une application de gestion et de suivi équestre qui permet à l'Utilisateur de :
+Horsetrack est une application de gestion et de suivi équestre, disponible en accès gratuit et en abonnement Premium, qui permet à l'Utilisateur de :
 
-- créer un profil cavalier et un ou plusieurs profils cheval (discipline, niveau, forme physique, antécédents de blessure, etc.) ;
+- créer un profil cavalier et un profil cheval (discipline, niveau, forme physique, antécédents de blessure, etc.) ;
 - planifier manuellement ses séances d'entraînement et suivre leur réalisation ;
-- gérer un agenda de rendez-vous (vétérinaire, ostéopathe, maréchal, dentiste, concours) avec rappels ;
-- tenir un journal d'entraînement (humeur, activité, météo) et un coffre-fort numérique de documents (factures, ordonnances, rapports) ;
-- suivre les dépenses liées à chaque cheval et se fixer des objectifs ;
-- partager l'accès à un cheval avec une demi-pension ou un coach.
+- gérer un agenda de rendez-vous (vétérinaire, ostéopathe, maréchal, dentiste, concours) ;
+- tenir un journal d'entraînement (humeur, activité, météo) ;
+- suivre les dépenses liées à son cheval et se fixer des objectifs.
+
+L'abonnement Premium (cf. article 5) débloque en plus : plusieurs chevaux, le coffre-fort numérique de documents (factures, ordonnances, rapports), le partage de l'accès à un cheval avec une demi-pension ou un coach, le suivi détaillé de plusieurs épreuves par concours, et les rappels automatiques programmés (notification et email).
 
 ## 3. Avertissement important
 
@@ -35,9 +36,9 @@ L'Utilisateur s'engage à fournir des informations exactes lors de la création 
 
 ## 5. Abonnements, essai gratuit et paiement
 
-L'accès aux fonctionnalités de l'Application (planning, agenda, coffre-fort, partage, suivi financier) est réservé aux Utilisateurs disposant d'un abonnement payant ou d'un essai gratuit en cours ; en dehors de cette période, le compte reste consultable en lecture seule.
+Les fonctionnalités listées à l'article 2 (hors abonnement Premium) sont accessibles gratuitement et sans limite de durée, dans la limite d'un cheval. L'abonnement Premium, optionnel, débloque les fonctionnalités supplémentaires décrites à l'article 2.
 
-- **Essai gratuit** : un essai gratuit de 2 mois peut être proposé à la souscription. Sauf annulation avant son terme, il se transforme automatiquement en abonnement payant.
+- **Essai gratuit** : un essai gratuit d'1 mois de l'abonnement Premium peut être proposé à la souscription. Sauf annulation avant son terme, il se transforme automatiquement en abonnement payant.
 - **Formules** : abonnement mensuel ou annuel, dont le prix est affiché dans l'Application avant tout engagement.
 - **Paiement et renouvellement** : les paiements sont traités exclusivement par l'App Store (Apple) ou le Play Store (Google), selon la plateforme utilisée. L'abonnement se renouvelle automatiquement à chaque période sauf annulation par l'Utilisateur au moins 24 heures avant la fin de la période en cours.
 - **Résiliation** : l'Utilisateur peut annuler son abonnement à tout moment depuis les réglages de son compte Apple ou Google — l'Éditeur n'a pas la capacité technique d'annuler un abonnement à la place de l'Utilisateur ni de rembourser directement un achat, ces opérations relevant exclusivement d'Apple ou de Google.
