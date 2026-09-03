@@ -279,8 +279,10 @@ export default function TodayScreen() {
 
       <FadeInView delay={240}>
         {upcoming.length === 0 ? (
-          <View className={`${CARD} items-center gap-1`}>
-            <Text className="text-2xl">🌿</Text>
+          <View className={`${CARD} items-center gap-2`}>
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+              <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
+            </View>
             <Text className="text-sm text-muted">Rien de prévu pour l&apos;instant.</Text>
           </View>
         ) : (

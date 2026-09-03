@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton, SingleSelect, MultiSelectChips } from "@/components/onboarding";
+import { colors } from "@/theme/colors";
 import { DropdownField } from "@/components/DropdownField";
 import { BreedField } from "@/components/BreedField";
 import { InjuryHistoryField, type InjuryEntry } from "@/components/InjuryHistoryField";
@@ -141,8 +143,8 @@ export function HorseForm({
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between px-5 pt-2">
         <Text className="text-2xl font-extrabold tracking-tight text-text">{title}</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Text className="text-xl text-muted">✕</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>
       </View>
 
@@ -153,7 +155,7 @@ export function HorseForm({
               <Image source={{ uri: photoUrl }} className="h-24 w-24 rounded-full" />
             ) : (
               <View className="h-24 w-24 items-center justify-center rounded-full border border-dashed border-border bg-surface">
-                <Text className="text-3xl">🐴</Text>
+                <MaterialCommunityIcons name="horse-variant" size={32} color={colors.textMuted} />
               </View>
             )}
           </TouchableOpacity>
@@ -265,7 +267,7 @@ export function HorseForm({
           />
         </Field>
 
-        <Field label="Ses points forts 💪">
+        <Field label="Ses points forts">
           <MultiSelectChips
             options={HORSE_TRAITS}
             values={strengths}
@@ -277,7 +279,7 @@ export function HorseForm({
           />
         </Field>
 
-        <Field label="Ses points à travailler 🎯">
+        <Field label="Ses points à travailler">
           <MultiSelectChips
             options={HORSE_TRAITS}
             values={weaknesses}

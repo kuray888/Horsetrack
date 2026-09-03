@@ -1,14 +1,23 @@
 import { useEffect, useRef } from "react";
 import { Tabs } from "expo-router";
 import { Animated } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
 
-const TAB_ICONS: Record<string, string> = {
-  today: "🏠",
-  planning: "🏇",
-  agenda: "🗓️",
-  profile: "👤",
+const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  today: "home-variant-outline",
+  planning: "horse-variant",
+  agenda: "calendar-month-outline",
+  profile: "account-circle-outline",
 };
+const TAB_ICONS_FOCUSED: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  today: "home-variant",
+  planning: "horse-variant",
+  agenda: "calendar-month",
+  profile: "account-circle",
+};
+
+const AnimatedIcon = Animated.createAnimatedComponent(MaterialCommunityIcons);
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -21,9 +30,12 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   }, [focused, scale]);
 
   return (
-    <Animated.Text style={{ fontSize: 22, opacity: focused ? 1 : 0.45, transform: [{ scale }] }}>
-      {TAB_ICONS[name]}
-    </Animated.Text>
+    <AnimatedIcon
+      name={focused ? TAB_ICONS_FOCUSED[name] : TAB_ICONS[name]}
+      size={24}
+      color={focused ? colors.primary : colors.textMuted}
+      style={{ transform: [{ scale }] }}
+    />
   );
 }
 

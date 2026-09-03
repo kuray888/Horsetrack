@@ -14,10 +14,10 @@ export default function HorseTemperament() {
 
   return (
     <OnboardingShell
-      step={8}
+      step={7}
       total={TOTAL_STEPS}
       title={`Le caractère de ${name}`}
-      subtitle="Pour adapter le ton et le rythme du programme à sa personnalité."
+      subtitle="Pour mieux adapter tes séances à sa personnalité."
       onNext={() => router.push("/(onboarding)/horse-health")}
     >
       <View className="gap-2">
@@ -31,7 +31,7 @@ export default function HorseTemperament() {
       </View>
 
       <View className="gap-2">
-        <Text className="text-sm font-semibold text-muted">Ses points forts 💪</Text>
+        <Text className="text-sm font-semibold text-muted">Ses points forts</Text>
         <MultiSelectChips
           options={HORSE_TRAITS}
           values={editingHorse.strengths}
@@ -47,7 +47,7 @@ export default function HorseTemperament() {
       </View>
 
       <View className="gap-2">
-        <Text className="text-sm font-semibold text-muted">Ses points à travailler 🎯</Text>
+        <Text className="text-sm font-semibold text-muted">Ses points à travailler</Text>
         <MultiSelectChips
           options={HORSE_TRAITS}
           values={editingHorse.weaknesses}

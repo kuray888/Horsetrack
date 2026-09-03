@@ -1,15 +1,19 @@
 import { router } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { EMPTY_HORSE_DRAFT, HorseForm } from "@/components/HorseForm";
 import { useHorses } from "@/horses/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
+import { colors } from "@/theme/colors";
 
 function HorseLimitReached({ limit }: { limit: number }) {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 items-center justify-center gap-4 px-6">
-        <Text className="text-3xl">🔒</Text>
+        <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
+          <MaterialCommunityIcons name="lock-outline" size={28} color={colors.primary} />
+        </View>
         <Text className="text-center text-xl font-bold text-text">
           Limite de {limit} {limit > 1 ? "chevaux" : "cheval"} atteinte
         </Text>

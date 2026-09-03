@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
+import { colors } from "@/theme/colors";
 import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -35,9 +36,12 @@ import {
   ACTIVITY_META,
 } from "@/agenda/store";
 
-const DISCIPLINE_META: Record<Discipline, { label: string; icon: string }> = Object.fromEntries(
-  DISCIPLINES.map((d) => [d.value, { label: d.label, icon: d.emoji ?? "🏇" }])
-) as Record<Discipline, { label: string; icon: string }>;
+const DISCIPLINE_META: Record<Discipline, { label: string; icon: IconSpec }> = Object.fromEntries(
+  DISCIPLINES.map((d) => [
+    d.value,
+    { label: d.label, icon: d.icon ?? { name: "horse-variant" as const, color: colors.primary } },
+  ])
+) as Record<Discipline, { label: string; icon: IconSpec }>;
 
 /** id local le temps du formulaire de création (avant que l'épreuve ait un
  * vrai id, généré par addCompetitionEntry/addAppointment côté store). */
@@ -45,29 +49,31 @@ function newDraftEntryId(): string {
   return `draft${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const APPT_META: Record<AppointmentType, { label: string; icon: string; chip: string; tag: string }> = {
-  veto: { label: "Vétérinaire", icon: "💉", chip: "bg-warning/15", tag: "text-warning" },
-  osteo: { label: "Ostéopathe", icon: "🦴", chip: "bg-accent/15", tag: "text-accent" },
-  marechal: { label: "Maréchal-ferrant", icon: "🔨", chip: "bg-primary/15", tag: "text-primary" },
-  dentiste: { label: "Dentiste équin", icon: "🦷", chip: "bg-success/15", tag: "text-success" },
-  concours: { label: "Concours", icon: "🏆", chip: "bg-accent/15", tag: "text-accent" },
-  autre: { label: "Autre", icon: "📌", chip: "bg-border", tag: "text-muted" },
+type IconSpec = { name: keyof typeof MaterialCommunityIcons.glyphMap; color: string };
+
+const APPT_META: Record<AppointmentType, { label: string; icon: IconSpec; chip: string; tag: string }> = {
+  veto: { label: "Vétérinaire", icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  osteo: { label: "Ostéopathe", icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  marechal: { label: "Maréchal-ferrant", icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  dentiste: { label: "Dentiste équin", icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
+  concours: { label: "Concours", icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  autre: { label: "Autre", icon: { name: "calendar-blank-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 
-const DOC_META: Record<DocumentCategory, { label: string; icon: string; chip: string; tag: string }> = {
-  facture: { label: "Facture", icon: "🧾", chip: "bg-primary/15", tag: "text-primary" },
-  rapport: { label: "Rapport", icon: "📋", chip: "bg-accent/15", tag: "text-accent" },
-  ordonnance: { label: "Ordonnance", icon: "💊", chip: "bg-warning/15", tag: "text-warning" },
-  autre: { label: "Autre", icon: "📎", chip: "bg-border", tag: "text-muted" },
+const DOC_META: Record<DocumentCategory, { label: string; icon: IconSpec; chip: string; tag: string }> = {
+  facture: { label: "Facture", icon: { name: "receipt", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  rapport: { label: "Rapport", icon: { name: "clipboard-text-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  ordonnance: { label: "Ordonnance", icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  autre: { label: "Autre", icon: { name: "paperclip", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 
-const EXPENSE_META: Record<ExpenseCategory, { label: string; icon: string; chip: string; tag: string }> = {
-  veto: { label: "Vétérinaire", icon: "💉", chip: "bg-warning/15", tag: "text-warning" },
-  marechal: { label: "Maréchal-ferrant", icon: "🔨", chip: "bg-primary/15", tag: "text-primary" },
-  concours: { label: "Concours", icon: "🏆", chip: "bg-accent/15", tag: "text-accent" },
-  alimentation: { label: "Alimentation", icon: "🌾", chip: "bg-success/15", tag: "text-success" },
-  materiel: { label: "Matériel", icon: "🧰", chip: "bg-accent/15", tag: "text-accent" },
-  autre: { label: "Autre", icon: "📌", chip: "bg-border", tag: "text-muted" },
+const EXPENSE_META: Record<ExpenseCategory, { label: string; icon: IconSpec; chip: string; tag: string }> = {
+  veto: { label: "Vétérinaire", icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  marechal: { label: "Maréchal-ferrant", icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  concours: { label: "Concours", icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  alimentation: { label: "Alimentation", icon: { name: "grass", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
+  materiel: { label: "Matériel", icon: { name: "toolbox-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  autre: { label: "Autre", icon: { name: "tag-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 
 /** Catégories de dépense qui correspondent à un type de rendez-vous du même
@@ -77,11 +83,11 @@ function expenseCategoryToAppointmentType(category: ExpenseCategory): Appointmen
   return category === "veto" || category === "marechal" || category === "concours" ? category : null;
 }
 
-const REMINDER_META: Record<ReminderOption, { label: string; icon: string }> = {
-  none: { label: "Aucun", icon: "🔕" },
-  "1h": { label: "1 heure avant", icon: "🔔" },
-  "1d": { label: "1 jour avant", icon: "🔔" },
-  "1w": { label: "1 semaine avant", icon: "🔔" },
+const REMINDER_META: Record<ReminderOption, { label: string; icon: IconSpec }> = {
+  none: { label: "Aucun", icon: { name: "bell-off-outline", color: colors.textMuted } },
+  "1h": { label: "1 heure avant", icon: { name: "bell-outline", color: colors.accent } },
+  "1d": { label: "1 jour avant", icon: { name: "bell-outline", color: colors.accent } },
+  "1w": { label: "1 semaine avant", icon: { name: "bell-outline", color: colors.accent } },
 };
 
 const MOOD_META: Record<Mood, { emoji: string; label: string }> = {
@@ -99,7 +105,7 @@ function ChipSelect<T extends string>({
   value,
   onChange,
 }: {
-  options: { value: T; label: string; icon: string }[];
+  options: { value: T; label: string; icon: string | IconSpec }[];
   value: T;
   onChange: (v: T) => void;
 }) {
@@ -112,11 +118,20 @@ function ChipSelect<T extends string>({
             key={opt.value}
             onPress={() => onChange(opt.value)}
             activeOpacity={0.8}
+            accessibilityLabel={opt.label}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
             className={`flex-row items-center gap-1.5 rounded-full border px-3.5 py-2 ${
               selected ? "border-primary bg-highlight" : "border-border bg-surface"
             }`}
           >
-            <Text className="text-sm">{opt.icon}</Text>
+            {typeof opt.icon === "string" ? (
+              <Text className="text-sm" accessibilityElementsHidden importantForAccessibility="no">
+                {opt.icon}
+              </Text>
+            ) : (
+              <MaterialCommunityIcons name={opt.icon.name} size={15} color={opt.icon.color} accessibilityElementsHidden />
+            )}
             <Text className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}>
               {opt.label}
             </Text>
@@ -134,7 +149,7 @@ function AddToggle({ label, onPress }: { label: string; onPress: () => void }) {
       activeOpacity={0.8}
       className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
     >
-      <Text className="text-lg font-bold text-primary">＋</Text>
+      <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
       <Text className="text-base font-semibold text-primary">{label}</Text>
     </TouchableOpacity>
   );
@@ -448,7 +463,7 @@ export default function AgendaScreen() {
       {notifPermission === false ? (
         <FadeInView delay={120}>
           <View className={`${CARD} flex-row items-center gap-3`}>
-            <Text className="text-xl">🔕</Text>
+            <MaterialCommunityIcons name="bell-off-outline" size={20} color={colors.textMuted} />
             <Text className="flex-1 text-sm text-muted">
               Notifications désactivées : tes rappels seront enregistrés mais ne s&apos;afficheront pas sur ton téléphone.
             </Text>
@@ -603,8 +618,10 @@ export default function AgendaScreen() {
 
           {upcomingAppts.length === 0 ? (
             <FadeInView delay={240}>
-              <View className={`${CARD} items-center gap-1`}>
-                <Text className="text-2xl">📭</Text>
+              <View className={`${CARD} items-center gap-2`}>
+                <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+                  <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
+                </View>
                 <Text className="text-sm text-muted">Aucun rendez-vous à venir.</Text>
               </View>
             </FadeInView>
@@ -700,7 +717,7 @@ export default function AgendaScreen() {
                     activeOpacity={0.8}
                     className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
                   >
-                    <Text className="text-base">📎</Text>
+                    <MaterialCommunityIcons name="paperclip" size={17} color={colors.textMuted} />
                     <Text className="text-sm font-semibold text-muted">Joindre une photo du document</Text>
                   </TouchableOpacity>
                 )}
@@ -732,8 +749,10 @@ export default function AgendaScreen() {
 
           {sortedDocs.length === 0 ? (
             <FadeInView delay={200}>
-              <View className={`${CARD} items-center gap-1`}>
-                <Text className="text-2xl">🗂️</Text>
+              <View className={`${CARD} items-center gap-2`}>
+                <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+                  <MaterialCommunityIcons name="folder-outline" size={22} color={colors.textMuted} />
+                </View>
                 <Text className="text-sm text-muted">Aucun document pour l&apos;instant.</Text>
               </View>
             </FadeInView>
@@ -769,7 +788,7 @@ export default function AgendaScreen() {
                     options={Object.entries(ACTIVITY_META).map(([value, meta]) => ({
                       value: value as ActivityType,
                       label: meta.label,
-                      icon: meta.icon,
+                      icon: { name: meta.icon, color: meta.tint },
                     }))}
                     value={journalForm.activityType}
                     onChange={(activityType) => setJournalForm((f) => ({ ...f, activityType }))}
@@ -844,8 +863,10 @@ export default function AgendaScreen() {
 
           {sortedJournal.length === 0 ? (
             <FadeInView delay={200}>
-              <View className={`${CARD} items-center gap-1`}>
-                <Text className="text-2xl">📔</Text>
+              <View className={`${CARD} items-center gap-2`}>
+                <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+                  <MaterialCommunityIcons name="notebook-outline" size={22} color={colors.textMuted} />
+                </View>
                 <Text className="text-sm text-muted">Aucune entrée de journal pour l&apos;instant.</Text>
               </View>
             </FadeInView>
@@ -925,7 +946,11 @@ export default function AgendaScreen() {
                         linked ? "border-primary bg-highlight" : "border-dashed border-border"
                       }`}
                     >
-                      <Text className="text-base">{linked ? "✅" : "🔗"}</Text>
+                      <MaterialCommunityIcons
+                        name={linked ? "check-circle-outline" : "link-variant"}
+                        size={18}
+                        color={linked ? colors.primary : colors.textMuted}
+                      />
                       <Text className="flex-1 text-sm text-text">
                         {linked ? "Lié à " : "Lier à "}
                         <Text className="font-semibold">{suggestion.title}</Text> ({formatDate(suggestion.date)})
@@ -961,8 +986,10 @@ export default function AgendaScreen() {
 
           {sortedExpenses.length === 0 ? (
             <FadeInView delay={200}>
-              <View className={`${CARD} items-center gap-1`}>
-                <Text className="text-2xl">💰</Text>
+              <View className={`${CARD} items-center gap-2`}>
+                <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+                  <MaterialCommunityIcons name="wallet-outline" size={22} color={colors.textMuted} />
+                </View>
                 <Text className="text-sm text-muted">Aucune dépense pour l&apos;instant.</Text>
               </View>
             </FadeInView>
@@ -1035,25 +1062,35 @@ function AppointmentCard({
     <TouchableOpacity activeOpacity={0.85} onPress={onToggleExpand} className={CARD}>
       <View className="flex-row items-center gap-3">
         <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
-          <Text className="text-lg">{meta.icon}</Text>
+          <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
         </View>
         <View className="flex-1 gap-0.5">
           <Text className="text-base font-bold text-text">{appt.title}</Text>
-          <Text className="text-sm text-muted">
-            {formatDate(appt.date)} · {appt.time}
-            {appt.reminder !== "none" ? " · 🔔" : ""}
-          </Text>
+          <View className="flex-row items-center gap-1">
+            <Text className="text-sm text-muted">
+              {formatDate(appt.date)} · {appt.time}
+            </Text>
+            {appt.reminder !== "none" ? (
+              <MaterialCommunityIcons name="bell-outline" size={13} color={colors.textMuted} />
+            ) : null}
+          </View>
         </View>
         <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
       </View>
 
       {expanded ? (
         <View className="mt-4 gap-2 border-t border-border pt-4">
-          {appt.location ? <Text className="text-sm text-text">📍 {appt.location}</Text> : null}
+          {appt.location ? (
+            <View className="flex-row items-center gap-1.5">
+              <MaterialCommunityIcons name="map-marker-outline" size={15} color={colors.textMuted} />
+              <Text className="text-sm text-text">{appt.location}</Text>
+            </View>
+          ) : null}
           {appt.notes ? <Text className="text-sm text-muted">{appt.notes}</Text> : null}
-          <Text className="text-sm text-muted">
-            🔔 Rappel : {REMINDER_META[appt.reminder].label}
-          </Text>
+          <View className="flex-row items-center gap-1.5">
+            <MaterialCommunityIcons name="bell-outline" size={14} color={colors.textMuted} />
+            <Text className="text-sm text-muted">Rappel : {REMINDER_META[appt.reminder].label}</Text>
+          </View>
 
           {isConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
@@ -1125,7 +1162,7 @@ function AppointmentCard({
 
           {isConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
-              {appt.dossard ? <Text className="text-sm text-text">🔢 Dossard {appt.dossard}</Text> : null}
+              {appt.dossard ? <Text className="text-sm text-text">N° dossard {appt.dossard}</Text> : null}
               <Text className="text-xs font-bold uppercase tracking-wide text-accent">Épreuves</Text>
               {appt.competitionEntries.length > 0 ? (
                 <View className="gap-2">
@@ -1173,7 +1210,7 @@ function AppointmentCard({
                 </>
               ) : appt.result ? (
                 <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-1">
-                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">🏆 Résultat</Text>
+                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">Résultat</Text>
                   <Text className="text-sm text-text">{appt.result}</Text>
                   <Text className="text-xs font-semibold text-accent">Modifier</Text>
                 </TouchableOpacity>
@@ -1220,9 +1257,12 @@ function CompetitionEntryRow({
       <View className="flex-row items-center justify-between gap-2">
         <View className="flex-1 gap-0.5">
           <Text className="text-sm font-semibold text-text">{entry.name}</Text>
-          <Text className="text-xs text-muted">
-            {meta.icon} {meta.label} · {entry.time}
-          </Text>
+          <View className="flex-row items-center gap-1">
+            <MaterialCommunityIcons name={meta.icon.name} size={12} color={meta.icon.color} />
+            <Text className="text-xs text-muted">
+              {meta.label} · {entry.time}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity onPress={onDelete} hitSlop={8} activeOpacity={0.7}>
           <Text className="text-sm text-muted">✕</Text>
@@ -1252,7 +1292,7 @@ function CompetitionEntryRow({
           </View>
         ) : entry.result ? (
           <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-0.5">
-            <Text className="text-xs font-bold uppercase tracking-wide text-accent">🏆 Résultat</Text>
+            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Résultat</Text>
             <Text className="text-sm text-text">{entry.result}</Text>
             <Text className="text-xs font-semibold text-accent">Modifier</Text>
           </TouchableOpacity>
@@ -1350,7 +1390,7 @@ function DocumentCard({
     <TouchableOpacity activeOpacity={0.85} onPress={onToggleExpand} className={CARD}>
       <View className="flex-row items-center gap-3">
         <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
-          <Text className="text-lg">{meta.icon}</Text>
+          <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
         </View>
         <View className="flex-1 gap-0.5">
           <Text className="text-base font-bold text-text">{doc.name}</Text>
@@ -1364,7 +1404,10 @@ function DocumentCard({
           {doc.fileUri ? (
             <Image source={{ uri: doc.fileUri }} className="h-40 w-full rounded-card" resizeMode="cover" />
           ) : (
-            <Text className="text-sm text-muted">📎 Aucun fichier joint</Text>
+            <View className="flex-row items-center gap-1.5">
+              <MaterialCommunityIcons name="paperclip" size={15} color={colors.textMuted} />
+              <Text className="text-sm text-muted">Aucun fichier joint</Text>
+            </View>
           )}
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
             <Text className="text-sm font-semibold text-danger">Supprimer ce document</Text>
@@ -1392,7 +1435,7 @@ function JournalCard({
     <TouchableOpacity activeOpacity={0.85} onPress={onToggleExpand} className={CARD}>
       <View className="flex-row items-center gap-3">
         <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
-          <Text className="text-lg">{meta.icon}</Text>
+          <MaterialCommunityIcons name={meta.icon} size={20} color={meta.tint} />
         </View>
         <View className="flex-1 gap-0.5">
           <Text className="text-base font-bold text-text">{meta.label}</Text>
@@ -1439,7 +1482,7 @@ function ExpenseCard({
     <TouchableOpacity activeOpacity={0.85} onPress={() => setExpanded((v) => !v)} className={CARD}>
       <View className="flex-row items-center gap-3">
         <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
-          <Text className="text-lg">{meta.icon}</Text>
+          <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
         </View>
         <View className="flex-1 gap-0.5">
           <Text className="text-base font-bold text-text">{meta.label}</Text>
@@ -1452,15 +1495,24 @@ function ExpenseCard({
         <View className="mt-4 gap-2 border-t border-border pt-4">
           {expense.notes ? <Text className="text-sm text-muted">{expense.notes}</Text> : null}
           {linkedAppointment ? (
-            <Text className="text-sm text-text">
-              🔗 Lié à {linkedAppointment.title} ({formatDate(linkedAppointment.date)})
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <MaterialCommunityIcons name="link-variant" size={15} color={colors.textMuted} />
+              <Text className="text-sm text-text">
+                Lié à {linkedAppointment.title} ({formatDate(linkedAppointment.date)})
+              </Text>
+            </View>
           ) : null}
           {expense.documentId ? (
             linkedDocument ? (
-              <Text className="text-sm text-text">🧾 Reçu : {linkedDocument.name}</Text>
+              <View className="flex-row items-center gap-1.5">
+                <MaterialCommunityIcons name="receipt" size={15} color={colors.textMuted} />
+                <Text className="text-sm text-text">Reçu : {linkedDocument.name}</Text>
+              </View>
             ) : (
-              <Text className="text-sm text-muted">🔒 Reçu non disponible</Text>
+              <View className="flex-row items-center gap-1.5">
+                <MaterialCommunityIcons name="lock-outline" size={15} color={colors.textMuted} />
+                <Text className="text-sm text-muted">Reçu non disponible</Text>
+              </View>
             )
           ) : null}
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">

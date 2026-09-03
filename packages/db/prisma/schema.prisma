@@ -35,7 +35,6 @@ model RiderProfile {
   level          RiderLevel?
   mainDiscipline Discipline?
   rideFrequency  RideFrequency?
-  preferredTime  PreferredTime?
   primaryGoal    RiderGoal?
 
   // Entitlement abonnement (source de vérité côté store = RevenueCat)
@@ -386,17 +385,6 @@ enum RideFrequency {
   OCCASIONAL
 
   @@map("ride_frequency")
-}
-
-/// Créneau de la journée où le cavalier monte habituellement — pilote
-/// l'heure affichée sur les séances générées (cf. rules.ts), qui était
-/// jusque-là figée à 18h en semaine / 10h le week-end pour tout le monde.
-enum PreferredTime {
-  MORNING
-  LUNCH
-  EVENING
-
-  @@map("preferred_time")
 }
 
 enum Discipline {

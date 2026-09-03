@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
 import { DropdownField } from "@/components/DropdownField";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { RIDER_GOALS } from "@/onboarding/options";
+import { colors } from "@/theme/colors";
 import type { RiderGoal } from "@/onboarding/store";
 import { useGoals } from "@/goals/store";
 import { useHorses } from "@/horses/store";
@@ -62,8 +64,8 @@ export default function GoalModal() {
         <Text className="text-2xl font-extrabold tracking-tight text-text">
           {editing ? "Modifier l'objectif" : "Nouvel objectif"}
         </Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Text className="text-xl text-muted">✕</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>
       </View>
 

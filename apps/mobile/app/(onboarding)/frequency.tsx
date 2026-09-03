@@ -12,7 +12,7 @@ export default function Frequency() {
       title="À quelle fréquence montes-tu ?"
       subtitle="Pour calibrer ton planning d'entraînement."
       ctaDisabled={!rider.rideFrequency}
-      onNext={() => router.push("/(onboarding)/preferred-time")}
+      onNext={() => router.push("/(onboarding)/goal")}
     >
       <SingleSelect
         options={RIDE_FREQUENCIES}

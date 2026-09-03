@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, AppStateStatus, Text, TouchableOpacity, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
 import { colors } from "@/theme/colors";
@@ -72,7 +73,9 @@ export function BiometricGate() {
 
   return (
     <View className="absolute inset-0 z-50 items-center justify-center gap-4 bg-background px-8">
-      <Text className="text-5xl">🔒</Text>
+      <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
+        <MaterialCommunityIcons name="shield-lock-outline" size={30} color={colors.primary} />
+      </View>
       <Text className="text-center text-lg font-bold text-text">Authentification requise</Text>
       <Text className="text-center text-sm text-muted">Confirme ton identité pour accéder à Horsetrack.</Text>
       <TouchableOpacity

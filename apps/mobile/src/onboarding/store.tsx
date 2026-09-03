@@ -29,11 +29,6 @@ export type HorseFitnessLevel = "RESTING" | "REOPENING" | "GOOD" | "PEAK";
 export type HorseWorkload = "NONE" | "ONE_TO_TWO" | "THREE_TO_FOUR" | "FIVE_TO_SIX" | "DAILY";
 export type HorseRecoveryStatus = "RECOVERED" | "IN_PROGRESS" | "ONGOING";
 
-/** Créneau où le cavalier monte habituellement — pilote l'heure affichée sur
- * les séances générées (cf. program/rules.ts), plutôt qu'un horaire figé
- * identique pour tout le monde. */
-export type PreferredTime = "MORNING" | "LUNCH" | "EVENING";
-
 export type InjuryDraft = {
   /** id local le temps de l'onboarding, remplacé en base */
   localId: string;
@@ -72,7 +67,6 @@ export type RiderDraft = {
   level: RiderLevel | null;
   mainDiscipline: Discipline | null;
   rideFrequency: RideFrequency | null;
-  preferredTime: PreferredTime | null;
   primaryGoal: RiderGoal | null;
 };
 
@@ -127,7 +121,6 @@ const initialState: OnboardingState = {
     level: null,
     mainDiscipline: null,
     rideFrequency: null,
-    preferredTime: null,
     primaryGoal: null,
   },
   horses: [newHorse(true)],

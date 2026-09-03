@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
+import { colors } from "@/theme/colors";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -34,8 +36,8 @@ export default function ChangePasswordModal() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between px-5 pt-2">
         <Text className="text-2xl font-extrabold tracking-tight text-text">Changer le mot de passe</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Text className="text-xl text-muted">✕</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>
       </View>
 

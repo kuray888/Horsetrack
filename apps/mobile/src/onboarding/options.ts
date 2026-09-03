@@ -1,3 +1,5 @@
+import type { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "@/theme/colors";
 import type {
   RiderLevel,
   RideFrequency,
@@ -8,17 +10,18 @@ import type {
   HorseFitnessLevel,
   HorseWorkload,
   HorseRecoveryStatus,
-  PreferredTime,
 } from "./store";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 10;
+export const TOTAL_STEPS = 9;
 
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";
 
+export type OptionIcon = { name: keyof typeof MaterialCommunityIcons.glyphMap; color: string };
+
 /** Libellés FR affichés à l'utilisateur, indexés par la valeur d'enum (= valeur Prisma). */
-export type Option<T extends string> = { value: T; label: string; emoji?: string };
+export type Option<T extends string> = { value: T; label: string; icon?: OptionIcon };
 
 export const RIDER_LEVELS: Option<RiderLevel>[] = [
   { value: "BEGINNER", label: "Débutant" },
@@ -29,34 +32,28 @@ export const RIDER_LEVELS: Option<RiderLevel>[] = [
 ];
 
 export const RIDE_FREQUENCIES: Option<RideFrequency>[] = [
-  { value: "DAILY", label: "Tous les jours", emoji: "🗓️" },
-  { value: "SEVERAL_PER_WEEK", label: "Plusieurs fois par semaine", emoji: "🐎" },
-  { value: "WEEKEND", label: "Le week-end", emoji: "☀️" },
-  { value: "OCCASIONAL", label: "De temps en temps", emoji: "🌿" },
-];
-
-export const PREFERRED_TIMES: Option<PreferredTime>[] = [
-  { value: "MORNING", label: "Le matin", emoji: "🌅" },
-  { value: "LUNCH", label: "En journée / pause déjeuner", emoji: "🌤️" },
-  { value: "EVENING", label: "En fin de journée", emoji: "🌆" },
+  { value: "DAILY", label: "Tous les jours", icon: { name: "calendar-month-outline", color: colors.primary } },
+  { value: "SEVERAL_PER_WEEK", label: "Plusieurs fois par semaine", icon: { name: "horse-variant", color: colors.accent } },
+  { value: "WEEKEND", label: "Le week-end", icon: { name: "weather-sunny", color: colors.warning } },
+  { value: "OCCASIONAL", label: "De temps en temps", icon: { name: "leaf", color: colors.success } },
 ];
 
 export const DISCIPLINES: Option<Discipline>[] = [
-  { value: "SHOW_JUMPING", label: "Saut d'obstacles (CSO)", emoji: "🚧" },
-  { value: "DRESSAGE", label: "Dressage", emoji: "🎯" },
-  { value: "EVENTING", label: "Concours complet", emoji: "🏅" },
-  { value: "WESTERN", label: "Western", emoji: "🤠" },
-  { value: "ENDURANCE", label: "Endurance", emoji: "🧭" },
-  { value: "LEISURE", label: "Loisir / Balade", emoji: "🌲" },
-  { value: "ETHOLOGY", label: "Éthologie", emoji: "🤝" },
+  { value: "SHOW_JUMPING", label: "Saut d'obstacles (CSO)", icon: { name: "flag-checkered", color: colors.accent } },
+  { value: "DRESSAGE", label: "Dressage", icon: { name: "target", color: colors.primary } },
+  { value: "EVENTING", label: "Concours complet", icon: { name: "medal-outline", color: colors.accent } },
+  { value: "WESTERN", label: "Western", icon: { name: "horseshoe", color: colors.warning } },
+  { value: "ENDURANCE", label: "Endurance", icon: { name: "compass-outline", color: colors.success } },
+  { value: "LEISURE", label: "Loisir / Balade", icon: { name: "pine-tree", color: colors.success } },
+  { value: "ETHOLOGY", label: "Éthologie", icon: { name: "handshake-outline", color: colors.accent } },
 ];
 
 export const RIDER_GOALS: Option<RiderGoal>[] = [
-  { value: "COMPETE", label: "Progresser en concours", emoji: "🏆" },
-  { value: "BONDING", label: "Renforcer notre complicité", emoji: "❤️" },
-  { value: "FITNESS", label: "Remettre mon cheval en forme", emoji: "💪" },
-  { value: "EVENT_PREP", label: "Préparer un événement précis", emoji: "📅" },
-  { value: "CONFIDENCE", label: "Reprendre confiance", emoji: "🌟" },
+  { value: "COMPETE", label: "Progresser en concours", icon: { name: "trophy-outline", color: colors.accent } },
+  { value: "BONDING", label: "Renforcer notre complicité", icon: { name: "heart-outline", color: colors.danger } },
+  { value: "FITNESS", label: "Remettre mon cheval en forme", icon: { name: "dumbbell", color: colors.primary } },
+  { value: "EVENT_PREP", label: "Préparer un événement précis", icon: { name: "calendar-check-outline", color: colors.accent } },
+  { value: "CONFIDENCE", label: "Reprendre confiance", icon: { name: "star-outline", color: colors.warning } },
 ];
 
 export const HORSE_SEXES: Option<HorseSex>[] = [
@@ -108,10 +105,10 @@ export const HORSE_BREEDS: { value: string; label: string }[] = [
 ];
 
 export const HORSE_FITNESS_LEVELS: Option<HorseFitnessLevel>[] = [
-  { value: "RESTING", label: "Au repos", emoji: "🌙" },
-  { value: "REOPENING", label: "Reprise en main", emoji: "🌱" },
-  { value: "GOOD", label: "Bonne forme", emoji: "👍" },
-  { value: "PEAK", label: "Forme optimale / compétition", emoji: "🔥" },
+  { value: "RESTING", label: "Au repos", icon: { name: "weather-night", color: colors.textMuted } },
+  { value: "REOPENING", label: "Reprise en main", icon: { name: "sprout-outline", color: colors.success } },
+  { value: "GOOD", label: "Bonne forme", icon: { name: "thumb-up-outline", color: colors.primary } },
+  { value: "PEAK", label: "Forme optimale / compétition", icon: { name: "fire", color: colors.warning } },
 ];
 
 export const HORSE_WORKLOADS: Option<HorseWorkload>[] = [

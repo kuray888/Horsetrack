@@ -1,8 +1,10 @@
 import { ReactNode } from "react";
 import { Animated, View, Text, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSubscription } from "@/subscription/store";
 import { usePressScale } from "@/hooks/usePressScale";
+import { colors } from "@/theme/colors";
 
 /**
  * Gating « soft » d'un visuel premium.
@@ -38,7 +40,9 @@ export function Locked({
 
       {/* Overlay de déverrouillage */}
       <View className="absolute inset-0 items-center justify-center gap-3 bg-surface/40 p-4">
-        <Text className="text-2xl">🔒</Text>
+        <View className="h-11 w-11 items-center justify-center rounded-full bg-surface">
+          <MaterialCommunityIcons name="lock-outline" size={20} color={colors.primary} />
+        </View>
         <Text className="text-center text-sm font-semibold text-text">{message}</Text>
         <Animated.View style={{ transform: [{ scale }] }}>
           <TouchableOpacity

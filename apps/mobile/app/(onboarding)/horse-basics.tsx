@@ -1,11 +1,13 @@
 import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
 import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { OnboardingShell, SingleSelect } from "@/components/onboarding";
 import { BreedField } from "@/components/BreedField";
 import { Field } from "@/components/Field";
 import { useOnboarding } from "@/onboarding/store";
 import { HORSE_SEXES, TOTAL_STEPS } from "@/onboarding/options";
 import { pickAndPersistImage } from "@/lib/imagePicker";
+import { colors } from "@/theme/colors";
 
 const INPUT =
   "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -21,7 +23,7 @@ export default function HorseBasics() {
 
   return (
     <OnboardingShell
-      step={6}
+      step={5}
       total={TOTAL_STEPS}
       title="Présente-nous ton cheval"
       subtitle="On personnalise tout autour de lui."
@@ -38,7 +40,7 @@ export default function HorseBasics() {
           {editingHorse.photoUrl ? (
             <Image source={{ uri: editingHorse.photoUrl }} className="h-24 w-24" />
           ) : (
-            <Text className="text-3xl">🐴</Text>
+            <MaterialCommunityIcons name="horse-variant" size={32} color={colors.textMuted} />
           )}
         </TouchableOpacity>
         <Text className="mt-2 text-xs text-muted">

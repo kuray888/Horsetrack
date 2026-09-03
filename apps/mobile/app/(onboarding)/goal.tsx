@@ -7,10 +7,10 @@ export default function Goal() {
   const { rider, setRider } = useOnboarding();
   return (
     <OnboardingShell
-      step={5}
+      step={4}
       total={TOTAL_STEPS}
       title="Ton objectif principal ?"
-      subtitle="C'est lui qui guidera ton programme."
+      subtitle="Ça nous aide à te proposer un suivi adapté."
       ctaDisabled={!rider.primaryGoal}
       onNext={() => router.push("/(onboarding)/horse-basics")}
     >

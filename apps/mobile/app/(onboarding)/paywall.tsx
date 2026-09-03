@@ -35,7 +35,7 @@ export default function OnboardingPaywall() {
       hydrateFromCloud(existing.horses);
       Alert.alert(
         "Compte existant retrouvé",
-        "Ce compte avait déjà un programme — tes réponses d'inscription n'ont pas été utilisées, on a restauré tes données existantes."
+        "Ce compte avait déjà une écurie — tes réponses d'inscription n'ont pas été utilisées, on a restauré tes données existantes."
       );
     } else {
       // setRiderProfile()/replaceHorses() persistent localement ET poussent vers

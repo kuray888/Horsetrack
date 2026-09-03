@@ -121,10 +121,10 @@ export default function OnboardingAccount() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-extrabold tracking-tight text-text">
-            Crée ton compte pour sauvegarder ton programme
+            Crée ton compte pour sauvegarder ton écurie
           </Text>
           <Text className="text-base text-muted">
-            Tes réponses et ton programme seront liés à ce compte.
+            Tes réponses et tes chevaux seront liés à ce compte.
           </Text>
         </View>
 

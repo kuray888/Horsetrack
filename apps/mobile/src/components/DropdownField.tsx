@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Field } from "@/components/Field";
 import { usePickerOverlay } from "@/components/PickerOverlay";
+import { colors } from "@/theme/colors";
 
-export type DropdownOption<T extends string> = { value: T; label: string };
+export type DropdownOption<T extends string> = {
+  value: T;
+  label: string;
+  icon?: { name: keyof typeof MaterialCommunityIcons.glyphMap; color: string };
+};
 
 /**
  * Sélecteur compact "menu déroulant" (Field + valeur tappable + calque plein
@@ -46,10 +52,18 @@ export function DropdownField<T extends string>({
                   setOpen(false);
                 }}
                 activeOpacity={0.8}
-                className={`flex-row items-center justify-between rounded-card p-4 ${isSelected ? "bg-highlight" : ""}`}
+                accessibilityLabel={opt.label}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                className={`flex-row items-center gap-3 rounded-card p-4 ${isSelected ? "bg-highlight" : ""}`}
               >
-                <Text className={`text-base ${isSelected ? "font-bold text-primary" : "text-text"}`}>{opt.label}</Text>
-                {isSelected ? <Text className="text-base font-bold text-primary">✓</Text> : null}
+                {opt.icon ? (
+                  <MaterialCommunityIcons name={opt.icon.name} size={17} color={opt.icon.color} accessibilityElementsHidden />
+                ) : null}
+                <Text className={`flex-1 text-base ${isSelected ? "font-bold text-primary" : "text-text"}`}>{opt.label}</Text>
+                {isSelected ? (
+                  <MaterialCommunityIcons name="check" size={18} color={colors.primary} accessibilityElementsHidden />
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -66,12 +80,17 @@ export function DropdownField<T extends string>({
       <TouchableOpacity
         onPress={() => setOpen(true)}
         activeOpacity={0.8}
-        className="flex-row items-center justify-between rounded-card border border-border bg-surface p-4"
+        accessibilityLabel={selected ? selected.label : placeholder}
+        accessibilityRole="button"
+        className="flex-row items-center gap-2 rounded-card border border-border bg-surface p-4"
       >
-        <Text className={selected ? "text-base text-text" : "text-base text-muted"}>
+        {selected?.icon ? (
+          <MaterialCommunityIcons name={selected.icon.name} size={17} color={selected.icon.color} accessibilityElementsHidden />
+        ) : null}
+        <Text className={`flex-1 ${selected ? "text-base text-text" : "text-base text-muted"}`}>
           {selected ? selected.label : placeholder}
         </Text>
-        <Text className="text-base text-muted">▾</Text>
+        <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textMuted} accessibilityElementsHidden />
       </TouchableOpacity>
     </Field>
   );

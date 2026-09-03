@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Animated, View, Text, TouchableOpacity, ScrollView, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { usePressScale } from "@/hooks/usePressScale";
+import { colors } from "@/theme/colors";
 import type { BillingPeriod } from "@/subscription/store";
 import { isTrialEligible } from "@/lib/revenuecat";
 
@@ -40,7 +42,7 @@ const BULLETS: string[] = [
 function Bullet({ text }: { text: string }) {
   return (
     <View className="flex-row items-center gap-2.5">
-      <Text className="text-base text-success">✓</Text>
+      <MaterialCommunityIcons name="check-circle" size={17} color={colors.success} />
       <Text className="flex-1 text-[15px] text-text">{text}</Text>
     </View>
   );
@@ -141,8 +143,8 @@ export function PaywallView({
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       {onClose ? (
         <View className="flex-row justify-end px-5 pt-2">
-          <TouchableOpacity onPress={onClose} hitSlop={12}>
-            <Text className="text-xl text-muted">✕</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -161,9 +163,12 @@ export function PaywallView({
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => onPurchaseAddon(period)}
-            className="flex-row items-center justify-between rounded-card border border-dashed border-primary p-4"
+            className="flex-row items-center gap-2 justify-between rounded-card border border-dashed border-primary p-4"
           >
-            <Text className="flex-1 text-sm font-semibold text-text">➕ Ajouter un cheval supplémentaire</Text>
+            <View className="flex-1 flex-row items-center gap-2">
+              <MaterialCommunityIcons name="plus-circle-outline" size={17} color={colors.primary} />
+              <Text className="flex-1 text-sm font-semibold text-text">Ajouter un cheval supplémentaire</Text>
+            </View>
             <Text className="text-sm font-bold text-primary">{period === "ANNUAL" ? "14,99 €/an" : "1,99 €/mois"}</Text>
           </TouchableOpacity>
         ) : null}

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Field } from "@/components/Field";
 import { PrimaryButton } from "@/components/onboarding";
 import { useHorses } from "@/horses/store";
 import { useSubscription } from "@/subscription/store";
+import { colors } from "@/theme/colors";
 import {
   inviteCollaborator,
   listCollaborators,
@@ -17,9 +19,9 @@ import {
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
-const ROLE_META: Record<CollaboratorRole, { label: string; icon: string }> = {
-  DEMI_PENSION: { label: "Demi-pension", icon: "🤝" },
-  COACH: { label: "Coach / enseignant", icon: "🎓" },
+const ROLE_META: Record<CollaboratorRole, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
+  DEMI_PENSION: { label: "Demi-pension", icon: "handshake-outline" },
+  COACH: { label: "Coach / enseignant", icon: "school-outline" },
 };
 
 const STATUS_META: Record<Collaborator["status"], string> = {
@@ -33,7 +35,9 @@ function ShareLocked({ message }: { message: string }) {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 items-center justify-center gap-4 px-6">
-        <Text className="text-3xl">🔒</Text>
+        <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
+          <MaterialCommunityIcons name="lock-outline" size={28} color={colors.primary} />
+        </View>
         <Text className="text-center text-xl font-bold text-text">Partage du cheval</Text>
         <Text className="text-center text-sm text-muted">{message}</Text>
         <TouchableOpacity
@@ -122,8 +126,8 @@ export default function ShareHorseModal() {
       <ScrollView contentContainerClassName="gap-5 px-5 pt-4 pb-8" showsVerticalScrollIndicator={false}>
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-extrabold tracking-tight text-text">Partager {horse.name}</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-            <Text className="text-xl text-muted">✕</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
           </TouchableOpacity>
         </View>
         <Text className="text-sm text-muted">
@@ -132,15 +136,17 @@ export default function ShareHorseModal() {
         </Text>
 
         {!loaded ? null : collaborators.length === 0 ? (
-          <View className={`${CARD} items-center gap-1`}>
-            <Text className="text-2xl">🤝</Text>
+          <View className={`${CARD} items-center gap-2`}>
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+              <MaterialCommunityIcons name="handshake-outline" size={22} color={colors.textMuted} />
+            </View>
             <Text className="text-sm text-muted">Personne n&apos;est encore connecté à ce cheval.</Text>
           </View>
         ) : (
           <View className="gap-2">
             {collaborators.map((c) => (
               <View key={c.id} className={`${CARD} flex-row items-center gap-3`}>
-                <Text className="text-lg">{ROLE_META[c.role].icon}</Text>
+                <MaterialCommunityIcons name={ROLE_META[c.role].icon} size={20} color={colors.accent} />
                 <View className="flex-1 gap-0.5">
                   <Text className="text-sm font-bold text-text">{c.invitedEmail}</Text>
                   <Text className="text-xs text-muted">
@@ -178,8 +184,12 @@ export default function ShareHorseModal() {
             </Field>
             <Field label="Rôle">
               <View className="flex-row gap-2">
-                {(Object.entries(ROLE_META) as [CollaboratorRole, { label: string; icon: string }][]).map(
-                  ([value, meta]) => {
+                {(
+                  Object.entries(ROLE_META) as [
+                    CollaboratorRole,
+                    { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap },
+                  ][]
+                ).map(([value, meta]) => {
                     const selected = role === value;
                     return (
                       <TouchableOpacity
@@ -190,7 +200,7 @@ export default function ShareHorseModal() {
                           selected ? "border-primary bg-highlight" : "border-border bg-surface"
                         }`}
                       >
-                        <Text className="text-sm">{meta.icon}</Text>
+                        <MaterialCommunityIcons name={meta.icon} size={15} color={selected ? colors.primary : colors.textMuted} />
                         <Text className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}>
                           {meta.label}
                         </Text>

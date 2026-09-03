@@ -2,9 +2,11 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { usePressScale } from "@/hooks/usePressScale";
 import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
+import { colors } from "@/theme/colors";
 import type { Option } from "@/onboarding/options";
 
 /** Barre de progression fine en haut de chaque étape — le remplissage est
@@ -123,12 +125,12 @@ export function PrimaryButton({
 /** Carte d'option sélectionnable (single-select). */
 export function OptionCard({
   label,
-  emoji,
+  icon,
   selected,
   onPress,
 }: {
   label: string;
-  emoji?: string;
+  icon?: { name: keyof typeof MaterialCommunityIcons.glyphMap; color: string };
   selected: boolean;
   onPress: () => void;
 }) {
@@ -140,17 +142,24 @@ export function OptionCard({
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         activeOpacity={0.8}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
         className={`flex-row items-center gap-3 rounded-card border p-4 ${
           selected ? "border-primary bg-highlight" : "border-border bg-surface"
         }`}
       >
-        {emoji ? <Text className="text-xl">{emoji}</Text> : null}
+        {icon ? (
+          <View className="h-9 w-9 items-center justify-center rounded-full bg-background" importantForAccessibility="no">
+            <MaterialCommunityIcons name={icon.name} size={18} color={icon.color} accessibilityElementsHidden />
+          </View>
+        ) : null}
         <Text
           className={`flex-1 text-base font-semibold ${selected ? "text-primary" : "text-text"}`}
         >
           {label}
         </Text>
-        {selected ? <Text className="text-lg font-bold text-primary">✓</Text> : null}
+        {selected ? <MaterialCommunityIcons name="check-circle" size={20} color={colors.primary} /> : null}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -172,7 +181,7 @@ export function SingleSelect<T extends string>({
         <OptionCard
           key={opt.value}
           label={opt.label}
-          emoji={opt.emoji}
+          icon={opt.icon}
           selected={value === opt.value}
           onPress={() => onChange(opt.value)}
         />

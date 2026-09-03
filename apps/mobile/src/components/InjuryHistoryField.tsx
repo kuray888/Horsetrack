@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DropdownField } from "@/components/DropdownField";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Field } from "@/components/Field";
 import { INJURY_TYPES, OTHER_OPTION, RECOVERY_STATUSES } from "@/onboarding/options";
 import { formatDate } from "@/lib/dateFormat";
+import { colors } from "@/theme/colors";
 import type { HorseRecoveryStatus } from "@/onboarding/store";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -68,8 +70,13 @@ export function InjuryHistoryField({
         <View key={injury.key} className="gap-1 rounded-card border border-border bg-surface p-4">
           <View className="flex-row items-start justify-between">
             <Text className="flex-1 text-base font-bold text-text">{injury.type}</Text>
-            <TouchableOpacity onPress={() => onRemove(injury.key)} hitSlop={8}>
-              <Text className="px-1 text-base text-danger">✕</Text>
+            <TouchableOpacity
+              onPress={() => onRemove(injury.key)}
+              hitSlop={8}
+              accessibilityLabel={`Retirer ${injury.type}`}
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons name="close" size={16} color={colors.danger} accessibilityElementsHidden />
             </TouchableOpacity>
           </View>
           <Text className="text-sm text-muted">
@@ -146,7 +153,7 @@ export function InjuryHistoryField({
           activeOpacity={0.8}
           className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
         >
-          <Text className="text-lg font-bold text-primary">＋</Text>
+          <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
           <Text className="text-base font-semibold text-primary">Ajouter une blessure passée</Text>
         </TouchableOpacity>
       )}

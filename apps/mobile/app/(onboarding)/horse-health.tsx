@@ -23,10 +23,10 @@ export default function HorseHealth() {
 
   return (
     <OnboardingShell
-      step={9}
+      step={8}
       total={TOTAL_STEPS}
       title={`Santé & antécédents de ${name}`}
-      subtitle="Pour que le programme respecte ses limites physiques."
+      subtitle="On t'alertera si une séance ne respecte pas ses limites physiques."
       onNext={() => router.push("/(onboarding)/horses")}
     >
       <View className="gap-2">

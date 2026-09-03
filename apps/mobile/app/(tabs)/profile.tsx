@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, Image, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import type { User } from "@supabase/supabase-js";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -70,7 +71,7 @@ function SettingRow({
   onValueChange,
   disabled,
 }: {
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
   description?: string;
   value: boolean;
@@ -79,7 +80,9 @@ function SettingRow({
 }) {
   return (
     <View className="flex-row items-center gap-3 py-3">
-      <Text className="text-xl">{icon}</Text>
+      <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
+        <MaterialCommunityIcons name={icon} size={18} color={colors.primary} />
+      </View>
       <View className="flex-1 gap-0.5">
         <Text className="text-base font-semibold text-text">{label}</Text>
         {description ? <Text className="text-xs text-muted">{description}</Text> : null}
@@ -185,7 +188,7 @@ export default function ProfileScreen() {
   function handleDeleteAccount() {
     Alert.alert(
       "Supprimer ton compte ?",
-      "Toutes tes données (profil, chevaux, programme, progression) seront définitivement supprimées. Cette action est irréversible.",
+      "Toutes tes données (profil, chevaux, séances, rendez-vous, documents) seront définitivement supprimées. Cette action est irréversible.",
       [
         { text: "Annuler", style: "cancel" },
         { text: "Supprimer", style: "destructive", onPress: confirmDeleteAccount },
@@ -252,7 +255,13 @@ export default function ProfileScreen() {
       {/* Abonnement */}
       <FadeInView delay={60}>
         <View className={`${CARD} flex-row items-center gap-3`}>
-          <Text className="text-2xl">{isActiveOrTrialing ? "⭐" : "🔓"}</Text>
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
+            <MaterialCommunityIcons
+              name={isActiveOrTrialing ? "star-outline" : "lock-open-variant-outline"}
+              size={20}
+              color={colors.primary}
+            />
+          </View>
           <View className="flex-1 gap-0.5">
             <Text className="text-base font-bold text-text">{subscriptionLabel()}</Text>
             <Text className="text-xs text-muted">
@@ -293,25 +302,31 @@ export default function ProfileScreen() {
                 {horse.photoUrl ? (
                   <Image source={{ uri: horse.photoUrl }} className="h-12 w-12" />
                 ) : (
-                  <Text className="text-2xl">{horse.emoji}</Text>
+                  <MaterialCommunityIcons name="horse-variant" size={22} color={colors.primary} />
                 )}
               </TouchableOpacity>
               <View className="flex-1 gap-0.5">
-                <Text className="text-base font-bold text-text">
-                  {horse.name}
-                  {horse.isPrimary ? "  ⭐" : ""}
-                </Text>
+                <View className="flex-row items-center gap-1.5">
+                  <Text className="text-base font-bold text-text">{horse.name}</Text>
+                  {horse.isPrimary ? <MaterialCommunityIcons name="star" size={14} color={colors.warning} /> : null}
+                </View>
                 <Text className="text-sm text-muted">
                   {labelOf(DISCIPLINES, horse.discipline)} · {labelOf(HORSE_LEVELS, horse.level)}
                 </Text>
                 {horse.strengths.length > 0 ? (
-                  <Text className="text-xs text-success">💪 {horse.strengths.join(", ")}</Text>
+                  <View className="flex-row items-center gap-1">
+                    <MaterialCommunityIcons name="arm-flex-outline" size={12} color={colors.success} />
+                    <Text className="text-xs text-success">{horse.strengths.join(", ")}</Text>
+                  </View>
                 ) : null}
               </View>
               {isShared ? (
-                <Text className="px-1 text-xs font-semibold text-accent">
-                  {horse.sharedRole === "COACH" ? "🤝 Coach" : "🤝 Demi-pension"}
-                </Text>
+                <View className="flex-row items-center gap-1 px-1">
+                  <MaterialCommunityIcons name="handshake-outline" size={13} color={colors.accent} />
+                  <Text className="text-xs font-semibold text-accent">
+                    {horse.sharedRole === "COACH" ? "Coach" : "Demi-pension"}
+                  </Text>
+                </View>
               ) : (
                 <View className="items-end gap-2">
                   <TouchableOpacity onPress={() => router.push(`/edit-horse-modal?id=${horse.id}`)} hitSlop={8}>
@@ -345,7 +360,7 @@ export default function ProfileScreen() {
           onPress={() => router.push("/add-horse-modal")}
           className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
         >
-          <Text className="text-lg font-bold text-primary">＋</Text>
+          <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
           <Text className="text-base font-semibold text-primary">Ajouter un cheval</Text>
         </TouchableOpacity>
       </FadeInView>
@@ -377,8 +392,10 @@ export default function ProfileScreen() {
       <FadeInView delay={360}>
         <View className="gap-3">
           {goals.length === 0 ? (
-            <View className={`${CARD} items-center gap-1`}>
-              <Text className="text-2xl">🎯</Text>
+            <View className={`${CARD} items-center gap-2`}>
+              <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+                <MaterialCommunityIcons name="flag-outline" size={22} color={colors.textMuted} />
+              </View>
               <Text className="text-sm text-muted">Aucun objectif pour l&apos;instant.</Text>
             </View>
           ) : (
@@ -387,7 +404,7 @@ export default function ProfileScreen() {
               .sort((a, b) => (a.targetDate?.getTime() ?? Infinity) - (b.targetDate?.getTime() ?? Infinity))
               .map((goal) => {
                 const horseName = goal.horseId ? horses.find((h) => h.id === goal.horseId)?.name : null;
-                const emoji = goal.type ? RIDER_GOALS.find((g) => g.value === goal.type)?.emoji : null;
+                const icon = goal.type ? RIDER_GOALS.find((g) => g.value === goal.type)?.icon : null;
                 const subtitle = [goal.targetDate ? formatDate(goal.targetDate) : null, horseName]
                   .filter(Boolean)
                   .join(" · ");
@@ -398,12 +415,14 @@ export default function ProfileScreen() {
                     onPress={() => router.push(`/goal-modal?id=${goal.id}`)}
                     className={`${CARD} flex-row items-center gap-3`}
                   >
-                    <Text className="text-2xl">{emoji ?? "🎯"}</Text>
+                    <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
+                      <MaterialCommunityIcons name={icon?.name ?? "flag-outline"} size={18} color={icon?.color ?? colors.primary} />
+                    </View>
                     <View className="flex-1 gap-0.5">
                       <Text className="text-base font-bold text-text">{goal.title}</Text>
                       {subtitle ? <Text className="text-sm text-muted">{subtitle}</Text> : null}
                     </View>
-                    <Text className="text-base text-muted">›</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
                   </TouchableOpacity>
                 );
               })
@@ -414,7 +433,7 @@ export default function ProfileScreen() {
             onPress={() => router.push("/goal-modal")}
             className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
           >
-            <Text className="text-lg font-bold text-primary">＋</Text>
+            <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
             <Text className="text-base font-semibold text-primary">Ajouter un objectif</Text>
           </TouchableOpacity>
         </View>
@@ -428,7 +447,7 @@ export default function ProfileScreen() {
       <FadeInView delay={460}>
         <View className={CARD}>
           <SettingRow
-            icon="🔔"
+            icon="bell-outline"
             label="Notifications"
             description={notifEnabled ? "Activées dans les réglages système" : "Pour les rappels de rendez-vous"}
             value={notifEnabled}
@@ -437,7 +456,7 @@ export default function ProfileScreen() {
           />
           <View className="border-t border-border" />
           <SettingRow
-            icon="🔐"
+            icon="shield-lock-outline"
             label={`Verrouillage ${bioLabel}`}
             description={
               bioAvailable

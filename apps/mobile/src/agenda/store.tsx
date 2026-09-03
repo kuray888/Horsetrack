@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import * as SecureStore from "expo-secure-store";
+import type { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "@/theme/colors";
 import { cancelReminder, type ReminderOption } from "@/lib/notifications";
 import { cancelEmailReminder } from "@/lib/emailReminders";
 import {
@@ -57,12 +59,15 @@ export type CompetitionEntry = {
  * (cf. (tabs)/agenda.tsx) et par la planification manuelle de séances (cf.
  * sessions/store.tsx, (tabs)/today.tsx, (tabs)/planning.tsx), donc défini ici
  * plutôt que dupliqué dans chaque écran consommateur. */
-export const ACTIVITY_META: Record<ActivityType, { label: string; icon: string; chip: string; tag: string }> = {
-  dressage: { label: "Dressage", icon: "🐴", chip: "bg-primary/15", tag: "text-primary" },
-  cso: { label: "CSO", icon: "🤸", chip: "bg-accent/15", tag: "text-accent" },
-  balade: { label: "Balade", icon: "🌳", chip: "bg-success/15", tag: "text-success" },
-  longe: { label: "Longe", icon: "🔄", chip: "bg-warning/15", tag: "text-warning" },
-  repos: { label: "Repos", icon: "😴", chip: "bg-border", tag: "text-muted" },
+export const ACTIVITY_META: Record<
+  ActivityType,
+  { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; tint: string; chip: string; tag: string }
+> = {
+  dressage: { label: "Dressage", icon: "horse-variant", tint: colors.primary, chip: "bg-primary/15", tag: "text-primary" },
+  cso: { label: "CSO", icon: "flag-checkered", tint: colors.accent, chip: "bg-accent/15", tag: "text-accent" },
+  balade: { label: "Balade", icon: "walk", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
+  longe: { label: "Longe", icon: "sync", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
+  repos: { label: "Repos", icon: "sleep", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },
 };
 
 /** Anciennement défini dans progress/store.tsx (système de badges/XP, retiré
