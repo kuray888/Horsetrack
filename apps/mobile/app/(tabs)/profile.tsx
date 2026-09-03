@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Image, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import Constants from "expo-constants";
 import type { User } from "@supabase/supabase-js";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
@@ -507,7 +508,7 @@ export default function ProfileScreen() {
       </FadeInView>
 
       <FadeInView delay={580}>
-        <Text className="pt-2 text-center text-xs text-muted">Horsetrack · v1.0.1</Text>
+        <Text className="pt-2 text-center text-xs text-muted">Horsetrack · v{Constants.expoConfig?.version ?? "—"}</Text>
       </FadeInView>
     </Screen>
   );

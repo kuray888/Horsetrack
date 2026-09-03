@@ -218,119 +218,16 @@ export function defaultChecklist(): ChecklistItem[] {
   return CHECKLIST_LABELS.map((label, i) => ({ id: `c${i}`, label, checked: false }));
 }
 
-const DEFAULT_APPOINTMENTS: Appointment[] = [
-  {
-    id: "a1",
-    horseId: null,
-    type: "veto",
-    title: "Vaccin annuel",
-    date: daysFromNow(-32),
-    time: "10h00",
-    location: "Clinique équine du Val",
-    notes: "Rappel grippe + tétanos",
-    reminder: "none",
-    reminderNotificationId: null,
-    emailReminderId: null,
-    result: null,
-    checklist: [],
-    dossard: null,
-    competitionEntries: [],
-  },
-  {
-    id: "a2",
-    horseId: null,
-    type: "osteo",
-    title: "Bilan ostéopathe",
-    date: daysFromNow(6),
-    time: "14h00",
-    location: "À l'écurie",
-    notes: "",
-    reminder: "1d",
-    reminderNotificationId: null,
-    emailReminderId: null,
-    result: null,
-    checklist: [],
-    dossard: null,
-    competitionEntries: [],
-  },
-  {
-    id: "a3",
-    horseId: null,
-    type: "marechal",
-    title: "Parage",
-    date: daysFromNow(18),
-    time: "09h30",
-    location: "À l'écurie",
-    notes: "",
-    reminder: "1d",
-    reminderNotificationId: null,
-    emailReminderId: null,
-    result: null,
-    checklist: [],
-    dossard: null,
-    competitionEntries: [],
-  },
-  {
-    id: "a4",
-    horseId: null,
-    type: "concours",
-    title: "Concours CSO Club 2",
-    date: daysFromNow(27),
-    time: "08h00",
-    location: "Centre équestre de Bois-Joli",
-    notes: "Épreuve à 9h15",
-    reminder: "1w",
-    reminderNotificationId: null,
-    emailReminderId: null,
-    result: null,
-    checklist: defaultChecklist(),
-    dossard: "142",
-    competitionEntries: [
-      { id: "ce1", name: "Épreuve club 2 — 1m10", discipline: "SHOW_JUMPING", time: "09h15", result: null },
-    ],
-  },
-  {
-    id: "a5",
-    horseId: null,
-    type: "concours",
-    title: "Concours CSO Club 1",
-    date: daysFromNow(-15),
-    time: "08h00",
-    location: "Centre équestre de Bois-Joli",
-    notes: "",
-    reminder: "none",
-    reminderNotificationId: null,
-    emailReminderId: null,
-    result: null,
-    checklist: defaultChecklist().map((c) => ({ ...c, checked: true })),
-    dossard: "87",
-    competitionEntries: [
-      { id: "ce2", name: "Épreuve club 1 — 1m00", discipline: "SHOW_JUMPING", time: "09h00", result: "4ème, 0 point" },
-    ],
-  },
-];
+/** Aucune donnée de démonstration : un compte neuf doit voir un agenda
+ * réellement vide, pas des rendez-vous/factures fictifs indiscernables de
+ * vraies entrées (cf. audit produit du 2026-09-03). */
+const DEFAULT_APPOINTMENTS: Appointment[] = [];
 
-const DEFAULT_DOCUMENTS: Doc[] = [
-  { id: "d1", category: "ordonnance", name: "Ordonnance vermifuge", date: daysFromNow(-10), fileUri: null, filePath: null },
-  { id: "d2", category: "facture", name: "Facture maréchal — mars", date: daysFromNow(-32), fileUri: null, filePath: null },
-  { id: "d3", category: "rapport", name: "Rapport bilan vétérinaire annuel", date: daysFromNow(-32), fileUri: null, filePath: null },
-];
+const DEFAULT_DOCUMENTS: Doc[] = [];
 
 const DEFAULT_JOURNAL: JournalEntry[] = [];
 
-const DEFAULT_EXPENSES: Expense[] = [
-  {
-    id: "e1",
-    horseId: null,
-    amount: 45,
-    currency: "EUR",
-    category: "marechal",
-    date: daysFromNow(-32),
-    notes: "Parage + ferrures avant",
-    appointmentId: null,
-    documentId: "d2",
-  },
-];
+const DEFAULT_EXPENSES: Expense[] = [];
 
 type AgendaContextValue = {
   appointments: Appointment[];

@@ -2,7 +2,7 @@
 
 > **Brouillon de travail — pas une validation juridique.** Rédigé à partir du fonctionnement réel de l'app (vérifié dans le code : ce qui est collecté, où c'est stocké, à qui c'est transmis), pas d'un modèle générique. À faire relire par un professionnel du droit avant publication, et à tenir à jour si de nouvelles fonctionnalités changent les traitements décrits ici. Remplace les passages entre crochets `[...]` avant publication.
 
-**Dernière mise à jour : 28 juin 2026**
+**Dernière mise à jour : 3 septembre 2026**
 
 ## 1. Qui sommes-nous
 
@@ -17,7 +17,7 @@ Contact pour toute question relative à vos données : horsetrack.app@gmail.com.
 | Compte | Adresse email, mot de passe (chiffré, géré par Supabase Auth) | Création de compte |
 | Profil cavalier | Niveau, discipline principale, fréquence de monte, objectif, notes libres | Onboarding / modification du profil |
 | Profil cheval | Nom, photo (optionnelle), année de naissance, sexe, race, taille, poids, discipline, niveau, forme physique, charge de travail, points forts/faibles, tempérament, conditions de santé, historique de blessures | Onboarding / modification du profil |
-| Messages au Coach IA | Contenu des messages envoyés à l'assistant conversationnel et historique de conversation récent | Utilisation du Coach IA |
+| Agenda, journal, finances | Rendez-vous, notes de journal (humeur, activité, météo), documents du coffre-fort, dépenses liées à un cheval | Utilisation normale de l'app |
 | Données d'abonnement | Statut d'abonnement (essai, actif, expiré), identifiant RevenueCat — **pas vos moyens de paiement**, traités exclusivement par Apple/Google | Souscription à un abonnement |
 | Données techniques | Jeton de session, identifiant utilisateur, date de dernière mise à jour | Utilisation normale de l'app |
 
@@ -28,8 +28,9 @@ Contact pour toute question relative à vos données : horsetrack.app@gmail.com.
 ## 3. À quoi servent ces données
 
 - Créer et gérer votre compte.
-- Générer et adapter votre programme d'entraînement personnalisé.
-- Faire fonctionner le Coach IA (vos messages sont transmis au fournisseur d'intelligence artificielle pour générer une réponse, cf. section 5).
+- Fournir les fonctionnalités de suivi de l'Application (planning, agenda, journal, coffre-fort, finances, objectifs).
+- Envoyer les rappels et notifications que vous avez programmés (push et email), et les emails liés à un partage de cheval que vous initiez.
+- Permettre le partage d'un cheval avec une demi-pension ou un coach que vous invitez.
 - Gérer votre abonnement et votre période d'essai.
 - Assurer la sécurité du service (authentification, limitation d'usage abusif).
 
@@ -45,18 +46,16 @@ Nous faisons appel à des prestataires techniques tiers, strictement nécessaire
 
 | Prestataire | Rôle | Données concernées |
 |---|---|---|
-| **Supabase** | Hébergement de la base de données et authentification (serveurs situés en Union Européenne) | Toutes les données listées en section 2, à l'exception des messages au Coach IA |
-| **OpenRouter** (qui route la requête vers le modèle Claude d'Anthropic) | Génération des réponses du Coach IA | Contenu des messages envoyés au Coach IA, et contexte de votre profil cavalier/cheval transmis pour personnaliser la réponse |
+| **Supabase** | Hébergement de la base de données, authentification et stockage des documents du coffre-fort (serveurs situés en Union Européenne) | Toutes les données listées en section 2 |
+| **Resend** | Envoi des emails de rappel de rendez-vous et des emails d'invitation à partager un cheval | Adresse email du destinataire, contenu de l'email (nom du cheval, type de rendez-vous ou d'invitation) |
 | **RevenueCat** | Gestion des abonnements et synchronisation avec Apple/Google | Statut d'abonnement, identifiant utilisateur |
 | **Apple (App Store) / Google (Play Store)** | Traitement des paiements d'abonnement | Moyens de paiement (nous n'y avons jamais accès) |
 
-OpenRouter et Anthropic étant basés aux États-Unis, l'envoi des messages du Coach IA constitue un transfert de données hors Union Européenne. Ce transfert est encadré par les clauses contractuelles types (CCT) prévues par la réglementation européenne. [À vérifier/compléter avec les engagements contractuels réels d'OpenRouter et d'Anthropic au moment de la publication — ce sous-traitant est amené à changer, cf. décision en cours sur le fournisseur du Coach IA.]
+Resend étant basé aux États-Unis, l'envoi d'emails constitue un transfert de données hors Union Européenne, encadré par les clauses contractuelles types (CCT) prévues par la réglementation européenne.
 
 ## 6. Durée de conservation
 
-Vos données sont conservées tant que votre compte est actif. Si vous supprimez votre compte (Profil → Supprimer mon compte), l'ensemble de vos données — profil, chevaux, programme, historique de progression — est supprimé immédiatement et de façon irréversible de nos serveurs.
-
-[Préciser ici si un délai de conservation différent s'applique à des fins légales, ex. facturation.]
+Vos données sont conservées tant que votre compte est actif. Si vous supprimez votre compte (Profil → Supprimer mon compte), l'ensemble de vos données — profil, chevaux, planning, agenda, journal, coffre-fort, finances — est supprimé immédiatement et de façon irréversible de nos serveurs.
 
 ## 7. Vos droits
 

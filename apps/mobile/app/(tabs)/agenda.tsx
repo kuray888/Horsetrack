@@ -9,7 +9,6 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { PrimaryButton } from "@/components/onboarding";
-import { VoiceNoteButton } from "@/components/VoiceNoteButton";
 import { formatDate } from "@/lib/dateFormat";
 import { computeReminderTrigger, ensureNotificationPermission, scheduleReminder, type ReminderOption } from "@/lib/notifications";
 import { scheduleEmailReminder } from "@/lib/emailReminders";
@@ -816,17 +815,7 @@ export default function AgendaScreen() {
                   onChange={(time) => setJournalForm((f) => ({ ...f, time }))}
                 />
                 <View className="gap-1.5">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Notes (optionnel)</Text>
-                    <VoiceNoteButton
-                      onTranscription={(text) =>
-                        setJournalForm((f) => ({
-                          ...f,
-                          notes: f.notes ? `${f.notes} ${text}` : text,
-                        }))
-                      }
-                    />
-                  </View>
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Notes (optionnel)</Text>
                   <TextInput
                     className={INPUT}
                     placeholder="Ex : très bonne séance, cheval détendu"

@@ -7,7 +7,7 @@ import { LegalPage } from "@/components/LegalPage";
  * cf. /legal/politique-confidentialite.md). */
 export default function ConfidentialitePage() {
   return (
-    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="28 juin 2026">
+    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="3 septembre 2026">
       <h2>1. Qui sommes-nous</h2>
       <p>
         Anis Armand MESLIN, Entreprise individuelle (EI), 60 Route des Gardes, Passerelle 8 – RDC G, 92190 Meudon
@@ -46,6 +46,14 @@ export default function ConfidentialitePage() {
             <td>Onboarding / modification du profil</td>
           </tr>
           <tr>
+            <td>Agenda, journal, finances</td>
+            <td>
+              Rendez-vous, notes de journal (humeur, activité, météo), documents du coffre-fort, dépenses liées à un
+              cheval
+            </td>
+            <td>Utilisation normale de l&apos;app</td>
+          </tr>
+          <tr>
             <td>Données d&apos;abonnement</td>
             <td>
               Statut d&apos;abonnement (essai, actif, expiré), identifiant RevenueCat — <strong>pas vos moyens de
@@ -74,7 +82,9 @@ export default function ConfidentialitePage() {
       <h2>3. À quoi servent ces données</h2>
       <ul>
         <li>Créer et gérer votre compte.</li>
-        <li>Vous permettre de planifier les séances d&apos;entraînement et le suivi de votre écurie.</li>
+        <li>Fournir les fonctionnalités de suivi de l&apos;Application (planning, agenda, journal, coffre-fort, finances, objectifs).</li>
+        <li>Envoyer les rappels et notifications que vous avez programmés (push et email), et les emails liés à un partage de cheval que vous initiez.</li>
+        <li>Permettre le partage d&apos;un cheval avec une demi-pension ou un coach que vous invitez.</li>
         <li>Gérer votre abonnement et votre période d&apos;essai.</li>
         <li>Assurer la sécurité du service (authentification, limitation d&apos;usage abusif).</li>
       </ul>
@@ -100,8 +110,13 @@ export default function ConfidentialitePage() {
         <tbody>
           <tr>
             <td><strong>Supabase</strong></td>
-            <td>Hébergement de la base de données et authentification (serveurs situés en Union Européenne)</td>
+            <td>Hébergement de la base de données, authentification et stockage des documents du coffre-fort (serveurs situés en Union Européenne)</td>
             <td>Toutes les données listées en section 2</td>
+          </tr>
+          <tr>
+            <td><strong>Resend</strong></td>
+            <td>Envoi des emails de rappel de rendez-vous et des emails d&apos;invitation à partager un cheval</td>
+            <td>Adresse email du destinataire, contenu de l&apos;email (nom du cheval, type de rendez-vous ou d&apos;invitation)</td>
           </tr>
           <tr>
             <td><strong>RevenueCat</strong></td>
@@ -115,14 +130,17 @@ export default function ConfidentialitePage() {
           </tr>
         </tbody>
       </table>
+      <p>
+        Resend étant basé aux États-Unis, l&apos;envoi d&apos;emails constitue un transfert de données hors Union
+        Européenne, encadré par les clauses contractuelles types (CCT) prévues par la réglementation européenne.
+      </p>
 
       <h2>6. Durée de conservation</h2>
       <p>
         Vos données sont conservées tant que votre compte est actif. Si vous supprimez votre compte (Profil →
-        Supprimer mon compte), l&apos;ensemble de vos données — profil, chevaux, programme, historique de progression —
-        est supprimé immédiatement et de façon irréversible de nos serveurs.
+        Supprimer mon compte), l&apos;ensemble de vos données — profil, chevaux, planning, agenda, journal,
+        coffre-fort, finances — est supprimé immédiatement et de façon irréversible de nos serveurs.
       </p>
-      <p>[Préciser ici si un délai de conservation différent s&apos;applique à des fins légales, ex. facturation.]</p>
 
       <h2>7. Vos droits</h2>
       <p>

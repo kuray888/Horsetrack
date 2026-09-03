@@ -15,6 +15,13 @@ import {
   loginRevenueCat,
   logoutRevenueCat,
 } from "@/lib/revenuecat";
+import {
+  DEFAULT_SUBSCRIPTION_STATE as DEFAULT,
+  computeIsActiveOrTrialing,
+  HORSE_LIMIT,
+  maxHorses,
+} from "./logic";
+import type { SubscriptionStatus, BillingPeriod, Persisted } from "./logic";
 
 /**
  * Entitlement d'abonnement, global à l'app. Pilote le gating de toute l'app
@@ -29,29 +36,13 @@ import {
  * — à supprimer une fois les achats réels opérationnels.
  *
  * Valeurs alignées sur l'enum Prisma SubscriptionStatus / BillingPeriod
- * (+ 'free' = jamais abonné).
+ * (+ 'free' = jamais abonné). La logique pure (calcul du statut effectif,
+ * limite de chevaux) vit dans ./logic.ts, testée séparément.
  */
-export type SubscriptionStatus = "free" | "trialing" | "active" | "expired" | "cancelled";
-export type BillingPeriod = "MONTHLY" | "ANNUAL";
-
-/** Nombre de chevaux inclus par l'abonnement, avant ajout des add-ons achetés. */
-export const HORSE_LIMIT = 3;
+export type { SubscriptionStatus, BillingPeriod, Persisted };
+export { HORSE_LIMIT, maxHorses, computeIsActiveOrTrialing };
 
 const KEY = "subscription_state_v1";
-
-type Persisted = {
-  status: SubscriptionStatus;
-  billingPeriod: BillingPeriod | null;
-  trialEndsAt: string | null; // ISO
-  extraHorseSlots: number;
-};
-
-const DEFAULT: Persisted = { status: "free", billingPeriod: null, trialEndsAt: null, extraHorseSlots: 0 };
-
-/** Nombre de chevaux autorisés pour un état d'abonnement donné. */
-export function maxHorses(s: Pick<Persisted, "extraHorseSlots">): number {
-  return HORSE_LIMIT + s.extraHorseSlots;
-}
 
 type SubscriptionContextValue = Persisted & {
   /** true tant qu'un abonnement (actif ou en essai) couvre le compte — seul
@@ -71,15 +62,6 @@ type SubscriptionContextValue = Persisted & {
 };
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
-
-function computeIsActiveOrTrialing(s: Pick<Persisted, "status" | "trialEndsAt">): boolean {
-  if (s.status === "active") return true;
-  if (s.status === "trialing") {
-    if (!s.trialEndsAt) return false;
-    return new Date(s.trialEndsAt).getTime() > Date.now();
-  }
-  return false;
-}
 
 /** Best-effort : le SKU exact dépend des produits créés dans App Store Connect
  * / Play Console (pas encore le cas) — à remplacer par un mapping exact une

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@cheval/db";
-import { sendReminderEmail } from "@/lib/resend";
+import { sendEmail } from "@/lib/resend";
 
 /**
- * Déclenché par Vercel Cron (cf. vercel.json) toutes les 15 minutes — Vercel
- * injecte automatiquement `Authorization: Bearer ${CRON_SECRET}` sur les
- * invocations qu'il déclenche lui-même tant que `CRON_SECRET` est défini en
- * variable d'env, donc pas de configuration manuelle supplémentaire côté
- * Vercel au-delà de la définir. Ne peut réellement tourner qu'une fois l'API
- * déployée — en local, cette route reste appelable manuellement pour tester.
+ * Déclenché toutes les 15 minutes par un workflow GitHub Actions (cf.
+ * .github/workflows/email-reminders-cron.yml), pas par Vercel Cron : le
+ * palier Hobby de Vercel ne permet qu'un cron quotidien, insuffisant pour des
+ * rappels "1h avant" un rendez-vous. Le workflow appelle simplement cette
+ * route déployée avec `Authorization: Bearer ${CRON_SECRET}`. Ne peut
+ * réellement tourner qu'une fois l'API déployée — en local, cette route
+ * reste appelable manuellement pour tester.
  */
 export async function GET(req: NextRequest) {
   const expected = process.env.CRON_SECRET;
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     });
     if (claim.count === 0) continue;
 
-    const ok = await sendReminderEmail(reminder.user.email, reminder.subject, reminder.body);
+    const ok = await sendEmail(reminder.user.email, reminder.subject, reminder.body);
     if (ok) {
       sent++;
     } else {

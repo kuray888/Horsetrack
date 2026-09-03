@@ -52,7 +52,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="today"
-        options={{ title: "Today", tabBarIcon: ({ focused }) => <TabIcon name="today" focused={focused} /> }}
+        options={{ title: "Aujourd'hui", tabBarIcon: ({ focused }) => <TabIcon name="today" focused={focused} /> }}
       />
       <Tabs.Screen
         name="planning"

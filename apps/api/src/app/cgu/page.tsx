@@ -7,7 +7,7 @@ import { LegalPage } from "@/components/LegalPage";
  * applicable — cf. /legal/cgu.md). */
 export default function CguPage() {
   return (
-    <LegalPage title="Conditions Générales d'Utilisation — Horsetrack" updated="28 juin 2026">
+    <LegalPage title="Conditions Générales d'Utilisation — Horsetrack" updated="3 septembre 2026">
       <h2>1. Objet</h2>
       <p>
         Les présentes Conditions Générales d&apos;Utilisation (« CGU ») régissent l&apos;accès et l&apos;utilisation de
@@ -21,35 +21,26 @@ export default function CguPage() {
       </p>
 
       <h2>2. Description du service</h2>
-      <p>Horsetrack est une application de coaching équestre qui permet à l&apos;Utilisateur de :</p>
+      <p>Horsetrack est une application de gestion et de suivi équestre qui permet à l&apos;Utilisateur de :</p>
       <ul>
         <li>créer un profil cavalier et un ou plusieurs profils cheval (discipline, niveau, forme physique, antécédents de blessure, etc.) ;</li>
-        <li>recevoir un programme d&apos;entraînement personnalisé généré automatiquement à partir de ce profil ;</li>
-        <li>suivre sa progression (séances réalisées, statistiques, badges) ;</li>
-        <li>
-          échanger avec un assistant conversationnel nommé Julien (« le Coach IA »), propulsé par un modèle
-          d&apos;intelligence artificielle tiers (Anthropic, modèle Claude), à des fins d&apos;information générale sur
-          l&apos;entraînement et le bien-être équin.
-        </li>
+        <li>planifier manuellement ses séances d&apos;entraînement et suivre leur réalisation ;</li>
+        <li>gérer un agenda de rendez-vous (vétérinaire, ostéopathe, maréchal, dentiste, concours) avec rappels ;</li>
+        <li>tenir un journal d&apos;entraînement et un coffre-fort numérique de documents (factures, ordonnances, rapports) ;</li>
+        <li>suivre les dépenses liées à chaque cheval et se fixer des objectifs ;</li>
+        <li>partager l&apos;accès à un cheval avec une demi-pension ou un coach.</li>
       </ul>
 
-      <h2>3. Avertissement important — le Coach IA n&apos;est pas un professionnel</h2>
+      <h2>3. Avertissement important</h2>
       <p>
-        Le Coach IA fournit des conseils générés automatiquement à titre purement informatif. Il <strong>ne remplace
-        en aucun cas l&apos;avis d&apos;un vétérinaire, d&apos;un ostéopathe équin ou d&apos;un enseignant d&apos;équitation
-        qualifié</strong>. L&apos;Utilisateur reconnaît que :
+        L&apos;Application est un outil d&apos;organisation et de suivi ; elle ne formule aucune recommandation
+        médicale, nutritionnelle ou d&apos;entraînement automatisée. Elle <strong>ne remplace en aucun cas l&apos;avis
+        d&apos;un vétérinaire, d&apos;un ostéopathe équin ou d&apos;un enseignant d&apos;équitation qualifié</strong>.
+        L&apos;Utilisateur reconnaît que toute décision concernant la santé, l&apos;alimentation, le ferrage, les soins
+        vétérinaires ou l&apos;entraînement de son cheval doit être prise en concertation avec un professionnel
+        qualifié, et que l&apos;Éditeur ne saurait être tenu responsable des conséquences d&apos;une décision prise sur
+        la seule base des informations que l&apos;Utilisateur a lui-même enregistrées dans l&apos;Application.
       </p>
-      <ul>
-        <li>les réponses du Coach IA peuvent être incomplètes, inexactes ou inadaptées à une situation spécifique ;</li>
-        <li>
-          toute décision concernant la santé, l&apos;alimentation, le ferrage ou les soins vétérinaires de son cheval
-          doit être prise en concertation avec un professionnel qualifié ;
-        </li>
-        <li>
-          l&apos;Éditeur ne saurait être tenu responsable des conséquences d&apos;une décision prise sur la seule base
-          d&apos;une réponse du Coach IA.
-        </li>
-      </ul>
 
       <h2>4. Création de compte et âge minimum</h2>
       <p>L&apos;accès à l&apos;Application nécessite la création d&apos;un compte (adresse email et mot de passe).</p>
@@ -66,13 +57,13 @@ export default function CguPage() {
 
       <h2>5. Abonnements, essai gratuit et paiement</h2>
       <p>
-        Certaines fonctionnalités (notamment l&apos;accès complet au programme d&apos;entraînement au-delà de la semaine
-        en cours) sont réservées aux Utilisateurs disposant d&apos;un abonnement payant ou d&apos;un essai gratuit en
-        cours.
+        L&apos;accès aux fonctionnalités de l&apos;Application (planning, agenda, coffre-fort, partage, suivi financier)
+        est réservé aux Utilisateurs disposant d&apos;un abonnement payant ou d&apos;un essai gratuit en cours ; en
+        dehors de cette période, le compte reste consultable en lecture seule.
       </p>
       <ul>
         <li>
-          <strong>Essai gratuit</strong> : un essai gratuit de 7 jours peut être proposé à la souscription. Sauf
+          <strong>Essai gratuit</strong> : un essai gratuit de 2 mois peut être proposé à la souscription. Sauf
           annulation avant son terme, il se transforme automatiquement en abonnement payant.
         </li>
         <li><strong>Formules</strong> : abonnement mensuel ou annuel, dont le prix est affiché dans l&apos;Application avant tout engagement.</li>
@@ -98,7 +89,7 @@ export default function CguPage() {
       <p>
         L&apos;Utilisateur peut supprimer définitivement son compte et l&apos;ensemble de ses données associées à tout
         moment depuis l&apos;Application (Profil → Supprimer mon compte). Cette action est irréversible : profil
-        cavalier, profils cheval, programme d&apos;entraînement et historique de progression sont supprimés sans
+        cavalier, profils cheval, planning, agenda, journal, coffre-fort et historique financier sont supprimés sans
         possibilité de récupération.
       </p>
       <p>
@@ -110,16 +101,12 @@ export default function CguPage() {
       <p>L&apos;Utilisateur s&apos;engage à utiliser l&apos;Application conformément à sa destination et à ne pas :</p>
       <ul>
         <li>tenter d&apos;accéder aux données d&apos;un autre Utilisateur ;</li>
-        <li>
-          utiliser le Coach IA à des fins étrangères au domaine équestre (entraînement, santé, bien-être du cheval)
-          de manière abusive ou répétée ;
-        </li>
         <li>perturber le fonctionnement de l&apos;Application ou de ses serveurs.</li>
       </ul>
 
       <h2>8. Propriété intellectuelle</h2>
       <p>
-        L&apos;Application, son contenu (textes, visuels, structure des programmes générés) et sa marque sont la
+        L&apos;Application, son contenu (textes, visuels, structure) et sa marque sont la
         propriété de l&apos;Éditeur ou de ses concédants. Aucune disposition des présentes CGU ne confère à
         l&apos;Utilisateur de droit de propriété intellectuelle sur l&apos;Application.
       </p>
@@ -140,8 +127,8 @@ export default function CguPage() {
       <p>Dans la limite permise par la loi applicable, l&apos;Éditeur ne saurait être tenu responsable :</p>
       <ul>
         <li>
-          des conséquences d&apos;un entraînement ou d&apos;une décision de santé prise sur la base des recommandations
-          du programme ou du Coach IA (cf. article 3) ;
+          des conséquences d&apos;une décision d&apos;entraînement, de santé ou de ferrage prise par l&apos;Utilisateur
+          (cf. article 3) ;
         </li>
         <li>des dommages indirects résultant de l&apos;utilisation de l&apos;Application ;</li>
         <li>de l&apos;indisponibilité temporaire du service.</li>

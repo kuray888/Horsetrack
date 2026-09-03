@@ -13,7 +13,7 @@ const resend = apiKey ? new Resend(apiKey) : null;
  * DNS) tant qu'un domaine "horsetrack" n'est pas configuré et vérifié. */
 const FROM = process.env.RESEND_FROM_EMAIL || "Horsetrack <onboarding@resend.dev>";
 
-export async function sendReminderEmail(to: string, subject: string, body: string): Promise<boolean> {
+export async function sendEmail(to: string, subject: string, body: string): Promise<boolean> {
   if (!resend) {
     console.warn("[resend] RESEND_API_KEY absent — email non envoyé (no-op) :", { to, subject });
     return false;

@@ -35,17 +35,44 @@ function generateId(): string {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function inviteCollaborator(horseId: string, email: string, role: CollaboratorRole): Promise<boolean> {
+/** Prévient l'invité par email qu'un partage l'attend — best-effort, ne doit
+ * jamais faire échouer l'invitation elle-même (la ligne horse_collaborators
+ * existe déjà) : un échec réseau/Resend retarde juste la découverte du
+ * partage jusqu'à ce que l'invité ouvre l'app avec le même email. */
+async function notifyInvitee(horseName: string, invitedEmail: string, role: CollaboratorRole): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/horse-invites`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ horseName, invitedEmail, role }),
+    });
+  } catch {
+    // best-effort, cf. commentaire ci-dessus.
+  }
+}
+
+export async function inviteCollaborator(
+  horseId: string,
+  email: string,
+  role: CollaboratorRole,
+  horseName: string
+): Promise<boolean> {
+  const invitedEmail = email.trim().toLowerCase();
   // `updatedAt` (`@updatedAt` côté Prisma) n'a pas non plus de vrai DEFAULT
   // SQL — même raison que `id` ci-dessus, à fournir explicitement.
   const { error } = await supabase.from("horse_collaborators").insert({
     id: generateId(),
     horseId,
-    invitedEmail: email.trim().toLowerCase(),
+    invitedEmail,
     role,
     updatedAt: new Date().toISOString(),
   });
-  return !error;
+  if (error) return false;
+  notifyInvitee(horseName, invitedEmail, role);
+  return true;
 }
 
 export async function listCollaborators(horseId: string): Promise<Collaborator[]> {
