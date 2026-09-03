@@ -2,7 +2,8 @@ import { supabase } from "@/lib/supabase";
 import { mapRemoteHorse, type RemoteHorse } from "@/lib/cloudSync";
 import type { Horse } from "@/horses/store";
 
-export type CollaboratorRole = "DEMI_PENSION" | "COACH";
+export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM";
+export type InviteResult = "ok" | "no_account" | "error";
 export type CollaboratorStatus = "PENDING" | "ACCEPTED";
 
 export type Collaborator = {
@@ -35,6 +36,32 @@ function generateId(): string {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Vérifie qu'un compte Horsetrack existe déjà pour cet email — appelé avant
+ * de créer l'invitation (cf. inviteCollaborator) pour ne jamais inviter
+ * quelqu'un qui n'aura aucun moyen de découvrir le partage (cf. audit produit
+ * du 2026-09-03). Fail-open en cas d'erreur réseau/auth : cette vérification
+ * est une aide UX, pas une frontière de sécurité (l'acceptation reste de
+ * toute façon gardée par RLS sur l'email authentifié) — bloquer toutes les
+ * invitations à cause d'un problème réseau transitoire serait pire que le
+ * problème qu'on essaie d'éviter.
+ */
+async function accountExists(email: string): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return true;
+    const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/account/exists?email=${encodeURIComponent(email)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return true;
+    const json = await res.json().catch(() => null);
+    return json?.exists !== false;
+  } catch {
+    return true;
+  }
+}
+
 /** Prévient l'invité par email qu'un partage l'attend — best-effort, ne doit
  * jamais faire échouer l'invitation elle-même (la ligne horse_collaborators
  * existe déjà) : un échec réseau/Resend retarde juste la découverte du
@@ -59,8 +86,11 @@ export async function inviteCollaborator(
   email: string,
   role: CollaboratorRole,
   horseName: string
-): Promise<boolean> {
+): Promise<InviteResult> {
   const invitedEmail = email.trim().toLowerCase();
+
+  if (!(await accountExists(invitedEmail))) return "no_account";
+
   // `updatedAt` (`@updatedAt` côté Prisma) n'a pas non plus de vrai DEFAULT
   // SQL — même raison que `id` ci-dessus, à fournir explicitement.
   const { error } = await supabase.from("horse_collaborators").insert({
@@ -70,9 +100,9 @@ export async function inviteCollaborator(
     role,
     updatedAt: new Date().toISOString(),
   });
-  if (error) return false;
+  if (error) return "error";
   notifyInvitee(horseName, invitedEmail, role);
-  return true;
+  return "ok";
 }
 
 export async function listCollaborators(horseId: string): Promise<Collaborator[]> {

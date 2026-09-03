@@ -313,6 +313,10 @@ model Expense {
   category ExpenseCategory
   date     DateTime
   notes    String
+  /// Statut payé/à régler (fonctionnalité Premium, cf. Locked côté mobile) —
+  /// une dépense créée en gratuit reste "à régler" par défaut, faute de
+  /// pouvoir basculer le statut.
+  isPaid   Boolean         @default(false)
 
   /// Rattachement optionnel à un rendez-vous existant (ex : facture vétérinaire
   /// liée au rendez-vous correspondant) — jamais créé automatiquement, cf.
@@ -504,6 +508,8 @@ enum Mood {
 enum HorseCollaboratorRole {
   DEMI_PENSION
   COACH
+  RIDER // cavalière/cavalier additionnel·le (ex : copropriétaire, famille)
+  GROOM // lad / palefrenier
 
   @@map("horse_collaborator_role")
 }

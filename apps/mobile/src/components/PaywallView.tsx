@@ -30,7 +30,7 @@ const PRICE_SUB: Record<BillingPeriod, string> = {
  * dépenses de base et objectifs sont gratuits, cf. rls.sql). */
 const BULLETS: string[] = [
   "3 chevaux (au lieu d'1)",
-  "Partage avec 1 demi-pension ou coach",
+  "Partage avec 1 collaborateur·rice (demi-pension, coach, cavalière, groom)",
   "Coffre-fort numérique",
   "Concours multi-épreuves",
   "Rappels automatiques (push + email)",

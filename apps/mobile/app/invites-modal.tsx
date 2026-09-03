@@ -10,6 +10,8 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 const ROLE_LABEL: Record<CollaboratorRole, string> = {
   DEMI_PENSION: "demi-pension",
   COACH: "coach",
+  RIDER: "cavalière/cavalier",
+  GROOM: "groom",
 };
 
 /** Affiché juste après connexion/inscription s'il existe au moins une

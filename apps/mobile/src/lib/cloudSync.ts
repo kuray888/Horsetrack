@@ -598,6 +598,7 @@ export async function pushExpense(expense: Expense): Promise<void> {
     notes: expense.notes,
     appointmentId: expense.appointmentId,
     documentId: expense.documentId,
+    isPaid: expense.isPaid,
     updatedAt: new Date().toISOString(),
   });
   if (error) console.warn("[cloudSync] pushExpense échoué", error);
@@ -620,7 +621,7 @@ export async function deleteExpenseRemote(expenseId: string): Promise<void> {
 export async function pullExpenses(): Promise<Expense[]> {
   const { data, error } = await supabase
     .from("expenses")
-    .select("id, horseId, amount, currency, category, date, notes, appointmentId, documentId");
+    .select("id, horseId, amount, currency, category, date, notes, appointmentId, documentId, isPaid");
   if (error || !data) return [];
   return data.map((row) => ({
     id: row.id,
@@ -632,5 +633,6 @@ export async function pullExpenses(): Promise<Expense[]> {
     notes: row.notes,
     appointmentId: row.appointmentId ?? null,
     documentId: row.documentId ?? null,
+    isPaid: row.isPaid ?? false,
   }));
 }

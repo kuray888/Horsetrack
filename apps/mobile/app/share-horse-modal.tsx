@@ -22,6 +22,8 @@ const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-t
 const ROLE_META: Record<CollaboratorRole, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
   DEMI_PENSION: { label: "Demi-pension", icon: "handshake-outline" },
   COACH: { label: "Coach / enseignant", icon: "school-outline" },
+  RIDER: { label: "Cavalière / cavalier", icon: "account-outline" },
+  GROOM: { label: "Groom / palefrenier", icon: "broom" },
 };
 
 const STATUS_META: Record<Collaborator["status"], string> = {
@@ -29,8 +31,9 @@ const STATUS_META: Record<Collaborator["status"], string> = {
   ACCEPTED: "Actif",
 };
 
-/** Réservé à Paddock+ et 1 collaborateur par cheval (cf. grille tarifaire) —
- * même pattern d'upsell que add-horse-modal.tsx pour la limite de chevaux. */
+/** Réservé aux comptes Premium, et 1 collaborateur par cheval (cf. grille
+ * tarifaire) — même pattern d'upsell que add-horse-modal.tsx pour la limite
+ * de chevaux. */
 function ShareLocked({ message }: { message: string }) {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
@@ -99,10 +102,15 @@ export default function ShareHorseModal() {
     try {
       // Non-null : le early return `if (!horse)` plus haut garantit sa présence ;
       // TS ne narrowe pas à travers cette closure imbriquée.
-      const ok = await inviteCollaborator(horseId, trimmed, role, horse!.name);
-      if (ok) {
+      const result = await inviteCollaborator(horseId, trimmed, role, horse!.name);
+      if (result === "ok") {
         setEmail("");
         refresh();
+      } else if (result === "no_account") {
+        Alert.alert(
+          "Pas encore de compte Horsetrack",
+          "Cette personne doit d'abord créer un compte Horsetrack avec cet email avant de pouvoir être invitée."
+        );
       } else {
         // Cause la plus probable : cet email est déjà invité sur ce cheval
         // (contrainte unique horseId+invitedEmail) — pas une erreur réseau,
@@ -133,8 +141,8 @@ export default function ShareHorseModal() {
           </TouchableOpacity>
         </View>
         <Text className="text-sm text-muted">
-          Connecte une demi-pension ou un coach pour qu&apos;il puisse lire et écrire dans le calendrier de ce
-          cheval.
+          Connecte une demi-pension, un coach, une cavalière ou un groom pour qu&apos;il·elle puisse lire et écrire
+          dans le calendrier de ce cheval.
         </Text>
 
         {!loaded ? null : collaborators.length === 0 ? (
@@ -185,7 +193,7 @@ export default function ShareHorseModal() {
               />
             </Field>
             <Field label="Rôle">
-              <View className="flex-row gap-2">
+              <View className="flex-row flex-wrap gap-2">
                 {(
                   Object.entries(ROLE_META) as [
                     CollaboratorRole,
@@ -198,7 +206,7 @@ export default function ShareHorseModal() {
                         key={value}
                         onPress={() => setRole(value)}
                         activeOpacity={0.8}
-                        className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-full border px-3.5 py-2 ${
+                        className={`w-[48%] flex-row items-center justify-center gap-1.5 rounded-full border px-3.5 py-2 ${
                           selected ? "border-primary bg-highlight" : "border-border bg-surface"
                         }`}
                       >

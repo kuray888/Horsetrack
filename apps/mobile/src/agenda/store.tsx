@@ -178,6 +178,10 @@ export type Expense = {
    * — un collaborateur verra "reçu non disponible" si le document appartient
    * au propriétaire, RLS documents n'étant jamais partagée. */
   documentId: string | null;
+  /** Statut payé/à régler — fonctionnalité Premium (cf. <Locked> dans
+   * (tabs)/agenda.tsx) ; reste toujours `false` sur un compte gratuit,
+   * faute de pouvoir basculer le statut. */
+  isPaid: boolean;
 };
 
 export type NewExpense = Omit<Expense, "id" | "horseId">;
@@ -255,6 +259,7 @@ type AgendaContextValue = {
   deleteJournalEntry: (entryId: string) => void;
   addExpense: (expense: NewExpense) => void;
   deleteExpense: (expenseId: string) => void;
+  toggleExpensePaid: (expenseId: string) => void;
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
   /** Efface rendez-vous + documents + journal + dépenses locaux (cf. suppression de compte dans Profil). */
   clearAll: () => Promise<void>;
@@ -319,6 +324,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
               horseId: e.horseId ?? null,
               appointmentId: e.appointmentId ?? null,
               documentId: e.documentId ?? null,
+              isPaid: e.isPaid ?? false,
             }))
           );
         }
@@ -558,6 +564,15 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     deleteExpenseRemote(expenseId).catch(() => {});
   }, []);
 
+  const toggleExpensePaid = useCallback((expenseId: string) => {
+    setExpenses((list) => {
+      const next = list.map((e) => (e.id === expenseId ? { ...e, isPaid: !e.isPaid } : e));
+      const updated = next.find((e) => e.id === expenseId);
+      if (updated) pushExpense(updated).catch(() => {});
+      return next;
+    });
+  }, []);
+
   const hydrateExpensesFromCloud = useCallback((next: Expense[]) => {
     setExpenses(next);
     SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(next));
@@ -600,6 +615,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       deleteJournalEntry,
       addExpense,
       deleteExpense,
+      toggleExpensePaid,
       hydrateExpensesFromCloud,
       clearAll,
     }),
@@ -626,6 +642,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       deleteJournalEntry,
       addExpense,
       deleteExpense,
+      toggleExpensePaid,
       hydrateExpensesFromCloud,
       clearAll,
     ]

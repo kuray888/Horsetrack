@@ -213,6 +213,7 @@ export default function AgendaScreen() {
     deleteJournalEntry,
     addExpense,
     deleteExpense,
+    toggleExpensePaid,
   } = useAgenda();
   const [section, setSection] = useState<"appointments" | "documents" | "journal" | "finances">("appointments");
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
@@ -264,6 +265,10 @@ export default function AgendaScreen() {
   // Toutes les dépenses sont en EUR pour l'instant (cf. Expense.currency) —
   // un total multi-devises n'aurait pas de sens sans conversion, hors scope.
   const totalExpenses = sortedExpenses.reduce((sum, e) => sum + e.amount, 0);
+  // Statut payé/à régler Premium (cf. Expense.isPaid) — en gratuit, tout
+  // reste "à régler" faute de pouvoir basculer le statut, cf. handleAddExpense.
+  const paidExpenses = sortedExpenses.filter((e) => e.isPaid).reduce((sum, e) => sum + e.amount, 0);
+  const pendingExpenses = totalExpenses - paidExpenses;
 
   // Suggestion de rapprochement (cf. plan Phase 3) : le rendez-vous le plus
   // récent du même type pour ce cheval, jamais lié automatiquement — juste
@@ -405,6 +410,10 @@ export default function AgendaScreen() {
       notes: expenseForm.notes.trim(),
       appointmentId: expenseForm.appointmentId,
       documentId: null,
+      // Le statut payé/à régler se règle après coup depuis la liste (cf.
+      // toggle Premium sur chaque dépense) — une dépense vient d'être créée,
+      // elle est donc "à régler" par défaut.
+      isPaid: false,
     });
     setExpenseForm(emptyExpenseForm);
     setShowExpenseForm(false);
@@ -886,10 +895,22 @@ export default function AgendaScreen() {
         <>
           {sortedExpenses.length > 0 ? (
             <FadeInView delay={100}>
-              <View className={`${CARD} flex-row items-center justify-between`}>
-                <Text className="text-sm font-semibold text-muted">Total dépensé</Text>
-                <Text className="text-xl font-extrabold text-text">{formatAmount(totalExpenses, "EUR")}</Text>
-              </View>
+              <Locked message="Détail payé/à régler réservé à l'abonnement Premium">
+                <View className={`${CARD} flex-row items-center justify-between`}>
+                  <View className="items-center gap-0.5">
+                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Total</Text>
+                    <Text className="text-lg font-extrabold text-text">{formatAmount(totalExpenses, "EUR")}</Text>
+                  </View>
+                  <View className="items-center gap-0.5">
+                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Payé</Text>
+                    <Text className="text-lg font-extrabold text-success">{formatAmount(paidExpenses, "EUR")}</Text>
+                  </View>
+                  <View className="items-center gap-0.5">
+                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">À payer</Text>
+                    <Text className="text-lg font-extrabold text-danger">{formatAmount(pendingExpenses, "EUR")}</Text>
+                  </View>
+                </View>
+              </Locked>
             </FadeInView>
           ) : null}
 
@@ -998,6 +1019,7 @@ export default function AgendaScreen() {
                   linkedAppointment={horseAppointments.find((a) => a.id === expense.appointmentId) ?? null}
                   linkedDocument={documents.find((d) => d.id === expense.documentId) ?? null}
                   onDelete={() => deleteExpense(expense.id)}
+                  onTogglePaid={() => toggleExpensePaid(expense.id)}
                 />
               </FadeInView>
             ))
@@ -1469,11 +1491,13 @@ function ExpenseCard({
   linkedAppointment,
   linkedDocument,
   onDelete,
+  onTogglePaid,
 }: {
   expense: Expense;
   linkedAppointment: Appointment | null;
   linkedDocument: Doc | null;
   onDelete: () => void;
+  onTogglePaid: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const meta = EXPENSE_META[expense.category];
@@ -1487,7 +1511,12 @@ function ExpenseCard({
           <Text className="text-base font-bold text-text">{meta.label}</Text>
           <Text className="text-sm text-muted">{formatDate(expense.date)}</Text>
         </View>
-        <Text className="text-base font-extrabold text-text">{formatAmount(expense.amount, expense.currency)}</Text>
+        <View className="items-end gap-0.5">
+          <Text className="text-base font-extrabold text-text">{formatAmount(expense.amount, expense.currency)}</Text>
+          <Text className={`text-xs font-semibold ${expense.isPaid ? "text-success" : "text-muted"}`}>
+            {expense.isPaid ? "Payé" : "À régler"}
+          </Text>
+        </View>
       </View>
 
       {expanded ? (
@@ -1514,6 +1543,13 @@ function ExpenseCard({
               </View>
             )
           ) : null}
+          <Locked message="Basculer le statut payé/à régler réservé à l'abonnement Premium">
+            <TouchableOpacity onPress={onTogglePaid} activeOpacity={0.7} className="mt-1">
+              <Text className="text-sm font-semibold text-accent">
+                {expense.isPaid ? "Marquer à régler" : "Marquer payée"}
+              </Text>
+            </TouchableOpacity>
+          </Locked>
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="mt-1">
             <Text className="text-sm font-semibold text-danger">Supprimer cette dépense</Text>
           </TouchableOpacity>

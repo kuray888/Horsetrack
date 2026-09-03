@@ -68,7 +68,7 @@ export type Horse = {
    * du profil et l'exclusion du quota de chevaux du palier (cf. profile.tsx,
    * today.tsx). Un cheval partagé n'est jamais retourné par `pushHorses` (cf.
    * cloudSync.ts), seulement par `pullSharedHorses`. */
-  sharedRole: "DEMI_PENSION" | "COACH" | null;
+  sharedRole: "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM" | null;
 };
 
 export type NewHorse = {

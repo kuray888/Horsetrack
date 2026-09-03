@@ -34,6 +34,30 @@ const INTENSITY_META: Record<SessionIntensity, { label: string; icon: IconSpec }
   high: { label: "Intense", icon: { name: "circle", color: colors.danger } },
 };
 
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function addMonths(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth() + n, 1);
+}
+
+/** Grille de 6 semaines (toujours 42 jours) commençant un lundi, incluant les
+ * jours du mois précédent/suivant nécessaires pour compléter la première et
+ * la dernière semaine — même convention "lundi = début de semaine" que
+ * weekStart plus bas. */
+function buildMonthGrid(monthCursor: Date): Date[] {
+  const first = startOfMonth(monthCursor);
+  const firstWeekday = (first.getDay() + 6) % 7;
+  const gridStart = new Date(first);
+  gridStart.setDate(gridStart.getDate() - firstWeekday);
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+}
+
 function dayHeaderLabel(date: Date): string {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -245,6 +269,78 @@ function SessionCard({
   );
 }
 
+const WEEKDAY_HEADER = ["L", "M", "M", "J", "V", "S", "D"];
+
+function MonthGrid({
+  monthCursor,
+  selectedDay,
+  onSelectDay,
+  onChangeMonth,
+  sessionsByDay,
+}: {
+  monthCursor: Date;
+  selectedDay: Date;
+  onSelectDay: (d: Date) => void;
+  onChangeMonth: (delta: number) => void;
+  sessionsByDay: Map<string, TrainingSession[]>;
+}) {
+  const todayKey = new Date().toDateString();
+  const days = buildMonthGrid(monthCursor);
+  return (
+    <View className={`${CARD} gap-3`}>
+      <View className="flex-row items-center justify-between">
+        <Text className="text-base font-bold capitalize text-text">
+          {MONTHS[monthCursor.getMonth()]} {monthCursor.getFullYear()}
+        </Text>
+        <View className="flex-row gap-1">
+          <TouchableOpacity onPress={() => onChangeMonth(-1)} hitSlop={8} className="p-1.5">
+            <MaterialCommunityIcons name="chevron-left" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onChangeMonth(1)} hitSlop={8} className="p-1.5">
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <View className="flex-row">
+        {WEEKDAY_HEADER.map((w, i) => (
+          <Text key={i} className="flex-1 text-center text-xs font-semibold uppercase text-muted">
+            {w}
+          </Text>
+        ))}
+      </View>
+      <View className="flex-row flex-wrap">
+        {days.map((d) => {
+          const inMonth = d.getMonth() === monthCursor.getMonth();
+          const isToday = d.toDateString() === todayKey;
+          const isSelected = isSameDate(d, selectedDay);
+          const daySessions = sessionsByDay.get(d.toDateString()) ?? [];
+          return (
+            <TouchableOpacity
+              key={d.toDateString()}
+              onPress={() => onSelectDay(d)}
+              activeOpacity={0.7}
+              className="w-[14.28%] items-center gap-1 py-1.5"
+            >
+              <View
+                className={`h-8 w-8 items-center justify-center rounded-full ${
+                  isSelected ? "bg-primary" : isToday ? "bg-highlight" : ""
+                }`}
+              >
+                <Text
+                  className={`text-sm ${!inMonth ? "text-border" : isSelected ? "font-bold text-on-primary" : "text-text"}`}
+                >
+                  {d.getDate()}
+                </Text>
+              </View>
+              <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: daySessions.length > 0 ? colors.accent : "transparent" }} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function PlanningScreen() {
   const { selectedHorse } = useHorses();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
@@ -254,6 +350,9 @@ export default function PlanningScreen() {
   const [form, setForm] = useState<SessionForm>(emptyForm());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ActivityType | "all">("all");
+  const [viewMode, setViewMode] = useState<"list" | "month">("list");
+  const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
+  const [selectedDay, setSelectedDay] = useState(() => new Date());
 
   const horseSessions = sessions.filter((s) => s.horseId === selectedHorse?.id);
   const today = new Date();
@@ -271,6 +370,17 @@ export default function PlanningScreen() {
 
   const filteredSessions = filter === "all" ? horseSessions : horseSessions.filter((s) => s.activityType === filter);
 
+  // Vue mensuelle (cf. MonthGrid) : regroupe les séances déjà filtrées par
+  // jour pour poser les puces de la grille et la liste du jour sélectionné.
+  const sessionsByDay = new Map<string, TrainingSession[]>();
+  for (const s of filteredSessions) {
+    const key = s.date.toDateString();
+    sessionsByDay.set(key, [...(sessionsByDay.get(key) ?? []), s]);
+  }
+  const selectedDaySessions = (sessionsByDay.get(selectedDay.toDateString()) ?? []).sort((a, b) =>
+    a.time.localeCompare(b.time)
+  );
+
   const upcoming = filteredSessions
     .filter((s) => !s.completed && s.date >= todayStart)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -281,9 +391,9 @@ export default function PlanningScreen() {
   const upcomingGroups = groupByDay(upcoming);
   const doneGroups = groupByDay(done.slice(0, 20));
 
-  function openCreateForm() {
+  function openCreateForm(date?: Date) {
     setEditingId(null);
-    setForm(emptyForm());
+    setForm(date ? { ...emptyForm(), date } : emptyForm());
     setShowForm(true);
   }
 
@@ -358,6 +468,23 @@ export default function PlanningScreen() {
         <View className="gap-1">
           <Text className="text-3xl font-extrabold tracking-tight text-text">Planning</Text>
           <Text className="text-base text-muted">Séances d&apos;entraînement de {selectedHorse?.name ?? "ton cheval"}</Text>
+        </View>
+      </FadeInView>
+
+      <FadeInView delay={20}>
+        <View className="flex-row gap-2 self-start rounded-full bg-surface p-1">
+          {(["list", "month"] as const).map((mode) => (
+            <TouchableOpacity
+              key={mode}
+              onPress={() => setViewMode(mode)}
+              activeOpacity={0.85}
+              className={`rounded-full px-4 py-1.5 ${viewMode === mode ? "bg-primary" : ""}`}
+            >
+              <Text className={`text-sm font-semibold ${viewMode === mode ? "text-on-primary" : "text-muted"}`}>
+                {mode === "list" ? "Liste" : "Mois"}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </FadeInView>
 
@@ -505,29 +632,33 @@ export default function PlanningScreen() {
         </FadeInView>
       ) : null}
 
-      <FadeInView delay={120}>
-        <Text className="text-xl font-bold text-text">À venir</Text>
-      </FadeInView>
+      {viewMode === "month" ? (
+        <>
+          <FadeInView delay={120}>
+            <MonthGrid
+              monthCursor={monthCursor}
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDay}
+              onChangeMonth={(delta) => {
+                const next = addMonths(monthCursor, delta);
+                setMonthCursor(next);
+                setSelectedDay((d) => (d.getMonth() === next.getMonth() ? d : next));
+              }}
+              sessionsByDay={sessionsByDay}
+            />
+          </FadeInView>
 
-      {upcoming.length === 0 ? (
-        <FadeInView delay={160}>
-          <View className={`${CARD} items-center gap-2`}>
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
-              <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
-            </View>
-            <Text className="text-sm text-muted">
-              {filter === "all" ? "Aucune séance planifiée." : "Aucune séance de ce type à venir."}
-            </Text>
-          </View>
-        </FadeInView>
-      ) : (
-        upcomingGroups.map((group, gi) => (
-          <View key={group.key} className="gap-2">
-            <FadeInView delay={160 + gi * 30}>
-              <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
+          <FadeInView delay={160}>
+            <Text className="text-xl font-bold text-text">{dayHeaderLabel(selectedDay)}</Text>
+          </FadeInView>
+
+          {selectedDaySessions.length === 0 ? (
+            <FadeInView delay={190}>
+              <AddToggle label="Planifier une séance ce jour" onPress={() => openCreateForm(selectedDay)} />
             </FadeInView>
-            {group.items.map((session, i) => (
-              <FadeInView key={session.id} delay={170 + gi * 30 + i * 40}>
+          ) : (
+            selectedDaySessions.map((session, i) => (
+              <FadeInView key={session.id} delay={190 + i * 40}>
                 <SessionCard
                   session={session}
                   expanded={expandedId === session.id}
@@ -538,38 +669,78 @@ export default function PlanningScreen() {
                   onDelete={() => confirmDelete(session)}
                 />
               </FadeInView>
-            ))}
-          </View>
-        ))
-      )}
-
-      {done.length > 0 ? (
-        <>
-          <FadeInView delay={220}>
-            <Text className="mt-2 text-xl font-bold text-text">Passées</Text>
-          </FadeInView>
-          {doneGroups.map((group, gi) => (
-            <View key={group.key} className="gap-2">
-              <FadeInView delay={240 + gi * 20}>
-                <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
-              </FadeInView>
-              {group.items.map((session, i) => (
-                <FadeInView key={session.id} delay={250 + gi * 20 + i * 30}>
-                  <SessionCard
-                    session={session}
-                    expanded={expandedId === session.id}
-                    onPress={() => setExpandedId(expandedId === session.id ? null : session.id)}
-                    onToggleDone={() => toggleCompleted(session.id)}
-                    onEdit={() => openEditForm(session)}
-                    onDuplicate={() => handleDuplicate(session)}
-                    onDelete={() => confirmDelete(session)}
-                  />
-                </FadeInView>
-              ))}
-            </View>
-          ))}
+            ))
+          )}
         </>
-      ) : null}
+      ) : (
+        <>
+          <FadeInView delay={120}>
+            <Text className="text-xl font-bold text-text">À venir</Text>
+          </FadeInView>
+
+          {upcoming.length === 0 ? (
+            <FadeInView delay={160}>
+              <View className={`${CARD} items-center gap-2`}>
+                <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+                  <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
+                </View>
+                <Text className="text-sm text-muted">
+                  {filter === "all" ? "Aucune séance planifiée." : "Aucune séance de ce type à venir."}
+                </Text>
+              </View>
+            </FadeInView>
+          ) : (
+            upcomingGroups.map((group, gi) => (
+              <View key={group.key} className="gap-2">
+                <FadeInView delay={160 + gi * 30}>
+                  <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
+                </FadeInView>
+                {group.items.map((session, i) => (
+                  <FadeInView key={session.id} delay={170 + gi * 30 + i * 40}>
+                    <SessionCard
+                      session={session}
+                      expanded={expandedId === session.id}
+                      onPress={() => setExpandedId(expandedId === session.id ? null : session.id)}
+                      onToggleDone={() => toggleCompleted(session.id)}
+                      onEdit={() => openEditForm(session)}
+                      onDuplicate={() => handleDuplicate(session)}
+                      onDelete={() => confirmDelete(session)}
+                    />
+                  </FadeInView>
+                ))}
+              </View>
+            ))
+          )}
+
+          {done.length > 0 ? (
+            <>
+              <FadeInView delay={220}>
+                <Text className="mt-2 text-xl font-bold text-text">Passées</Text>
+              </FadeInView>
+              {doneGroups.map((group, gi) => (
+                <View key={group.key} className="gap-2">
+                  <FadeInView delay={240 + gi * 20}>
+                    <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
+                  </FadeInView>
+                  {group.items.map((session, i) => (
+                    <FadeInView key={session.id} delay={250 + gi * 20 + i * 30}>
+                      <SessionCard
+                        session={session}
+                        expanded={expandedId === session.id}
+                        onPress={() => setExpandedId(expandedId === session.id ? null : session.id)}
+                        onToggleDone={() => toggleCompleted(session.id)}
+                        onEdit={() => openEditForm(session)}
+                        onDuplicate={() => handleDuplicate(session)}
+                        onDelete={() => confirmDelete(session)}
+                      />
+                    </FadeInView>
+                  ))}
+                </View>
+              ))}
+            </>
+          ) : null}
+        </>
+      )}
     </Screen>
     <PickerOverlaySlot />
     </>
