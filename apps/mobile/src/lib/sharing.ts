@@ -65,8 +65,12 @@ async function accountExists(email: string): Promise<boolean> {
 /** Prévient l'invité par email qu'un partage l'attend — best-effort, ne doit
  * jamais faire échouer l'invitation elle-même (la ligne horse_collaborators
  * existe déjà) : un échec réseau/Resend retarde juste la découverte du
- * partage jusqu'à ce que l'invité ouvre l'app avec le même email. */
-async function notifyInvitee(horseName: string, invitedEmail: string, role: CollaboratorRole): Promise<void> {
+ * partage jusqu'à ce que l'invité ouvre l'app avec le même email. Envoie
+ * `horseId` (pas un `horseName` fourni par le client) : la route vérifie que
+ * l'appelant possède bien ce cheval et lit elle-même son nom en base, cf.
+ * apps/api/.../horse-invites/route.ts — un cheval qu'on ne possède pas ne
+ * doit jamais pouvoir déclencher un email d'invitation. */
+async function notifyInvitee(horseId: string, invitedEmail: string, role: CollaboratorRole): Promise<void> {
   try {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
@@ -74,19 +78,14 @@ async function notifyInvitee(horseName: string, invitedEmail: string, role: Coll
     await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/horse-invites`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ horseName, invitedEmail, role }),
+      body: JSON.stringify({ horseId, invitedEmail, role }),
     });
   } catch {
     // best-effort, cf. commentaire ci-dessus.
   }
 }
 
-export async function inviteCollaborator(
-  horseId: string,
-  email: string,
-  role: CollaboratorRole,
-  horseName: string
-): Promise<InviteResult> {
+export async function inviteCollaborator(horseId: string, email: string, role: CollaboratorRole): Promise<InviteResult> {
   const invitedEmail = email.trim().toLowerCase();
 
   if (!(await accountExists(invitedEmail))) return "no_account";
@@ -101,7 +100,7 @@ export async function inviteCollaborator(
     updatedAt: new Date().toISOString(),
   });
   if (error) return "error";
-  notifyInvitee(horseName, invitedEmail, role);
+  notifyInvitee(horseId, invitedEmail, role);
   return "ok";
 }
 
@@ -165,14 +164,16 @@ export async function pullSharedHorses(): Promise<(Horse & { sharedRole: Collabo
     .eq("status", "ACCEPTED");
   if (error || !data) return [];
 
-  return data
-    .filter((row) => row.horses)
-    .map((row) => ({
-      ...mapRemoteHorse(row.horses as unknown as RemoteHorse),
-      // "Primaire" est un concept côté propriétaire (cf. onboarding) — un
-      // cheval partagé ne doit jamais devenir le cheval par défaut sélectionné
-      // juste parce que SON propriétaire l'a marqué primaire chez lui.
-      isPrimary: false,
-      sharedRole: row.role as CollaboratorRole,
-    }));
+  return Promise.all(
+    data
+      .filter((row) => row.horses)
+      .map(async (row) => ({
+        ...(await mapRemoteHorse(row.horses as unknown as RemoteHorse)),
+        // "Primaire" est un concept côté propriétaire (cf. onboarding) — un
+        // cheval partagé ne doit jamais devenir le cheval par défaut sélectionné
+        // juste parce que SON propriétaire l'a marqué primaire chez lui.
+        isPrimary: false,
+        sharedRole: row.role as CollaboratorRole,
+      }))
+  );
 }

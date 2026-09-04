@@ -2,6 +2,7 @@ import { View, Text } from "react-native";
 import { router } from "expo-router";
 import { OnboardingShell, SingleSelect } from "@/components/onboarding";
 import { DropdownField } from "@/components/DropdownField";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useOnboarding } from "@/onboarding/store";
 import { DISCIPLINES, HORSE_FITNESS_LEVELS, HORSE_LEVELS, HORSE_WORKLOADS, TOTAL_STEPS } from "@/onboarding/options";
 
@@ -10,6 +11,7 @@ export default function HorseProfile() {
   const name = editingHorse.name.trim() || "ton cheval";
 
   return (
+    <>
     <OnboardingShell
       step={6}
       total={TOTAL_STEPS}
@@ -52,5 +54,7 @@ export default function HorseProfile() {
         placeholder="Sélectionner la charge de travail"
       />
     </OnboardingShell>
+    <PickerOverlaySlot />
+    </>
   );
 }

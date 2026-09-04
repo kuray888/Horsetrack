@@ -35,10 +35,31 @@ import type { Discipline } from "@/onboarding/store";
  * des données factices déconnectées.
  */
 
-export type AppointmentType = "veto" | "osteo" | "marechal" | "dentiste" | "concours" | "autre";
+export type AppointmentType =
+  | "veto"
+  | "osteo"
+  | "marechal"
+  | "dentiste"
+  | "vaccination"
+  | "vermifuge"
+  | "traitement"
+  | "concours"
+  | "autre";
 export type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
 export type ActivityType = "dressage" | "cso" | "balade" | "longe" | "repos";
-export type ExpenseCategory = "veto" | "marechal" | "concours" | "alimentation" | "materiel" | "autre";
+export type ExpenseCategory =
+  | "veto"
+  | "marechal"
+  | "dentiste"
+  | "osteo"
+  | "concours"
+  | "pension"
+  | "alimentation"
+  | "complements"
+  | "materiel"
+  | "transport"
+  | "coaching"
+  | "autre";
 
 export type ChecklistItem = { id: string; label: string; checked: boolean };
 
@@ -106,6 +127,19 @@ export type Appointment = {
   dossard: string | null;
   /** Épreuves du concours (concours uniquement). Vide pour les autres types. */
   competitionEntries: CompetitionEntry[];
+  /** Praticien/professionnel intervenu (surtout pertinent pour les types de
+   * soin) — texte libre, null si non renseigné. */
+  professional: string | null;
+  /** Coût de ce soin, informatif — distinct d'une Expense liée (cf.
+   * Expense.appointmentId), qui reste le rattachement optionnel côté budget. */
+  cost: number | null;
+  /** Prochaine échéance du même soin (ex: prochain rappel de vaccin) — pilote
+   * un rappel local si renseignée (cf. (tabs)/agenda.tsx). Null si aucune
+   * échéance de suivi. */
+  nextDueDate: Date | null;
+  /** Id de la notification locale programmée pour nextDueDate, pour pouvoir
+   * l'annuler — même principe que reminderNotificationId, jamais synchronisé. */
+  nextDueNotificationId: string | null;
 };
 
 /** `horseId` n'est pas fourni par l'appelant : `addAppointment` le rattache
@@ -120,6 +154,13 @@ export type NewAppointment = Omit<
 
 export type Doc = {
   id: string;
+  /** Cheval concerné — même rôle que Appointment.horseId (rattaché au cheval
+   * sélectionné à la création, cf. addDocument), mais le partage n'en dépend
+   * jamais : le coffre-fort reste privé par cavalier (cf. rls.sql, jamais
+   * can_access_horse), horseId ne sert ici qu'à filtrer l'affichage par
+   * cheval dans une écurie à plusieurs chevaux. Null pour les documents créés
+   * avant l'introduction de ce champ (cf. backfill au chargement). */
+  horseId: string | null;
   category: DocumentCategory;
   name: string;
   date: Date;
@@ -239,6 +280,10 @@ type AgendaContextValue = {
   journal: JournalEntry[];
   expenses: Expense[];
   addAppointment: (appt: NewAppointment) => void;
+  updateAppointment: (
+    apptId: string,
+    patch: Partial<Omit<Appointment, "id" | "horseId" | "checklist" | "competitionEntries">>
+  ) => void;
   deleteAppointment: (appt: Appointment) => void;
   saveResult: (apptId: string, result: string) => void;
   toggleChecklistItem: (apptId: string, itemId: string) => void;
@@ -248,7 +293,8 @@ type AgendaContextValue = {
   updateCompetitionEntryResult: (apptId: string, entryId: string, result: string) => void;
   deleteCompetitionEntry: (apptId: string, entryId: string) => void;
   /** Retourne l'id généré localement — cf. addDocument dans le provider. */
-  addDocument: (doc: Omit<Doc, "id" | "filePath">) => string;
+  addDocument: (doc: Omit<Doc, "id" | "filePath" | "horseId">) => string;
+  updateDocument: (docId: string, patch: Partial<Omit<Doc, "id" | "filePath">>) => void;
   deleteDocument: (docId: string) => void;
   /** Remplace les documents locaux par ceux restaurés depuis le cloud (cf.
    * (auth)/login.tsx) — n'écrit que l'état + SecureStore, ne relance jamais
@@ -256,9 +302,14 @@ type AgendaContextValue = {
   hydrateDocumentsFromCloud: (docs: Doc[]) => void;
   hydrateAppointmentsFromCloud: (appts: Appointment[]) => void;
   hydrateJournalFromCloud: (entries: JournalEntry[]) => void;
-  addJournalEntry: (entry: Omit<JournalEntry, "id" | "horseId">) => void;
+  /** `horseId` optionnel : sinon, rattaché au cheval globalement sélectionné
+   * (cf. implémentation dans le provider) — permet à un appelant qui connaît
+   * déjà le bon cheval (ex: Journal global filtré) de l'imposer explicitement. */
+  addJournalEntry: (entry: Omit<JournalEntry, "id" | "horseId"> & { horseId?: string | null }) => void;
+  updateJournalEntry: (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId">>) => void;
   deleteJournalEntry: (entryId: string) => void;
   addExpense: (expense: NewExpense) => void;
+  updateExpense: (expenseId: string, patch: Partial<Omit<Expense, "id" | "horseId" | "isPaid" | "documentId">>) => void;
   deleteExpense: (expenseId: string) => void;
   toggleExpensePaid: (expenseId: string) => void;
   linkExpenseDocument: (expenseId: string, documentId: string | null) => void;
@@ -299,6 +350,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
               checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
               dossard: a.dossard ?? null,
               competitionEntries: a.competitionEntries ?? [],
+              professional: a.professional ?? null,
+              cost: a.cost ?? null,
+              nextDueDate: a.nextDueDate ? new Date(a.nextDueDate) : null,
+              nextDueNotificationId: a.nextDueNotificationId ?? null,
             }))
           );
         }
@@ -308,7 +363,13 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
           // leur ajout — les compléter plutôt que de laisser `undefined` (cf. le
           // même souci déjà rencontré sur Horse.restDayActivities).
           setDocuments(
-            parsedDocs.map((d) => ({ ...d, date: new Date(d.date), fileUri: d.fileUri ?? null, filePath: d.filePath ?? null }))
+            parsedDocs.map((d) => ({
+              ...d,
+              date: new Date(d.date),
+              fileUri: d.fileUri ?? null,
+              filePath: d.filePath ?? null,
+              horseId: d.horseId ?? null,
+            }))
           );
         }
         const parsedJournal = safeJsonParse<JournalEntry[] | null>(journalRaw, null);
@@ -339,10 +400,11 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Rattache au cheval sélectionné/primaire les rendez-vous/entrées de
-  // journal/dépenses créés avant l'introduction de horseId (cf. son
-  // commentaire sur Appointment) — attend que l'écurie ait fini de charger
-  // pour ne pas rattacher par erreur au cheval de démo par défaut le temps du
-  // chargement.
+  // journal/dépenses/documents créés avant l'introduction de horseId (cf. son
+  // commentaire sur Appointment, et sur Doc pour les documents — introduit
+  // plus tard, seul le coffre-fort avait jusqu'ici des entrées non rattachées
+  // en nombre) — attend que l'écurie ait fini de charger pour ne pas
+  // rattacher par erreur au cheval de démo par défaut le temps du chargement.
   useEffect(() => {
     if (!loaded || horsesLoading) return;
     const fallbackHorseId = selectedHorse?.id ?? horses.find((h) => h.isPrimary)?.id ?? horses[0]?.id ?? null;
@@ -350,6 +412,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     setAppointments((list) => (list.every((a) => a.horseId) ? list : list.map((a) => (a.horseId ? a : { ...a, horseId: fallbackHorseId }))));
     setJournal((list) => (list.every((j) => j.horseId) ? list : list.map((j) => (j.horseId ? j : { ...j, horseId: fallbackHorseId }))));
     setExpenses((list) => (list.every((e) => e.horseId) ? list : list.map((e) => (e.horseId ? e : { ...e, horseId: fallbackHorseId }))));
+    setDocuments((list) => (list.every((d) => d.horseId) ? list : list.map((d) => (d.horseId ? d : { ...d, horseId: fallbackHorseId }))));
   }, [loaded, horsesLoading, horses, selectedHorse]);
 
   // Persiste à chaque changement, une fois le chargement initial terminé
@@ -397,9 +460,31 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     [selectedHorse]
   );
 
+  /** Édition des champs de base d'un rendez-vous (type/titre/date/heure/lieu/
+   * rappel/dossard) — contrairement à saveResult/toggleChecklistItem etc.
+   * (mutateurs dédiés à un sous-champ précis), celui-ci couvre tout ce que le
+   * formulaire d'ajout permet déjà de saisir, pour permettre une vraie
+   * édition sans passer par supprimer + recréer. Le rappel programmé
+   * (reminderNotificationId/emailReminderId) n'est PAS recalculé ici : cf.
+   * (tabs)/agenda.tsx handleUpdateAppointment, qui annule l'ancien et
+   * reprogramme le nouveau avant d'appeler ce mutateur, exactement comme à la
+   * création (cf. handleAddAppointment) — cette fonction reste un simple
+   * "patch + push", sans effet de bord sur les notifications. */
+  const updateAppointment = useCallback(
+    (apptId: string, patch: Partial<Omit<Appointment, "id" | "horseId" | "checklist" | "competitionEntries">>) => {
+      const target = appointments.find((a) => a.id === apptId);
+      if (!target) return;
+      const next = { ...target, ...patch };
+      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
+      pushAppointment(next).catch(() => {});
+    },
+    [appointments]
+  );
+
   const deleteAppointment = useCallback((appt: Appointment) => {
     cancelReminder(appt.reminderNotificationId);
     cancelEmailReminder(appt.emailReminderId);
+    cancelReminder(appt.nextDueNotificationId);
     setAppointments((list) => list.filter((a) => a.id !== appt.id));
     deleteAppointmentRemote(appt.id).catch(() => {});
   }, []);
@@ -502,25 +587,49 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     [appointments]
   );
 
-  const addDocument = useCallback((doc: Omit<Doc, "id" | "filePath">) => {
-    const id = generateId("d");
-    const next: Doc = { ...doc, id, filePath: null };
-    setDocuments((list) => [...list, next]);
-    // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Le filePath
-    // résultant est reporté localement pour ne pas re-uploader la même photo
-    // à la prochaine synchro (cf. pushDocument).
-    pushDocument(next)
-      .then((filePath) => {
-        if (filePath) {
-          setDocuments((list) => list.map((d) => (d.id === id ? { ...d, filePath } : d)));
-        }
-      })
-      .catch(() => {});
-    // Retourné pour permettre de lier immédiatement le document tout juste
-    // créé (ex : reçu joint depuis le formulaire de dépense, cf.
-    // (tabs)/agenda.tsx handleAddExpense) sans attendre un aller-retour cloud.
-    return id;
-  }, []);
+  const addDocument = useCallback(
+    (doc: Omit<Doc, "id" | "filePath" | "horseId">) => {
+      const id = generateId("d");
+      const next: Doc = { ...doc, id, filePath: null, horseId: selectedHorse?.id ?? null };
+      setDocuments((list) => [...list, next]);
+      // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Le filePath
+      // résultant est reporté localement pour ne pas re-uploader la même photo
+      // à la prochaine synchro (cf. pushDocument).
+      pushDocument(next)
+        .then((filePath) => {
+          if (filePath) {
+            setDocuments((list) => list.map((d) => (d.id === id ? { ...d, filePath } : d)));
+          }
+        })
+        .catch(() => {});
+      // Retourné pour permettre de lier immédiatement le document tout juste
+      // créé (ex : reçu joint depuis le formulaire de dépense, cf.
+      // (tabs)/agenda.tsx handleAddExpense) sans attendre un aller-retour cloud.
+      return id;
+    },
+    [selectedHorse]
+  );
+
+  /** Édition d'un document existant (catégorie/nom/date/photo) — contrairement
+   * à addDocument, ne retourne rien : la photo remplacée est réenvoyée par
+   * pushDocument (cf. son commentaire) et son filePath reporté localement une
+   * fois la synchro terminée, exactement comme à la création. */
+  const updateDocument = useCallback(
+    (docId: string, patch: Partial<Omit<Doc, "id" | "filePath">>) => {
+      const target = documents.find((d) => d.id === docId);
+      if (!target) return;
+      const next = { ...target, ...patch };
+      setDocuments((list) => list.map((d) => (d.id === docId ? next : d)));
+      pushDocument(next)
+        .then((filePath) => {
+          if (filePath && filePath !== next.filePath) {
+            setDocuments((list) => list.map((d) => (d.id === docId ? { ...d, filePath } : d)));
+          }
+        })
+        .catch(() => {});
+    },
+    [documents]
+  );
 
   const deleteDocument = useCallback((docId: string) => {
     setDocuments((list) => list.filter((d) => d.id !== docId));
@@ -543,12 +652,34 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addJournalEntry = useCallback(
-    (entry: Omit<JournalEntry, "id" | "horseId">) => {
-      const next: JournalEntry = { ...entry, id: generateId("j"), horseId: selectedHorse?.id ?? null };
+    // `horseId` optionnel : par défaut le cheval globalement sélectionné,
+    // comme avant — un appelant peut l'imposer explicitement (cf. Journal
+    // global filtré sur un cheval précis, (tabs)/journal.tsx) sans qu'il y
+    // ait deux sources de vérité : c'est toujours soit un choix explicite de
+    // l'appelant, soit le même fallback qu'avant.
+    (entry: Omit<JournalEntry, "id" | "horseId"> & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = entry;
+      const horseId = explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null);
+      const next: JournalEntry = { ...rest, id: generateId("j"), horseId };
       setJournal((list) => [...list, next]);
       pushJournalEntry(next).catch(() => {});
     },
     [selectedHorse]
+  );
+
+  /** Édition d'une entrée de journal existante (activité/ressenti/date/heure/
+   * notes) — la météo capturée à la création n'est jamais recalculée ici,
+   * cf. (tabs)/agenda.tsx : corriger une entrée passée ne doit pas réécrire
+   * un relevé météo qui n'a plus de sens rétroactivement. */
+  const updateJournalEntry = useCallback(
+    (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId">>) => {
+      const target = journal.find((j) => j.id === entryId);
+      if (!target) return;
+      const next = { ...target, ...patch };
+      setJournal((list) => list.map((j) => (j.id === entryId ? next : j)));
+      pushJournalEntry(next).catch(() => {});
+    },
+    [journal]
   );
 
   const deleteJournalEntry = useCallback((entryId: string) => {
@@ -563,6 +694,22 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       pushExpense(next).catch(() => {});
     },
     [selectedHorse]
+  );
+
+  /** Édition d'une dépense existante (montant/catégorie/date/notes/rendez-vous
+   * lié) — même style fonctionnel que toggleExpensePaid/linkExpenseDocument
+   * ci-dessous, pas de dépendance à `expenses`. Ne touche jamais isPaid ni
+   * documentId : ces deux champs ont déjà leurs propres mutateurs dédiés. */
+  const updateExpense = useCallback(
+    (expenseId: string, patch: Partial<Omit<Expense, "id" | "horseId" | "isPaid" | "documentId">>) => {
+      setExpenses((list) => {
+        const next = list.map((e) => (e.id === expenseId ? { ...e, ...patch } : e));
+        const updated = next.find((e) => e.id === expenseId);
+        if (updated) pushExpense(updated).catch(() => {});
+        return next;
+      });
+    },
+    []
   );
 
   const deleteExpense = useCallback((expenseId: string) => {
@@ -615,6 +762,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       journal,
       expenses,
       addAppointment,
+      updateAppointment,
       deleteAppointment,
       saveResult,
       toggleChecklistItem,
@@ -624,13 +772,16 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       updateCompetitionEntryResult,
       deleteCompetitionEntry,
       addDocument,
+      updateDocument,
       deleteDocument,
       hydrateDocumentsFromCloud,
       hydrateAppointmentsFromCloud,
       hydrateJournalFromCloud,
       addJournalEntry,
+      updateJournalEntry,
       deleteJournalEntry,
       addExpense,
+      updateExpense,
       deleteExpense,
       toggleExpensePaid,
       linkExpenseDocument,
@@ -643,6 +794,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       journal,
       expenses,
       addAppointment,
+      updateAppointment,
       deleteAppointment,
       saveResult,
       toggleChecklistItem,
@@ -652,13 +804,16 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       updateCompetitionEntryResult,
       deleteCompetitionEntry,
       addDocument,
+      updateDocument,
       deleteDocument,
       hydrateDocumentsFromCloud,
       hydrateAppointmentsFromCloud,
       hydrateJournalFromCloud,
       addJournalEntry,
+      updateJournalEntry,
       deleteJournalEntry,
       addExpense,
+      updateExpense,
       deleteExpense,
       toggleExpensePaid,
       linkExpenseDocument,

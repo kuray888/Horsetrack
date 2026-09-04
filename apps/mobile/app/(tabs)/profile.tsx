@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Image, Share, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import Constants from "expo-constants";
 import type { User } from "@supabase/supabase-js";
@@ -7,8 +7,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
-import { Locked } from "@/components/Locked";
-import { maxHorses, useSubscription } from "@/subscription/store";
+import { useSubscription } from "@/subscription/store";
 import { useThemeColors, useTheme } from "@/theme/ThemeProvider";
 import { THEME_ORDER, THEME_LABELS, PALETTES } from "@/theme/palettes";
 import {
@@ -19,26 +18,15 @@ import {
   setBiometricLockEnabled,
 } from "@/lib/biometrics";
 import { cancelWeeklySummary, ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
-import { pickAndPersistImage } from "@/lib/imagePicker";
 import { deleteAccount } from "@/lib/account";
 import { clearLocalDataOwner } from "@/lib/deviceOwner";
 import { resetOnboardingCompleted } from "@/onboarding/completion";
 import { formatDate } from "@/lib/dateFormat";
-import { useHorses, type Horse } from "@/horses/store";
+import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
-import {
-  DISCIPLINES,
-  HORSE_FITNESS_LEVELS,
-  HORSE_LEVELS,
-  HORSE_SEXES,
-  HORSE_WORKLOADS,
-  NO_HEALTH_CONDITION,
-  RIDER_LEVELS,
-  RIDER_GOALS,
-  RIDE_FREQUENCIES,
-} from "@/onboarding/options";
+import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -114,8 +102,7 @@ export default function ProfileScreen() {
     loading: subLoading,
     clearAll: clearSubscription,
   } = subscription;
-  const horseLimit = maxHorses(subscription);
-  const { horses, updateHorsePhoto, clearAll: clearHorses } = useHorses();
+  const { horses, clearAll: clearHorses } = useHorses();
   const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
   const { clearAll: clearAgenda } = useAgenda();
   const { goals, clearAll: clearGoals } = useGoals();
@@ -153,41 +140,6 @@ export default function ProfileScreen() {
     await cancelWeeklySummary();
     await supabase.auth.signOut();
     router.replace("/(auth)/login");
-  }
-
-  async function shareHorse(horse: Horse) {
-    const currentYear = new Date().getFullYear();
-    const lines: string[] = [`🐴 Fiche de ${horse.name}`, ""];
-
-    lines.push("📋 Profil");
-    if (horse.birthYear) lines.push(`• Âge : ${currentYear - horse.birthYear} ans (né en ${horse.birthYear})`);
-    if (horse.sex) lines.push(`• Sexe : ${labelOf(HORSE_SEXES, horse.sex)}`);
-    if (horse.breed) lines.push(`• Race : ${horse.breed}`);
-    if (horse.heightCm) lines.push(`• Taille : ${horse.heightCm} cm`);
-    if (horse.weightKg) lines.push(`• Poids : ${horse.weightKg} kg`);
-
-    lines.push("", "🏇 Activité");
-    lines.push(`• Discipline : ${labelOf(DISCIPLINES, horse.discipline)}`);
-    lines.push(`• Niveau : ${labelOf(HORSE_LEVELS, horse.level)}`);
-    if (horse.fitnessLevel) lines.push(`• Forme : ${labelOf(HORSE_FITNESS_LEVELS, horse.fitnessLevel)}`);
-    if (horse.workload) lines.push(`• Charge : ${labelOf(HORSE_WORKLOADS, horse.workload)}`);
-
-    if (horse.strengths.length > 0) lines.push("", `💪 Points forts : ${horse.strengths.join(", ")}`);
-    if (horse.weaknesses.length > 0) lines.push(`⚠️ À travailler : ${horse.weaknesses.join(", ")}`);
-
-    const activeConditions = horse.healthConditions.filter((c) => c !== NO_HEALTH_CONDITION);
-    const activeInjuries = horse.injuries.filter((i) => i.recoveryStatus !== "RECOVERED");
-    if (activeConditions.length > 0 || activeInjuries.length > 0) {
-      lines.push("", "🩺 Santé");
-      activeConditions.forEach((c) => lines.push(`• ${c}`));
-      activeInjuries.forEach((i) =>
-        lines.push(`• ${i.type}${i.note ? ` — ${i.note}` : ""}`)
-      );
-    }
-
-    lines.push("", "—", "Créé avec Horsetrack");
-
-    await Share.share({ message: lines.join("\n") });
   }
 
   function handleDeleteAccount() {
@@ -288,97 +240,6 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </FadeInView>
-
-      {/* Mon écurie */}
-      <FadeInView delay={120}>
-        <SectionTitle>Mon écurie</SectionTitle>
-      </FadeInView>
-
-      {/* Les chevaux partagés (DP/coach) ne comptent jamais dans le quota du
-          palier et n'ont pas de bouton Modifier/Partager — le profil reste en
-          lecture seule pour quiconque n'est pas le propriétaire (cf. RLS
-          can_access_horse, écriture du profil réservée à owns_horse). */}
-      {(() => {
-        const ownedHorseIds = horses.filter((h) => !h.sharedRole).map((h) => h.id);
-        return horses.map((horse, i) => {
-          const isShared = horse.sharedRole !== null;
-          const ownedIndex = ownedHorseIds.indexOf(horse.id);
-          const card = (
-            <View className={`${CARD} flex-row items-center gap-3`}>
-              <TouchableOpacity
-                onPress={async () => {
-                  if (isShared) return;
-                  const uri = await pickAndPersistImage();
-                  if (uri) updateHorsePhoto(horse.id, uri);
-                }}
-                activeOpacity={isShared ? 1 : 0.8}
-                className="h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-highlight"
-              >
-                {horse.photoUrl ? (
-                  <Image source={{ uri: horse.photoUrl }} className="h-12 w-12" />
-                ) : (
-                  <MaterialCommunityIcons name="horse-variant" size={22} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-              <View className="flex-1 gap-0.5">
-                <View className="flex-row items-center gap-1.5">
-                  <Text className="text-base font-display-bold text-text">{horse.name}</Text>
-                  {horse.isPrimary ? <MaterialCommunityIcons name="star" size={14} color={colors.warning} /> : null}
-                </View>
-                <Text className="text-sm text-muted">
-                  {labelOf(DISCIPLINES, horse.discipline)} · {labelOf(HORSE_LEVELS, horse.level)}
-                </Text>
-                {horse.strengths.length > 0 ? (
-                  <View className="flex-row items-center gap-1">
-                    <MaterialCommunityIcons name="arm-flex-outline" size={12} color={colors.success} />
-                    <Text className="text-xs text-success">{horse.strengths.join(", ")}</Text>
-                  </View>
-                ) : null}
-              </View>
-              {isShared ? (
-                <View className="flex-row items-center gap-1 px-1">
-                  <MaterialCommunityIcons name="handshake-outline" size={13} color={colors.accent} />
-                  <Text className="text-xs font-semibold text-accent">
-                    {horse.sharedRole === "COACH" ? "Coach" : "Demi-pension"}
-                  </Text>
-                </View>
-              ) : (
-                <View className="items-end gap-2">
-                  <TouchableOpacity onPress={() => router.push(`/edit-horse-modal?id=${horse.id}`)} hitSlop={8}>
-                    <Text className="px-1 text-sm font-semibold text-accent">Modifier</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => router.push(`/share-horse-modal?horseId=${horse.id}`)} hitSlop={8}>
-                    <Text className="px-1 text-xs font-semibold text-muted">Partager</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => shareHorse(horse)} hitSlop={8}>
-                    <Text className="px-1 text-xs font-semibold text-muted">↑ Fiche</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          );
-          return (
-            <FadeInView key={horse.id} delay={160 + i * 60}>
-              {!isShared && ownedIndex >= horseLimit ? (
-                <Locked message="Débloque ce cheval avec un palier supérieur ou l'add-on cheval">{card}</Locked>
-              ) : (
-                card
-              )}
-            </FadeInView>
-          );
-        });
-      })()}
-
-      <FadeInView delay={220}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.push("/add-horse-modal")}
-          className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
-        >
-          <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
-          <Text className="text-base font-semibold text-primary">Ajouter un cheval</Text>
-        </TouchableOpacity>
       </FadeInView>
 
       {/* Profil cavalier */}

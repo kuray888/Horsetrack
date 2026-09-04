@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -8,13 +8,28 @@ import { FadeInView } from "@/components/FadeInView";
 import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
-import { colors as staticColors } from "@/theme/colors";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { MONTHS, isSameDate } from "@/lib/dateFormat";
 import { restDayActivityFor, useHorses } from "@/horses/store";
-import { useSessions, type TrainingSession } from "@/sessions/store";
-import { useAgenda, ACTIVITY_META, type AppointmentType } from "@/agenda/store";
+import { useSessions } from "@/sessions/store";
+import { useAgenda, ACTIVITY_META, type Appointment, type ExpenseCategory } from "@/agenda/store";
+import { APPT_META, suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { maxHorses, useSubscription } from "@/subscription/store";
+import {
+  buildUnifiedEvents,
+  upcomingUnifiedEvents,
+  eventTime,
+  type UnifiedEvent,
+} from "@/planning/unifiedEvents";
+import { buildHorseAlerts } from "@/horses/alerts";
+import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
+import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
+import { AppointmentForm } from "@/agenda/components/AppointmentForm";
+import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
+import { ExpenseForm } from "@/agenda/components/ExpenseForm";
+import { useJournalForm } from "@/agenda/hooks/useJournalForm";
+import { JournalForm } from "@/agenda/components/JournalForm";
 
 const TIPS = [
   "Varie les allures à l'échauffement pour mieux préparer les muscles de ton cheval.",
@@ -22,10 +37,6 @@ const TIPS = [
   "Étire ton cheval en fin de séance pour limiter les courbatures.",
   "Mieux vaut une séance courte et régulière qu'une longue séance espacée.",
 ];
-
-type UpcomingType = "seance" | AppointmentType;
-
-type UpcomingItem = { id: string; type: UpcomingType; title: string; date: Date; when: string };
 
 const DAY_SHORT_BY_GETDAY = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
 
@@ -40,23 +51,32 @@ function formatWhen(date: Date, time?: string): string {
   return `${DAY_SHORT_BY_GETDAY[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}${suffix}`;
 }
 
-function sessionTitle(session: TrainingSession): string {
-  return ACTIVITY_META[session.activityType].label;
+/** Icône/couleur/titre d'un événement unifié pour la carte "Prochains
+ * événements" — dérivés d'ACTIVITY_META/APPT_META (déjà la source de
+ * vérité utilisée par Planning et le Horse Hub), pas d'une table de
+ * correspondance locale dupliquée comme avant (cf. plan Phase 3 Étape 4). */
+function upcomingEventMeta(event: UnifiedEvent): {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  chip: string;
+  tint: string;
+  tag: string;
+  label: string;
+  title: string;
+} {
+  if (event.kind === "session") {
+    const meta = ACTIVITY_META[event.session.activityType];
+    return { icon: meta.icon, chip: meta.chip, tint: meta.tint, tag: "text-primary", label: "Séance", title: meta.label };
+  }
+  const meta = APPT_META[event.appointment.type];
+  return {
+    icon: meta.icon.name,
+    chip: meta.chip,
+    tint: meta.icon.color,
+    tag: meta.tag,
+    label: meta.label,
+    title: event.appointment.title || meta.label,
+  };
 }
-
-// Classes statiques par type (NativeWind ne supporte pas les classes dynamiques `bg-${x}`)
-const TYPE_META: Record<
-  UpcomingType,
-  { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; chip: string; tint: string; tag: string }
-> = {
-  seance: { label: "Séance", icon: "horse-variant", chip: "bg-primary/15", tint: staticColors.event.seance, tag: "text-primary" },
-  veto: { label: "Vétérinaire", icon: "needle", chip: "bg-warning/15", tint: staticColors.event.veto, tag: "text-warning" },
-  osteo: { label: "Ostéopathe", icon: "bone", chip: "bg-accent/15", tint: staticColors.event.osteo, tag: "text-accent" },
-  marechal: { label: "Maréchal-ferrant", icon: "hammer", chip: "bg-primary/15", tint: staticColors.event.marechal, tag: "text-primary" },
-  dentiste: { label: "Dentiste équin", icon: "tooth-outline", chip: "bg-success/15", tint: staticColors.event.dentiste, tag: "text-success" },
-  concours: { label: "Compétition", icon: "trophy-outline", chip: "bg-accent/15", tint: staticColors.event.concours, tag: "text-accent" },
-  autre: { label: "Rendez-vous", icon: "calendar-blank-outline", chip: "bg-border", tint: staticColors.event.autre, tag: "text-muted" },
-};
 
 // Carte blanche standard, réutilisée tel quel
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -85,8 +105,19 @@ export default function TodayScreen() {
   const colors = useThemeColors();
   const { horses, selectedHorse, selectHorse } = useHorses();
   const { sessions, toggleCompleted } = useSessions();
-  const { appointments } = useAgenda();
+  const {
+    appointments,
+    addAppointment,
+    updateAppointment,
+    addExpense,
+    updateExpense,
+    addDocument,
+    linkExpenseDocument,
+    addJournalEntry,
+    updateJournalEntry,
+  } = useAgenda();
   const subscription = useSubscription();
+  const { isActiveOrTrialing } = subscription;
   const horseLimit = maxHorses(subscription);
   const ownedHorseIds = horses.filter((h) => !h.sharedRole).map((h) => h.id);
   const horse = selectedHorse;
@@ -106,16 +137,15 @@ export default function TodayScreen() {
   const weekSessions = horseSessions.filter((s) => s.date >= weekStart && s.date < weekEnd);
   const weekDoneCount = weekSessions.filter((s) => s.completed).length;
 
-  // "À venir" : fusion des prochaines séances planifiées (non faites) et
-  // rendez-vous Agenda, triés par date.
-  const upcoming: UpcomingItem[] = [
-    ...horseSessions
-      .filter((s) => s.date >= todayStart && !s.completed)
-      .map((s) => ({ id: `session-${s.id}`, type: "seance" as const, title: sessionTitle(s), date: s.date, when: formatWhen(s.date, s.time) })),
-    ...appointments
-      .filter((a) => a.date >= todayStart && a.horseId === horse?.id)
-      .map((a) => ({ id: `appt-${a.id}`, type: a.type, title: a.title, date: a.date, when: formatWhen(a.date, a.time) })),
-  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+  // "Prochains événements" : séances + rendez-vous du cheval actif fusionnés
+  // par le même système que Planning (cf. plan Phase 3 Étape 3) — aucune
+  // deuxième logique de calendrier, juste les 3 premiers ici.
+  const horseAppointments = appointments.filter((a) => a.horseId === horse?.id);
+  const upcoming = upcomingUnifiedEvents(buildUnifiedEvents(horseSessions, horseAppointments), todayStart).slice(0, 3);
+
+  // Alertes (cf. plan Phase 3 Étape 4 §6) : toutes les écuries, pas
+  // seulement le cheval actif — une alerte peut concerner un autre cheval.
+  const alerts = buildHorseAlerts(horses, appointments, todayStart);
 
   // Synchronise le widget iOS dès que les données de la journée changent —
   // best-effort, silencieux hors iOS/EAS build (actuellement no-op, cf.
@@ -123,7 +153,7 @@ export default function TodayScreen() {
   useEffect(() => {
     pushWidgetData({
       horseName: horse?.name ?? "Mon cheval",
-      todaySessionTitle: todaySession ? sessionTitle(todaySession) : null,
+      todaySessionTitle: todaySession ? ACTIVITY_META[todaySession.activityType].label : null,
       todaySessionDurationMin: todaySession?.durationMinutes ?? null,
       todaySessionTime: todaySession?.time ?? null,
       weeklyDone: weekDoneCount,
@@ -137,7 +167,93 @@ export default function TodayScreen() {
     scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
   }, [horse?.id, weekDoneCount, weekSessions.length]);
 
+  // Ajout rapide (cf. plan Phase 3 Étape 4 §9) — mêmes hooks/formulaires que
+  // Planning et le Horse Hub, rattachement automatique au cheval actif via
+  // le mécanisme global existant (aucune deuxième logique de sélection).
+  const [quickAddVisible, setQuickAddVisible] = useState(false);
+  const [, setNotifPermission] = useState<boolean | null>(null);
+
+  const {
+    showApptForm,
+    setShowApptForm,
+    apptForm,
+    setApptForm,
+    submittingAppt,
+    editingApptId,
+    cancelApptForm,
+    handleSubmitAppointment,
+    addApptFormEntry,
+    updateApptFormEntry,
+    removeApptFormEntry,
+  } = useAppointmentForm({
+    horse: horse ?? null,
+    appointments,
+    addAppointment,
+    updateAppointment,
+    isActiveOrTrialing,
+    setNotifPermission,
+    onEditStart: () => {},
+  });
+
+  const {
+    showExpenseForm,
+    setShowExpenseForm,
+    expenseForm,
+    setExpenseForm,
+    editingExpenseId,
+    cancelExpenseForm,
+    handleSubmitExpense,
+    handlePickExpensePhoto,
+  } = useExpenseForm({ addExpense, updateExpense, addDocument, linkExpenseDocument, isActiveOrTrialing });
+
+  const {
+    showJournalForm,
+    setShowJournalForm,
+    journalForm,
+    setJournalForm,
+    savingJournal,
+    editingJournalId,
+    cancelJournalForm,
+    handleSubmitJournalEntry,
+  } = useJournalForm({ addJournalEntry, updateJournalEntry, onEditStart: () => {} });
+
+  // Suggestion de rapprochement pour le formulaire de dépense (cf.
+  // agenda/meta.ts suggestedAppointmentFor, partagé avec planning.tsx/Horse Hub).
+  function suggestedAppointmentFor(category: ExpenseCategory): Appointment | null {
+    return findSuggestedAppointment(horseAppointments, category);
+  }
+
+  function handleQuickAdd(option: QuickAddOption) {
+    setQuickAddVisible(false);
+    switch (option) {
+      case "seance":
+        // Pas de formulaire de séance natif sur Accueil (cf. planning.tsx) —
+        // même choix que le Horse Hub, pour ne pas dupliquer ce formulaire.
+        router.push("/(tabs)/planning");
+        return;
+      case "soin":
+        setApptForm((f) => ({ ...f, type: "veto" }));
+        setShowApptForm(true);
+        return;
+      case "rendezvous":
+        setApptForm((f) => ({ ...f, type: "autre" }));
+        setShowApptForm(true);
+        return;
+      case "concours":
+        setApptForm((f) => ({ ...f, type: "concours" }));
+        setShowApptForm(true);
+        return;
+      case "depense":
+        setShowExpenseForm(true);
+        return;
+      case "journal":
+        setShowJournalForm(true);
+        return;
+    }
+  }
+
   return (
+    <>
     <Screen>
       {/* En-tête */}
       <FadeInView>
@@ -235,6 +351,41 @@ export default function TodayScreen() {
         </FadeInView>
       ) : null}
 
+      {/* Alertes — échéance santé < 14j ou concours < 7j, tous chevaux
+          confondus (cf. plan Phase 3 Étape 4 §6) ; rien affiché si aucune
+          alerte ne s'applique, pas d'espace réservé. */}
+      {alerts.length > 0 ? (
+        <FadeInView delay={60}>
+          <View className={`${CARD} gap-2`}>
+            <View className="flex-row items-center gap-1.5">
+              <MaterialCommunityIcons name="bell-alert-outline" size={16} color={colors.warning} />
+              <Text className="text-xs font-bold uppercase tracking-wide text-warning">À surveiller</Text>
+            </View>
+            {alerts.map((alert) => (
+              <TouchableOpacity
+                key={alert.horseId}
+                onPress={() => {
+                  selectHorse(alert.horseId);
+                  router.push(`/horse/${alert.horseId}`);
+                }}
+                activeOpacity={0.7}
+                className="flex-row items-center gap-2"
+              >
+                <MaterialCommunityIcons
+                  name={alert.kind === "health" ? "heart-pulse" : "trophy-outline"}
+                  size={15}
+                  color={alert.kind === "health" ? colors.warning : colors.accent}
+                />
+                <Text className="flex-1 text-sm text-text">
+                  <Text className="font-semibold">{alert.horseName}</Text> · {alert.message}
+                </Text>
+                <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </FadeInView>
+      ) : null}
+
       {/* CTA rapide — séance du jour ou planification */}
       <FadeInView delay={80}>
         <TouchableOpacity
@@ -279,11 +430,12 @@ export default function TodayScreen() {
         </View>
       </FadeInView>
 
-      {/* À venir */}
+      {/* Prochains événements — planning unifié (cf. plan Phase 3 Étape 3),
+          pas de deuxième logique de calendrier. */}
       <FadeInView delay={200}>
         <View className="mt-1 flex-row items-center justify-between">
-          <Text className="text-xl font-bold text-text">À venir</Text>
-          <TouchableOpacity onPress={() => router.push("/(tabs)/agenda")}>
+          <Text className="text-xl font-bold text-text">Prochains événements</Text>
+          <TouchableOpacity onPress={() => router.push("/(tabs)/planning")}>
             <Text className="text-sm font-semibold text-accent">Voir tout</Text>
           </TouchableOpacity>
         </View>
@@ -299,27 +451,86 @@ export default function TodayScreen() {
           </View>
         ) : (
           <View className={CARD}>
-            {upcoming.slice(0, 3).map((item, i) => {
-              const meta = TYPE_META[item.type];
+            {upcoming.map((event, i) => {
+              const meta = upcomingEventMeta(event);
+              const when = formatWhen(event.date, eventTime(event));
               return (
-                <View
-                  key={item.id}
+                <TouchableOpacity
+                  key={event.id}
+                  onPress={() => router.push("/(tabs)/planning")}
+                  activeOpacity={0.7}
                   className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
                 >
                   <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
                     <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
                   </View>
                   <View className="flex-1 gap-0.5">
-                    <Text className="text-[15px] font-semibold text-text">{item.title}</Text>
-                    <Text className="text-sm text-muted">{item.when}</Text>
+                    <Text className="text-[15px] font-semibold text-text">{meta.title}</Text>
+                    <Text className="text-sm text-muted">{when}</Text>
                   </View>
                   <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
         )}
       </FadeInView>
+
+      {/* Ajout rapide (cf. plan Phase 3 Étape 4 §9) — le déclencheur cède la
+          place au formulaire ouvert, même principe que Planning/Horse Hub
+          (jamais les deux affichés en même temps). */}
+      <FadeInView delay={260}>
+        {showApptForm ? (
+          <AppointmentForm
+            show={showApptForm}
+            form={apptForm}
+            setForm={setApptForm}
+            editingApptId={editingApptId}
+            submitting={submittingAppt}
+            onOpen={() => setShowApptForm(true)}
+            onCancel={cancelApptForm}
+            onSubmit={handleSubmitAppointment}
+            onAddEntry={addApptFormEntry}
+            onUpdateEntry={updateApptFormEntry}
+            onRemoveEntry={removeApptFormEntry}
+          />
+        ) : showExpenseForm ? (
+          <ExpenseForm
+            show={showExpenseForm}
+            form={expenseForm}
+            setForm={setExpenseForm}
+            editingExpenseId={editingExpenseId}
+            suggestedAppointmentFor={suggestedAppointmentFor}
+            onOpen={() => setShowExpenseForm(true)}
+            onCancel={cancelExpenseForm}
+            onSubmit={handleSubmitExpense}
+            onPickPhoto={handlePickExpensePhoto}
+          />
+        ) : showJournalForm ? (
+          <JournalForm
+            show={showJournalForm}
+            form={journalForm}
+            setForm={setJournalForm}
+            editingJournalId={editingJournalId}
+            saving={savingJournal}
+            onOpen={() => setShowJournalForm(true)}
+            onCancel={cancelJournalForm}
+            onSubmit={handleSubmitJournalEntry}
+          />
+        ) : (
+          <TouchableOpacity
+            onPress={() => setQuickAddVisible(true)}
+            activeOpacity={0.85}
+            className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
+          >
+            <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
+            <Text className="text-base font-semibold text-primary">Ajouter</Text>
+          </TouchableOpacity>
+        )}
+      </FadeInView>
     </Screen>
+    <QuickAddSheet visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} onSelect={handleQuickAdd} />
+    <PickerOverlaySlot />
+    </>
   );
 }

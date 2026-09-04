@@ -3,6 +3,7 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { EMPTY_HORSE_DRAFT, HorseForm } from "@/components/HorseForm";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useHorses } from "@/horses/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
 import { colors } from "@/theme/colors";
@@ -48,6 +49,7 @@ export default function AddHorseModal() {
   }
 
   return (
+    <>
     <HorseForm
       title="Ajouter un cheval"
       submitLabel="Ajouter"
@@ -57,5 +59,7 @@ export default function AddHorseModal() {
         router.back();
       }}
     />
+    <PickerOverlaySlot />
+    </>
   );
 }

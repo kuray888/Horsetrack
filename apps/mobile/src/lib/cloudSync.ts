@@ -54,6 +54,36 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
   if (error) console.warn("[cloudSync] pushRiderProfile échoué", error);
 }
 
+/**
+ * Photo de profil du cheval : même logique que le coffre-fort (upload à la
+ * demande + URL signée régénérée au pull, cf. uploadDocumentPhoto/pullDocuments
+ * plus bas), mais scoping par horseId (pas userId) — la photo doit rester
+ * visible par un collaborateur (demi-pension/coach), cf. rls.sql
+ * horse_photos_select_shared. Chemin déterministe "{horseId}/photo.jpg" (pas
+ * un nom généré à chaque upload) : changer la photo remplace l'objet existant
+ * (upsert) plutôt que d'en accumuler un nouveau à chaque édition.
+ */
+async function uploadHorsePhoto(horseId: string, localUri: string): Promise<string | null> {
+  try {
+    const bytes = await new File(localUri).bytes();
+    const path = `${horseId}/photo.jpg`;
+    const { error } = await supabase.storage.from("horse-photos").upload(path, bytes, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+    return error ? null : path;
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort : si l'objet ne se supprime pas, RLS empêche de toute façon
+ * tout accès à qui que ce soit d'autre que le propriétaire/un collaborateur du
+ * cheval déjà supprimé — pas une fuite. */
+export async function deleteHorsePhotoRemote(horseId: string): Promise<void> {
+  await supabase.storage.from("horse-photos").remove([`${horseId}/photo.jpg`]);
+}
+
 async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
   const traitRows = [
     ...horse.strengths.map((tag) => ({ id: generateId(), horseId: horse.id, tag, kind: "STRENGTH" })),
@@ -102,18 +132,26 @@ async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
   }
 }
 
-export async function pushHorses(horses: Horse[]): Promise<void> {
+/** Photo de cheval dont le `photoPath` distant vient de changer (premier
+ * upload ou suppression) — à reporter dans l'état local par l'appelant (cf.
+ * horses/store.tsx `persist`), même principe que le `filePath` retourné par
+ * `pushDocument`. Le chemin étant déterministe par cheval ("{horseId}/photo.jpg"),
+ * remplacer une photo existante par une autre ne change PAS cette valeur (même
+ * chemin, objet Storage écrasé) : seules les transitions "pas de photo → une
+ * photo" et "une photo → supprimée" sont réellement à reporter localement. */
+export async function pushHorses(horses: Horse[]): Promise<Array<{ id: string; photoPath: string | null }>> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) return;
+  if (!userId) return [];
 
   const profile = await getOwnerProfile(userId);
   // Pas encore de rider_profile côté serveur (ex: confirmation email en
   // attente, cf. (onboarding)/account.tsx) : on retentera au prochain push,
   // pushRiderProfile() crée la ligne dès qu'une session existe.
-  if (!profile) return;
+  if (!profile) return [];
 
   const now = new Date().toISOString();
+  const photoUpdates: Array<{ id: string; photoPath: string | null }> = [];
   // Un cheval à la fois, pas un upsert groupé : Postgres/RLS rejette un
   // upsert multi-lignes EN BLOC si UNE SEULE ligne viole le WITH CHECK (cf.
   // rls.sql horses_insert_own, quota du palier) — avec un upsert groupé, un
@@ -122,14 +160,28 @@ export async function pushHorses(horses: Horse[]): Promise<void> {
   // 2026-09-03. Séparé, seul le cheval en trop échoue ; les autres, dans la
   // limite, sont bien sauvegardés.
   for (const h of horses) {
+    let photoPath = h.photoPath;
+    if (h.photoUrl?.startsWith("file://")) {
+      // Photo fraîchement choisie (jamais un chemin distant) : à uploader. En
+      // cas d'échec réseau, on garde l'ancien photoPath — retenté au prochain
+      // push plutôt que de perdre la référence existante.
+      const uploaded = await uploadHorsePhoto(h.id, h.photoUrl);
+      if (uploaded) photoPath = uploaded;
+    } else if (h.photoUrl === null && h.photoPath) {
+      await deleteHorsePhotoRemote(h.id);
+      photoPath = null;
+    }
+    if (photoPath !== h.photoPath) photoUpdates.push({ id: h.id, photoPath });
+
     const { error } = await supabase.from("horses").upsert({
       id: h.id,
       ownerId: profile.id,
       name: h.name,
-      photoUrl: h.photoUrl,
+      photoPath,
       birthYear: h.birthYear,
       sex: h.sex,
       breed: h.breed,
+      coat: h.coat,
       heightCm: h.heightCm,
       weightKg: h.weightKg,
       discipline: h.discipline,
@@ -160,6 +212,8 @@ export async function pushHorses(horses: Horse[]): Promise<void> {
   for (const horse of horses) {
     await pushHorseTraitsAndInjuries(horse);
   }
+
+  return photoUpdates;
 }
 
 type CloudData = { rider: RiderProfile; horses: Horse[] };
@@ -197,7 +251,7 @@ export async function pullCloudData(): Promise<CloudData | null> {
   };
 
   const remoteHorses = (profile.horses ?? []) as RemoteHorse[];
-  const horses: Horse[] = remoteHorses.map(mapRemoteHorse);
+  const horses: Horse[] = await Promise.all(remoteHorses.map(mapRemoteHorse));
 
   return { rider, horses };
 }
@@ -220,6 +274,7 @@ export type RemoteHorse = Omit<
   | "restDayActivities"
   | "injuries"
   | "sharedRole"
+  | "photoUrl"
 > & {
   horse_traits: RemoteTrait[];
   horse_injuries: RemoteInjury[];
@@ -231,10 +286,20 @@ export type RemoteHorse = Omit<
  * (chevaux partagés), mêmes colonnes distantes des deux côtés. `sharedRole`
  * n'existe pas comme colonne réelle (c'est une notion purement locale) : on le
  * met à `null` par défaut ici, `pullSharedHorses` l'écrase ensuite avec le
- * vrai rôle pour les chevaux partagés. */
-export function mapRemoteHorse(h: RemoteHorse): Horse {
+ * vrai rôle pour les chevaux partagés. `photoUrl` (affichable) est reconstruit
+ * à partir de `photoPath` (chemin durable) via une URL signée, même principe
+ * que `pullDocuments` — d'où l'`async`. */
+export async function mapRemoteHorse(h: RemoteHorse): Promise<Horse> {
+  let photoUrl: string | null = null;
+  if (h.photoPath) {
+    const { data: signed } = await supabase.storage
+      .from("horse-photos")
+      .createSignedUrl(h.photoPath, 7 * 24 * 60 * 60);
+    photoUrl = signed?.signedUrl ?? null;
+  }
   return {
     ...h,
+    photoUrl,
     emoji: "🐴",
     sharedRole: null,
     strengths: h.horse_traits.filter((t) => t.kind === "STRENGTH").map((t) => t.tag),
@@ -285,11 +350,20 @@ async function uploadDocumentPhoto(userId: string, docId: string, localUri: stri
   }
 }
 
-/** Upload la photo (si locale et pas encore envoyée) puis upsert la ligne.
- * Retourne le `filePath` résultant — à reporter dans l'état local par
- * l'appelant (cf. agenda/store.tsx `addDocument`) pour ne pas re-uploader la
- * même photo à chaque synchro suivante. Retourne null sans rien casser si la
- * synchro échoue (pas de session, pas de profil serveur encore, erreur réseau). */
+/** Upload la photo (si locale) puis upsert la ligne. Retourne le `filePath`
+ * résultant — à reporter dans l'état local par l'appelant (cf. agenda/store.tsx
+ * addDocument/updateDocument) pour ne pas re-uploader la même photo à chaque
+ * synchro suivante. Retourne null sans rien casser si la synchro échoue (pas
+ * de session, pas de profil serveur encore, erreur réseau).
+ *
+ * `doc.fileUri` ne vaut "file://…" QUE pour une photo locale pas encore
+ * envoyée (une photo déjà synchronisée redevient une URL signée "https://…"
+ * au prochain pull, cf. pullDocuments) : c'est un signal fiable de "photo à
+ * (ré)uploader", qu'il s'agisse du tout premier envoi ou du remplacement
+ * d'une photo existante lors d'une édition (cf. updateDocument) — le chemin
+ * "{userId}/{docId}.jpg" est déterministe par document, un nouvel upload
+ * écrase donc simplement l'ancien objet (upsert), même logique que les photos
+ * de cheval (cf. uploadHorsePhoto plus haut). */
 export async function pushDocument(doc: Doc): Promise<string | null> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
@@ -299,13 +373,15 @@ export async function pushDocument(doc: Doc): Promise<string | null> {
   if (!profile) return null;
 
   let filePath = doc.filePath;
-  if (doc.fileUri?.startsWith("file://") && !filePath) {
-    filePath = await uploadDocumentPhoto(userId, doc.id, doc.fileUri);
+  if (doc.fileUri?.startsWith("file://")) {
+    const uploaded = await uploadDocumentPhoto(userId, doc.id, doc.fileUri);
+    if (uploaded) filePath = uploaded;
   }
 
   const { error } = await supabase.from("documents").upsert({
     id: doc.id,
     riderId: profile.id,
+    horseId: doc.horseId,
     category: categoryToDb(doc.category),
     name: doc.name,
     date: doc.date.toISOString(),
@@ -339,7 +415,7 @@ export async function pullDocuments(): Promise<Doc[]> {
 
   const { data, error } = await supabase
     .from("documents")
-    .select("id, category, name, date, filePath")
+    .select("id, horseId, category, name, date, filePath")
     .eq("riderId", profile.id);
   if (error || !data) return [];
 
@@ -354,6 +430,7 @@ export async function pullDocuments(): Promise<Doc[]> {
     }
     docs.push({
       id: row.id,
+      horseId: row.horseId ?? null,
       category: categoryFromDb(row.category),
       name: row.name,
       date: new Date(row.date),
@@ -400,6 +477,9 @@ export async function pushAppointment(appt: Appointment): Promise<void> {
     result: appt.result,
     checklist: appt.checklist,
     dossard: appt.dossard,
+    professional: appt.professional,
+    cost: appt.cost,
+    nextDueDate: appt.nextDueDate?.toISOString() ?? null,
     updatedAt: new Date().toISOString(),
   });
   if (error) console.warn("[cloudSync] pushAppointment échoué", error);
@@ -419,7 +499,7 @@ export async function pullAppointments(): Promise<Appointment[]> {
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, competition_entries(id, name, discipline, time, result)"
+      "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, professional, cost, nextDueDate, competition_entries(id, name, discipline, time, result)"
     );
   if (error || !data) return [];
   return data.map((row) => ({
@@ -436,9 +516,13 @@ export async function pullAppointments(): Promise<Appointment[]> {
     // planification propres à l'appareil/au compte qui a créé le rappel.
     reminderNotificationId: null,
     emailReminderId: null,
+    nextDueNotificationId: null,
     result: row.result ?? null,
     checklist: (row.checklist as Appointment["checklist"]) ?? [],
     dossard: row.dossard ?? null,
+    professional: row.professional ?? null,
+    cost: row.cost === null || row.cost === undefined ? null : Number(row.cost),
+    nextDueDate: row.nextDueDate ? new Date(row.nextDueDate) : null,
     competitionEntries: ((row.competition_entries ?? []) as RemoteCompetitionEntry[]).map((e) => ({
       id: e.id,
       name: e.name,

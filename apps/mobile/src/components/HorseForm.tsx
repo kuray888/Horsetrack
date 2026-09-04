@@ -24,6 +24,7 @@ import {
 } from "@/onboarding/options";
 import type { Injury, NewHorse } from "@/horses/store";
 import { pickAndPersistImage } from "@/lib/imagePicker";
+import { CoatField } from "@/components/CoatField";
 import type { Discipline, HorseFitnessLevel, HorseLevel, HorseSex, HorseWorkload } from "@/onboarding/store";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -41,6 +42,7 @@ export const EMPTY_HORSE_DRAFT: HorseFormDraft = {
   birthYear: null,
   sex: null,
   breed: null,
+  coat: null,
   heightCm: null,
   weightKg: null,
   discipline: null,
@@ -98,6 +100,7 @@ export function HorseForm({
   const [birthYear, setBirthYear] = useState<number | null>(initial.birthYear);
   const [sex, setSex] = useState<HorseSex | null>(initial.sex);
   const [breed, setBreed] = useState<string | null>(initial.breed);
+  const [coat, setCoat] = useState<string | null>(initial.coat);
   const [heightCm, setHeightCm] = useState<number | null>(initial.heightCm);
   const [weightKg, setWeightKg] = useState<number | null>(initial.weightKg);
   const [discipline, setDiscipline] = useState<Discipline | null>(initial.discipline);
@@ -124,6 +127,7 @@ export function HorseForm({
       birthYear,
       sex,
       breed,
+      coat,
       heightCm,
       weightKg,
       discipline,
@@ -200,6 +204,7 @@ export function HorseForm({
         </Field>
 
         <BreedField value={breed} onChange={setBreed} />
+        <CoatField value={coat} onChange={setCoat} />
 
         <View className="flex-row gap-3">
           <View className="flex-1">

@@ -104,6 +104,22 @@ export const HORSE_BREEDS: { value: string; label: string }[] = [
   { value: OTHER_OPTION, label: "Autre / je ne sais pas" },
 ];
 
+/** Robes courantes proposées en dropdown — `OTHER_OPTION` ouvre un champ libre,
+ * même pattern que HORSE_BREEDS ci-dessus (cf. CoatField). */
+export const HORSE_COATS: { value: string; label: string }[] = [
+  { value: "Bai", label: "Bai" },
+  { value: "Alezan", label: "Alezan" },
+  { value: "Noir", label: "Noir" },
+  { value: "Gris", label: "Gris" },
+  { value: "Isabelle", label: "Isabelle" },
+  { value: "Palomino", label: "Palomino" },
+  { value: "Pie", label: "Pie" },
+  { value: "Rouan", label: "Rouan" },
+  { value: "Aubère", label: "Aubère" },
+  { value: "Louvet", label: "Louvet" },
+  { value: OTHER_OPTION, label: "Autre / je ne sais pas" },
+];
+
 export const HORSE_FITNESS_LEVELS: Option<HorseFitnessLevel>[] = [
   { value: "RESTING", label: "Au repos", icon: { name: "weather-night", color: colors.textMuted } },
   { value: "REOPENING", label: "Reprise en main", icon: { name: "sprout-outline", color: colors.success } },

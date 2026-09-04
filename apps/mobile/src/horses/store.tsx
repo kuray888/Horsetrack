@@ -9,7 +9,7 @@ import {
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
-import { pushHorses } from "@/lib/cloudSync";
+import { deleteHorsePhotoRemote, pushHorses } from "@/lib/cloudSync";
 import type {
   Discipline,
   HorseDraft,
@@ -42,12 +42,20 @@ export type Horse = {
   id: string;
   name: string;
   emoji: string;
-  /** URI locale de la photo (copiée dans le stockage persistant de l'app via
-   * lib/imagePicker.ts) — null tant qu'aucune photo n'a été ajoutée. */
+  /** URI à afficher immédiatement : URI locale fraîchement choisie (via
+   * lib/imagePicker.ts, pas encore uploadée) OU URL signée régénérée au pull
+   * (cf. cloudSync.ts mapRemoteHorse) — jamais persistée telle quelle en base,
+   * cf. photoPath. Null tant qu'aucune photo n'a été ajoutée. */
   photoUrl: string | null;
+  /** Chemin durable dans le bucket Storage "horse-photos", géré exclusivement
+   * par la synchro (cf. cloudSync.ts pushHorses/mapRemoteHorse) — jamais
+   * modifié directement par le formulaire. Sert à savoir si une photo a déjà
+   * été envoyée dans le cloud, indépendamment de la valeur locale de photoUrl. */
+  photoPath: string | null;
   birthYear: number | null;
   sex: HorseSex | null;
   breed: string | null;
+  coat: string | null;
   heightCm: number | null;
   weightKg: number | null;
   discipline: Discipline;
@@ -77,6 +85,7 @@ export type NewHorse = {
   birthYear: number | null;
   sex: HorseSex | null;
   breed: string | null;
+  coat: string | null;
   heightCm: number | null;
   weightKg: number | null;
   discipline: Discipline;
@@ -97,9 +106,11 @@ const DEFAULT_HORSES: Horse[] = [
     name: "Tornado",
     emoji: "🐴",
     photoUrl: null,
+    photoPath: null,
     birthYear: new Date().getFullYear() - 9,
     sex: "GELDING",
     breed: "Selle Français",
+    coat: "Bai",
     heightCm: 165,
     weightKg: 550,
     discipline: "SHOW_JUMPING",
@@ -143,6 +154,12 @@ function reviveHorses(horses: Horse[]): Horse[] {
     ...h,
     restDayActivities: h.restDayActivities ?? [],
     sharedRole: h.sharedRole ?? null,
+    // Chevaux sauvegardés localement avant l'introduction de photoPath
+    // (2026-09-04) : jamais uploadée, photoUrl reste une URI locale valide sur
+    // cet appareil (cf. lib/imagePicker.ts, stockage persistant) — rien à
+    // migrer, juste combler le champ pour ne pas planter le typage.
+    photoPath: h.photoPath ?? null,
+    coat: h.coat ?? null,
     injuries: h.injuries.map((i) => ({
       ...i,
       occurredAt: i.occurredAt ? new Date(i.occurredAt) : null,
@@ -160,9 +177,13 @@ function fromDraft(draft: CompletedHorseDraft): Horse {
     name: draft.name.trim(),
     emoji: "🐴",
     photoUrl: draft.photoUrl,
+    // Jamais encore envoyée dans le cloud à ce stade — persist()/pushHorses()
+    // s'en charge dès la première synchro (cf. plus bas).
+    photoPath: null,
     birthYear: draft.birthYear,
     sex: draft.sex,
     breed: draft.breed,
+    coat: draft.coat,
     heightCm: draft.heightCm,
     weightKg: draft.weightKg,
     discipline: draft.discipline,
@@ -237,13 +258,32 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     // programme/affichage local ne doit jamais attendre le réseau. Exclut les
     // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
     // sans effet (RLS bloque, cf. owns_rider_profile) et inutile.
-    pushHorses(next.filter((h) => !h.sharedRole)).catch(() => {});
+    pushHorses(next.filter((h) => !h.sharedRole))
+      .then((updates) => {
+        // Reporte le photoPath résultant d'un upload/suppression de photo
+        // (cf. cloudSync.ts pushHorses) dans l'état local — sans ça, une photo
+        // tout juste uploadée resterait marquée "pas encore envoyée" jusqu'à
+        // la prochaine synchro et serait ré-uploadée inutilement.
+        if (updates.length === 0) return;
+        setHorses((prev) => {
+          const merged = prev.map((h) => {
+            const update = updates.find((u) => u.id === h.id);
+            return update ? { ...h, photoPath: update.photoPath } : h;
+          });
+          SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(merged));
+          return merged;
+        });
+      })
+      .catch(() => {});
   }, []);
 
   const addHorse = useCallback(
     (horse: NewHorse) => {
       setHorses((prev) => {
-        const next = [...prev, { ...horse, id: generateId(), emoji: "🐴", isPrimary: false, sharedRole: null }];
+        const next = [
+          ...prev,
+          { ...horse, id: generateId(), emoji: "🐴", photoPath: null, isPrimary: false, sharedRole: null },
+        ];
         persist(next);
         return next;
       });
@@ -285,6 +325,11 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       const target = horses.find((h) => h.id === id);
       if (!target || target.sharedRole) return;
       if (horses.filter((h) => !h.sharedRole).length <= 1) return;
+
+      // Best-effort : le storage n'a pas de cascade FK depuis `horses`
+      // (contrairement aux tables Postgres), donc pas nettoyé automatiquement
+      // par la suppression de la ligne côté serveur.
+      if (target.photoPath) deleteHorsePhotoRemote(id).catch(() => {});
 
       let next = horses.filter((h) => h.id !== id);
       if (target.isPrimary) {

@@ -46,6 +46,7 @@ export type HorseDraft = {
   birthYear: number | null;
   sex: HorseSex | null;
   breed: string | null;
+  coat: string | null;
   heightCm: number | null;
   weightKg: number | null;
   discipline: Discipline | null;
@@ -84,6 +85,7 @@ function newHorse(isPrimary: boolean): HorseDraft {
     birthYear: null,
     sex: null,
     breed: null,
+    coat: null,
     heightCm: null,
     weightKg: null,
     discipline: null,

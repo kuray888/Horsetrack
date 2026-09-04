@@ -100,9 +100,7 @@ export default function ShareHorseModal() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
     setSubmitting(true);
     try {
-      // Non-null : le early return `if (!horse)` plus haut garantit sa présence ;
-      // TS ne narrowe pas à travers cette closure imbriquée.
-      const result = await inviteCollaborator(horseId, trimmed, role, horse!.name);
+      const result = await inviteCollaborator(horseId, trimmed, role);
       if (result === "ok") {
         setEmail("");
         refresh();

@@ -76,8 +76,15 @@ model Horse {
   ownerId String
   owner   RiderProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  name      String
-  photoUrl  String?
+  name String
+  /// Chemin dans le bucket Storage "horse-photos" (horseId/photo.jpg) — pas une
+  /// URL : le bucket est privé (lecture ouverte aux collaborateurs partagés,
+  /// cf. rls.sql can_access_horse), l'URL signée est régénérée à la demande
+  /// côté client (cf. cloudSync.ts mapRemoteHorse), même principe que
+  /// Document.filePath. Anciennement `photoUrl` — renommé car cette colonne ne
+  /// contenait jamais une URL exploitable (bug corrigé le 2026-09-04 : le
+  /// client y écrivait directement l'URI locale file:// de l'appareil).
+  photoPath String?
   birthYear Int?
   sex       HorseSex?
   breed     String?
@@ -103,6 +110,7 @@ model Horse {
   collaborators   HorseCollaborator[]
   trainingSessions TrainingSession[]
   expenses        Expense[]
+  documents       Document[]
 
   @@index([ownerId])
   @@map("horses")
@@ -167,6 +175,16 @@ model Document {
   id      String       @id @default(cuid())
   riderId String
   rider   RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  /// Cheval concerné — optionnel pour ne pas casser les documents créés avant
+  /// l'introduction de ce champ (cf. audit produit du 2026-09-04), mais
+  /// toujours renseigné par le client à partir de maintenant (cheval
+  /// actuellement sélectionné, même logique que Appointment/JournalEntry/
+  /// Expense). SetNull (pas Cascade) : supprimer un cheval ne doit jamais
+  /// supprimer les documents du cavalier (passeport, factures...), juste les
+  /// désassocier — le coffre-fort reste privé par riderId (cf. plus bas),
+  /// jamais par can_access_horse comme le calendrier.
+  horseId String?
+  horse   Horse?       @relation(fields: [horseId], references: [id], onDelete: SetNull)
 
   category DocumentCategory
   name     String
@@ -183,6 +201,7 @@ model Document {
   updatedAt DateTime @updatedAt
 
   @@index([riderId])
+  @@index([horseId])
   @@map("documents")
 }
 
@@ -213,6 +232,21 @@ model Appointment {
   /// Numéro de dossard (concours uniquement) — un dossard par cheval par
   /// concours, pas par épreuve.
   dossard String?
+
+  /// Praticien/professionnel intervenu (ex: nom du vétérinaire) — pertinent
+  /// surtout pour les types de soin (veto/osteo/marechal/dentiste/
+  /// vaccination/vermifuge/traitement), laissé libre pour les autres.
+  professional String?
+  /// Coût de ce soin, saisi directement sur l'événement plutôt que de créer
+  /// systématiquement une Expense liée (cf. Expense.appointmentId, qui reste
+  /// le rattachement optionnel côté budget si l'utilisateur veut le suivre
+  /// dans ses dépenses) — un simple montant informatif suffit ici.
+  cost Decimal? @db.Decimal(10, 2)
+  /// Prochaine échéance du même soin (ex: prochain rappel de vaccin) — pilote
+  /// un rappel local uniquement (cf. lib/notifications.ts scheduleReminder
+  /// côté mobile, identifiant jamais synchronisé, même principe que
+  /// reminderNotificationId ci-dessous, absent de ce modèle).
+  nextDueDate DateTime?
 
   competitionEntries CompetitionEntry[]
   expenses           Expense[]
@@ -337,12 +371,23 @@ model Expense {
   @@map("expenses")
 }
 
+/// Étendue au budget complet du cavalier particulier (pension, dentiste,
+/// ostéo, compléments, transport, coaching — cf. audit produit du
+/// 2026-09-04), pas seulement les catégories qui recoupent un type de
+/// rendez-vous (cf. Appointment.type et expenseCategoryToAppointmentType côté
+/// mobile, qui ne rapproche que veto/marechal/concours/dentiste/osteo).
 enum ExpenseCategory {
   VETO
   MARECHAL
+  DENTISTE
+  OSTEO
   CONCOURS
+  PENSION
   ALIMENTATION
+  COMPLEMENTS
   MATERIEL
+  TRANSPORT
+  COACHING
   AUTRE
 
   @@map("expense_category")
@@ -480,6 +525,9 @@ enum AppointmentType {
   OSTEO
   MARECHAL
   DENTISTE
+  VACCINATION
+  VERMIFUGE
+  TRAITEMENT
   CONCOURS
   AUTRE
 
@@ -522,7 +570,7 @@ enum HorseCollaboratorStatus {
 }
 
 enum SubscriptionStatus {
-  TRIALING // essai 7j actif (accès complet)
+  TRIALING // essai Premium gratuit d'1 mois (éligibilité vérifiée par le store, cf. lib/revenuecat.ts isTrialEligible) — accès complet le temps de l'essai
   ACTIVE // abonné payant
   EXPIRED // trial/abo terminé → app verrouillée
   CANCELLED
@@ -530,12 +578,31 @@ enum SubscriptionStatus {
   @@map("subscription_status")
 }
 
-/// Palier d'abonnement — détermine les fonctionnalités et limites accessibles
-/// (cf. HORSE_LIMITS et les gates Coach IA / programme côté mobile et API).
+/// Palier d'abonnement — un seul palier payant dans le produit réellement
+/// exécuté (pivot du 2026-06-19, cf. git log), pas de gestion d'écurie/
+/// multi-utilisateurs avancée (hors scope HorseTrack, cf. HorsePlanning).
+/// Grille tarifaire réelle affichée par PaywallView.tsx/paywall.tsx : FREE 0€
+/// (1 cheval) → GRAND_PRIX 3,99€/mois ou 39,99€/an (3 chevaux, coffre-fort,
+/// partage, stats, rappels auto), + add-on "cheval supplémentaire" 1,99€/mois
+/// ou 14,99€/an (cf. Horse.extraHorseSlots plus haut). L'identifiant
+/// `GRAND_PRIX` (et l'entitlement RevenueCat `grand_prix`, cf.
+/// lib/revenuecat.ts) est un nom interne hérité d'un ancien modèle à 3
+/// paliers, conservé tel quel pour éviter une reconfiguration du dashboard
+/// RevenueCat/App Store — il ne reflète plus un positionnement "haut de
+/// gamme", juste LE palier payant unique. Pas de génération de contenu par IA
+/// dans ce palier (retirée du produit, cf. TrainingSession/ActivityType plus
+/// haut) : le "Coach IA" évoqué par un ancien document produit n'existe plus
+/// dans le code exécuté.
 enum SubscriptionTier {
-  FREE // 0€ — 1 cheval, historique 14j, calendrier manuel
-  PADDOCK // 4,99€/mois ou 39,99€/an — 2 chevaux, coffre-fort, partage
-  GRAND_PRIX // 19,99€/mois ou 169,99€/an — 3 chevaux, Coach IA + programme + stats avancées
+  FREE
+  /// Valeur legacy de l'ancien modèle à 3 paliers — plus jamais attribuée par
+  /// le webhook RevenueCat (cf. apps/api/.../revenuecat/webhook/route.ts) ni
+  /// choisissable dans l'app (un seul palier payant, GRAND_PRIX). Conservée
+  /// dans l'enum uniquement pour ne pas risquer une migration de colonne enum
+  /// Postgres sans nécessité — à supprimer si un jour aucune ligne ne la
+  /// référence plus.
+  PADDOCK
+  GRAND_PRIX
 
   @@map("subscription_tier")
 }

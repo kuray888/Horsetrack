@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Animated, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FadeInView } from "@/components/FadeInView";
 import { CircularProgress } from "@/components/CircularProgress";
@@ -9,15 +10,40 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { PrimaryButton } from "@/components/onboarding";
-import { usePressScale } from "@/hooks/usePressScale";
 import { colors as staticColors } from "@/theme/colors";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { formatDate, formatDuration, isSameDate, MONTHS } from "@/lib/dateFormat";
+import { formatDuration, isSameDate, MONTHS } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
-import { ACTIVITY_META, type ActivityType } from "@/agenda/store";
+import { useSubscription } from "@/subscription/store";
+import { useAgenda, ACTIVITY_META, type ActivityType, type Appointment, type CompetitionEntry, type ExpenseCategory } from "@/agenda/store";
+import { suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { useSessions, type SessionIntensity, type TrainingSession } from "@/sessions/store";
-
-type IconSpec = { name: keyof typeof MaterialCommunityIcons.glyphMap; color: string };
+import {
+  computeSessionStats,
+  startOfMonth as statsMonthStart,
+  endOfMonth as statsMonthEnd,
+} from "@/sessions/stats";
+import { ChipSelect, AddToggle } from "@/components/FormChips";
+import { INTENSITY_META } from "@/sessions/components/SessionCard";
+import {
+  buildUnifiedEvents,
+  filterUnifiedEvents,
+  eventTime,
+  isEventUpcoming,
+  upcomingUnifiedEvents,
+  PLANNING_FILTER_VALUES,
+  type PlanningFilterValue,
+  type UnifiedEvent,
+} from "@/planning/unifiedEvents";
+import { PlanningFilter } from "@/planning/components/PlanningFilter";
+import { UnifiedEventCard } from "@/planning/components/UnifiedEventCard";
+import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
+import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
+import { AppointmentForm } from "@/agenda/components/AppointmentForm";
+import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
+import { ExpenseForm } from "@/agenda/components/ExpenseForm";
+import { useJournalForm } from "@/agenda/hooks/useJournalForm";
+import { JournalForm } from "@/agenda/components/JournalForm";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -29,12 +55,6 @@ const REPEAT_OPTIONS = [
   { value: 4, label: "4 semaines" },
   { value: 8, label: "8 semaines" },
 ];
-
-const INTENSITY_META: Record<SessionIntensity, { label: string; icon: IconSpec }> = {
-  low: { label: "Légère", icon: { name: "circle", color: staticColors.success } },
-  medium: { label: "Modérée", icon: { name: "circle", color: staticColors.warning } },
-  high: { label: "Intense", icon: { name: "circle", color: staticColors.danger } },
-};
 
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -83,54 +103,6 @@ function groupByDay<T extends { date: Date }>(items: T[]): { key: string; label:
   return groups;
 }
 
-function ChipSelect<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string; icon: IconSpec }[];
-  value: T | null;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <View className="flex-row flex-wrap gap-2">
-      {options.map((opt) => {
-        const selected = value === opt.value;
-        return (
-          <TouchableOpacity
-            key={opt.value}
-            onPress={() => onChange(opt.value)}
-            activeOpacity={0.8}
-            accessibilityLabel={opt.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            className={`flex-row items-center gap-1.5 rounded-full border px-3.5 py-2 ${
-              selected ? "border-primary bg-highlight" : "border-border bg-surface"
-            }`}
-          >
-            <MaterialCommunityIcons name={opt.icon.name} size={15} color={opt.icon.color} accessibilityElementsHidden />
-            <Text className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}>{opt.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-function AddToggle({ label, onPress }: { label: string; onPress: () => void }) {
-  const colors = useThemeColors();
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
-    >
-      <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
-      <Text className="text-base font-semibold text-primary">{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 type SessionForm = {
   activityType: ActivityType;
   date: Date | null;
@@ -165,114 +137,6 @@ function formFromSession(session: TrainingSession): SessionForm {
   };
 }
 
-function SessionCard({
-  session,
-  expanded,
-  onPress,
-  onToggleDone,
-  onEdit,
-  onDuplicate,
-  onDelete,
-}: {
-  session: TrainingSession;
-  expanded: boolean;
-  onPress: () => void;
-  onToggleDone: () => void;
-  onEdit: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-}) {
-  const colors = useThemeColors();
-  const { scale, onPressIn, onPressOut } = usePressScale();
-  const meta = ACTIVITY_META[session.activityType];
-  return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onPress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        className={`${CARD} gap-3`}
-      >
-        <View className="flex-row items-center gap-3">
-          <View
-            className={`h-11 w-11 items-center justify-center rounded-full ${
-              session.completed ? "bg-success/15" : meta.chip
-            }`}
-          >
-            <MaterialCommunityIcons
-              name={session.completed ? "check" : meta.icon}
-              size={20}
-              color={session.completed ? colors.success : meta.tint}
-            />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text className={`text-base font-bold ${session.completed ? "text-muted line-through" : "text-text"}`}>
-              {meta.label}
-            </Text>
-            <Text className="text-sm text-muted">
-              {formatDate(session.date)} · {session.time || "Heure libre"}
-              {session.durationMinutes ? ` · ${session.durationMinutes} min` : ""}
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name={expanded ? "chevron-up" : "chevron-right"}
-            size={20}
-            color={colors.textMuted}
-          />
-        </View>
-
-        {expanded ? (
-          <View className="gap-3 border-t border-border pt-3">
-            {session.intensity ? (
-              <View className="flex-row items-center gap-1.5">
-                <MaterialCommunityIcons name={INTENSITY_META[session.intensity].icon.name} size={12} color={INTENSITY_META[session.intensity].icon.color} />
-                <Text className="text-sm text-muted">Intensité : {INTENSITY_META[session.intensity].label}</Text>
-              </View>
-            ) : null}
-            {session.notes.trim() ? <Text className="text-sm leading-5 text-text">{session.notes}</Text> : null}
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={onToggleDone}
-                activeOpacity={0.8}
-                className="flex-1 items-center rounded-card bg-primary p-3"
-              >
-                <Text className="text-sm font-bold text-on-primary">
-                  {session.completed ? "Marquer à faire" : "Marquer faite"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={onEdit}
-                activeOpacity={0.8}
-                className="flex-1 items-center rounded-card border border-border p-3"
-              >
-                <Text className="text-sm font-semibold text-text">Modifier</Text>
-              </TouchableOpacity>
-            </View>
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={onDuplicate}
-                activeOpacity={0.8}
-                className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
-              >
-                <MaterialCommunityIcons name="content-copy" size={15} color={colors.textMuted} />
-                <Text className="text-sm font-semibold text-text">Dupliquer +7j</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={onDelete}
-                activeOpacity={0.8}
-                className="items-center justify-center rounded-card border border-border px-4"
-              >
-                <Text className="text-sm font-semibold text-warning">Suppr.</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
 const WEEKDAY_HEADER = ["L", "M", "M", "J", "V", "S", "D"];
 
 function MonthGrid({
@@ -280,13 +144,13 @@ function MonthGrid({
   selectedDay,
   onSelectDay,
   onChangeMonth,
-  sessionsByDay,
+  eventsByDay,
 }: {
   monthCursor: Date;
   selectedDay: Date;
   onSelectDay: (d: Date) => void;
   onChangeMonth: (delta: number) => void;
-  sessionsByDay: Map<string, TrainingSession[]>;
+  eventsByDay: Map<string, UnifiedEvent[]>;
 }) {
   const colors = useThemeColors();
   const todayKey = new Date().toDateString();
@@ -318,7 +182,7 @@ function MonthGrid({
           const inMonth = d.getMonth() === monthCursor.getMonth();
           const isToday = d.toDateString() === todayKey;
           const isSelected = isSameDate(d, selectedDay);
-          const daySessions = sessionsByDay.get(d.toDateString()) ?? [];
+          const dayEvents = eventsByDay.get(d.toDateString()) ?? [];
           return (
             <TouchableOpacity
               key={d.toDateString()}
@@ -337,7 +201,7 @@ function MonthGrid({
                   {d.getDate()}
                 </Text>
               </View>
-              <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: daySessions.length > 0 ? colors.accent : "transparent" }} />
+              <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dayEvents.length > 0 ? colors.accent : "transparent" }} />
             </TouchableOpacity>
           );
         })}
@@ -349,20 +213,82 @@ function MonthGrid({
 export default function PlanningScreen() {
   const colors = useThemeColors();
   const { selectedHorse } = useHorses();
+  const { isActiveOrTrialing } = useSubscription();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
+  const {
+    appointments,
+    addAppointment,
+    updateAppointment,
+    deleteAppointment,
+    saveResult,
+    toggleChecklistItem,
+    addChecklistItem,
+    removeChecklistItem,
+    addCompetitionEntry,
+    updateCompetitionEntryResult,
+    deleteCompetitionEntry,
+    addExpense,
+    updateExpense,
+    addDocument,
+    linkExpenseDocument,
+    addJournalEntry,
+    updateJournalEntry,
+  } = useAgenda();
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm());
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<ActivityType | "all">("all");
+  // Filtre initial optionnel (cf. app/horse/[id]/entrainement.tsx et
+  // concours.tsx, qui renvoient ici avec ?filter=... pour ouvrir directement
+  // la bonne catégorie) — "all" par défaut si absent/invalide, comportement
+  // inchangé pour toute navigation qui n'en passe pas.
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const initialFilter = PLANNING_FILTER_VALUES.includes(filterParam as PlanningFilterValue)
+    ? (filterParam as PlanningFilterValue)
+    : "all";
+  const [filter, setFilter] = useState<PlanningFilterValue>(initialFilter);
+  // Planning reste monté entre deux visites (comportement par défaut des
+  // Tabs Expo Router) : sans cet ajustement, une deuxième navigation ici avec
+  // un ?filter= différent (ex: Horse Hub > Entraînement après Horse Hub >
+  // Concours) ne changerait rien, `useState(initialFilter)` ne s'exécutant
+  // qu'au premier montage. Pattern "ajuster l'état pendant le rendu" plutôt
+  // qu'un useEffect (cf. react.dev/learn/you-might-not-need-an-effect). Ne
+  // touche rien si le paramètre est absent/invalide, pour ne pas écraser le
+  // choix de l'utilisateur dans PlanningFilter.
+  const [syncedFilterParam, setSyncedFilterParam] = useState(filterParam);
+  if (filterParam !== syncedFilterParam) {
+    setSyncedFilterParam(filterParam);
+    if (PLANNING_FILTER_VALUES.includes(filterParam as PlanningFilterValue)) {
+      setFilter(filterParam as PlanningFilterValue);
+    }
+  }
   const [viewMode, setViewMode] = useState<"list" | "month">("list");
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
   const [selectedDay, setSelectedDay] = useState(() => new Date());
+  const [showStats, setShowStats] = useState(false);
+  const [statsPeriod, setStatsPeriod] = useState<"month" | "all">("month");
+  const [quickAddVisible, setQuickAddVisible] = useState(false);
+  // Seul le setter est nécessaire (cf. useAppointmentForm), Planning
+  // n'affiche pas de bannière de permission notifications contrairement à
+  // agenda.tsx.
+  const [, setNotifPermission] = useState<boolean | null>(null);
 
   const horseSessions = sessions.filter((s) => s.horseId === selectedHorse?.id);
+  const horseAppointments = appointments.filter((a) => a.horseId === selectedHorse?.id);
   const today = new Date();
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // Statistiques simples (pas d'IA, cf. src/sessions/stats.ts) — "Toujours"
+  // couvre depuis la plus ancienne séance du cheval jusqu'à aujourd'hui.
+  // Restent volontairement propres aux séances (cf. brief §1 : chaque type
+  // d'événement garde ses informations propres) — pas de "stats unifiées".
+  const statsFrom =
+    statsPeriod === "month"
+      ? statsMonthStart(today)
+      : horseSessions.reduce((min, s) => (s.date < min ? s.date : min), today);
+  const statsTo = statsPeriod === "month" ? statsMonthEnd(today) : today;
+  const sessionStats = computeSessionStats(horseSessions, statsFrom, statsTo);
 
   // Lundi de la semaine en cours, même convention que Today (0 = lundi).
   const weekOffset = (today.getDay() + 6) % 7;
@@ -374,28 +300,135 @@ export default function PlanningScreen() {
   const weekDone = weekSessions.filter((s) => s.completed).length;
   const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
 
-  const filteredSessions = filter === "all" ? horseSessions : horseSessions.filter((s) => s.activityType === filter);
+  // Unification d'affichage seulement (cf. plan Phase 3 Étape 3) : séances et
+  // rendez-vous restent deux collections séparées côté store, buildUnifiedEvents
+  // ne fait que les envelopper dans un type commun pour trier/regrouper/filtrer
+  // une seule liste (cf. src/planning/unifiedEvents.ts).
+  const unifiedEvents = buildUnifiedEvents(horseSessions, horseAppointments);
+  const filteredEvents = filterUnifiedEvents(unifiedEvents, filter);
 
-  // Vue mensuelle (cf. MonthGrid) : regroupe les séances déjà filtrées par
+  // Vue mensuelle (cf. MonthGrid) : regroupe les événements déjà filtrés par
   // jour pour poser les puces de la grille et la liste du jour sélectionné.
-  const sessionsByDay = new Map<string, TrainingSession[]>();
-  for (const s of filteredSessions) {
-    const key = s.date.toDateString();
-    sessionsByDay.set(key, [...(sessionsByDay.get(key) ?? []), s]);
+  const eventsByDay = new Map<string, UnifiedEvent[]>();
+  for (const e of filteredEvents) {
+    const key = e.date.toDateString();
+    eventsByDay.set(key, [...(eventsByDay.get(key) ?? []), e]);
   }
-  const selectedDaySessions = (sessionsByDay.get(selectedDay.toDateString()) ?? []).sort((a, b) =>
-    a.time.localeCompare(b.time)
+  const selectedDayEvents = (eventsByDay.get(selectedDay.toDateString()) ?? []).sort((a, b) =>
+    eventTime(a).localeCompare(eventTime(b))
   );
 
-  const upcoming = filteredSessions
-    .filter((s) => !s.completed && s.date >= todayStart)
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
-  const done = filteredSessions
-    .filter((s) => s.completed || s.date < todayStart)
+  const upcoming = upcomingUnifiedEvents(filteredEvents, todayStart);
+  const done = filteredEvents
+    .filter((e) => !isEventUpcoming(e, todayStart))
     .sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const upcomingGroups = groupByDay(upcoming);
   const doneGroups = groupByDay(done.slice(0, 20));
+
+  const sessionHandlers = {
+    onToggleDone: (s: TrainingSession) => toggleCompleted(s.id),
+    onEdit: (s: TrainingSession) => openEditForm(s),
+    onDuplicate: (s: TrainingSession) => handleDuplicate(s),
+    onDelete: (s: TrainingSession) => confirmDelete(s),
+  };
+
+  // "Modifier" un rendez-vous depuis Planning renvoie vers Agenda plutôt que
+  // d'ouvrir un formulaire d'édition ici — pas de deuxième formulaire
+  // d'édition de rendez-vous à maintenir (cf. brief §8 : rester cohérent avec
+  // les redirections déjà en place depuis le Horse Hub). Les autres actions
+  // (checklist, résultat, épreuves, suppression) restent de simples appels
+  // aux mutateurs déjà existants d'agenda/store.tsx, sans nouvelle logique.
+  const appointmentHandlers = {
+    onEdit: () => router.push("/(tabs)/agenda?section=appointments"),
+    onDelete: (a: Appointment) => deleteAppointment(a),
+    onSaveResult: (a: Appointment, result: string) => saveResult(a.id, result),
+    onToggleChecklistItem: (a: Appointment, itemId: string) => toggleChecklistItem(a.id, itemId),
+    onAddChecklistItem: (a: Appointment, label: string) => addChecklistItem(a.id, label),
+    onRemoveChecklistItem: (a: Appointment, itemId: string) => removeChecklistItem(a.id, itemId),
+    onAddCompetitionEntry: (a: Appointment, entry: Omit<CompetitionEntry, "id" | "result">) => addCompetitionEntry(a.id, entry),
+    onUpdateCompetitionEntryResult: (a: Appointment, entryId: string, result: string) =>
+      updateCompetitionEntryResult(a.id, entryId, result),
+    onDeleteCompetitionEntry: (a: Appointment, entryId: string) => deleteCompetitionEntry(a.id, entryId),
+  };
+
+  const {
+    showApptForm,
+    setShowApptForm,
+    apptForm,
+    setApptForm,
+    submittingAppt,
+    editingApptId,
+    cancelApptForm,
+    handleSubmitAppointment,
+    addApptFormEntry,
+    updateApptFormEntry,
+    removeApptFormEntry,
+  } = useAppointmentForm({
+    horse: selectedHorse ?? null,
+    appointments,
+    addAppointment,
+    updateAppointment,
+    isActiveOrTrialing,
+    setNotifPermission,
+    onEditStart: () => setExpandedId(null),
+  });
+
+  const {
+    showExpenseForm,
+    setShowExpenseForm,
+    expenseForm,
+    setExpenseForm,
+    editingExpenseId,
+    cancelExpenseForm,
+    handleSubmitExpense,
+    handlePickExpensePhoto,
+  } = useExpenseForm({ addExpense, updateExpense, addDocument, linkExpenseDocument, isActiveOrTrialing });
+
+  const {
+    showJournalForm,
+    setShowJournalForm,
+    journalForm,
+    setJournalForm,
+    savingJournal,
+    editingJournalId,
+    cancelJournalForm,
+    handleSubmitJournalEntry,
+  } = useJournalForm({ addJournalEntry, updateJournalEntry, onEditStart: () => setExpandedId(null) });
+
+  // Même logique de rapprochement que agenda.tsx/le Horse Hub — dupliquée
+  // Suggestion de rapprochement pour le formulaire de dépense (cf.
+  // agenda/meta.ts suggestedAppointmentFor, partagé avec today.tsx/Horse Hub).
+  function suggestedAppointmentFor(category: ExpenseCategory): Appointment | null {
+    return findSuggestedAppointment(horseAppointments, category);
+  }
+
+  function handleQuickAdd(option: QuickAddOption) {
+    setQuickAddVisible(false);
+    switch (option) {
+      case "seance":
+        openCreateForm();
+        return;
+      case "soin":
+        setApptForm((f) => ({ ...f, type: "veto" }));
+        setShowApptForm(true);
+        return;
+      case "rendezvous":
+        setApptForm((f) => ({ ...f, type: "autre" }));
+        setShowApptForm(true);
+        return;
+      case "concours":
+        setApptForm((f) => ({ ...f, type: "concours" }));
+        setShowApptForm(true);
+        return;
+      case "depense":
+        setShowExpenseForm(true);
+        return;
+      case "journal":
+        setShowJournalForm(true);
+        return;
+    }
+  }
 
   function openCreateForm(date?: Date) {
     setEditingId(null);
@@ -473,7 +506,7 @@ export default function PlanningScreen() {
       <FadeInView>
         <View className="gap-1">
           <Text className="text-3xl font-display tracking-tight text-text">Planning</Text>
-          <Text className="text-base text-muted">Séances d&apos;entraînement de {selectedHorse?.name ?? "ton cheval"}</Text>
+          <Text className="text-base text-muted">La vie équestre de {selectedHorse?.name ?? "ton cheval"}, en un seul endroit</Text>
         </View>
       </FadeInView>
 
@@ -518,6 +551,84 @@ export default function PlanningScreen() {
           </View>
         </FadeInView>
       ) : null}
+
+      <FadeInView delay={50}>
+        <View className={CARD}>
+          <TouchableOpacity
+            onPress={() => setShowStats((v) => !v)}
+            activeOpacity={0.8}
+            className="flex-row items-center justify-between"
+          >
+            <Text className="text-base font-bold text-text">Statistiques</Text>
+            <MaterialCommunityIcons
+              name={showStats ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={staticColors.textMuted}
+            />
+          </TouchableOpacity>
+
+          {showStats ? (
+            <View className="mt-4 gap-4 border-t border-border pt-4">
+              <View className="flex-row gap-2 self-start rounded-full bg-background p-1">
+                {(["month", "all"] as const).map((period) => (
+                  <TouchableOpacity
+                    key={period}
+                    onPress={() => setStatsPeriod(period)}
+                    activeOpacity={0.85}
+                    className={`rounded-full px-3 py-1 ${statsPeriod === period ? "bg-primary" : ""}`}
+                  >
+                    <Text className={`text-xs font-semibold ${statsPeriod === period ? "text-on-primary" : "text-muted"}`}>
+                      {period === "month" ? "Ce mois" : "Toujours"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {sessionStats.sessionCount === 0 && sessionStats.restDays === 0 ? (
+                <Text className="text-sm text-muted">Aucune séance faite sur cette période.</Text>
+              ) : (
+                <>
+                  <View className="flex-row items-center justify-between">
+                    <View className="items-center gap-0.5">
+                      <Text className="text-lg font-display text-text">{sessionStats.sessionCount}</Text>
+                      <Text className="text-xs text-muted">séance{sessionStats.sessionCount > 1 ? "s" : ""}</Text>
+                    </View>
+                    <View className="items-center gap-0.5">
+                      <Text className="text-lg font-display text-text">{formatDuration(sessionStats.totalMinutes)}</Text>
+                      <Text className="text-xs text-muted">de travail</Text>
+                    </View>
+                    <View className="items-center gap-0.5">
+                      <Text className="text-lg font-display text-text">{sessionStats.perWeek}</Text>
+                      <Text className="text-xs text-muted">séance{sessionStats.perWeek > 1 ? "s" : ""}/sem.</Text>
+                    </View>
+                    <View className="items-center gap-0.5">
+                      <Text className="text-lg font-display text-text">{sessionStats.restDays}</Text>
+                      <Text className="text-xs text-muted">repos</Text>
+                    </View>
+                  </View>
+
+                  {sessionStats.perDiscipline.length > 0 ? (
+                    <View className="gap-1.5">
+                      {sessionStats.perDiscipline.map(({ activityType, count }) => {
+                        const meta = ACTIVITY_META[activityType];
+                        return (
+                          <View key={activityType} className="flex-row items-center gap-2.5">
+                            <MaterialCommunityIcons name={meta.icon} size={15} color={meta.tint} />
+                            <Text className="flex-1 text-sm text-text">{meta.label}</Text>
+                            <Text className="text-sm font-semibold text-text">
+                              {count} séance{count > 1 ? "s" : ""}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </>
+              )}
+            </View>
+          ) : null}
+        </View>
+      </FadeInView>
 
       <FadeInView delay={60}>
         {showForm ? (
@@ -602,47 +713,51 @@ export default function PlanningScreen() {
               </View>
             </View>
           </View>
+        ) : showApptForm ? (
+          <AppointmentForm
+            show={showApptForm}
+            form={apptForm}
+            setForm={setApptForm}
+            editingApptId={editingApptId}
+            submitting={submittingAppt}
+            onOpen={() => setShowApptForm(true)}
+            onCancel={cancelApptForm}
+            onSubmit={handleSubmitAppointment}
+            onAddEntry={addApptFormEntry}
+            onUpdateEntry={updateApptFormEntry}
+            onRemoveEntry={removeApptFormEntry}
+          />
+        ) : showExpenseForm ? (
+          <ExpenseForm
+            show={showExpenseForm}
+            form={expenseForm}
+            setForm={setExpenseForm}
+            editingExpenseId={editingExpenseId}
+            suggestedAppointmentFor={suggestedAppointmentFor}
+            onOpen={() => setShowExpenseForm(true)}
+            onCancel={cancelExpenseForm}
+            onSubmit={handleSubmitExpense}
+            onPickPhoto={handlePickExpensePhoto}
+          />
+        ) : showJournalForm ? (
+          <JournalForm
+            show={showJournalForm}
+            form={journalForm}
+            setForm={setJournalForm}
+            editingJournalId={editingJournalId}
+            saving={savingJournal}
+            onOpen={() => setShowJournalForm(true)}
+            onCancel={cancelJournalForm}
+            onSubmit={handleSubmitJournalEntry}
+          />
         ) : (
-          <AddToggle label="Planifier une séance" onPress={openCreateForm} />
+          <AddToggle label="Ajouter" onPress={() => setQuickAddVisible(true)} color={colors.primary} />
         )}
       </FadeInView>
 
-      {!showForm && horseSessions.length > 0 ? (
+      {!showForm && !showApptForm && !showExpenseForm && !showJournalForm && unifiedEvents.length > 0 ? (
         <FadeInView delay={90}>
-          <View className="flex-row flex-wrap gap-2">
-            <TouchableOpacity
-              onPress={() => setFilter("all")}
-              activeOpacity={0.8}
-              accessibilityLabel="Toutes"
-              accessibilityRole="button"
-              accessibilityState={{ selected: filter === "all" }}
-              className={`flex-row items-center gap-1.5 rounded-full border px-3.5 py-2 ${
-                filter === "all" ? "border-primary bg-highlight" : "border-border bg-surface"
-              }`}
-            >
-              <MaterialCommunityIcons name="view-grid-outline" size={15} color={filter === "all" ? colors.primary : colors.textMuted} accessibilityElementsHidden />
-              <Text className={`text-sm font-semibold ${filter === "all" ? "text-primary" : "text-text"}`}>Toutes</Text>
-            </TouchableOpacity>
-            {Object.entries(ACTIVITY_META).map(([value, meta]) => {
-              const selected = filter === value;
-              return (
-                <TouchableOpacity
-                  key={value}
-                  onPress={() => setFilter(selected ? "all" : (value as ActivityType))}
-                  activeOpacity={0.8}
-                  accessibilityLabel={meta.label}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  className={`flex-row items-center gap-1.5 rounded-full border px-3.5 py-2 ${
-                    selected ? "border-primary bg-highlight" : "border-border bg-surface"
-                  }`}
-                >
-                  <MaterialCommunityIcons name={meta.icon} size={15} color={selected ? colors.primary : meta.tint} accessibilityElementsHidden />
-                  <Text className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}>{meta.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <PlanningFilter value={filter} onChange={setFilter} />
         </FadeInView>
       ) : null}
 
@@ -658,7 +773,7 @@ export default function PlanningScreen() {
                 setMonthCursor(next);
                 setSelectedDay((d) => (d.getMonth() === next.getMonth() ? d : next));
               }}
-              sessionsByDay={sessionsByDay}
+              eventsByDay={eventsByDay}
             />
           </FadeInView>
 
@@ -666,21 +781,19 @@ export default function PlanningScreen() {
             <Text className="text-xl font-bold text-text">{dayHeaderLabel(selectedDay)}</Text>
           </FadeInView>
 
-          {selectedDaySessions.length === 0 ? (
+          {selectedDayEvents.length === 0 ? (
             <FadeInView delay={190}>
-              <AddToggle label="Planifier une séance ce jour" onPress={() => openCreateForm(selectedDay)} />
+              <AddToggle label="Planifier une séance ce jour" onPress={() => openCreateForm(selectedDay)} color={colors.primary} />
             </FadeInView>
           ) : (
-            selectedDaySessions.map((session, i) => (
-              <FadeInView key={session.id} delay={190 + i * 40}>
-                <SessionCard
-                  session={session}
-                  expanded={expandedId === session.id}
-                  onPress={() => setExpandedId(expandedId === session.id ? null : session.id)}
-                  onToggleDone={() => toggleCompleted(session.id)}
-                  onEdit={() => openEditForm(session)}
-                  onDuplicate={() => handleDuplicate(session)}
-                  onDelete={() => confirmDelete(session)}
+            selectedDayEvents.map((event, i) => (
+              <FadeInView key={event.id} delay={190 + i * 40}>
+                <UnifiedEventCard
+                  event={event}
+                  expanded={expandedId === event.id}
+                  onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                  sessionHandlers={sessionHandlers}
+                  appointmentHandlers={appointmentHandlers}
                 />
               </FadeInView>
             ))
@@ -699,7 +812,7 @@ export default function PlanningScreen() {
                   <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
                 </View>
                 <Text className="text-sm text-muted">
-                  {filter === "all" ? "Aucune séance planifiée." : "Aucune séance de ce type à venir."}
+                  {filter === "all" ? "Rien de planifié." : "Rien de ce type à venir."}
                 </Text>
               </View>
             </FadeInView>
@@ -709,16 +822,14 @@ export default function PlanningScreen() {
                 <FadeInView delay={160 + gi * 30}>
                   <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
                 </FadeInView>
-                {group.items.map((session, i) => (
-                  <FadeInView key={session.id} delay={170 + gi * 30 + i * 40}>
-                    <SessionCard
-                      session={session}
-                      expanded={expandedId === session.id}
-                      onPress={() => setExpandedId(expandedId === session.id ? null : session.id)}
-                      onToggleDone={() => toggleCompleted(session.id)}
-                      onEdit={() => openEditForm(session)}
-                      onDuplicate={() => handleDuplicate(session)}
-                      onDelete={() => confirmDelete(session)}
+                {group.items.map((event, i) => (
+                  <FadeInView key={event.id} delay={170 + gi * 30 + i * 40}>
+                    <UnifiedEventCard
+                      event={event}
+                      expanded={expandedId === event.id}
+                      onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                      sessionHandlers={sessionHandlers}
+                      appointmentHandlers={appointmentHandlers}
                     />
                   </FadeInView>
                 ))}
@@ -736,16 +847,14 @@ export default function PlanningScreen() {
                   <FadeInView delay={240 + gi * 20}>
                     <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
                   </FadeInView>
-                  {group.items.map((session, i) => (
-                    <FadeInView key={session.id} delay={250 + gi * 20 + i * 30}>
-                      <SessionCard
-                        session={session}
-                        expanded={expandedId === session.id}
-                        onPress={() => setExpandedId(expandedId === session.id ? null : session.id)}
-                        onToggleDone={() => toggleCompleted(session.id)}
-                        onEdit={() => openEditForm(session)}
-                        onDuplicate={() => handleDuplicate(session)}
-                        onDelete={() => confirmDelete(session)}
+                  {group.items.map((event, i) => (
+                    <FadeInView key={event.id} delay={250 + gi * 20 + i * 30}>
+                      <UnifiedEventCard
+                        event={event}
+                        expanded={expandedId === event.id}
+                        onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                        sessionHandlers={sessionHandlers}
+                        appointmentHandlers={appointmentHandlers}
                       />
                     </FadeInView>
                   ))}
@@ -757,6 +866,7 @@ export default function PlanningScreen() {
       )}
     </Screen>
     <PickerOverlaySlot />
+    <QuickAddSheet visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} onSelect={handleQuickAdd} />
     </>
   );
 }

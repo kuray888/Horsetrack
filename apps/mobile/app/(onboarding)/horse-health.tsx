@@ -2,6 +2,7 @@ import { View, Text } from "react-native";
 import { router } from "expo-router";
 import { OnboardingShell, MultiSelectChips } from "@/components/onboarding";
 import { InjuryHistoryField } from "@/components/InjuryHistoryField";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useOnboarding } from "@/onboarding/store";
 import { HEALTH_CONDITIONS, NO_HEALTH_CONDITION, REST_DAY_ACTIVITIES, TOTAL_STEPS } from "@/onboarding/options";
 
@@ -22,6 +23,7 @@ export default function HorseHealth() {
   const name = editingHorse.name.trim() || "ton cheval";
 
   return (
+    <>
     <OnboardingShell
       step={8}
       total={TOTAL_STEPS}
@@ -61,5 +63,7 @@ export default function HorseHealth() {
         />
       </View>
     </OnboardingShell>
+    <PickerOverlaySlot />
+    </>
   );
 }

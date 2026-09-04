@@ -3,7 +3,9 @@ import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { OnboardingShell, SingleSelect } from "@/components/onboarding";
 import { BreedField } from "@/components/BreedField";
+import { CoatField } from "@/components/CoatField";
 import { Field } from "@/components/Field";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useOnboarding } from "@/onboarding/store";
 import { HORSE_SEXES, TOTAL_STEPS } from "@/onboarding/options";
 import { pickAndPersistImage } from "@/lib/imagePicker";
@@ -22,6 +24,7 @@ export default function HorseBasics() {
   }
 
   return (
+    <>
     <OnboardingShell
       step={5}
       total={TOTAL_STEPS}
@@ -81,6 +84,7 @@ export default function HorseBasics() {
       </Field>
 
       <BreedField value={editingHorse.breed} onChange={(breed) => updateEditingHorse({ breed })} />
+      <CoatField value={editingHorse.coat} onChange={(coat) => updateEditingHorse({ coat })} />
 
       <View className="flex-row gap-3">
         <View className="flex-1">
@@ -115,5 +119,7 @@ export default function HorseBasics() {
         </View>
       </View>
     </OnboardingShell>
+    <PickerOverlaySlot />
+    </>
   );
 }

@@ -2,6 +2,7 @@ import { Alert, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { HorseForm } from "@/components/HorseForm";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useHorses } from "@/horses/store";
 
 export default function EditHorseModal() {
@@ -43,6 +44,7 @@ export default function EditHorseModal() {
   }
 
   return (
+    <>
     <HorseForm
       title="Modifier le cheval"
       submitLabel="Enregistrer"
@@ -53,5 +55,7 @@ export default function EditHorseModal() {
       }}
       onDelete={confirmDelete}
     />
+    <PickerOverlaySlot />
+    </>
   );
 }

@@ -697,6 +697,28 @@ create policy "documents_storage_all_own" on storage.objects
   for all using (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text);
 
+-- 6. Storage : bucket "horse-photos" (photo de profil du cheval) ------------
+-- Bucket privé comme "documents", mais scoping différent : une photo de
+-- cheval doit rester visible par le propriétaire ET par les collaborateurs
+-- acceptés (même règle que la lecture de la fiche cheval, cf.
+-- horses_select_shared plus haut) — donc scoping par horseId (premier segment
+-- du chemin "{horseId}/photo.jpg"), pas par auth.uid() comme documents.
+-- Écriture (insert/update/delete) réservée au propriétaire (owns_horse), la
+-- lecture est ouverte à can_access_horse via une policy SELECT séparée
+-- (policies permissives combinées en OR, même pattern que horses_select_shared).
+insert into storage.buckets (id, name, public)
+values ('horse-photos', 'horse-photos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "horse_photos_select_shared" on storage.objects;
+create policy "horse_photos_select_shared" on storage.objects
+  for select using (bucket_id = 'horse-photos' and public.can_access_horse((storage.foldername(name))[1]));
+
+drop policy if exists "horse_photos_write_own" on storage.objects;
+create policy "horse_photos_write_own" on storage.objects
+  for all using (bucket_id = 'horse-photos' and public.owns_horse((storage.foldername(name))[1]))
+  with check (bucket_id = 'horse-photos' and public.owns_horse((storage.foldername(name))[1]));
+
 -- sessions : table de jetons d'auth « legacy », non utilisée par le code
 -- actuel (le mobile passe par Supabase Auth, pas par ce modèle Prisma —
 -- aucune référence à `db.session` trouvée dans apps/api ou apps/mobile).
