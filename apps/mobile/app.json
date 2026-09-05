@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "Horsetrack",
+    "slug": "horsetrack",
+    "version": "1.0.3",
+    "orientation": "portrait",
+    "scheme": "horsetrack",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.horsetrack.app",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.horsetrack.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#e7ecef"
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "./plugins/withSwiftVersion",
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#e7ecef"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Horsetrack utilise Face ID pour sécuriser l'accès à ton compte."
+        }
+      ],
+      "expo-secure-store",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Horsetrack a besoin d'accéder à tes photos pour ajouter une photo de cheval."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Horsetrack utilise ta position pour enregistrer la météo du jour sur ton journal de travail."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6273b769-110c-4bf2-b882-c7338feb62a9"
+      }
+    },
+    "owner": "kuray"
+  }
+}

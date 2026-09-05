@@ -1,0 +1,693 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions       Session[]
+  riderProfile   RiderProfile?
+  emailReminders EmailReminder[]
+
+  @@map("users")
+}
+
+// ───────────────────────── Onboarding & domaine équestre ─────────────────────────
+
+/// Profil cavalier — 1-1 avec User. Données collectées à l'onboarding + entitlement abo.
+model RiderProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Profil cavalier (onboarding)
+  level          RiderLevel?
+  mainDiscipline Discipline?
+  rideFrequency  RideFrequency?
+  primaryGoal    RiderGoal?
+
+  // Entitlement abonnement (source de vérité côté store = RevenueCat)
+  /// Défaut non-entitlant tant que RevenueCat n'a pas écrit de vraie valeur
+  /// via le webhook. L'ancien défaut GRAND_PRIX/TRIALING donnait un accès
+  /// payant illimité et gratuit à tout nouveau compte (cf. audit sécurité) :
+  /// combiné à l'absence de trialEndsAt à la création, la vérification
+  /// "trialing" côté API/app le laissait passer indéfiniment.
+  subscriptionTier   SubscriptionTier   @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(EXPIRED)
+  billingPeriod      BillingPeriod?
+  trialEndsAt        DateTime?
+  revenuecatId       String?            @unique
+  /// Add-on "cheval supplémentaire" acheté à la carte — vient en plus du
+  /// quota de chevaux du palier (cf. HORSE_LIMITS côté mobile).
+  extraHorseSlots    Int                @default(0)
+  /// Horodatage (event_timestamp_ms RevenueCat) du dernier événement webhook
+  /// appliqué à ce profil — sert de garde anti-réordonnancement : un retry
+  /// tardif d'un événement plus ancien que celui déjà appliqué (livraison
+  /// "at-least-once" non garantie dans l'ordre) ne doit jamais écraser un
+  /// état plus récent (ex. CANCELLATION retardé qui écraserait un RENEWAL
+  /// déjà traité). Cf. RevenueCatWebhookEvent pour la dédup à l'identique.
+  lastWebhookEventAt DateTime?
+
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  horses    Horse[]
+  goals     Goal[]
+  documents Document[]
+
+  @@map("rider_profiles")
+}
+
+/// Cheval — N par cavalier (multi-cheval natif et illimité).
+model Horse {
+  id      String       @id @default(cuid())
+  ownerId String
+  owner   RiderProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name      String
+  /// Chemin dans le bucket Storage "horse-photos" (horseId/photo.jpg) — pas une
+  /// URL : le bucket est privé (lecture ouverte aux collaborateurs partagés,
+  /// cf. rls.sql can_access_horse), l'URL signée est régénérée à la demande
+  /// côté client (cf. cloudSync.ts mapRemoteHorse), même principe que
+  /// Document.filePath. Anciennement `photoUrl` — renommé car cette colonne ne
+  /// contenait jamais une URL exploitable (bug corrigé le 2026-09-04 : le
+  /// client y écrivait directement l'URI locale file:// de l'appareil).
+  photoPath String?
+  birthYear Int?
+  sex       HorseSex?
+  breed     String?
+  coat      String?
+  heightCm  Int?
+  weightKg  Int?
+
+  discipline   Discipline?
+  level        HorseLevel?
+  fitnessLevel HorseFitnessLevel?
+  workload     HorseWorkload?
+
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  traits             HorseTrait[]
+  injuries           HorseInjury[]
+  goals              Goal[]
+  appointments       Appointment[]
+  journalEntries     JournalEntry[]
+  collaborators      HorseCollaborator[]
+  trainingSessions   TrainingSession[]
+  expenses           Expense[]
+  documents          Document[]
+  weightMeasurements HorseWeightMeasurement[]
+
+  @@index([ownerId])
+  @@map("horses")
+}
+
+/// Points forts / points faibles d'un cheval — N par cheval (multi-select onboarding).
+model HorseTrait {
+  id      String    @id @default(cuid())
+  horseId String
+  horse   Horse     @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  tag     String
+  kind    TraitKind
+
+  @@unique([horseId, tag, kind])
+  @@index([horseId])
+  @@map("horse_traits")
+}
+
+/// Historique de blessures / problèmes de santé passés d'un cheval — N par
+/// cheval, saisi en onboarding (liste structurée, cf. horse-health.tsx).
+model HorseInjury {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  /// Libellé libre (issu d'une liste suggérée + "Autre" côté UI) — trop variable pour un enum.
+  type           String
+  occurredAt     DateTime?
+  recoveryStatus HorseRecoveryStatus
+  note           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("horse_injuries")
+}
+
+/// Suivi de poids — historique de mesures (audit produit post-V1, phase 5).
+/// N par cheval, indépendant de Horse.weightKg (qui reste le "poids actuel"
+/// affiché partout ailleurs dans l'app sans changement) : chaque nouvelle
+/// mesure met aussi à jour Horse.weightKg côté client (cf. horses/store.tsx
+/// addWeightMeasurement), les deux ne divergent donc jamais. Suivi de base
+/// (comme Santé/Entraînement), pas gaté Premium — même portée de partage que
+/// TrainingSession/Expense (can_access_horse, cf. rls.sql) : un collaborateur
+/// qui s'occupe du cheval doit pouvoir peser et noter, pas seulement le
+/// propriétaire.
+model HorseWeightMeasurement {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  weightKg Int
+  date     DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("horse_weight_measurements")
+}
+
+/// Objectif — rattaché au cavalier et optionnellement à un cheval précis.
+model Goal {
+  id      String       @id @default(cuid())
+  riderId String
+  rider   RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  horseId String?
+  horse   Horse?       @relation(fields: [horseId], references: [id], onDelete: SetNull)
+
+  title      String
+  type       RiderGoal?
+  targetDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riderId])
+  @@map("goals")
+}
+
+/// Coffre-fort numérique — document rattaché au cavalier (pas à un cheval
+/// précis, le modèle local actuel n'a pas cette notion). Écrit directement
+/// par le client mobile (cf. lib/cloudSync.ts), comme Horse/Goal.
+model Document {
+  id      String       @id @default(cuid())
+  riderId String
+  rider   RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  /// Cheval concerné — optionnel pour ne pas casser les documents créés avant
+  /// l'introduction de ce champ (cf. audit produit du 2026-09-04), mais
+  /// toujours renseigné par le client à partir de maintenant (cheval
+  /// actuellement sélectionné, même logique que Appointment/JournalEntry/
+  /// Expense). SetNull (pas Cascade) : supprimer un cheval ne doit jamais
+  /// supprimer les documents du cavalier (passeport, factures...), juste les
+  /// désassocier — le coffre-fort reste privé par riderId (cf. plus bas),
+  /// jamais par can_access_horse comme le calendrier.
+  horseId String?
+  horse   Horse?       @relation(fields: [horseId], references: [id], onDelete: SetNull)
+
+  category DocumentCategory
+  name     String
+  date     DateTime
+  /// Chemin dans le bucket Storage "documents" (userId/docId.jpg) — pas une
+  /// URL : le bucket est privé, l'URL signée est régénérée à la demande
+  /// (cf. cloudSync.ts pullDocuments) pour ne jamais exposer un document
+  /// sensible (ordonnance, facture...) sans authentification.
+  filePath String?
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riderId])
+  @@index([horseId])
+  @@map("documents")
+}
+
+/// Rendez-vous d'agenda — rattaché à un cheval (pas au cavalier) pour que le
+/// partage (cf. HorseCollaborator) fonctionne : qui peut voir/écrire un
+/// rendez-vous se déduit entièrement de `can_access_horse(horseId)` côté RLS.
+/// Pas de `reminderNotificationId`/identifiant d'email programmé ici : ce
+/// sont des identifiants de planification propres à l'appareil/au compte qui
+/// programme le rappel, pas une donnée à partager.
+model Appointment {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  type      AppointmentType
+  title     String
+  date      DateTime
+  time      String
+  location  String
+  notes     String
+  /// "none"/"1h"/"1d"/"1w" — 4 valeurs fixes, pas besoin d'un enum dédié.
+  reminder  String
+  /// Résultat saisi après l'épreuve (concours uniquement).
+  result    String?
+  /// Checklist de préparation (concours uniquement), sérialisée en JSON —
+  /// volume/complexité trop faible pour justifier une table dédiée.
+  checklist Json?
+  /// Numéro de dossard (concours uniquement) — un dossard par cheval par
+  /// concours, pas par épreuve.
+  dossard   String?
+
+  /// Praticien/professionnel intervenu (ex: nom du vétérinaire) — pertinent
+  /// surtout pour les types de soin (veto/osteo/marechal/dentiste/
+  /// vaccination/vermifuge/traitement), laissé libre pour les autres.
+  professional String?
+  /// Coût de ce soin, saisi directement sur l'événement plutôt que de créer
+  /// systématiquement une Expense liée (cf. Expense.appointmentId, qui reste
+  /// le rattachement optionnel côté budget si l'utilisateur veut le suivre
+  /// dans ses dépenses) — un simple montant informatif suffit ici.
+  cost         Decimal?  @db.Decimal(10, 2)
+  /// Prochaine échéance du même soin (ex: prochain rappel de vaccin) — pilote
+  /// un rappel local uniquement (cf. lib/notifications.ts scheduleReminder
+  /// côté mobile, identifiant jamais synchronisé, même principe que
+  /// reminderNotificationId ci-dessous, absent de ce modèle).
+  nextDueDate  DateTime?
+
+  competitionEntries CompetitionEntry[]
+  expenses           Expense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("appointments")
+}
+
+/// Épreuve d'un concours — N par rendez-vous de type CONCOURS. Table dédiée
+/// (pas un champ JSON comme Appointment.checklist) car plus riche par ligne
+/// (nom, discipline, horaire, résultat) et destinée à grandir en nombre.
+model CompetitionEntry {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  name       String
+  discipline Discipline
+  time       String
+  result     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([appointmentId])
+  @@map("competition_entries")
+}
+
+/// Entrée de journal de travail libre — même logique de rattachement à un
+/// cheval que Appointment, pour le même partage.
+model JournalEntry {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  activityType ActivityType
+  mood         Mood
+  notes        String
+  date         DateTime
+  time         String
+  /// Snapshot météo au moment de la saisie ({tempC, code, label, icon}),
+  /// sérialisé en JSON — pas de colonnes dédiées pour un simple affichage.
+  weather      Json?
+  /// Photo principale optionnelle ("photo du jour", cf. audit Phase 8 tranche
+  /// F) — chemin d'objet dans le bucket Storage "horse-photos" (sous-dossier
+  /// "{horseId}/journal/{id}.jpg"), pas une URL : même convention que
+  /// Horse.photoPath, l'URL signée est régénérée à la demande côté client
+  /// (cf. lib/cloudSync.ts). Une seule photo par entrée pour V1, pas de
+  /// galerie. Null tant qu'aucune photo n'a été ajoutée.
+  photoPath    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("journal_entries")
+}
+
+/// Séance d'entraînement planifiée manuellement par le cavalier (remplace le
+/// cursus généré par IA, retiré du produit) — même logique de rattachement au
+/// cheval que Appointment/JournalEntry, pour le même partage. Contrairement à
+/// Appointment/JournalEntry (création + suppression seulement), une séance
+/// planifiée doit pouvoir être éditée : déplacer une séance dans le temps est
+/// l'usage normal d'un planning, pas une correction d'erreur de saisie.
+model TrainingSession {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  activityType    ActivityType
+  date            DateTime
+  time            String
+  durationMinutes Int?
+  /// Intensité ressentie visée ("LOW"/"MEDIUM"/"HIGH") — texte libre plutôt
+  /// qu'un enum dédié, même logique que Appointment.reminder : 3 valeurs
+  /// fixes ne justifient pas un type Postgres séparé.
+  intensity       String?
+  notes           String
+  /// Coché par le cavalier une fois la séance faite — pas de lien vers un
+  /// quelconque système de badges/XP (retiré avec l'IA), juste un suivi
+  /// simple "fait / pas fait".
+  completed       Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("training_sessions")
+}
+
+/// Dépense liée à un cheval — même logique de rattachement/partage que
+/// Appointment/JournalEntry/TrainingSession (can_access_horse), pas privée
+/// par riderId comme Document : le cas d'usage (répartition des coûts en
+/// demi-pension) exige la visibilité collaborateur.
+model Expense {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  amount   Decimal         @db.Decimal(10, 2)
+  currency String          @default("EUR")
+  category ExpenseCategory
+  date     DateTime
+  notes    String
+  /// Statut payé/à régler (fonctionnalité Premium, cf. Locked côté mobile) —
+  /// une dépense créée en gratuit reste "à régler" par défaut, faute de
+  /// pouvoir basculer le statut.
+  isPaid   Boolean         @default(false)
+
+  /// Rattachement optionnel à un rendez-vous existant (ex : facture vétérinaire
+  /// liée au rendez-vous correspondant) — jamais créé automatiquement, cf.
+  /// suggestion de rapprochement côté mobile (agenda.tsx).
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  /// Rattachement optionnel à un reçu du coffre-fort (Document, privé par
+  /// riderId). Un collaborateur consultant une dépense partagée dont le reçu
+  /// est lié ne verra pas ce document (RLS `owns_rider_profile` sur
+  /// `documents`, jamais partagée) — comportement attendu, pas une fuite.
+  documentId    String?
+  document      Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("expenses")
+}
+
+/// Étendue au budget complet du cavalier particulier (pension, dentiste,
+/// ostéo, compléments, transport, coaching — cf. audit produit du
+/// 2026-09-04), pas seulement les catégories qui recoupent un type de
+/// rendez-vous (cf. Appointment.type et expenseCategoryToAppointmentType côté
+/// mobile, qui ne rapproche que veto/marechal/concours/dentiste/osteo).
+enum ExpenseCategory {
+  VETO
+  MARECHAL
+  DENTISTE
+  OSTEO
+  CONCOURS
+  PENSION
+  ALIMENTATION
+  COMPLEMENTS
+  MATERIEL
+  TRANSPORT
+  COACHING
+  AUTRE
+
+  @@map("expense_category")
+}
+
+/// Accès partagé à un cheval (demi-pension / coach) — invité par email, lien
+/// avec un compte réel seulement à l'acceptation (cf. cf. lib/sharing.ts).
+model HorseCollaborator {
+  id      String @id @default(cuid())
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  invitedEmail       String
+  /// Renseigné seulement à l'acceptation — c'est CE champ (pas invitedEmail)
+  /// que les policies RLS utilisent pour donner l'accès réel (cf. rls.sql
+  /// can_access_horse).
+  collaboratorUserId String?
+
+  role   HorseCollaboratorRole
+  status HorseCollaboratorStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([horseId, invitedEmail])
+  @@index([collaboratorUserId])
+  @@map("horse_collaborators")
+}
+
+enum RiderLevel {
+  BEGINNER // débutant
+  GALOP_1_4
+  GALOP_5_7
+  AMATEUR
+  PRO
+
+  @@map("rider_level")
+}
+
+enum RideFrequency {
+  DAILY
+  SEVERAL_PER_WEEK
+  WEEKEND
+  OCCASIONAL
+
+  @@map("ride_frequency")
+}
+
+enum Discipline {
+  SHOW_JUMPING // CSO
+  DRESSAGE
+  EVENTING // complet
+  WESTERN
+  ENDURANCE
+  LEISURE // loisir / balade
+  ETHOLOGY // éthologie
+
+  @@map("discipline")
+}
+
+enum RiderGoal {
+  COMPETE // progresser en concours
+  BONDING // renforcer la complicité
+  FITNESS // remettre en forme
+  EVENT_PREP // préparer un événement daté
+  CONFIDENCE // reprendre en confiance
+
+  @@map("rider_goal")
+}
+
+enum HorseSex {
+  GELDING // hongre
+  MARE // jument
+  STALLION // entier
+
+  @@map("horse_sex")
+}
+
+enum HorseLevel {
+  UNTRAINED
+  CLUB
+  AMATEUR
+  PRO
+
+  @@map("horse_level")
+}
+
+enum HorseFitnessLevel {
+  RESTING // au repos
+  REOPENING // reprise en main
+  GOOD // bonne forme
+  PEAK // forme optimale / compétition
+
+  @@map("horse_fitness_level")
+}
+
+enum HorseWorkload {
+  NONE // aucun travail actuellement
+  ONE_TO_TWO // 1-2 jours / semaine
+  THREE_TO_FOUR // 3-4 jours / semaine
+  FIVE_TO_SIX // 5-6 jours / semaine
+  DAILY // tous les jours
+
+  @@map("horse_workload")
+}
+
+enum HorseRecoveryStatus {
+  RECOVERED // complètement rétabli
+  IN_PROGRESS // récupération en cours
+  ONGOING // séquelle/limitation à surveiller
+
+  @@map("horse_recovery_status")
+}
+
+enum TraitKind {
+  STRENGTH
+  WEAKNESS
+  TEMPERAMENT
+  HEALTH_CONDITION
+
+  @@map("trait_kind")
+}
+
+enum DocumentCategory {
+  FACTURE
+  RAPPORT
+  ORDONNANCE
+  AUTRE
+
+  @@map("document_category")
+}
+
+enum AppointmentType {
+  VETO
+  OSTEO
+  MARECHAL
+  DENTISTE
+  VACCINATION
+  VERMIFUGE
+  TRAITEMENT
+  CONCOURS
+  AUTRE
+
+  @@map("appointment_type")
+}
+
+enum ActivityType {
+  DRESSAGE
+  CSO
+  BALADE
+  LONGE
+  REPOS
+
+  @@map("activity_type")
+}
+
+enum Mood {
+  GREAT
+  GOOD
+  OKAY
+  HARD
+
+  @@map("mood")
+}
+
+enum HorseCollaboratorRole {
+  DEMI_PENSION
+  COACH
+  RIDER // cavalière/cavalier additionnel·le (ex : copropriétaire, famille)
+  GROOM // lad / palefrenier
+
+  @@map("horse_collaborator_role")
+}
+
+enum HorseCollaboratorStatus {
+  PENDING
+  ACCEPTED
+
+  @@map("horse_collaborator_status")
+}
+
+enum SubscriptionStatus {
+  TRIALING // essai Premium gratuit d'1 mois (éligibilité vérifiée par le store, cf. lib/revenuecat.ts isTrialEligible) — accès complet le temps de l'essai
+  ACTIVE // abonné payant
+  EXPIRED // trial/abo terminé → app verrouillée
+  CANCELLED
+
+  @@map("subscription_status")
+}
+
+/// Palier d'abonnement — un seul palier payant dans le produit réellement
+/// exécuté (pivot du 2026-06-19, cf. git log), pas de gestion d'écurie/
+/// multi-utilisateurs avancée (hors scope HorseTrack, cf. HorsePlanning).
+/// Grille tarifaire réelle affichée par PaywallView.tsx/paywall.tsx : FREE 0€
+/// (1 cheval) → GRAND_PRIX 3,99€/mois ou 39,99€/an (3 chevaux, coffre-fort,
+/// partage, stats, rappels auto), + add-on "cheval supplémentaire" 1,99€/mois
+/// ou 14,99€/an (cf. Horse.extraHorseSlots plus haut). L'identifiant
+/// `GRAND_PRIX` (et l'entitlement RevenueCat `grand_prix`, cf.
+/// lib/revenuecat.ts) est un nom interne hérité d'un ancien modèle à 3
+/// paliers, conservé tel quel pour éviter une reconfiguration du dashboard
+/// RevenueCat/App Store — il ne reflète plus un positionnement "haut de
+/// gamme", juste LE palier payant unique. Pas de génération de contenu par IA
+/// dans ce palier (retirée du produit, cf. TrainingSession/ActivityType plus
+/// haut) : le "Coach IA" évoqué par un ancien document produit n'existe plus
+/// dans le code exécuté.
+enum SubscriptionTier {
+  FREE
+  /// Valeur legacy de l'ancien modèle à 3 paliers — plus jamais attribuée par
+  /// le webhook RevenueCat (cf. apps/api/.../revenuecat/webhook/route.ts) ni
+  /// choisissable dans l'app (un seul palier payant, GRAND_PRIX). Conservée
+  /// dans l'enum uniquement pour ne pas risquer une migration de colonne enum
+  /// Postgres sans nécessité — à supprimer si un jour aucune ligne ne la
+  /// référence plus.
+  PADDOCK
+  GRAND_PRIX
+
+  @@map("subscription_tier")
+}
+
+/// Fréquence de facturation — indépendante du palier (Free n'en a pas).
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+
+  @@map("billing_period")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("sessions")
+}
+
+/// Trace les events RevenueCat déjà traités (clé = `event.id` du payload
+/// webhook) — évite qu'un retry du même event (RevenueCat redélivre si on ne
+/// répond pas 200, ex: timeout réseau côté nous) ne re-déclenche le switch de
+/// /api/revenuecat/webhook. Juste l'id : aucun autre champ n'a besoin d'être
+/// gardé, on ne fait que vérifier "déjà vu ou pas".
+model RevenueCatWebhookEvent {
+  id          String   @id
+  processedAt DateTime @default(now())
+
+  @@map("revenuecat_webhook_events")
+}
+
+/// Rappel email programmé pour un rendez-vous d'agenda — pas un miroir complet
+/// de l'agenda (qui reste local-first sur mobile), juste assez d'info pour
+/// pouvoir envoyer un email au bon moment (cf. apps/api/.../cron/email-reminders).
+/// Écrit uniquement par le backend (connexion DATABASE_URL qui bypass RLS),
+/// jamais directement par le client.
+model EmailReminder {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sendAt  DateTime
+  subject String
+  body    String
+  sentAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([sendAt, sentAt])
+  @@map("email_reminders")
+}

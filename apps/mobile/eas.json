@@ -1,0 +1,52 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "simulator": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tqvefwrzxcwlgccekqjl.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxdmVmd3J6eGN3bGdjY2VrcWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDM2NzIsImV4cCI6MjA5NzM3OTY3Mn0.R07r--1YBpCPeOyTIuM2842Rm8L0fNENVctkVjuN2C0",
+        "EXPO_PUBLIC_API_URL": "https://api-mu-tan-94.vercel.app",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tqvefwrzxcwlgccekqjl.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxdmVmd3J6eGN3bGdjY2VrcWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDM2NzIsImV4cCI6MjA5NzM3OTY3Mn0.R07r--1YBpCPeOyTIuM2842Rm8L0fNENVctkVjuN2C0",
+        "EXPO_PUBLIC_API_URL": "https://api-mu-tan-94.vercel.app",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tqvefwrzxcwlgccekqjl.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxdmVmd3J6eGN3bGdjY2VrcWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDM2NzIsImV4cCI6MjA5NzM3OTY3Mn0.R07r--1YBpCPeOyTIuM2842Rm8L0fNENVctkVjuN2C0",
+        "EXPO_PUBLIC_API_URL": "https://api-mu-tan-94.vercel.app",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6786889092"
+      }
+    }
+  }
+}

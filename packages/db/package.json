@@ -1,0 +1,20 @@
+{
+  "name": "@cheval/db",
+  "version": "0.0.1",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.3.1"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
