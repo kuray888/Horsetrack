@@ -19,7 +19,7 @@ function HorseLimitReached({ limit }: { limit: number }) {
           Limite de {limit} {limit > 1 ? "chevaux" : "cheval"} atteinte
         </Text>
         <Text className="text-center text-sm text-muted">
-          Passe à un palier supérieur ou ajoute un cheval supplémentaire à la carte pour agrandir ton écurie.
+          Passe à Horsetrack Premium pour ajouter des chevaux sans limite.
         </Text>
         <TouchableOpacity
           activeOpacity={0.85}

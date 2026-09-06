@@ -156,15 +156,27 @@ export default function LoginScreen() {
 
   async function signIn() {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
 
-    if (error) {
+      if (error) {
+        Alert.alert("Erreur", error.message);
+        return;
+      }
+
+      await afterSuccessfulAuth(data.user?.id);
+    } catch (e) {
+      // Toute exception (réseau, erreur inattendue non renvoyée comme
+      // `{ error }`) laissait ce bouton bloqué sur "Connexion..." — même
+      // cause que le bouton "Création..." bloqué à l'inscription (cf.
+      // (onboarding)/account.tsx, audit du 2026-09-06).
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Connexion impossible pour l'instant. Vérifie ta connexion et réessaie."
+      );
+    } finally {
       setLoading(false);
-      Alert.alert("Erreur", error.message);
-      return;
     }
-
-    await afterSuccessfulAuth(data.user?.id);
   }
 
   async function handleAppleSignIn() {
@@ -186,7 +198,7 @@ export default function LoginScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-8">
         <Image
-          source={require("../../assets/icon.png")}
+          source={require("../../assets/logo-mark.png")}
           style={{ width: 72, height: 72, alignSelf: "center" }}
           resizeMode="contain"
         />

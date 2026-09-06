@@ -15,7 +15,7 @@ export type DropdownOption<T extends string> = {
  * Sélecteur compact "menu déroulant" (Field + valeur tappable + calque plein
  * écran, cf. components/PickerOverlay.tsx) — alternative à SingleSelect
  * (grandes cartes) pour les écrans qui empilent beaucoup de champs (cf.
- * horse-basics, horse-profile, horse-health).
+ * horse-basics.tsx, HorseForm.tsx).
  */
 export function DropdownField<T extends string>({
   label,

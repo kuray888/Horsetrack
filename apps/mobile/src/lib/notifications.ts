@@ -64,9 +64,20 @@ export async function scheduleReminder(title: string, body: string, trigger: Dat
   });
 }
 
+/** Best-effort, comme cancelEmailReminder (cf. lib/emailReminders.ts) : appelé
+ * en fire-and-forget (sans await) depuis plusieurs endroits (édition/
+ * suppression de rendez-vous, cf. agenda/store.tsx et useAppointmentForm.ts)
+ * — un id devenu invalide (notification déjà déclenchée/annulée par l'OS,
+ * permission révoquée) ne doit jamais devenir un rejet de promesse non
+ * intercepté, qui plante silencieusement l'app (cf. audit crash du
+ * 2026-09-05, rendez-vous santé). */
 export async function cancelReminder(id: string | null | undefined): Promise<void> {
   if (!id) return;
-  await Notifications.cancelScheduledNotificationAsync(id);
+  try {
+    await Notifications.cancelScheduledNotificationAsync(id);
+  } catch {
+    // ignoré : voir commentaire ci-dessus.
+  }
 }
 
 /** Prochain dimanche à 19h00 — ou ce dimanche si on est avant 19h. */

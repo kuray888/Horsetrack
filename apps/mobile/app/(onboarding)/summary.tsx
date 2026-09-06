@@ -42,7 +42,7 @@ export default function Summary() {
               L&apos;écurie de {horseName} est prête 🎉
             </Text>
             <Text className="text-base text-muted">
-              Construit pour {goalPitch}, en {disciplineLabel.toLowerCase()}.
+              Objectif : {goalPitch}, en {disciplineLabel.toLowerCase()}.
             </Text>
           </View>
         </FadeInView>

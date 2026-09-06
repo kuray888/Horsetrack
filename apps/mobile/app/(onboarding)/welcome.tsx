@@ -10,7 +10,7 @@ export default function Welcome() {
       <View className="flex-1 justify-center px-6">
         <FadeInView>
           <Image
-            source={require("../../assets/icon.png")}
+            source={require("../../assets/logo-mark.png")}
             style={{ width: 96, height: 96 }}
             resizeMode="contain"
           />

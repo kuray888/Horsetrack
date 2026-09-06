@@ -29,6 +29,14 @@ export type Goal = {
   id: string;
   title: string;
   type: RiderGoal | null;
+  /** Libellé libre saisi par l'utilisateur quand `type` ne couvre pas son
+   * besoin (cf. sélection "Autre" dans goal-modal.tsx) — null sinon, et
+   * toujours null quand `type` porte une valeur de l'enum RiderGoal (les deux
+   * ne sont jamais renseignés en même temps, cf. submit() dans goal-modal.tsx).
+   * Colonne `customType` dédiée côté Supabase (text, nullable, cf.
+   * schema.prisma) — `type` reste l'enum Postgres existant pour les objectifs
+   * standards, jamais remplacé par du texte libre (cf. audit du 2026-09-05). */
+  customType: string | null;
   targetDate: Date | null;
   /** Cheval concerné, ou null si l'objectif ne vise pas un cheval en particulier. */
   horseId: string | null;
@@ -41,7 +49,14 @@ function generateId(): string {
 }
 
 function reviveGoals(goals: Goal[]): Goal[] {
-  return goals.map((g) => ({ ...g, targetDate: g.targetDate ? new Date(g.targetDate) : null }));
+  return goals.map((g) => ({
+    ...g,
+    targetDate: g.targetDate ? new Date(g.targetDate) : null,
+    // Objectifs sauvegardés avant l'introduction du type personnalisé (cf.
+    // même souci déjà rencontré sur Horse.restDayActivities) — combler plutôt
+    // que laisser `undefined`.
+    customType: g.customType ?? null,
+  }));
 }
 
 async function getOwnerProfileId(): Promise<string | null> {
@@ -64,6 +79,7 @@ async function pushGoal(goal: Goal): Promise<void> {
     horseId: goal.horseId,
     title: goal.title,
     type: goal.type,
+    customType: goal.customType,
     targetDate: goal.targetDate?.toISOString() ?? null,
     updatedAt: new Date().toISOString(),
   });
@@ -94,6 +110,7 @@ async function fetchCloudGoals(): Promise<Goal[] | null> {
     id: g.id,
     title: g.title,
     type: g.type,
+    customType: g.customType ?? null,
     targetDate: g.targetDate ? new Date(g.targetDate) : null,
     horseId: g.horseId,
   }));

@@ -462,9 +462,9 @@ export default function AgendaScreen() {
         <>
           <FadeInView delay={100}>
             <Text className="text-sm text-muted">
-              Note ici tes séances libres (balade, longe, repos…), en dehors du programme structuré : ton ressenti,
-              tes notes, et la météo du jour ajoutée automatiquement (si la localisation est autorisée) — elle
-              s&apos;affichera sur l&apos;entrée une fois enregistrée.
+              Note ici tes séances libres (balade, longe, repos…) : ton ressenti, tes notes, et la météo du jour
+              ajoutée automatiquement (si la localisation est autorisée) — elle s&apos;affichera sur l&apos;entrée
+              une fois enregistrée.
             </Text>
           </FadeInView>
 

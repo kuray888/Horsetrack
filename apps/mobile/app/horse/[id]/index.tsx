@@ -171,7 +171,9 @@ export default function HorseHubScreen() {
 
   const stats = computeSessionStats(horseSessions, new Date(2000, 0, 1), new Date());
   const entrainementValue =
-    stats.sessionCount > 0 ? `${stats.sessionCount} séances · ${formatDuration(stats.totalMinutes)}` : "Aucune séance faite";
+    stats.sessionCount > 0
+      ? `${stats.sessionCount} séance${stats.sessionCount > 1 ? "s" : ""} · ${formatDuration(stats.totalMinutes)}`
+      : "Aucune séance faite";
 
   const nextCompetition = findNextCompetition(appointments, horse.id, today);
   const concoursValue = nextCompetition
@@ -204,8 +206,12 @@ export default function HorseHubScreen() {
       case "seance":
         // ?openForm=session ouvre directement le formulaire de création dans
         // Planning ; le cheval actif (selectedHorse) est déjà celui de ce Hub
-        // (cf. l'effet ci-dessus qui synchronise selectHorse au montage).
-        router.push("/(tabs)/planning?openForm=session");
+        // (cf. l'effet ci-dessus qui synchronise selectHorse au montage). `ts`
+        // rend chaque appui unique (cf. son commentaire dans planning.tsx) :
+        // sans lui, rouvrir le formulaire une deuxième fois depuis ce Hub ne
+        // faisait rien si Planning était resté monté avec la même valeur
+        // "session" depuis la visite précédente.
+        router.dismissTo({ pathname: "/(tabs)/planning", params: { openForm: "session", ts: String(Date.now()) } });
         return;
       case "soin":
         setApptForm((f) => ({ ...f, type: "veto" }));
@@ -304,7 +310,25 @@ export default function HorseHubScreen() {
           iconColor={colors.primary}
           title="Entraînement"
           value={entrainementValue}
-          onPress={() => router.push(`/horse/${horse.id}/entrainement`)}
+          // Navigation directe vers la destination finale (cf. audit crash du
+          // 2026-09-05, round 2) — l'ancien écran intermédiaire
+          // horse/[id]/entrainement.tsx (push puis redirect immédiat, même
+          // via <Redirect> déclaratif) plantait en TestFlight. Round 3 :
+          // router.push ET router.navigate empilent TOUS LES DEUX une
+          // nouvelle instance de (tabs) par-dessus celle déjà montée sous le
+          // Horse Hub (vérifié empiriquement sur le vrai StackRouter
+          // d'expo-router : ni PUSH ni NAVIGATE ne retrouvent une route
+          // existante ailleurs que l'écran focus actuel, en l'absence de
+          // `getId`/`singular` sur l'écran "(tabs)" du root Stack — seul le
+          // point de divergence compte, hors PUSH/NAVIGATE ne cherchent que
+          // dans la route focus). Seul router.dismissTo (action POP_TO)
+          // retrouve l'instance "(tabs)" existante par nom dans toute la
+          // pile et revient dessus au lieu d'en empiler une nouvelle — c'est
+          // le seul des trois qui ne duplique jamais le navigateur (cf. aussi
+          // journal/agenda plus bas, même correctif). Le cheval actif est
+          // déjà synchronisé par l'effet du Horse Hub ci-dessus, donc rien à
+          // refaire ici.
+          onPress={() => router.dismissTo("/(tabs)/planning?filter=session")}
         />
       </FadeInView>
       <FadeInView delay={120}>
@@ -313,7 +337,7 @@ export default function HorseHubScreen() {
           iconColor={colors.accent}
           title="Concours"
           value={concoursValue}
-          onPress={() => router.push(`/horse/${horse.id}/concours`)}
+          onPress={() => router.dismissTo("/(tabs)/planning?filter=concours")}
         />
       </FadeInView>
       <FadeInView delay={140}>
@@ -322,7 +346,7 @@ export default function HorseHubScreen() {
           iconColor={colors.primary}
           title="Journal"
           value={journalValue}
-          onPress={() => router.push(`/horse/${horse.id}/journal`)}
+          onPress={() => router.dismissTo(`/(tabs)/journal?horse=${horse.id}`)}
         />
       </FadeInView>
       <FadeInView delay={160}>
@@ -331,7 +355,7 @@ export default function HorseHubScreen() {
           iconColor={colors.success}
           title="Budget"
           value={budgetValue}
-          onPress={() => router.push(`/horse/${horse.id}/budget`)}
+          onPress={() => router.dismissTo("/(tabs)/agenda?section=finances")}
         />
       </FadeInView>
       <FadeInView delay={180}>
@@ -340,7 +364,7 @@ export default function HorseHubScreen() {
           iconColor={colors.primary}
           title="Documents"
           value={documentsValue}
-          onPress={() => router.push(`/horse/${horse.id}/documents`)}
+          onPress={() => router.dismissTo("/(tabs)/agenda?section=documents")}
         />
       </FadeInView>
       <FadeInView delay={195}>
@@ -416,6 +440,11 @@ export default function HorseHubScreen() {
           emptyMessage={`Rien à afficher pour l'instant : les séances, soins, entrées de journal et dépenses passées de ${horse.name} apparaîtront ici.`}
         />
       </FadeInView>
+      {/* Le bouton "+" flottant (cf. plus bas, hors du ScrollView pour rester
+          fixe) est positionné en absolute par-dessus ce contenu — sans cette
+          marge, le dernier élément d'Activité récente se retrouve caché
+          derrière lui en bas de page (repéré sur une capture TestFlight). */}
+      <View className="h-16" />
     </Screen>
 
     {/* En dehors du ScrollView de Screen : position absolute doit rester

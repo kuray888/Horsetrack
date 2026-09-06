@@ -17,6 +17,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDuration, isSameDate, MONTHS } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
 import { useSubscription } from "@/subscription/store";
+import { OTHER_OPTION } from "@/onboarding/options";
 import { useAgenda, ACTIVITY_META, type ActivityType, type Appointment, type CompetitionEntry, type ExpenseCategory } from "@/agenda/store";
 import { suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { useSessions, type SessionIntensity, type TrainingSession } from "@/sessions/store";
@@ -32,6 +33,7 @@ import {
   filterUnifiedEvents,
   eventTime,
   isEventUpcoming,
+  isNewPlanningDestination,
   upcomingUnifiedEvents,
   PLANNING_FILTER_VALUES,
   type PlanningFilterValue,
@@ -100,8 +102,18 @@ function groupByDay<T extends { date: Date }>(items: T[]): { key: string; label:
   return groups;
 }
 
+/** Sélection affichée par le sélecteur "Type de séance" — `activityType`
+ * (5 valeurs existantes) + la sentinelle `OTHER_OPTION` (même convention que
+ * BreedField/CoatField/InjuryHistoryField/goal-modal.tsx pour "Autre /
+ * saisie libre"). Décorrélée de `activityType` lui-même : ce dernier garde
+ * toujours une valeur technique valide (jamais "Autre"), nécessaire tant que
+ * l'enum existant n'est pas étendu — cf. son commentaire sur TrainingSession. */
+type SessionTypeSelection = ActivityType | typeof OTHER_OPTION;
+
 type SessionForm = {
   activityType: ActivityType;
+  typeSelection: SessionTypeSelection;
+  customActivityLabel: string;
   date: Date | null;
   time: string;
   durationMinutes: number;
@@ -113,6 +125,8 @@ type SessionForm = {
 function emptyForm(): SessionForm {
   return {
     activityType: "dressage",
+    typeSelection: "dressage",
+    customActivityLabel: "",
     date: new Date(),
     time: "",
     durationMinutes: 45,
@@ -125,6 +139,8 @@ function emptyForm(): SessionForm {
 function formFromSession(session: TrainingSession): SessionForm {
   return {
     activityType: session.activityType,
+    typeSelection: session.customActivityLabel ? OTHER_OPTION : session.activityType,
+    customActivityLabel: session.customActivityLabel ?? "",
     date: session.date,
     time: session.time,
     durationMinutes: session.durationMinutes ?? 45,
@@ -236,13 +252,19 @@ export default function PlanningScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm());
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Filtre initial optionnel (cf. app/horse/[id]/entrainement.tsx et
-  // concours.tsx, qui renvoient ici avec ?filter=... pour ouvrir directement
-  // la bonne catégorie) — "all" par défaut si absent/invalide, comportement
-  // inchangé pour toute navigation qui n'en passe pas.
-  const { filter: filterParam, openForm: openFormParam } = useLocalSearchParams<{
+  // Filtre initial optionnel (cf. app/horse/[id]/index.tsx, dont les cartes
+  // Entraînement/Concours poussent directement ici avec ?filter=... — cf.
+  // audit crash du 2026-09-05 round 2, plus d'écran intermédiaire) — "all"
+  // par défaut si absent/invalide, comportement inchangé pour toute
+  // navigation qui n'en passe pas.
+  const {
+    filter: filterParam,
+    openForm: openFormParam,
+    ts: openFormTs,
+  } = useLocalSearchParams<{
     filter?: string;
     openForm?: string;
+    ts?: string;
   }>();
   const initialFilter = PLANNING_FILTER_VALUES.includes(filterParam as PlanningFilterValue)
     ? (filterParam as PlanningFilterValue)
@@ -259,7 +281,7 @@ export default function PlanningScreen() {
   const [syncedFilterParam, setSyncedFilterParam] = useState(filterParam);
   if (filterParam !== syncedFilterParam) {
     setSyncedFilterParam(filterParam);
-    if (PLANNING_FILTER_VALUES.includes(filterParam as PlanningFilterValue)) {
+    if (isNewPlanningDestination(syncedFilterParam, filterParam)) {
       setFilter(filterParam as PlanningFilterValue);
     }
   }
@@ -267,10 +289,15 @@ export default function PlanningScreen() {
   // depuis Accueil/Horse Hub (cf. today.tsx et horse/[id]/index.tsx, qui
   // renvoient ici avec ?openForm=session) : ouvre directement le formulaire
   // de création de séance, déjà scoped au cheval actif (selectedHorse),
-  // sans reproduire ce formulaire ailleurs.
-  const [syncedOpenFormParam, setSyncedOpenFormParam] = useState(openFormParam);
-  if (openFormParam !== syncedOpenFormParam) {
-    setSyncedOpenFormParam(openFormParam);
+  // sans reproduire ce formulaire ailleurs. Clé combinant `openForm` ET `ts`
+  // (horodatage unique posé par l'appelant) plutôt que `openForm` seul (cf.
+  // audit crash du 2026-09-05, Bug 1) : Planning reste monté entre deux
+  // visites, donc comparer seulement "session" === "session" ignorerait tout
+  // appui répété sur le CTA une fois le premier déjà consommé.
+  const openFormKey = `${openFormParam ?? ""}:${openFormTs ?? ""}`;
+  const [syncedOpenFormKey, setSyncedOpenFormKey] = useState(openFormKey);
+  if (openFormKey !== syncedOpenFormKey) {
+    setSyncedOpenFormKey(openFormKey);
     if (openFormParam === "session") {
       openCreateForm();
     }
@@ -279,6 +306,7 @@ export default function PlanningScreen() {
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [showStats, setShowStats] = useState(false);
+  const [showPast, setShowPast] = useState(false);
   const [statsPeriod, setStatsPeriod] = useState<"month" | "all">("month");
   const [quickAddVisible, setQuickAddVisible] = useState(false);
   // Seul le setter est nécessaire (cf. useAppointmentForm), Planning
@@ -409,6 +437,35 @@ export default function PlanningScreen() {
     handlePickJournalPhoto,
   } = useJournalForm({ addJournalEntry, updateJournalEntry, onEditStart: () => setExpandedId(null) });
 
+  // Ferme tout formulaire de création/édition resté ouvert d'une visite
+  // précédente dès qu'une NOUVELLE destination explicite arrive depuis Horse
+  // Hub (?filter=session ou ?filter=concours) — cf. bug "Horse Hub >
+  // Entraînement puis Concours affiche encore le formulaire Séance" (audit
+  // du 2026-09-05, round 4). Planning reste monté entre deux visites
+  // (dismissTo ne le démonte pas, cf. syncedFilterParam plus haut), donc un
+  // formulaire ouvert avant de quitter (Nouvelle séance, ou un Quick Add
+  // rendez-vous/dépense/journal déclenché depuis Planning) restait affiché
+  // par-dessus la liste filtrée demandée : `showForm`/`showApptForm`/
+  // `showExpenseForm`/`showJournalForm` n'étaient rendus prioritaires que
+  // par leur ordre dans le JSX (cf. plus bas), jamais réinitialisés par la
+  // seule arrivée d'un nouveau ?filter=. État suivi séparément de
+  // syncedFilterParam (et placé après les hooks ci-dessus, dont dépendent
+  // cancelApptForm/cancelExpenseForm/cancelJournalForm) : les deux ajustent
+  // l'état pendant le rendu sur le même changement de filterParam sans se
+  // marcher dessus (cf. react.dev/learn/you-might-not-need-an-effect).
+  const [formsResetForFilterParam, setFormsResetForFilterParam] = useState(filterParam);
+  if (filterParam !== formsResetForFilterParam) {
+    setFormsResetForFilterParam(filterParam);
+    if (isNewPlanningDestination(formsResetForFilterParam, filterParam)) {
+      setShowForm(false);
+      setEditingId(null);
+      setForm(emptyForm());
+      cancelApptForm();
+      cancelExpenseForm();
+      cancelJournalForm();
+    }
+  }
+
   // Même logique de rapprochement que agenda.tsx/le Horse Hub — dupliquée
   // Suggestion de rapprochement pour le formulaire de dépense (cf.
   // agenda/meta.ts suggestedAppointmentFor, partagé avec today.tsx/Horse Hub).
@@ -458,12 +515,17 @@ export default function PlanningScreen() {
 
   function handleSubmit() {
     if (!form.date) return;
+    // `activityType` reste la valeur technique déjà choisie (jamais "Autre") ;
+    // `customActivityLabel` ne porte le texte que si "Autre" est réellement
+    // sélectionné — même règle que Goal.type/customType.
+    const customActivityLabel = form.typeSelection === OTHER_OPTION ? form.customActivityLabel.trim() || null : null;
     if (editingId) {
       const existing = horseSessions.find((s) => s.id === editingId);
       if (!existing) return;
       updateSession({
         ...existing,
         activityType: form.activityType,
+        customActivityLabel,
         date: form.date,
         time: form.time,
         durationMinutes: form.durationMinutes,
@@ -478,6 +540,7 @@ export default function PlanningScreen() {
       for (const date of computeRecurrenceDates(form.date, form.recurrence)) {
         addSession({
           activityType: form.activityType,
+          customActivityLabel,
           date,
           time: form.time,
           durationMinutes: form.durationMinutes,
@@ -496,6 +559,7 @@ export default function PlanningScreen() {
     date.setDate(date.getDate() + 7);
     addSession({
       activityType: session.activityType,
+      customActivityLabel: session.customActivityLabel,
       date,
       time: session.time,
       durationMinutes: session.durationMinutes,
@@ -649,15 +713,39 @@ export default function PlanningScreen() {
             </Text>
             <Field label="Type de séance">
               <ChipSelect
-                options={Object.entries(ACTIVITY_META).map(([value, meta]) => ({
-                  value: value as ActivityType,
-                  label: meta.label,
-                  icon: { name: meta.icon, color: meta.tint },
-                }))}
-                value={form.activityType}
-                onChange={(activityType) => setForm((f) => ({ ...f, activityType }))}
+                options={[
+                  ...Object.entries(ACTIVITY_META).map(([value, meta]) => ({
+                    value: value as SessionTypeSelection,
+                    label: meta.label,
+                    icon: { name: meta.icon, color: meta.tint },
+                  })),
+                  { value: OTHER_OPTION, label: "Autre", icon: { name: "shape-outline" as const, color: colors.textMuted } },
+                ]}
+                value={form.typeSelection}
+                onChange={(typeSelection) =>
+                  setForm((f) => ({
+                    ...f,
+                    typeSelection,
+                    // Standard → Autre : garde activityType tel quel (fallback
+                    // technique, cf. son commentaire sur TrainingSession).
+                    // Autre → standard : le type choisi devient activityType et
+                    // efface le texte personnalisé.
+                    activityType: typeSelection === OTHER_OPTION ? f.activityType : typeSelection,
+                    customActivityLabel: typeSelection === OTHER_OPTION ? f.customActivityLabel : "",
+                  }))
+                }
               />
             </Field>
+            {form.typeSelection === OTHER_OPTION ? (
+              <Field label="Précisez votre séance">
+                <TextInput
+                  className={INPUT}
+                  placeholder="Ex : Séance à la plage"
+                  value={form.customActivityLabel}
+                  onChangeText={(customActivityLabel) => setForm((f) => ({ ...f, customActivityLabel }))}
+                />
+              </Field>
+            ) : null}
             <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
             <TimePickerField label="Heure (optionnel)" value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
             <Field label="Durée">
@@ -853,26 +941,39 @@ export default function PlanningScreen() {
           {done.length > 0 ? (
             <>
               <FadeInView delay={220}>
-                <Text className="mt-2 text-xl font-bold text-text">Passées</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPast((v) => !v)}
+                  activeOpacity={0.8}
+                  className="mt-2 flex-row items-center justify-between"
+                >
+                  <Text className="text-xl font-bold text-text">Événements passés ({done.length})</Text>
+                  <MaterialCommunityIcons
+                    name={showPast ? "chevron-up" : "chevron-down"}
+                    size={22}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
               </FadeInView>
-              {doneGroups.map((group, gi) => (
-                <View key={group.key} className="gap-2">
-                  <FadeInView delay={240 + gi * 20}>
-                    <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
-                  </FadeInView>
-                  {group.items.map((event, i) => (
-                    <FadeInView key={event.id} delay={250 + gi * 20 + i * 30}>
-                      <UnifiedEventCard
-                        event={event}
-                        expanded={expandedId === event.id}
-                        onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
-                        sessionHandlers={sessionHandlers}
-                        appointmentHandlers={appointmentHandlers}
-                      />
-                    </FadeInView>
-                  ))}
-                </View>
-              ))}
+              {showPast
+                ? doneGroups.map((group, gi) => (
+                    <View key={group.key} className="gap-2">
+                      <FadeInView delay={240 + gi * 20}>
+                        <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
+                      </FadeInView>
+                      {group.items.map((event, i) => (
+                        <FadeInView key={event.id} delay={250 + gi * 20 + i * 30}>
+                          <UnifiedEventCard
+                            event={event}
+                            expanded={expandedId === event.id}
+                            onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                            sessionHandlers={sessionHandlers}
+                            appointmentHandlers={appointmentHandlers}
+                          />
+                        </FadeInView>
+                      ))}
+                    </View>
+                  ))
+                : null}
             </>
           ) : null}
         </>

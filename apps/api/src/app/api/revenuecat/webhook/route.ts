@@ -8,9 +8,11 @@ import { db, Prisma, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
  * apps/mobile/src/lib/revenuecat.ts). Pivot tarifaire du 2026-09-03 : plus
  * de distinction Paddock/Grand Prix, un seul entitlement (`grand_prix`,
  * réutilisé tel quel pour ne pas dépendre d'une reconfiguration store).
+ * Pivot chevaux illimités du 2026-09-05 (v3) : l'entitlement `extra_horse`
+ * n'est plus lu ici (Premium n'a plus de quota à dépasser) — `extraHorseSlots`
+ * reste en base (non supprimé) mais n'est plus mis à jour par ce webhook.
  */
 const ENTITLEMENT_ID = "grand_prix";
-const ENTITLEMENT_EXTRA_HORSE = "extra_horse";
 
 // Tous les champs restent optionnels (au lieu de `required`) pour ne pas
 // transformer un event sans entitlement pertinent — déjà ignoré plus bas via
@@ -48,13 +50,9 @@ function billingPeriodFromProductId(productId: string | undefined): "MONTHLY" | 
  * `rider_profiles.userId` (le trigger `handle_new_user` recopie l'uuid
  * Supabase en texte dans public.users.id — cf. rls.sql).
  *
- * Un même événement peut concerner le palier payant (grand_prix) et/ou
- * l'add-on cheval supplémentaire (extra_horse) — ce sont des entitlements
- * indépendants, chacun mis à jour seulement s'il apparaît dans `entitlement_ids`.
- * Limite connue : si plusieurs entitlements évoluent dans des événements
- * séparés et proches, il n'y a pas de réconciliation fine entre eux au-delà
- * de ce que chaque événement porte individuellement — acceptable, zéro
- * abonné réel à ce jour.
+ * Ne traite que l'entitlement du palier payant (grand_prix) — plus d'add-on
+ * "cheval supplémentaire" (extra_horse) depuis le pivot chevaux illimités du
+ * 2026-09-05 (v3), Premium n'ayant plus de quota à dépasser.
  *
  * Idempotence et ordre : RevenueCat garantit une livraison "at-least-once",
  * sans garantie d'ordre. `RevenueCatWebhookEvent` déduplique par `event.id`
@@ -84,9 +82,8 @@ export async function POST(req: NextRequest) {
 
   const entitlementIds = event?.entitlement_ids ?? [];
   const hasEntitlement = entitlementIds.includes(ENTITLEMENT_ID);
-  const hasExtraHorse = entitlementIds.includes(ENTITLEMENT_EXTRA_HORSE);
 
-  if (!event?.app_user_id || (!hasEntitlement && !hasExtraHorse)) {
+  if (!event?.app_user_id || !hasEntitlement) {
     return NextResponse.json({ received: true });
   }
 
@@ -133,28 +130,25 @@ export async function POST(req: NextRequest) {
             trialEndsAt: isTrial && event.expiration_at_ms ? new Date(event.expiration_at_ms) : null,
           }
         : {};
-      const addonFields = hasExtraHorse ? { extraHorseSlots: 1 } : {};
       await db.riderProfile.updateMany({
         where: { userId, ...orderingWhere },
-        data: { revenuecatId: userId, ...tierFields, ...addonFields, lastWebhookEventAt: eventTimestamp ?? undefined },
+        data: { revenuecatId: userId, ...tierFields, lastWebhookEventAt: eventTimestamp ?? undefined },
       });
       break;
     }
     case "CANCELLATION": {
       const tierFields = tier ? { subscriptionStatus: SubscriptionStatus.CANCELLED } : {};
-      const addonFields = hasExtraHorse ? { extraHorseSlots: 0 } : {};
       await db.riderProfile.updateMany({
         where: { userId, ...orderingWhere },
-        data: { ...tierFields, ...addonFields, lastWebhookEventAt: eventTimestamp ?? undefined },
+        data: { ...tierFields, lastWebhookEventAt: eventTimestamp ?? undefined },
       });
       break;
     }
     case "EXPIRATION": {
       const tierFields = tier ? { subscriptionStatus: SubscriptionStatus.EXPIRED } : {};
-      const addonFields = hasExtraHorse ? { extraHorseSlots: 0 } : {};
       await db.riderProfile.updateMany({
         where: { userId, ...orderingWhere },
-        data: { ...tierFields, ...addonFields, lastWebhookEventAt: eventTimestamp ?? undefined },
+        data: { ...tierFields, lastWebhookEventAt: eventTimestamp ?? undefined },
       });
       break;
     }

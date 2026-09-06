@@ -140,7 +140,7 @@ export default function ShareHorseModal() {
         </View>
         <Text className="text-sm text-muted">
           Connecte une demi-pension, un coach, une cavalière ou un groom pour qu&apos;il·elle puisse lire et écrire
-          dans le calendrier de ce cheval.
+          sur toute la fiche de ce cheval (planning, santé, concours, journal, budget, documents).
         </Text>
 
         {!loaded ? null : collaborators.length === 0 ? (

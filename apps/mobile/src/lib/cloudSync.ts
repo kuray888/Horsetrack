@@ -54,6 +54,7 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
     mainDiscipline: rider.mainDiscipline,
     rideFrequency: rider.rideFrequency,
     primaryGoal: rider.primaryGoal,
+    primaryGoalCustom: rider.primaryGoalCustom,
     // Ne se pose qu'une fois — sert de signal "ce compte a déjà un profil
     // complet côté serveur" pour pullCloudData(), pas d'horodatage d'édition.
     onboardingCompletedAt: existing?.onboardingCompletedAt ?? now,
@@ -260,6 +261,7 @@ export async function pullCloudData(): Promise<CloudData | null> {
     mainDiscipline: profile.mainDiscipline,
     rideFrequency: profile.rideFrequency,
     primaryGoal: profile.primaryGoal,
+    primaryGoalCustom: profile.primaryGoalCustom ?? null,
   };
 
   const remoteHorses = (profile.horses ?? []) as RemoteHorse[];
@@ -696,6 +698,7 @@ export async function pushTrainingSession(session: TrainingSession): Promise<voi
     id: session.id,
     horseId: session.horseId,
     activityType: session.activityType.toUpperCase(),
+    customActivityLabel: session.customActivityLabel,
     date: session.date.toISOString(),
     time: session.time,
     durationMinutes: session.durationMinutes,
@@ -717,12 +720,13 @@ export async function deleteTrainingSessionRemote(sessionId: string): Promise<vo
 export async function pullTrainingSessions(): Promise<TrainingSession[]> {
   const { data, error } = await supabase
     .from("training_sessions")
-    .select("id, horseId, activityType, date, time, durationMinutes, intensity, notes, completed");
+    .select("id, horseId, activityType, customActivityLabel, date, time, durationMinutes, intensity, notes, completed");
   if (error || !data) return [];
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,
     activityType: (row.activityType as string).toLowerCase() as TrainingSession["activityType"],
+    customActivityLabel: row.customActivityLabel ?? null,
     date: new Date(row.date),
     time: row.time,
     durationMinutes: row.durationMinutes ?? null,

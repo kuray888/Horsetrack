@@ -10,23 +10,17 @@ export type BillingPeriod = "MONTHLY" | "ANNUAL";
 /** Chevaux inclus au palier gratuit — doit rester synchronisé avec
  * `effective_horse_limit` côté rls.sql (branche "else 1"). */
 export const FREE_HORSE_LIMIT = 1;
-/** Chevaux inclus au palier Premium, avant ajout des add-ons achetés — doit
- * rester synchronisé avec `effective_horse_limit` côté rls.sql (branche
- * ACTIVE/TRIALING). */
-export const PREMIUM_HORSE_LIMIT = 3;
 
 export type Persisted = {
   status: SubscriptionStatus;
   billingPeriod: BillingPeriod | null;
   trialEndsAt: string | null; // ISO
-  extraHorseSlots: number;
 };
 
 export const DEFAULT_SUBSCRIPTION_STATE: Persisted = {
   status: "free",
   billingPeriod: null,
   trialEndsAt: null,
-  extraHorseSlots: 0,
 };
 
 export function computeIsActiveOrTrialing(s: Pick<Persisted, "status" | "trialEndsAt">): boolean {
@@ -39,8 +33,9 @@ export function computeIsActiveOrTrialing(s: Pick<Persisted, "status" | "trialEn
 }
 
 /** Nombre de chevaux autorisés pour un état d'abonnement donné — 1 en
- * gratuit, 3 + add-ons en Premium (actif ou en essai). */
-export function maxHorses(s: Pick<Persisted, "status" | "trialEndsAt" | "extraHorseSlots">): number {
-  const base = computeIsActiveOrTrialing(s) ? PREMIUM_HORSE_LIMIT : FREE_HORSE_LIMIT;
-  return base + s.extraHorseSlots;
+ * gratuit, illimité en Premium (actif ou en essai, cf. pivot produit du
+ * 2026-09-05 : plus de quota de 3 ni d'add-on "cheval supplémentaire"). Doit
+ * rester synchronisé avec `effective_horse_limit` côté rls.sql. */
+export function maxHorses(s: Pick<Persisted, "status" | "trialEndsAt">): number {
+  return computeIsActiveOrTrialing(s) ? Infinity : FREE_HORSE_LIMIT;
 }

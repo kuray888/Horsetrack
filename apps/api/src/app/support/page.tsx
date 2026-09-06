@@ -16,7 +16,7 @@ export default function SupportPage() {
       <h3>Comment supprimer mon compte ?</h3>
       <p>
         Directement depuis l&apos;application&nbsp;: Profil → Supprimer mon compte. La suppression est immédiate et
-        irréversible (profil, chevaux, programme, historique de progression).
+        irréversible (profil, chevaux, séances, rendez-vous, journal, dépenses, documents et objectifs).
       </p>
 
       <h3>Comment gérer ou annuler mon abonnement ?</h3>

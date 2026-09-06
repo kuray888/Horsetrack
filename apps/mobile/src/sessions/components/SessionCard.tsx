@@ -64,7 +64,7 @@ export function SessionCard({
           </View>
           <View className="flex-1 gap-0.5">
             <Text className={`text-base font-bold ${session.completed ? "text-muted line-through" : "text-text"}`}>
-              {meta.label}
+              {session.customActivityLabel || meta.label}
             </Text>
             <Text className="text-sm text-muted">
               {formatDate(session.date)} · {session.time || "Heure libre"}

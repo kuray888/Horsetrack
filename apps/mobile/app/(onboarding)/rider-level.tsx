@@ -10,7 +10,7 @@ export default function RiderLevel() {
       step={1}
       total={TOTAL_STEPS}
       title="Quel cavalier es-tu ?"
-      subtitle="On adapte le contenu et la difficulté à ton niveau."
+      subtitle="Ça reste dans ton profil cavalier."
       ctaDisabled={!rider.level}
       onNext={() => router.push("/(onboarding)/discipline")}
     >

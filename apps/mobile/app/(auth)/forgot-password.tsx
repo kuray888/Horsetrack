@@ -32,7 +32,7 @@ export default function ForgotPasswordScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-8">
         <Image
-          source={require("../../assets/icon.png")}
+          source={require("../../assets/logo-mark.png")}
           style={{ width: 72, height: 72, alignSelf: "center" }}
           resizeMode="contain"
         />

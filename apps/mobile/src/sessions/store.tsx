@@ -21,6 +21,13 @@ export type TrainingSession = {
    * Appointment.horseId (pilote le partage, cf. RLS can_access_horse). */
   horseId: string | null;
   activityType: ActivityType;
+  /** Libellé libre quand aucune des 5 disciplines existantes ne convient (cf.
+   * sélection "Autre" dans planning.tsx) — `activityType` garde une valeur
+   * technique valide de l'union existante (jamais étendue) pour les stats/le
+   * filtrage ; l'affichage préfère ce libellé quand il est renseigné (cf.
+   * SessionCard.tsx). Colonne `customActivityLabel` dédiée côté Supabase
+   * (text, nullable), synchronisée dans lib/cloudSync.ts. */
+  customActivityLabel: string | null;
   date: Date;
   time: string;
   durationMinutes: number | null;
@@ -68,7 +75,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         const raw = await SecureStore.getItemAsync(SESSIONS_KEY);
         const parsed = safeJsonParse<TrainingSession[] | null>(raw, null);
         if (parsed) {
-          setSessions(parsed.map((s) => ({ ...s, date: new Date(s.date) })));
+          setSessions(
+            parsed.map((s) => ({ ...s, date: new Date(s.date), customActivityLabel: s.customActivityLabel ?? null }))
+          );
         }
       } catch (e) {
         console.warn("[sessions] lecture SecureStore échouée", e);

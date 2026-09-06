@@ -7,6 +7,7 @@ function makeSession(overrides: Partial<TrainingSession> = {}): TrainingSession 
     id: "s1",
     horseId: "h1",
     activityType: "dressage",
+    customActivityLabel: null,
     date: new Date(2026, 8, 15),
     time: "09h00",
     durationMinutes: 60,

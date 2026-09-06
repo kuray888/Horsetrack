@@ -28,7 +28,7 @@ export default function EditHorseModal() {
     }
     Alert.alert(
       "Supprimer ce cheval ?",
-      `${horse!.name} et tout son historique (programme, rendez-vous, journal) seront définitivement supprimés. Cette action est irréversible.`,
+      `${horse!.name} et tout son historique (séances, rendez-vous, journal) seront définitivement supprimés. Cette action est irréversible.`,
       [
         { text: "Annuler", style: "cancel" },
         {

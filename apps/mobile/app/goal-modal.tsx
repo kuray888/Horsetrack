@@ -8,13 +8,27 @@ import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
 import { DropdownField } from "@/components/DropdownField";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
-import { RIDER_GOALS } from "@/onboarding/options";
+import { OTHER_OPTION, RIDER_GOALS } from "@/onboarding/options";
 import { colors } from "@/theme/colors";
 import type { RiderGoal } from "@/onboarding/store";
 import { useGoals } from "@/goals/store";
 import { useHorses } from "@/horses/store";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
+
+/** Valeur locale au sélecteur de type, en plus des `RiderGoal` existants (cf.
+ * garder les types existants) — même sentinelle `OTHER_OPTION` que
+ * BreedField/CoatField/InjuryHistoryField pour "Autre / saisie libre" (cf.
+ * onboarding/options.ts). Jamais envoyée comme `Goal.type` au serveur (enum
+ * Postgres RiderGoal, cf. son commentaire sur goals/store.tsx) : elle pilote
+ * seulement l'affichage du champ libre ci-dessous, `customType` porte le
+ * texte réellement sauvegardé. */
+type TypeSelection = RiderGoal | typeof OTHER_OPTION;
+
+const TYPE_OPTIONS: { value: TypeSelection; label: string }[] = [
+  ...RIDER_GOALS,
+  { value: OTHER_OPTION, label: "Autre" },
+];
 
 /**
  * Ajout/édition d'un objectif — un seul écran pour les deux cas (cf. `id` en
@@ -28,7 +42,14 @@ export default function GoalModal() {
   const editing = id ? goals.find((g) => g.id === id) : undefined;
 
   const [title, setTitle] = useState(editing?.title ?? "");
-  const [type, setType] = useState<RiderGoal | null>(editing?.type ?? null);
+  // Un objectif édité avec un customType déjà renseigné (cf. sa persistance
+  // dans Goal, jamais avec `type` dans le même temps) rouvre directement sur
+  // "Autre" — même logique que BreedField/CoatField pour une valeur qui ne
+  // correspond à aucune option connue.
+  const [type, setType] = useState<TypeSelection | null>(
+    editing?.customType ? OTHER_OPTION : editing?.type ?? null
+  );
+  const [customType, setCustomType] = useState(editing?.customType ?? "");
   const [targetDate, setTargetDate] = useState<Date | null>(editing?.targetDate ?? null);
   const [horseId, setHorseId] = useState<string | null>(editing?.horseId ?? null);
 
@@ -37,7 +58,13 @@ export default function GoalModal() {
 
   function submit() {
     if (!canSave) return;
-    const payload = { title: title.trim(), type, targetDate, horseId };
+    const payload = {
+      title: title.trim(),
+      type: type === OTHER_OPTION ? null : type,
+      customType: type === OTHER_OPTION ? customType.trim() || null : null,
+      targetDate,
+      horseId,
+    };
     if (editing) updateGoal(editing.id, payload);
     else addGoal(payload);
     router.back();
@@ -82,11 +109,23 @@ export default function GoalModal() {
 
         <DropdownField
           label="Type d'objectif (optionnel)"
-          options={RIDER_GOALS}
+          options={TYPE_OPTIONS}
           value={type}
           onChange={setType}
           placeholder="Sélectionner un type"
         />
+
+        {type === OTHER_OPTION ? (
+          <Field label="Précisez votre objectif">
+            <TextInput
+              className={INPUT}
+              placeholder="Ex : Améliorer la souplesse à gauche"
+              value={customType}
+              onChangeText={setCustomType}
+              autoCapitalize="sentences"
+            />
+          </Field>
+        ) : null}
 
         <DatePickerField label="Date cible (optionnel)" value={targetDate} onChange={setTargetDate} />
 

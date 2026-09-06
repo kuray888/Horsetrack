@@ -26,9 +26,14 @@ export function SectionSwitcher({ section, onChange }: { section: AgendaSection;
           key={value}
           onPress={() => onChange(value)}
           activeOpacity={0.85}
-          className={`flex-1 items-center rounded-full p-2.5 ${section === value ? "bg-primary" : ""}`}
+          className={`flex-1 items-center rounded-full px-1.5 py-2.5 ${section === value ? "bg-primary" : ""}`}
         >
-          <Text className={`text-sm font-bold ${section === value ? "text-on-primary" : "text-muted"}`}>{label}</Text>
+          <Text
+            numberOfLines={1}
+            className={`text-sm font-bold ${section === value ? "text-on-primary" : "text-muted"}`}
+          >
+            {label}
+          </Text>
         </TouchableOpacity>
       ))}
     </View>

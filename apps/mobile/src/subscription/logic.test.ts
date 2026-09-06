@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeIsActiveOrTrialing, maxHorses, FREE_HORSE_LIMIT, PREMIUM_HORSE_LIMIT } from "./logic";
+import { computeIsActiveOrTrialing, maxHorses, FREE_HORSE_LIMIT } from "./logic";
 
 describe("computeIsActiveOrTrialing", () => {
   it("est actif pour un abonnement payant", () => {
@@ -29,24 +29,19 @@ describe("computeIsActiveOrTrialing", () => {
 
 describe("maxHorses", () => {
   it("limite à 1 cheval en gratuit (jamais abonné)", () => {
-    expect(maxHorses({ status: "free", trialEndsAt: null, extraHorseSlots: 0 })).toBe(FREE_HORSE_LIMIT);
+    expect(maxHorses({ status: "free", trialEndsAt: null })).toBe(FREE_HORSE_LIMIT);
   });
 
   it("limite à 1 cheval une fois l'abonnement expiré", () => {
-    expect(maxHorses({ status: "expired", trialEndsAt: null, extraHorseSlots: 0 })).toBe(FREE_HORSE_LIMIT);
+    expect(maxHorses({ status: "expired", trialEndsAt: null })).toBe(FREE_HORSE_LIMIT);
   });
 
-  it("monte à la limite Premium pour un compte actif", () => {
-    expect(maxHorses({ status: "active", trialEndsAt: null, extraHorseSlots: 0 })).toBe(PREMIUM_HORSE_LIMIT);
+  it("illimité pour un compte Premium actif", () => {
+    expect(maxHorses({ status: "active", trialEndsAt: null })).toBe(Infinity);
   });
 
-  it("monte à la limite Premium pendant un essai valide", () => {
+  it("illimité pendant un essai Premium valide", () => {
     const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    expect(maxHorses({ status: "trialing", trialEndsAt, extraHorseSlots: 0 })).toBe(PREMIUM_HORSE_LIMIT);
-  });
-
-  it("ajoute les slots achetés en add-on, gratuit comme Premium", () => {
-    expect(maxHorses({ status: "free", trialEndsAt: null, extraHorseSlots: 1 })).toBe(FREE_HORSE_LIMIT + 1);
-    expect(maxHorses({ status: "active", trialEndsAt: null, extraHorseSlots: 1 })).toBe(PREMIUM_HORSE_LIMIT + 1);
+    expect(maxHorses({ status: "trialing", trialEndsAt })).toBe(Infinity);
   });
 });

@@ -129,12 +129,16 @@ $$;
 -- qu'à SES propres lignes via RLS — mêmes garanties que owns_rider_profile/
 -- owns_horse ci-dessus (search_path figé, lecture interne qui ne re-déclenche
 -- pas la RLS de rider_profiles).
--- Pivot freemium du 2026-09-03 (v2) : retour à un palier gratuit permanent
--- (1 cheval, planning/agenda/journal/dépenses de base) + un palier Premium
--- payant (3 chevaux + add-on, partage, coffre-fort, concours multi-épreuves,
--- rappels automatiques), essai Premium d'1 mois. Le gating continue de
--- reposer sur le STATUT (`subscriptionStatus`/`trialEndsAt`), pas sur
--- `subscriptionTier` (resté FREE en base pour tout le monde, cf.
+-- Pivot freemium du 2026-09-03 (v2), puis pivot chevaux illimités du
+-- 2026-09-05 (v3) : palier gratuit permanent (1 cheval, planning/agenda/
+-- journal/dépenses de base) + palier Premium payant à chevaux ILLIMITÉS
+-- (partage, coffre-fort, concours multi-épreuves, rappels automatiques),
+-- essai Premium d'1 mois. Le concept d'add-on "cheval supplémentaire"
+-- (colonne `extraHorseSlots`) est retiré : Premium n'a plus besoin d'en
+-- acheter, la colonne reste en base (non supprimée, pas de migration
+-- destructive) mais n'est plus lue ici. Le gating continue de reposer sur le
+-- STATUT (`subscriptionStatus`/`trialEndsAt`), pas sur `subscriptionTier`
+-- (resté FREE en base pour tout le monde, cf.
 -- protect_rider_profile_entitlements — pas de migration de données requise).
 create or replace function public.effective_horse_limit(_rider_profile_id text)
 returns integer
@@ -149,14 +153,18 @@ as $$
         case
           when rp."subscriptionStatus" = 'ACTIVE'
             or (rp."subscriptionStatus" = 'TRIALING' and (rp."trialEndsAt" is not null and rp."trialEndsAt" > now()))
-          then 3
+          -- Premium = illimité (cf. pivot produit du 2026-09-05) — valeur
+          -- sentinelle max int32, la colonne reste `integer` (pas de
+          -- changement de type). Synchronisé avec PREMIUM_HORSE_LIMIT côté
+          -- mobile (subscription/logic.ts).
+          then 2147483647
           -- Palier gratuit standard (jamais abonné, essai/abo expiré ou
           -- annulé) : 1 cheval, pas une simple "grâce" temporaire — c'est la
           -- vraie limite du palier Free, cf. subscription/logic.ts
           -- FREE_HORSE_LIMIT côté mobile (doit rester synchronisé avec cette
           -- valeur).
           else 1
-        end + rp."extraHorseSlots"
+        end
       from public.rider_profiles rp
       where rp.id = _rider_profile_id
     ),
@@ -312,6 +320,15 @@ alter table public.competition_entries enable row level security;
 alter table public.expenses           enable row level security;
 alter table public.revenuecat_webhook_events enable row level security;
 alter table public.horse_weight_measurements enable row level security;
+-- promo_codes / promo_code_redemptions : aucune policy plus bas, volontairement
+-- (même traitement que revenuecat_webhook_events ci-dessus) — la validation et
+-- l'application d'un code promo passent exclusivement par /api/promo/redeem
+-- (connexion Prisma directe DATABASE_URL, hors RLS) ; RLS activée sans aucune
+-- policy bloque tout accès direct via le client mobile (anon/authenticated),
+-- fail-closed par construction plutôt que par une policy qu'on pourrait
+-- oublier de restreindre correctement.
+alter table public.promo_codes            enable row level security;
+alter table public.promo_code_redemptions enable row level security;
 
 -- 4. Policies -----------------------------------------------------------
 

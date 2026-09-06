@@ -40,7 +40,7 @@ type WeightContextValue = {
 const WeightContext = createContext<WeightContextValue | null>(null);
 
 export function WeightProvider({ children }: { children: ReactNode }) {
-  const { selectedHorse, updateHorse } = useHorses();
+  const { horses, selectedHorse, updateHorse } = useHorses();
   const [measurements, setMeasurements] = useState<WeightMeasurement[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -86,10 +86,33 @@ export function WeightProvider({ children }: { children: ReactNode }) {
     [selectedHorse, measurements, updateHorse]
   );
 
-  const deleteMeasurement = useCallback((id: string) => {
-    setMeasurements((list) => list.filter((m) => m.id !== id));
-    deleteWeightMeasurementRemote(id).catch(() => {});
-  }, []);
+  const deleteMeasurement = useCallback(
+    (id: string) => {
+      const deleted = measurements.find((m) => m.id === id);
+      const remaining = measurements.filter((m) => m.id !== id);
+      setMeasurements(remaining);
+      deleteWeightMeasurementRemote(id).catch(() => {});
+      // Même garde que addMeasurement : Horse.weightKg ne doit jamais rester
+      // figé sur une mesure qui vient d'être supprimée — le fait converger
+      // vers la mesure restante la plus récente de CE cheval (ou null si
+      // c'était la seule), sinon "Poids actuel" resterait affiché partout
+      // (Horse Hub, formulaires...) après suppression de la dernière mesure.
+      if (!deleted) return;
+      const horse = horses.find((h) => h.id === deleted.horseId);
+      if (!horse) return;
+      const horseMeasurements = remaining.filter((m) => m.horseId === deleted.horseId);
+      const newWeightKg =
+        horseMeasurements.length > 0
+          ? horseMeasurements.reduce((a, b) => (b.date > a.date ? b : a)).weightKg
+          : null;
+      if (newWeightKg !== horse.weightKg) {
+        const { id: _id, emoji: _emoji, photoPath: _photoPath, isPrimary: _isPrimary, sharedRole: _sharedRole, ...rest } =
+          horse;
+        updateHorse(horse.id, { ...rest, weightKg: newWeightKg });
+      }
+    },
+    [measurements, horses, updateHorse]
+  );
 
   const hydrateFromCloud = useCallback((remote: WeightMeasurement[]) => {
     setMeasurements(remote);

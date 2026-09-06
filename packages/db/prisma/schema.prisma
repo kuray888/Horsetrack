@@ -32,10 +32,14 @@ model RiderProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Profil cavalier (onboarding)
-  level          RiderLevel?
-  mainDiscipline Discipline?
-  rideFrequency  RideFrequency?
-  primaryGoal    RiderGoal?
+  level             RiderLevel?
+  mainDiscipline    Discipline?
+  rideFrequency     RideFrequency?
+  primaryGoal       RiderGoal?
+  /// Libellé libre quand `primaryGoal` ne couvre pas le besoin (cf. sélection
+  /// "Autre" dans edit-rider-modal.tsx) — même pattern que Goal.customType,
+  /// toujours null quand `primaryGoal` porte une valeur de l'enum RiderGoal.
+  primaryGoalCustom String?
 
   // Entitlement abonnement (source de vérité côté store = RevenueCat)
   /// Défaut non-entitlant tant que RevenueCat n'a pas écrit de vraie valeur
@@ -63,11 +67,56 @@ model RiderProfile {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  horses    Horse[]
-  goals     Goal[]
-  documents Document[]
+  horses           Horse[]
+  goals            Goal[]
+  documents        Document[]
+  promoRedemptions PromoCodeRedemption[]
 
   @@map("rider_profiles")
+}
+
+/// Code promo offrant un accès Premium temporaire (cf. pivot du 2026-09-05) —
+/// validé et appliqué exclusivement côté serveur (/api/promo/redeem), jamais
+/// sur la seule foi d'une valeur envoyée par le mobile. Réutilise le
+/// mécanisme d'essai déjà existant (subscriptionStatus=TRIALING + trialEndsAt,
+/// cf. rls.sql rider_is_active_or_trialing) plutôt que d'inventer un nouveau
+/// statut ou un produit RevenueCat : un code valide prolonge simplement
+/// `trialEndsAt`, exactement comme le ferait un essai gratuit normal.
+model PromoCode {
+  id             String    @id @default(cuid())
+  /// Toujours en majuscules côté serveur (normalisé à la validation).
+  code           String    @unique
+  description    String?
+  /// Durée de l'accès Premium accordé, en jours.
+  premiumDays    Int
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  /// Nombre total de rédemptions autorisées, tous utilisateurs confondus.
+  /// Null = illimité.
+  maxRedemptions Int?
+
+  redemptions PromoCodeRedemption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("promo_codes")
+}
+
+/// Une rédemption par (code, cavalier) — empêche un même compte de réutiliser
+/// indéfiniment le même code (cf. contrainte unique ci-dessous).
+model PromoCodeRedemption {
+  id          String       @id @default(cuid())
+  promoCodeId String
+  promoCode   PromoCode    @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  riderId     String
+  rider       RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+
+  redeemedAt DateTime @default(now())
+
+  @@unique([promoCodeId, riderId])
+  @@index([riderId])
+  @@map("promo_code_redemptions")
 }
 
 /// Cheval — N par cavalier (multi-cheval natif et illimité).
@@ -184,6 +233,12 @@ model Goal {
 
   title      String
   type       RiderGoal?
+  /// Libellé libre quand `type` ne couvre pas le besoin de l'utilisateur (cf.
+  /// sélection "Autre" dans goal-modal.tsx côté mobile) — toujours null quand
+  /// `type` est renseigné avec une valeur de l'enum RiderGoal. `type` reste
+  /// l'enum existant pour les objectifs standards, jamais remplacé par du
+  /// texte libre (cf. audit du 2026-09-05).
+  customType String?
   targetDate DateTime?
 
   createdAt DateTime @default(now())
@@ -344,19 +399,25 @@ model TrainingSession {
   horseId String
   horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
 
-  activityType    ActivityType
-  date            DateTime
-  time            String
-  durationMinutes Int?
+  activityType        ActivityType
+  /// Libellé libre quand aucune des 5 disciplines existantes ne convient (cf.
+  /// sélection "Autre" dans planning.tsx) — `activityType` garde une valeur
+  /// technique valide de l'enum existant (jamais modifié/étendu) pour le
+  /// filtrage/les statistiques ; l'affichage préfère ce libellé quand il est
+  /// renseigné (cf. SessionCard.tsx). Null pour toute séance standard.
+  customActivityLabel String?
+  date                DateTime
+  time                String
+  durationMinutes     Int?
   /// Intensité ressentie visée ("LOW"/"MEDIUM"/"HIGH") — texte libre plutôt
   /// qu'un enum dédié, même logique que Appointment.reminder : 3 valeurs
   /// fixes ne justifient pas un type Postgres séparé.
-  intensity       String?
-  notes           String
+  intensity           String?
+  notes               String
   /// Coché par le cavalier une fois la séance faite — pas de lien vers un
   /// quelconque système de badges/XP (retiré avec l'IA), juste un suivi
   /// simple "fait / pas fait".
-  completed       Boolean      @default(false)
+  completed           Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -614,17 +675,21 @@ enum SubscriptionStatus {
 /// exécuté (pivot du 2026-06-19, cf. git log), pas de gestion d'écurie/
 /// multi-utilisateurs avancée (hors scope HorseTrack, cf. HorsePlanning).
 /// Grille tarifaire réelle affichée par PaywallView.tsx/paywall.tsx : FREE 0€
-/// (1 cheval) → GRAND_PRIX 3,99€/mois ou 39,99€/an (3 chevaux, coffre-fort,
-/// partage, stats, rappels auto), + add-on "cheval supplémentaire" 1,99€/mois
-/// ou 14,99€/an (cf. Horse.extraHorseSlots plus haut). L'identifiant
-/// `GRAND_PRIX` (et l'entitlement RevenueCat `grand_prix`, cf.
-/// lib/revenuecat.ts) est un nom interne hérité d'un ancien modèle à 3
-/// paliers, conservé tel quel pour éviter une reconfiguration du dashboard
-/// RevenueCat/App Store — il ne reflète plus un positionnement "haut de
-/// gamme", juste LE palier payant unique. Pas de génération de contenu par IA
-/// dans ce palier (retirée du produit, cf. TrainingSession/ActivityType plus
-/// haut) : le "Coach IA" évoqué par un ancien document produit n'existe plus
-/// dans le code exécuté.
+/// (1 cheval) → GRAND_PRIX 3,99€/mois ou 39,99€/an (chevaux illimités,
+/// coffre-fort, partage, stats, rappels auto). Pivot chevaux illimités du
+/// 2026-09-05 (v3) : l'ancien add-on "cheval supplémentaire" (entitlement
+/// RevenueCat `extra_horse`, colonne `Horse.extraHorseSlots` ci-dessus) n'est
+/// plus vendu ni lu par aucune logique métier (cf. effective_horse_limit()
+/// dans rls.sql) — la colonne reste en base (verrouillée côté client par
+/// protect_rider_profile_entitlements) sans qu'aucune migration ne soit
+/// nécessaire pour ce pivot. L'identifiant `GRAND_PRIX` (et l'entitlement
+/// RevenueCat `grand_prix`, cf. lib/revenuecat.ts) est un nom interne hérité
+/// d'un ancien modèle à 3 paliers, conservé tel quel pour éviter une
+/// reconfiguration du dashboard RevenueCat/App Store — il ne reflète plus un
+/// positionnement "haut de gamme", juste LE palier payant unique. Pas de
+/// génération de contenu par IA dans ce palier (retirée du produit, cf.
+/// TrainingSession/ActivityType plus haut) : le "Coach IA" évoqué par un
+/// ancien document produit n'existe plus dans le code exécuté.
 enum SubscriptionTier {
   FREE
   /// Valeur legacy de l'ancien modèle à 3 paliers — plus jamais attribuée par

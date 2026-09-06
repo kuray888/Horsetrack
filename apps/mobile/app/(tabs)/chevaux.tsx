@@ -63,7 +63,7 @@ function HorseRow({
     </TouchableOpacity>
   );
   return locked ? (
-    <Locked message="Débloque ce cheval avec un palier supérieur ou l'add-on cheval">{card}</Locked>
+    <Locked message="Débloque ce cheval avec Horsetrack Premium">{card}</Locked>
   ) : (
     card
   );

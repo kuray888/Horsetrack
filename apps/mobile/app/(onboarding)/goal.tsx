@@ -10,7 +10,7 @@ export default function Goal() {
       step={4}
       total={TOTAL_STEPS}
       title="Ton objectif principal ?"
-      subtitle="Ça nous aide à te proposer un suivi adapté."
+      subtitle="Ça reste dans ton profil cavalier."
       ctaDisabled={!rider.primaryGoal}
       onNext={() => router.push("/(onboarding)/horse-basics")}
     >

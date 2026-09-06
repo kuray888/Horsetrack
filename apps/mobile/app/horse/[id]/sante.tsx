@@ -1,40 +1,71 @@
-import { useEffect } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
+import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
+import { useSubscription } from "@/subscription/store";
 import { useAgenda, daysFromNow, type Appointment } from "@/agenda/store";
 import { APPT_META, HEALTH_APPT_TYPES, daysUntilLabel } from "@/agenda/meta";
 import { formatDate } from "@/lib/dateFormat";
+import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
+import { AppointmentForm } from "@/agenda/components/AppointmentForm";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
 /**
- * Historique santé — vue chronologique en lecture seule (cf. audit produit
- * mini-sprint, phase 3) : quoi/quand/statut/prochaine échéance, à partir des
- * Appointment de type soin déjà existants (HEALTH_APPT_TYPES, cf. agenda/meta.ts)
- * — aucun nouveau modèle DB. La création/édition complète reste dans l'ancien
- * Agenda (lien en bas), volontairement pas dupliquée ici : cet écran ne fait
- * que rendre lisible ce qui existe déjà, remplace l'ancien simple redirect
- * vers Agenda section "Rendez-vous".
+ * Historique santé + ajout/édition d'un rendez-vous de soin, en place sur cet
+ * écran (cf. audit crash du 2026-09-05) : avant, "Ajouter ou modifier un
+ * rendez-vous santé" renvoyait vers l'ancien onglet Agenda via un
+ * router.push cross-navigateur (hors du groupe (tabs), vers un onglet caché
+ * href:null) — un détour fragile qui n'apportait rien, cet écran affichant
+ * déjà les mêmes rendez-vous en lecture seule juste au-dessus. On réutilise
+ * exactement les mêmes hooks/formulaire que Horse Hub/Today/Planning
+ * (useAppointmentForm/AppointmentForm, déjà éprouvés là), aucune nouvelle
+ * logique métier ni nouveau modèle.
  */
 export default function HorseSanteScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { horses, selectedHorse, selectHorse } = useHorses();
-  const { appointments } = useAgenda();
+  const { isActiveOrTrialing } = useSubscription();
+  const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAgenda();
 
   const horse = horses.find((h) => h.id === id);
 
   // Même garantie que le Horse Hub : consulter cet écran rend ce cheval actif,
   // pas de double sélection si l'utilisateur veut ensuite agir dessus
-  // (Quick Add, ancien Agenda...).
+  // (Quick Add, formulaire ci-dessous...).
   useEffect(() => {
     if (horse && selectedHorse?.id !== horse.id) selectHorse(horse.id);
   }, [horse, selectedHorse?.id, selectHorse]);
+
+  const [, setNotifPermission] = useState<boolean | null>(null);
+  const {
+    showApptForm,
+    setShowApptForm,
+    apptForm,
+    setApptForm,
+    submittingAppt,
+    editingApptId,
+    startEditAppt,
+    cancelApptForm,
+    handleSubmitAppointment,
+    addApptFormEntry,
+    updateApptFormEntry,
+    removeApptFormEntry,
+  } = useAppointmentForm({
+    horse: horse ?? null,
+    appointments,
+    addAppointment,
+    updateAppointment,
+    isActiveOrTrialing,
+    setNotifPermission,
+    onEditStart: () => {},
+  });
 
   if (!horse) {
     return (
@@ -59,6 +90,28 @@ export default function HorseSanteScreen() {
     return { label: `À venir · ${daysUntilLabel(appt.date)}`, icon: "clock-outline", color: colors.warning };
   }
 
+  // Même confirmation que Planning/Agenda pour un rendez-vous (cf.
+  // agenda.tsx confirmDelete) — cet écran n'exposait jusqu'ici aucune
+  // suppression : la liste ne faisait que rouvrir l'édition (startEditAppt),
+  // et AppointmentForm n'a pas de bouton "Supprimer" (contrairement aux
+  // cartes d'Agenda/Planning). deleteAppointment existe déjà et gère tout
+  // (annule les rappels programmés, sync cloud) — rien à ajouter côté store.
+  function confirmDeleteAppt(appt: Appointment) {
+    Alert.alert("Supprimer ce rendez-vous ?", "Cette action est définitive.", [
+      { text: "Annuler", style: "cancel" },
+      { text: "Supprimer", style: "destructive", onPress: () => deleteAppointment(appt) },
+    ]);
+  }
+
+  function startAddAppt() {
+    // Pré-sélectionne un type de soin (cf. HEALTH_APPT_TYPES) plutôt que le
+    // premier type de l'énumération complète (qui inclut concours/autre, hors
+    // sujet sur cet écran) — l'utilisateur garde la main pour changer le type
+    // dans le sélecteur du formulaire.
+    setApptForm((f) => ({ ...f, type: "veto" }));
+    setShowApptForm(true);
+  }
+
   return (
     <>
       <Screen>
@@ -71,7 +124,23 @@ export default function HorseSanteScreen() {
           </View>
         </FadeInView>
 
-        {history.length === 0 ? (
+        <FadeInView delay={40}>
+          <AppointmentForm
+            show={showApptForm}
+            form={apptForm}
+            setForm={setApptForm}
+            editingApptId={editingApptId}
+            submitting={submittingAppt}
+            onOpen={startAddAppt}
+            onCancel={cancelApptForm}
+            onSubmit={handleSubmitAppointment}
+            onAddEntry={addApptFormEntry}
+            onUpdateEntry={updateApptFormEntry}
+            onRemoveEntry={removeApptFormEntry}
+          />
+        </FadeInView>
+
+        {!showApptForm && history.length === 0 ? (
           <FadeInView delay={60}>
             <View className={`${CARD} items-center gap-2`}>
               <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
@@ -82,7 +151,7 @@ export default function HorseSanteScreen() {
               </Text>
             </View>
           </FadeInView>
-        ) : (
+        ) : !showApptForm ? (
           <FadeInView delay={60}>
             <View className="gap-2">
               {history.map((appt) => {
@@ -94,7 +163,12 @@ export default function HorseSanteScreen() {
                 // existant, pas de nouvelle donnée.
                 const isTreatmentRange = appt.type === "traitement" && appt.nextDueDate;
                 return (
-                  <View key={appt.id} className={`${CARD} flex-row items-center gap-3`}>
+                  <TouchableOpacity
+                    key={appt.id}
+                    onPress={() => startEditAppt(appt)}
+                    activeOpacity={0.8}
+                    className={`${CARD} flex-row items-center gap-3`}
+                  >
                     <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
                       <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
                     </View>
@@ -112,29 +186,34 @@ export default function HorseSanteScreen() {
                         </Text>
                       ) : null}
                     </View>
-                    <View className="flex-row items-center gap-1">
-                      <MaterialCommunityIcons name={status.icon} size={14} color={status.color} />
-                      <Text className="text-xs font-semibold" style={{ color: status.color }}>
-                        {status.label}
-                      </Text>
+                    <View className="items-end gap-1">
+                      <View className="flex-row items-center gap-1">
+                        <MaterialCommunityIcons name={status.icon} size={14} color={status.color} />
+                        <Text className="text-xs font-semibold" style={{ color: status.color }}>
+                          {status.label}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center gap-3">
+                        <Text className="text-xs font-semibold text-accent">Modifier</Text>
+                        <TouchableOpacity
+                          onPress={() => confirmDeleteAppt(appt)}
+                          hitSlop={8}
+                          activeOpacity={0.7}
+                          accessibilityLabel="Supprimer ce rendez-vous"
+                          accessibilityRole="button"
+                        >
+                          <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
           </FadeInView>
-        )}
-
-        <FadeInView delay={100}>
-          <TouchableOpacity
-            onPress={() => router.push("/(tabs)/agenda?section=appointments")}
-            activeOpacity={0.7}
-            className="items-center py-2"
-          >
-            <Text className="text-sm font-semibold text-accent">Ajouter ou modifier un rendez-vous santé</Text>
-          </TouchableOpacity>
-        </FadeInView>
+        ) : null}
       </Screen>
+      <PickerOverlaySlot />
     </>
   );
 }

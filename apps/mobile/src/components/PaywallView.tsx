@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Animated, View, Text, TouchableOpacity, ScrollView, Linking } from "react-native";
+import { Animated, View, Text, TextInput, TouchableOpacity, ScrollView, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
@@ -32,7 +32,7 @@ const FREE_BULLETS: string[] = ["1 cheval", "Planning & agenda", "Journal d'entr
 /** Palier Premium — n'inclut QUE ce qui n'est pas déjà dans le palier
  * gratuit ci-dessus. */
 const PREMIUM_BULLETS: string[] = [
-  "3 chevaux",
+  "Chevaux illimités",
   "Partage (demi-pension, coach, cavalière, groom)",
   "Coffre-fort numérique",
   "Concours multi-épreuves",
@@ -67,6 +67,68 @@ function ComparisonCard() {
           </View>
         ))}
       </View>
+    </View>
+  );
+}
+
+/** "Vous avez un code promo ?" — repliée par défaut pour ne pas surcharger le
+ * paywall (cf. brief §5A "ne pas ajouter une nouvelle rubrique"). La
+ * validité/durée sont décidées uniquement côté serveur (`onRedeem`, cf.
+ * subscription/store.tsx redeemPromoCode) — ce composant ne fait qu'afficher
+ * le résultat renvoyé. */
+function PromoCodeField({ onRedeem }: { onRedeem: (code: string) => Promise<{ ok: boolean; message: string }> }) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function apply() {
+    if (!code.trim() || submitting) return;
+    setSubmitting(true);
+    setFeedback(null);
+    const result = await onRedeem(code.trim());
+    setFeedback(result);
+    setSubmitting(false);
+  }
+
+  if (!open) {
+    return (
+      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.7} className="items-center py-1">
+        <Text className="text-sm font-semibold text-accent">Vous avez un code promo ?</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View className="gap-2">
+      <View className="flex-row gap-2">
+        <TextInput
+          className="flex-1 rounded-card border border-border bg-surface p-3 text-base text-text"
+          placeholder="Code promo"
+          value={code}
+          onChangeText={(v) => {
+            setCode(v);
+            setFeedback(null);
+          }}
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        <TouchableOpacity
+          onPress={apply}
+          disabled={!code.trim() || submitting}
+          activeOpacity={0.85}
+          className={`items-center justify-center rounded-card px-4 ${
+            code.trim() && !submitting ? "bg-primary" : "border border-border"
+          }`}
+        >
+          <Text className={`text-sm font-bold ${code.trim() && !submitting ? "text-on-primary" : "text-muted"}`}>
+            {submitting ? "…" : "Appliquer"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {feedback ? (
+        <Text className={`text-xs ${feedback.ok ? "text-success" : "text-danger"}`}>{feedback.message}</Text>
+      ) : null}
     </View>
   );
 }
@@ -110,14 +172,14 @@ function PlanCard({ period }: { period: BillingPeriod }) {
  * `onClose` — cf. (onboarding)/paywall.tsx) et le paywall accessible depuis
  * l'app (déclenché par <Locked>, `onClose` présent pour revenir à l'écran
  * précédent). Purement présentationnelle : la logique d'achat est injectée
- * via `onSubscribe`/`onPurchaseAddon`.
+ * via `onSubscribe`.
  */
 export function PaywallView({
   onSubscribe,
   onClose,
   onSkip,
   onRestore,
-  onPurchaseAddon,
+  onRedeemPromoCode,
   submitting = false,
   restoring = false,
   title = "Passe à Horsetrack Premium.",
@@ -129,7 +191,12 @@ export function PaywallView({
    * de bouton de fermeture puisqu'il n'y a rien à "fermer" à ce stade. */
   onSkip?: () => void;
   onRestore: () => void;
-  onPurchaseAddon?: (period: BillingPeriod) => void;
+  /** Absent pendant l'onboarding (cf. (onboarding)/paywall.tsx) : le
+   * rider_profile n'existe pas encore côté serveur à ce stade (créé par
+   * finish() une fois l'abonnement/skip choisi) — un code y échouerait
+   * toujours avec "Profil introuvable". Présent uniquement sur le paywall
+   * app (app/paywall.tsx), atteint seulement par un compte déjà onboardé. */
+  onRedeemPromoCode?: (code: string) => Promise<{ ok: boolean; message: string }>;
   submitting?: boolean;
   restoring?: boolean;
   title?: string;
@@ -183,19 +250,7 @@ export function PaywallView({
 
         <PlanCard period={period} />
 
-        {onPurchaseAddon ? (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => onPurchaseAddon(period)}
-            className="flex-row items-center gap-2 justify-between rounded-card border border-dashed border-primary p-4"
-          >
-            <View className="flex-1 flex-row items-center gap-2">
-              <MaterialCommunityIcons name="plus-circle-outline" size={17} color={colors.primary} />
-              <Text className="flex-1 text-sm font-semibold text-text">Ajouter un cheval supplémentaire</Text>
-            </View>
-            <Text className="text-sm font-bold text-primary">{period === "ANNUAL" ? "14,99 €/an" : "1,99 €/mois"}</Text>
-          </TouchableOpacity>
-        ) : null}
+        {onRedeemPromoCode ? <PromoCodeField onRedeem={onRedeemPromoCode} /> : null}
       </ScrollView>
 
       <View className="gap-3 px-5 pb-2 pt-3">

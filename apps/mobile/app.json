@@ -18,8 +18,8 @@
     "android": {
       "package": "com.horsetrack.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#e7ecef"
+        "foregroundImage": "./assets/logo-mark.png",
+        "backgroundColor": "#F6F4F0"
       },
       "permissions": [
         "android.permission.USE_BIOMETRIC",
@@ -35,9 +35,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/icon.png",
+          "image": "./assets/logo-mark.png",
           "resizeMode": "contain",
-          "backgroundColor": "#e7ecef"
+          "backgroundColor": "#F6F4F0"
         }
       ],
       [

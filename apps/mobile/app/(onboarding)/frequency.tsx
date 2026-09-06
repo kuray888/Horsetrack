@@ -10,7 +10,7 @@ export default function Frequency() {
       step={3}
       total={TOTAL_STEPS}
       title="À quelle fréquence montes-tu ?"
-      subtitle="Pour calibrer ton planning d'entraînement."
+      subtitle="Ça reste dans ton profil cavalier."
       ctaDisabled={!rider.rideFrequency}
       onNext={() => router.push("/(onboarding)/goal")}
     >

@@ -29,9 +29,9 @@ export default function HorseBasics() {
       step={5}
       total={TOTAL_STEPS}
       title="Présente-nous ton cheval"
-      subtitle="On personnalise tout autour de lui."
+      subtitle="Le nom suffit pour commencer — tu pourras compléter sa fiche plus tard."
       ctaDisabled={editingHorse.name.trim().length === 0}
-      onNext={() => router.push("/(onboarding)/horse-profile")}
+      onNext={() => router.push("/(onboarding)/horses")}
     >
       {/* Photo */}
       <View className="items-center">

@@ -13,7 +13,7 @@ import type {
 } from "./store";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 9;
+export const TOTAL_STEPS = 6;
 
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";
@@ -73,6 +73,22 @@ export const HORSE_LEVELS: Option<HorseLevel>[] = [
   { value: "AMATEUR", label: "Amateur" },
   { value: "PRO", label: "Professionnel" },
 ];
+
+/** Le profil sportif du cheval (discipline/niveau) n'est plus demandé à
+ * l'onboarding (cf. audit du 2026-09-05 : raccourcir le parcours, ces champs
+ * ne sont utilisés que pour l'affichage, jamais pour une adaptation réelle)
+ * — un cheval créé pendant l'onboarding hérite par défaut de la discipline
+ * et du niveau déjà déclarés par le cavalier (cf. (onboarding)/paywall.tsx),
+ * modifiables ensuite librement depuis sa fiche (Horse Hub > Modifier).
+ * HorseLevel n'a pas d'équivalent exact pour chaque RiderLevel (ex. aucun
+ * "Galop") : on retombe sur la valeur la plus proche plutôt que de bloquer. */
+export const RIDER_LEVEL_TO_HORSE_LEVEL: Record<RiderLevel, HorseLevel> = {
+  BEGINNER: "CLUB",
+  GALOP_1_4: "CLUB",
+  GALOP_5_7: "AMATEUR",
+  AMATEUR: "AMATEUR",
+  PRO: "PRO",
+};
 
 /** Tags points forts / points faibles (multi-select, partagés). */
 export const HORSE_TRAITS: string[] = [

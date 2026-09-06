@@ -11,7 +11,7 @@ function disciplineLabel(value: string | null): string {
 }
 
 export default function Horses() {
-  const { horses, startNewHorse, editHorse, removeHorse } = useOnboarding();
+  const { rider, horses, startNewHorse, editHorse, removeHorse } = useOnboarding();
   const namedHorses = horses.filter((h) => h.name.trim().length > 0);
 
   function addAnother() {
@@ -21,7 +21,7 @@ export default function Horses() {
 
   return (
     <OnboardingShell
-      step={9}
+      step={6}
       total={TOTAL_STEPS}
       title="Ton écurie"
       subtitle="Ajoute tous les chevaux de ton écurie — le premier est gratuit, les suivants avec Horsetrack Premium."
@@ -42,7 +42,12 @@ export default function Horses() {
                 <Text className="text-base font-bold text-text">{h.name}</Text>
                 {h.isPrimary ? <MaterialCommunityIcons name="star" size={13} color={colors.warning} /> : null}
               </View>
-              <Text className="text-sm text-muted">{disciplineLabel(h.discipline)}</Text>
+              {/* Le profil sportif n'est plus demandé ici (cf. onboarding/options.ts) :
+                  tant qu'il n'a pas été personnalisé sur la fiche du cheval,
+                  reflète la discipline déjà déclarée par le cavalier plutôt
+                  qu'un "—" vide et trompeur (paywall.tsx applique le même
+                  défaut à la création réelle du cheval). */}
+              <Text className="text-sm text-muted">{disciplineLabel(h.discipline ?? rider.mainDiscipline)}</Text>
             </View>
             <TouchableOpacity
               onPress={() => {

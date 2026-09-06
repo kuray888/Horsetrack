@@ -1,6 +1,5 @@
 import "../global.css";
 import { useEffect } from "react";
-import { Alert } from "react-native";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque";
@@ -10,25 +9,6 @@ import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold }
 // la police système avant de basculer, à chaque démarrage de l'app.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Capture les erreurs JS fatales pour diagnostiquer les crashs au démarrage.
-// À supprimer une fois le crash identifié et corrigé.
-// Important : on ne relaie PAS prev() pour les erreurs fatales — c'est ce
-// relais qui appelle NativeExceptionsManager.reportFatal côté natif et
-// déclenche un abort() immédiat (RCTFatal), avant même que l'Alert ait pu
-// s'afficher à l'écran. En release/TestFlight il n'y a pas de red box : une
-// exception JS non catchée fait planter l'app par design.
-if (typeof ErrorUtils !== "undefined") {
-  const prev = ErrorUtils.getGlobalHandler();
-  ErrorUtils.setGlobalHandler((err, isFatal) => {
-    Alert.alert(
-      isFatal ? "Fatal JS Error" : "JS Error",
-      `${err?.message ?? "unknown"}\n\n${String(err?.stack ?? "").slice(0, 600)}`
-    );
-    if (!isFatal) {
-      prev?.(err, isFatal);
-    }
-  });
-}
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { SubscriptionProvider } from "@/subscription/store";
 import { HorsesProvider } from "@/horses/store";

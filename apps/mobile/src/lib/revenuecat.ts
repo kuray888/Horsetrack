@@ -38,20 +38,15 @@ const Purchases: PurchasesStatic | null = purchasesModule?.default ?? null;
  * reconfiguration store externe pour ce renommage de code.
  */
 export const ENTITLEMENT_ID = "grand_prix";
-export const EXTRA_HORSE_ENTITLEMENT_ID = "extra_horse";
 
 /** Identifiants de package RevenueCat — custom (pas les `$rc_monthly`/`$rc_annual`
  * spéciaux, réservés à une offering à un seul produit) : le palier unique ×
- * 2 fréquences + l'add-on × 2 fréquences, à créer avec ces identifiants
- * exacts dans le dashboard RevenueCat (le produit Paddock/ses packages sont
- * à retirer de l'offering, cf. plan Phase 4). */
+ * 2 fréquences, à créer avec ces identifiants exacts dans le dashboard
+ * RevenueCat. Plus d'add-on "cheval supplémentaire" depuis le pivot chevaux
+ * illimités du 2026-09-05 (v3) — Premium n'a plus de quota à contourner. */
 const PACKAGE_IDENTIFIER: Record<BillingPeriod, string> = {
   MONTHLY: "grand_prix_monthly",
   ANNUAL: "grand_prix_annual",
-};
-const ADDON_PACKAGE_IDENTIFIER: Record<BillingPeriod, string> = {
-  MONTHLY: "extra_horse_monthly",
-  ANNUAL: "extra_horse_annual",
 };
 
 let configured = false;
@@ -105,14 +100,6 @@ export async function getSubscriptionPackage(period: BillingPeriod): Promise<Pur
   const current = offerings.current;
   if (!current) return null;
   return current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[period]) ?? null;
-}
-
-export async function getAddonPackage(period: BillingPeriod): Promise<PurchasesPackage | null> {
-  if (!configured || !Purchases) return null;
-  const offerings = await Purchases.getOfferings();
-  const current = offerings.current;
-  if (!current) return null;
-  return current.availablePackages.find((p) => p.identifier === ADDON_PACKAGE_IDENTIFIER[period]) ?? null;
 }
 
 /**

@@ -167,8 +167,10 @@ function reviveHorses(horses: Horse[]): Horse[] {
   }));
 }
 
-/** Cheval avec discipline/niveau garantis non-null — horse-profile.tsx bloque
- * la suite de l'onboarding tant qu'ils ne sont pas renseignés. */
+/** Cheval avec discipline/niveau garantis non-null — l'onboarding ne demande
+ * plus ces champs pour un nouveau cheval (cf. onboarding/options.ts), donc
+ * (onboarding)/paywall.tsx les remplit par défaut depuis les réponses du
+ * cavalier avant d'appeler replaceHorses ci-dessous. */
 type CompletedHorseDraft = HorseDraft & { discipline: Discipline; level: HorseLevel };
 
 function fromDraft(draft: CompletedHorseDraft): Horse {
@@ -221,12 +223,12 @@ type HorsesContextValue = {
   hydrateFromCloud: (horses: Horse[]) => void;
   updateHorsePhoto: (id: string, photoUrl: string) => void;
   /** Retire un cheval possédé de l'écurie (jamais un cheval partagé) — no-op
-   * si c'est le dernier cheval possédé : Today/Programme/etc. supposent
+   * si c'est le dernier cheval possédé : Today/Horse Hub/etc. supposent
    * `selectedHorse` toujours non-null, l'écurie ne doit jamais devenir vide.
    * Réassigne isPrimary/selectedHorse si le cheval supprimé les portait. */
   removeHorse: (id: string) => void;
-  /** Cheval actuellement sélectionné (cf. sélecteur sur Today) — pilote la
-   * progression/programme affichés ailleurs dans l'app. */
+  /** Cheval actuellement sélectionné (cf. sélecteur sur Today) — pilote les
+   * séances/rendez-vous/journal affichés ailleurs dans l'app. */
   selectedHorse: Horse | null;
   selectHorse: (id: string) => void;
   /** Efface l'écurie locale (cf. suppression de compte dans Profil) — remet

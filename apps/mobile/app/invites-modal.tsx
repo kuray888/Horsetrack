@@ -71,8 +71,8 @@ export default function InvitesModal() {
         {invites.map((invite) => (
           <View key={invite.id} className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
-              Tu es invité·e à accéder au calendrier de <Text className="font-bold">{invite.horseName}</Text> en
-              tant que <Text className="font-bold">{ROLE_LABEL[invite.role]}</Text>.
+              Tu es invité·e à accéder à la fiche complète de <Text className="font-bold">{invite.horseName}</Text> (planning,
+              santé, journal, budget, documents) en tant que <Text className="font-bold">{ROLE_LABEL[invite.role]}</Text>.
             </Text>
             <View className="flex-row gap-2">
               <TouchableOpacity

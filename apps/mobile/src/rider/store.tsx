@@ -19,6 +19,12 @@ export type RiderProfile = {
   mainDiscipline: Discipline | null;
   rideFrequency: RideFrequency | null;
   primaryGoal: RiderGoal | null;
+  /** Libellé libre quand `primaryGoal` ne couvre pas le besoin (cf. sélection
+   * "Autre" dans edit-rider-modal.tsx) — même pattern que Goal.customType,
+   * toujours null quand `primaryGoal` porte une valeur de l'enum RiderGoal.
+   * Colonne `primaryGoalCustom` dédiée côté Supabase (text, nullable, cf.
+   * schema.prisma), synchronisée dans lib/cloudSync.ts. */
+  primaryGoalCustom: string | null;
 };
 
 const DEFAULT_RIDER_PROFILE: RiderProfile = {
@@ -26,6 +32,7 @@ const DEFAULT_RIDER_PROFILE: RiderProfile = {
   mainDiscipline: null,
   rideFrequency: null,
   primaryGoal: null,
+  primaryGoalCustom: null,
 };
 
 type RiderProfileContextValue = {
@@ -44,7 +51,12 @@ export function RiderProfileProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     SecureStore.getItemAsync(STORAGE_KEY)
-      .then((raw) => setRiderProfileState(safeJsonParse(raw, DEFAULT_RIDER_PROFILE)))
+      .then((raw) => {
+        const parsed = safeJsonParse(raw, DEFAULT_RIDER_PROFILE);
+        // Profil sauvegardé avant l'introduction de primaryGoalCustom — même
+        // souci déjà rencontré sur Horse.restDayActivities/Goal.customType.
+        setRiderProfileState({ ...parsed, primaryGoalCustom: parsed.primaryGoalCustom ?? null });
+      })
       .catch((e) => console.warn("[rider] lecture SecureStore échouée, profil par défaut", e))
       .finally(() => setLoading(false));
   }, []);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { pushWidgetData } from "@/lib/widgetKit";
@@ -11,7 +11,7 @@ import { Screen } from "@/components/Screen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { MONTHS, isSameDate } from "@/lib/dateFormat";
-import { restDayActivityFor, useHorses } from "@/horses/store";
+import { useHorses } from "@/horses/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda, ACTIVITY_META, type Appointment, type ExpenseCategory } from "@/agenda/store";
 import { APPT_META, suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
@@ -65,7 +65,14 @@ function upcomingEventMeta(event: UnifiedEvent): {
 } {
   if (event.kind === "session") {
     const meta = ACTIVITY_META[event.session.activityType];
-    return { icon: meta.icon, chip: meta.chip, tint: meta.tint, tag: "text-primary", label: "Séance", title: meta.label };
+    return {
+      icon: meta.icon,
+      chip: meta.chip,
+      tint: meta.tint,
+      tag: "text-primary",
+      label: "Séance",
+      title: event.session.customActivityLabel || meta.label,
+    };
   }
   const meta = APPT_META[event.appointment.type];
   return {
@@ -153,7 +160,9 @@ export default function TodayScreen() {
   useEffect(() => {
     pushWidgetData({
       horseName: horse?.name ?? "Mon cheval",
-      todaySessionTitle: todaySession ? ACTIVITY_META[todaySession.activityType].label : null,
+      todaySessionTitle: todaySession
+        ? todaySession.customActivityLabel || ACTIVITY_META[todaySession.activityType].label
+        : null,
       todaySessionDurationMin: todaySession?.durationMinutes ?? null,
       todaySessionTime: todaySession?.time ?? null,
       weeklyDone: weekDoneCount,
@@ -231,8 +240,13 @@ export default function TodayScreen() {
         // Pas de formulaire de séance natif sur Accueil (cf. planning.tsx) —
         // même choix que le Horse Hub, pour ne pas dupliquer ce formulaire.
         // ?openForm=session ouvre directement le formulaire de création dans
-        // Planning, déjà scoped au cheval actif (selectedHorse global).
-        router.push("/(tabs)/planning?openForm=session");
+        // Planning, déjà scoped au cheval actif (selectedHorse global). `ts`
+        // rend chaque appui unique (cf. son commentaire dans planning.tsx) :
+        // sans lui, un deuxième appui avec la même valeur "session" ne
+        // rouvrait pas le formulaire si Planning était déjà resté monté avec
+        // ce paramètre depuis la visite précédente (cf. audit crash du
+        // 2026-09-05, Bug 1).
+        router.push({ pathname: "/(tabs)/planning", params: { openForm: "session", ts: String(Date.now()) } });
         return;
       case "soin":
         setApptForm((f) => ({ ...f, type: "veto" }));
@@ -397,13 +411,12 @@ export default function TodayScreen() {
             if (todaySession) {
               toggleCompleted(todaySession.id);
             } else {
-              const activity = horse ? restDayActivityFor(horse, todayDayOffset) : null;
-              Alert.alert(
-                "Aucune séance aujourd'hui",
-                activity && horse
-                  ? `Rien de planifié aujourd'hui. ${horse.name} : ${activity.toLowerCase()}.`
-                  : "Rien de planifié aujourd'hui — ajoute une séance depuis Planning."
-              );
+              // Ouvre directement le formulaire de création dans Planning (cf.
+              // QuickAdd "Séance" ci-dessous, même destination) — avant, ce
+              // bouton se contentait d'une Alert et ne planifiait jamais rien
+              // (cf. audit produit du 2026-09-05). `ts` unique à chaque appui,
+              // voir son commentaire juste au-dessus dans handleQuickAdd.
+              router.push({ pathname: "/(tabs)/planning", params: { openForm: "session", ts: String(Date.now()) } });
             }
           }}
           className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"

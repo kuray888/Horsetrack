@@ -1,6 +1,7 @@
 import { HEALTH_APPT_TYPES } from "@/agenda/meta";
 import type { Appointment } from "@/agenda/store";
 import type { TrainingSession } from "@/sessions/store";
+import type { PlanningFilterValue } from "@/planning/planningDestination";
 
 /**
  * Un "planning unifié" est d'abord une unification d'affichage (cf. plan
@@ -11,12 +12,12 @@ import type { TrainingSession } from "@/sessions/store";
  * gardant une référence à l'objet d'origine complet pour l'affichage détaillé
  * (cf. UnifiedEventCard, qui délègue à SessionCard/AppointmentCard selon `kind`).
  */
-export type PlanningFilterValue = "all" | "session" | "soin" | "concours" | "autre";
-
-/** Valeurs valides de PlanningFilterValue — utilisé par PlanningScreen pour
- * valider un `?filter=` de route (cf. app/horse/[id]/entrainement.tsx et
- * concours.tsx) avant de s'en servir comme état initial. */
-export const PLANNING_FILTER_VALUES: PlanningFilterValue[] = ["all", "session", "soin", "concours", "autre"];
+// Réexporté depuis planningDestination.ts (module volontairement sans
+// dépendance, cf. son commentaire de tête) : ce fichier-ci importe
+// agenda/meta.ts -> agenda/store.tsx -> react-native, ce que Vitest ne sait
+// pas parser en environnement de test (syntaxe Flow) — isNewPlanningDestination
+// doit donc rester testable sans passer par ce chemin d'import.
+export { PLANNING_FILTER_VALUES, isNewPlanningDestination, type PlanningFilterValue } from "@/planning/planningDestination";
 
 export type UnifiedEvent =
   | { kind: "session"; id: string; date: Date; session: TrainingSession }
