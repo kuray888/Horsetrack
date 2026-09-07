@@ -255,7 +255,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback((next: Horse[]) => {
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
+    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
     // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
     // programme/affichage local ne doit jamais attendre le réseau. Exclut les
     // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
@@ -272,7 +272,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
             const update = updates.find((u) => u.id === h.id);
             return update ? { ...h, photoPath: update.photoPath } : h;
           });
-          SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(merged));
+          SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
           return merged;
         });
       })
@@ -317,7 +317,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
 
       const primaryId = next.find((h) => h.isPrimary)?.id ?? next[0]?.id ?? null;
       setSelectedHorseId(primaryId);
-      if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId);
+      if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId).catch(() => {});
     },
     [persist]
   );
@@ -345,7 +345,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
         const fallbackId =
           next.find((h) => h.isPrimary)?.id ?? next.find((h) => !h.sharedRole)?.id ?? next[0]?.id ?? null;
         setSelectedHorseId(fallbackId);
-        if (fallbackId) SecureStore.setItemAsync(SELECTED_KEY, fallbackId);
+        if (fallbackId) SecureStore.setItemAsync(SELECTED_KEY, fallbackId).catch(() => {});
       }
     },
     [horses, persist, selectedHorseId]
@@ -369,15 +369,15 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   // un aller-retour inutile.
   const hydrateFromCloud = useCallback((next: Horse[]) => {
     setHorses(next);
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
+    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
     const primaryId = next.find((h) => h.isPrimary)?.id ?? next[0]?.id ?? null;
     setSelectedHorseId(primaryId);
-    if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId);
+    if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId).catch(() => {});
   }, []);
 
   const selectHorse = useCallback((id: string) => {
     setSelectedHorseId(id);
-    SecureStore.setItemAsync(SELECTED_KEY, id);
+    SecureStore.setItemAsync(SELECTED_KEY, id).catch(() => {});
   }, []);
 
   const clearAll = useCallback(async () => {

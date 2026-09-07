@@ -72,10 +72,15 @@ export default function ShareHorseModal() {
 
   const refresh = useCallback(() => {
     if (!horseId) return;
-    listCollaborators(horseId).then((list) => {
-      setCollaborators(list);
-      setLoaded(true);
-    });
+    listCollaborators(horseId)
+      .then((list) => {
+        setCollaborators(list);
+        setLoaded(true);
+      })
+      .catch((e) => {
+        console.warn("[share-horse] listCollaborators échoué", e);
+        setLoaded(true);
+      });
   }, [horseId]);
 
   useEffect(() => {

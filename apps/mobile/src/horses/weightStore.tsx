@@ -62,7 +62,7 @@ export function WeightProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(measurements));
+    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(measurements)).catch(() => {});
   }, [measurements, loaded]);
 
   const addMeasurement = useCallback(
@@ -116,7 +116,7 @@ export function WeightProvider({ children }: { children: ReactNode }) {
 
   const hydrateFromCloud = useCallback((remote: WeightMeasurement[]) => {
     setMeasurements(remote);
-    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(remote));
+    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(remote)).catch(() => {});
   }, []);
 
   const clearAll = useCallback(async () => {

@@ -301,6 +301,41 @@ begin
 end;
 $$;
 
+-- Défense en profondeur : journal_entries.photoPath Premium uniquement
+-- (cf. audit sécurité pré-release du 2026-09-07) ----------------------------
+-- Jusqu'ici, la seule restriction sur "photo du jour" (Journal Premium,
+-- cf. Locked dans agenda/components/JournalForm.tsx) était côté UI mobile —
+-- ni la policy Storage "horse-photos" (cf. plus bas, corrigée pour vérifier
+-- horse_owner_is_active_or_trialing sur le sous-dossier "journal/"), ni la
+-- table journal_entries elle-même, ne vérifiaient le palier d'abonnement.
+-- Sans ce trigger, un compte Free contournant l'app (appel direct à l'API
+-- Supabase avec son propre token) pouvait tout de même écrire une ligne
+-- journal_entries avec un "photoPath" non-null (même sans jamais avoir pu
+-- uploader l'objet Storage correspondant, ex: en réutilisant un chemin
+-- existant d'une période Premium antérieure) — la policy RLS "_shared"
+-- ci-dessous ne vérifie que can_access_horse, jamais le palier. Ne bloque
+-- que la mise en place OU le remplacement d'un photoPath (comparaison à
+-- l'ancienne valeur) : une ligne déjà pourvue d'une photo (créée pendant un
+-- essai/abonnement actif) reste éditable sur ses autres champs (notes,
+-- ressenti...) même après un retour au palier gratuit, seule une nouvelle
+-- photo est refusée.
+create or replace function public.protect_journal_entry_photo_premium()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new."photoPath" is not null
+     and old."photoPath" is distinct from new."photoPath"
+     and not public.horse_owner_is_active_or_trialing(new."horseId")
+  then
+    raise exception 'journal entry photo requires an active or trialing subscription';
+  end if;
+  return new;
+end;
+$$;
+
 -- 3. Activer RLS sur toutes les tables --------------------------------------
 
 alter table public.users          enable row level security;
@@ -540,6 +575,12 @@ drop policy if exists "journal_entries_delete_shared" on public.journal_entries;
 create policy "journal_entries_delete_shared" on public.journal_entries
   for delete using (public.can_access_horse("horseId"));
 
+-- Voir protect_journal_entry_photo_premium plus haut.
+drop trigger if exists journal_entries_protect_photo_premium on public.journal_entries;
+create trigger journal_entries_protect_photo_premium
+  before insert or update on public.journal_entries
+  for each row execute function public.protect_journal_entry_photo_premium();
+
 -- competition_entries : épreuves d'un concours — pas de horseId direct (child
 -- d'Appointment, cf. schema.prisma), donc on remonte au cheval du rendez-vous
 -- parent à chaque fois. Contrairement à appointments (gratuit), l'écriture
@@ -737,27 +778,62 @@ create policy "documents_storage_all_own" on storage.objects
   for all using (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text);
 
--- 6. Storage : bucket "horse-photos" (photo de profil du cheval) ------------
+-- 6. Storage : bucket "horse-photos" (photo de profil du cheval + photo de
+-- journal Premium) -----------------------------------------------------------
 -- Bucket privé comme "documents", mais scoping différent : une photo de
 -- cheval doit rester visible par le propriétaire ET par les collaborateurs
 -- acceptés (même règle que la lecture de la fiche cheval, cf.
 -- horses_select_shared plus haut) — donc scoping par horseId (premier segment
 -- du chemin "{horseId}/photo.jpg"), pas par auth.uid() comme documents.
--- Écriture (insert/update/delete) réservée au propriétaire (owns_horse), la
--- lecture est ouverte à can_access_horse via une policy SELECT séparée
--- (policies permissives combinées en OR, même pattern que horses_select_shared).
-insert into storage.buckets (id, name, public)
-values ('horse-photos', 'horse-photos', false)
-on conflict (id) do nothing;
-
-drop policy if exists "horse_photos_select_shared" on storage.objects;
-create policy "horse_photos_select_shared" on storage.objects
-  for select using (bucket_id = 'horse-photos' and public.can_access_horse((storage.foldername(name))[1]));
-
+-- Écriture réservée au propriétaire (owns_horse) — lecture ouverte à
+-- can_access_horse via une policy SELECT séparée (policies permissives
+-- combinées en OR, même pattern que horses_select_shared).
+--
+-- Photo de journal (cf. audit sécurité pré-release du 2026-09-07) : chemin
+-- "{horseId}/journal/{entryId}.jpg" (deuxième segment "journal", cf.
+-- uploadJournalPhoto dans cloudSync.ts) — jusqu'ici la seule policy d'écriture
+-- ("horse_photos_write_own", "for all") ne vérifiait QUE owns_horse, jamais le
+-- palier d'abonnement : un compte Free contournant l'app (appel direct à
+-- l'API Storage avec son propre token) pouvait donc uploader une photo de
+-- journal alors que la fonctionnalité est réservée au Premium (restriction
+-- jusque-là purement côté UI, cf. Locked dans JournalForm.tsx — voir aussi
+-- protect_journal_entry_photo_premium plus haut, même défense côté table
+-- journal_entries). Remplacée par 3 policies granulaires : la photo de profil
+-- ("{horseId}/photo.jpg", pas de deuxième segment — (storage.foldername(name))[2]
+-- vaut alors NULL, distinct de 'journal') reste accessible à tout propriétaire,
+-- Free ou Premium ; seul le sous-dossier "journal/" est gaté, et seulement à
+-- l'insert/update (un nouvel upload/remplacement) — la suppression n'est PAS
+-- gatée Premium : un compte redevenu Free doit pouvoir nettoyer/supprimer sa
+-- propre photo de journal existante (deleteJournalEntryRemote doit toujours
+-- pouvoir réussir).
 drop policy if exists "horse_photos_write_own" on storage.objects;
-create policy "horse_photos_write_own" on storage.objects
-  for all using (bucket_id = 'horse-photos' and public.owns_horse((storage.foldername(name))[1]))
-  with check (bucket_id = 'horse-photos' and public.owns_horse((storage.foldername(name))[1]));
+
+drop policy if exists "horse_photos_insert_own" on storage.objects;
+create policy "horse_photos_insert_own" on storage.objects
+  for insert with check (
+    bucket_id = 'horse-photos'
+    and public.owns_horse((storage.foldername(name))[1])
+    and (
+      (storage.foldername(name))[2] is distinct from 'journal'
+      or public.horse_owner_is_active_or_trialing((storage.foldername(name))[1])
+    )
+  );
+
+drop policy if exists "horse_photos_update_own" on storage.objects;
+create policy "horse_photos_update_own" on storage.objects
+  for update using (bucket_id = 'horse-photos' and public.owns_horse((storage.foldername(name))[1]))
+  with check (
+    bucket_id = 'horse-photos'
+    and public.owns_horse((storage.foldername(name))[1])
+    and (
+      (storage.foldername(name))[2] is distinct from 'journal'
+      or public.horse_owner_is_active_or_trialing((storage.foldername(name))[1])
+    )
+  );
+
+drop policy if exists "horse_photos_delete_own" on storage.objects;
+create policy "horse_photos_delete_own" on storage.objects
+  for delete using (bucket_id = 'horse-photos' and public.owns_horse((storage.foldername(name))[1]));
 
 -- sessions : table de jetons d'auth « legacy », non utilisée par le code
 -- actuel (le mobile passe par Supabase Auth, pas par ce modèle Prisma —

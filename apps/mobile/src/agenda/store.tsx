@@ -443,22 +443,22 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // (sinon on écraserait les données sauvegardées avec les mocks par défaut).
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appointments));
+    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appointments)).catch(() => {});
   }, [appointments, loaded]);
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(documents));
+    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(documents)).catch(() => {});
   }, [documents, loaded]);
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(journal));
+    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(journal)).catch(() => {});
   }, [journal, loaded]);
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(expenses));
+    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(expenses)).catch(() => {});
   }, [expenses, loaded]);
 
   const addAppointment = useCallback(
@@ -662,17 +662,17 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   const hydrateDocumentsFromCloud = useCallback((docs: Doc[]) => {
     setDocuments(docs);
-    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(docs));
+    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(docs)).catch(() => {});
   }, []);
 
   const hydrateAppointmentsFromCloud = useCallback((appts: Appointment[]) => {
     setAppointments(appts);
-    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appts));
+    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appts)).catch(() => {});
   }, []);
 
   const hydrateJournalFromCloud = useCallback((entries: JournalEntry[]) => {
     setJournal(entries);
-    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(entries));
+    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(entries)).catch(() => {});
   }, []);
 
   const addJournalEntry = useCallback(
@@ -788,7 +788,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   const hydrateExpensesFromCloud = useCallback((next: Expense[]) => {
     setExpenses(next);
-    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(next));
+    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(next)).catch(() => {});
   }, []);
 
   const clearAll = useCallback(async () => {

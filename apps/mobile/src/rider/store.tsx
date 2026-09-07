@@ -63,7 +63,7 @@ export function RiderProfileProvider({ children }: { children: ReactNode }) {
 
   const setRiderProfile = useCallback((profile: RiderProfile) => {
     setRiderProfileState(profile);
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(profile));
+    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(profile)).catch(() => {});
     // Best-effort, jamais bloquant : cf. lib/cloudSync.ts.
     pushRiderProfile(profile).catch(() => {});
   }, []);

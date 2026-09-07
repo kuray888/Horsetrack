@@ -28,8 +28,13 @@ export function BiometricGate() {
   const unlocking = useRef(false);
 
   async function evaluate() {
-    const [lockEnabled, { data }] = await Promise.all([isBiometricLockEnabled(), supabase.auth.getSession()]);
-    setStatus(lockEnabled && data.session ? "locked" : "unlocked");
+    try {
+      const [lockEnabled, { data }] = await Promise.all([isBiometricLockEnabled(), supabase.auth.getSession()]);
+      setStatus(lockEnabled && data.session ? "locked" : "unlocked");
+    } catch (e) {
+      console.warn("[biometric-gate] évaluation échouée, déverrouillé par défaut", e);
+      setStatus("unlocked");
+    }
   }
 
   useEffect(() => {
@@ -52,9 +57,14 @@ export function BiometricGate() {
   async function tryUnlock() {
     if (unlocking.current) return;
     unlocking.current = true;
-    const ok = await authenticateWithBiometrics("Confirme ton identité pour accéder à Horsetrack");
-    unlocking.current = false;
-    if (ok) setStatus("unlocked");
+    try {
+      const ok = await authenticateWithBiometrics("Confirme ton identité pour accéder à Horsetrack");
+      if (ok) setStatus("unlocked");
+    } catch (e) {
+      console.warn("[biometric-gate] authentification échouée", e);
+    } finally {
+      unlocking.current = false;
+    }
   }
 
   useEffect(() => {

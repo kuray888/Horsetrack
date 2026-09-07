@@ -54,9 +54,12 @@ export default function OnboardingAccount() {
   // vides et le bouton "Créer mon compte" resterait désactivé sans porte
   // de sortie : on saute directement au paywall dès que l'écran s'affiche.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/(onboarding)/paywall");
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (data.session) router.replace("/(onboarding)/paywall");
+      })
+      .catch(() => {});
   }, []);
 
   // Décompte du cooldown "Renvoyer l'e-mail" — un intervalle d'une seconde

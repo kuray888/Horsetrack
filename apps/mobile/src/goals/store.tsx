@@ -137,7 +137,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const persist = useCallback((next: Goal[]) => {
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
+    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
   }, []);
 
   // Charge le cache local immédiatement (rapide, dispo hors-ligne), puis
@@ -149,12 +149,19 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
       .catch((e) => console.warn("[goals] lecture SecureStore échouée, objectifs par défaut", e))
       .finally(() => setLoading(false));
 
+    // Best-effort, jamais rejeté : cf. (auth)/login.tsx où SIGNED_IN déclenche
+    // aussi un hydrateFromCloud explicite en parallèle de cet appel — sans ce
+    // `.catch`, un rejet ici (réseau, RLS pas encore alignée) devenait un rejet
+    // de promesse non géré au moment précis de la navigation post-connexion
+    // (cf. audit crash Apple Sign In du 2026-09-07).
     const syncFromCloud = () => {
-      fetchCloudGoals().then((cloud) => {
-        if (!cloud) return;
-        setGoals(cloud);
-        persist(cloud);
-      });
+      fetchCloudGoals()
+        .then((cloud) => {
+          if (!cloud) return;
+          setGoals(cloud);
+          persist(cloud);
+        })
+        .catch((e) => console.warn("[goals] syncFromCloud échoué", e));
     };
     syncFromCloud();
 

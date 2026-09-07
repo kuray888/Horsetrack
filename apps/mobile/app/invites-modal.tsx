@@ -24,10 +24,15 @@ export default function InvitesModal() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   useEffect(() => {
-    pullPendingInvites().then((list) => {
-      setInvites(list);
-      setLoaded(true);
-    });
+    pullPendingInvites()
+      .then((list) => {
+        setInvites(list);
+        setLoaded(true);
+      })
+      .catch((e) => {
+        console.warn("[invites] pullPendingInvites échoué", e);
+        setLoaded(true);
+      });
   }, []);
 
   async function handleAccept(invite: PendingInvite) {

@@ -101,7 +101,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(sessions));
+    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
   }, [sessions, loaded]);
 
   const addSession = useCallback(
@@ -136,7 +136,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   const hydrateFromCloud = useCallback((remote: TrainingSession[]) => {
     setSessions(remote);
-    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(remote));
+    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(remote)).catch(() => {});
   }, []);
 
   const clearAll = useCallback(async () => {

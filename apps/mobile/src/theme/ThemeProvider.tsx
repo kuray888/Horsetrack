@@ -29,9 +29,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeIdState] = useState<ThemeId>(DEFAULT_THEME);
 
   useEffect(() => {
-    SecureStore.getItemAsync(KEY).then((raw) => {
-      if (raw && raw in PALETTES) setThemeIdState(raw as ThemeId);
-    });
+    SecureStore.getItemAsync(KEY)
+      .then((raw) => {
+        if (raw && raw in PALETTES) setThemeIdState(raw as ThemeId);
+      })
+      .catch((e) => console.warn("[theme] lecture SecureStore échouée, thème par défaut", e));
   }, []);
 
   const setThemeId = useCallback((id: ThemeId) => {

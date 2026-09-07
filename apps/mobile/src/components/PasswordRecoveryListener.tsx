@@ -26,8 +26,12 @@ export function PasswordRecoveryListener() {
       if (!error) router.replace("/reset-password");
     }
 
-    Linking.getInitialURL().then(handle);
-    const sub = Linking.addEventListener("url", (e) => handle(e.url));
+    Linking.getInitialURL()
+      .then(handle)
+      .catch((e) => console.warn("[password-recovery] traitement du lien initial échoué", e));
+    const sub = Linking.addEventListener("url", (e) =>
+      handle(e.url).catch((err) => console.warn("[password-recovery] traitement du lien échoué", err))
+    );
     return () => sub.remove();
   }, []);
 

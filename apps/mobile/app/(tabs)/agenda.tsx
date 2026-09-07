@@ -94,7 +94,9 @@ export default function AgendaScreen() {
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
-    ensureNotificationPermission().then(setNotifPermission);
+    ensureNotificationPermission()
+      .then(setNotifPermission)
+      .catch(() => setNotifPermission(false));
   }, []);
 
   const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
@@ -312,7 +314,7 @@ export default function AgendaScreen() {
               Notifications désactivées : tes rappels seront enregistrés mais ne s&apos;afficheront pas sur ton téléphone.
             </Text>
             <TouchableOpacity
-              onPress={() => ensureNotificationPermission().then(setNotifPermission)}
+              onPress={() => ensureNotificationPermission().then(setNotifPermission).catch(() => {})}
               activeOpacity={0.7}
             >
               <Text className="text-sm font-bold text-accent">Activer</Text>

@@ -97,7 +97,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const applyCustomerInfo = useCallback(
     (info: CustomerInfo) => {
-      persistLocal(persistedFromCustomerInfo(info));
+      persistLocal(persistedFromCustomerInfo(info)).catch((e) => console.warn("[subscription] persistLocal échoué", e));
     },
     [persistLocal]
   );

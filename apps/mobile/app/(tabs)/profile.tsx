@@ -116,11 +116,13 @@ export default function ProfileScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    getNotificationStatus().then(setNotifEnabled);
-    isBiometricsAvailable().then(setBioAvailable);
-    getBiometricType().then((t) => setBioLabel(t === "face" ? "Face ID" : t === "fingerprint" ? "Empreinte digitale" : "Biométrie"));
-    isBiometricLockEnabled().then(setBioEnabled);
+    supabase.auth.getUser().then(({ data }) => setUser(data.user)).catch(() => {});
+    getNotificationStatus().then(setNotifEnabled).catch(() => {});
+    isBiometricsAvailable().then(setBioAvailable).catch(() => {});
+    getBiometricType()
+      .then((t) => setBioLabel(t === "face" ? "Face ID" : t === "fingerprint" ? "Empreinte digitale" : "Biométrie"))
+      .catch(() => {});
+    isBiometricLockEnabled().then(setBioEnabled).catch(() => {});
   }, []);
 
   async function handleToggleNotif(next: boolean) {

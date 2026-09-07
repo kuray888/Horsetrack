@@ -17,7 +17,10 @@ export default function ResetPasswordScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setReady(!!data.session));
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setReady(!!data.session))
+      .catch(() => setReady(false));
   }, []);
 
   async function submit() {
