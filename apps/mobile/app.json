@@ -59,7 +59,9 @@
         {
           "locationWhenInUsePermission": "Horsetrack utilise ta position pour enregistrer la météo du jour sur ton journal de travail."
         }
-      ]
+      ],
+      "expo-build-properties",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

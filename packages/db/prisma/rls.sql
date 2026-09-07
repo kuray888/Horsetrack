@@ -325,13 +325,28 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  photo_changed boolean;
 begin
-  if new."photoPath" is not null
-     and old."photoPath" is distinct from new."photoPath"
-     and not public.horse_owner_is_active_or_trialing(new."horseId")
-  then
+  -- OLD n'est pas une ligne "toutes colonnes NULL" pendant un INSERT, elle
+  -- n'est pas assignée du tout — lire old."photoPath" dans ce cas lève
+  -- "record \"old\" is not assigned yet" et ferait échouer TOUT insert dans
+  -- journal_entries, pas seulement ceux avec photo. D'où la branche explicite
+  -- sur tg_op plutôt qu'un simple OR : PostgreSQL ne garantit pas l'évaluation
+  -- court-circuit des opérateurs booléens (contrairement à un langage
+  -- procédural), donc `tg_op = 'INSERT' or old.… is distinct from …` resterait
+  -- risqué même si ça "marche" en pratique la plupart du temps.
+  if tg_op = 'INSERT' then
+    photo_changed := new."photoPath" is not null;
+  else
+    photo_changed := new."photoPath" is not null
+      and old."photoPath" is distinct from new."photoPath";
+  end if;
+
+  if photo_changed and not public.horse_owner_is_active_or_trialing(new."horseId") then
     raise exception 'journal entry photo requires an active or trialing subscription';
   end if;
+
   return new;
 end;
 $$;
