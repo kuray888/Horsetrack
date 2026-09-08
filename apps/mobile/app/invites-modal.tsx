@@ -50,6 +50,8 @@ export default function InvitesModal() {
       const ownedOnly = horses.filter((h) => !h.sharedRole);
       hydrateFromCloud([...ownedOnly, ...shared]);
       setInvites((list) => list.filter((i) => i.id !== invite.id));
+    } catch {
+      Alert.alert("Erreur", "Impossible d'accepter l'invitation pour l'instant. Réessaie plus tard.");
     } finally {
       setAcceptingId(null);
     }

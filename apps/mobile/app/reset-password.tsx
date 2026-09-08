@@ -25,16 +25,27 @@ export default function ResetPasswordScreen() {
 
   async function submit() {
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      Alert.alert("Erreur", error.message);
-      return;
+      if (error) {
+        Alert.alert("Erreur", error.message);
+        return;
+      }
+
+      Alert.alert("Mot de passe mis à jour", "Tu peux continuer.");
+      router.replace("/(tabs)/today");
+    } catch (e) {
+      // Exception réseau/inattendue (pas une réponse `{ error }` de Supabase,
+      // cf. login.tsx) : ne pas laisser le bouton bloqué ni planter l'app
+      // (cf. audit du 2026-09-08).
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible de mettre à jour le mot de passe pour l'instant. Vérifie ta connexion et réessaie."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    Alert.alert("Mot de passe mis à jour", "Tu peux continuer.");
-    router.replace("/(tabs)/today");
   }
 
   if (!ready) {

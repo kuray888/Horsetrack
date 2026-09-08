@@ -127,23 +127,37 @@ export default function ProfileScreen() {
 
   async function handleToggleNotif(next: boolean) {
     if (!next) return; // impossible de révoquer la permission depuis l'app, seulement via Réglages
-    const granted = await ensureNotificationPermission();
-    setNotifEnabled(granted);
+    try {
+      const granted = await ensureNotificationPermission();
+      setNotifEnabled(granted);
+    } catch {
+      // Best-effort : cf. audit crash SecureStore/modules natifs du 2026-09-08.
+    }
   }
 
   async function handleToggleBiometrics(next: boolean) {
-    if (next) {
-      const ok = await authenticateWithBiometrics("Active le verrouillage biométrique de Horsetrack");
-      if (!ok) return;
+    try {
+      if (next) {
+        const ok = await authenticateWithBiometrics("Active le verrouillage biométrique de Horsetrack");
+        if (!ok) return;
+      }
+      await setBiometricLockEnabled(next);
+      setBioEnabled(next);
+    } catch {
+      // Best-effort : cf. audit crash SecureStore/modules natifs du 2026-09-08.
     }
-    await setBiometricLockEnabled(next);
-    setBioEnabled(next);
   }
 
   async function signOut() {
-    await cancelWeeklySummary();
-    await supabase.auth.signOut();
-    router.replace("/(auth)/login");
+    try {
+      await cancelWeeklySummary();
+      await supabase.auth.signOut();
+    } catch {
+      // Best-effort : on déconnecte quand même localement plutôt que de
+      // bloquer l'utilisateur sur un échec réseau (cf. audit du 2026-09-08).
+    } finally {
+      router.replace("/(auth)/login");
+    }
   }
 
   function handleDeleteAccount() {

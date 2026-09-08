@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -135,6 +136,13 @@ const GoalsContext = createContext<GoalsContextValue | null>(null);
 export function GoalsProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  // Incrémenté à chaque mutation locale (add/update/delete/hydrate) — permet
+  // à syncFromCloud() de détecter qu'un ajout/une modif a eu lieu pendant son
+  // aller-retour réseau et d'ignorer sa réponse (sinon un snapshot cloud
+  // récupéré AVANT cette mutation l'écrase silencieusement à la résolution,
+  // cf. audit du 2026-09-08 : seul store à relancer un fetch cloud complet au
+  // montage, en parallèle de la lecture locale).
+  const localVersionRef = useRef(0);
 
   const persist = useCallback((next: Goal[]) => {
     SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
@@ -155,9 +163,14 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
     // de promesse non géré au moment précis de la navigation post-connexion
     // (cf. audit crash Apple Sign In du 2026-09-07).
     const syncFromCloud = () => {
+      const versionAtStart = localVersionRef.current;
       fetchCloudGoals()
         .then((cloud) => {
           if (!cloud) return;
+          // Une mutation locale (add/update/delete) a eu lieu pendant cet
+          // aller-retour réseau : ce snapshot est obsolète, on l'ignore pour
+          // ne pas écraser un objectif tout juste créé/modifié.
+          if (localVersionRef.current !== versionAtStart) return;
           setGoals(cloud);
           persist(cloud);
         })
@@ -173,6 +186,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
 
   const addGoal = useCallback(
     (goal: NewGoal) => {
+      localVersionRef.current += 1;
       const next: Goal = { ...goal, id: generateId() };
       setGoals((prev) => {
         const updated = [...prev, next];
@@ -186,6 +200,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
 
   const updateGoal = useCallback(
     (id: string, goal: NewGoal) => {
+      localVersionRef.current += 1;
       const next: Goal = { ...goal, id };
       setGoals((prev) => {
         const updated = prev.map((g) => (g.id === id ? next : g));
@@ -199,6 +214,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
 
   const deleteGoal = useCallback(
     (id: string) => {
+      localVersionRef.current += 1;
       setGoals((prev) => {
         const updated = prev.filter((g) => g.id !== id);
         persist(updated);
@@ -210,12 +226,14 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   );
 
   const clearAll = useCallback(async () => {
+    localVersionRef.current += 1;
     await SecureStore.deleteItemAsync(STORAGE_KEY);
     setGoals([]);
   }, []);
 
   const hydrateFromCloud = useCallback(
     (next: Goal[]) => {
+      localVersionRef.current += 1;
       setGoals(next);
       persist(next);
     },

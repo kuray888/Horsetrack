@@ -14,18 +14,29 @@ export default function ForgotPasswordScreen() {
 
   async function sendResetLink() {
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: "horsetrack://reset-password",
-    });
-    setLoading(false);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: "horsetrack://reset-password",
+      });
 
-    // Même message succès ou échec côté Supabase (y compris email inconnu en
-    // base) : ne jamais laisser deviner si un email existe ou non.
-    Alert.alert(
-      "Vérifie tes emails",
-      "Si un compte existe avec cette adresse, un lien de réinitialisation vient de t'être envoyé."
-    );
-    if (!error) router.back();
+      // Même message succès ou échec côté Supabase (y compris email inconnu en
+      // base) : ne jamais laisser deviner si un email existe ou non.
+      Alert.alert(
+        "Vérifie tes emails",
+        "Si un compte existe avec cette adresse, un lien de réinitialisation vient de t'être envoyé."
+      );
+      if (!error) router.back();
+    } catch (e) {
+      // Exception réseau/inattendue (pas une réponse `{ error }` de Supabase,
+      // cf. login.tsx) : ne pas laisser le bouton bloqué sur "Envoi..." ni
+      // planter l'app (cf. audit du 2026-09-08).
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible d'envoyer le lien pour l'instant. Vérifie ta connexion et réessaie."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

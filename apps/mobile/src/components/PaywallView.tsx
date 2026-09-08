@@ -274,10 +274,10 @@ export function PaywallView({
               {restoring ? "Restauration…" : "Restaurer mes achats"}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/cgu`)}>
+          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/cgu`).catch(() => {})}>
             <Text className="text-xs font-semibold text-accent">Conditions</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/confidentialite`)}>
+          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/confidentialite`).catch(() => {})}>
             <Text className="text-xs font-semibold text-accent">Confidentialité</Text>
           </TouchableOpacity>
         </View>

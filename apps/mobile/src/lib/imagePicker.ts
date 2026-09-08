@@ -17,40 +17,45 @@ import { File, Paths } from "expo-file-system";
  * présente avant cet essai) subsiste.
  */
 export async function pickAndPersistImage(): Promise<string | null> {
-  const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== "granted") {
-    // Sur iOS/Android, une fois l'accès refusé une première fois, l'OS ne
-    // réaffiche plus jamais sa propre demande (canAskAgain devient false) —
-    // sans ce message, retaper sur "Ajouter une photo" ne ferait plus jamais
-    // rien du tout, silencieusement, comme si le bouton était cassé (cf.
-    // audit technique pré-V1 §6).
-    if (!canAskAgain) {
-      Alert.alert(
-        "Accès aux photos refusé",
-        "Autorise Horsetrack à accéder à tes photos dans les réglages de ton téléphone pour ajouter une image.",
-        [
-          { text: "Annuler", style: "cancel" },
-          { text: "Ouvrir les réglages", onPress: () => Linking.openSettings() },
-        ]
-      );
-    }
-    return null;
-  }
-
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ["images"],
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.7,
-  });
-  if (result.canceled || !result.assets[0]) return null;
-
-  const source = new File(result.assets[0].uri);
-  const dest = new File(Paths.document, `horse-${Date.now()}.jpg`);
   try {
-    source.copy(dest);
+    const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      // Sur iOS/Android, une fois l'accès refusé une première fois, l'OS ne
+      // réaffiche plus jamais sa propre demande (canAskAgain devient false) —
+      // sans ce message, retaper sur "Ajouter une photo" ne ferait plus jamais
+      // rien du tout, silencieusement, comme si le bouton était cassé (cf.
+      // audit technique pré-V1 §6).
+      if (!canAskAgain) {
+        Alert.alert(
+          "Accès aux photos refusé",
+          "Autorise Horsetrack à accéder à tes photos dans les réglages de ton téléphone pour ajouter une image.",
+          [
+            { text: "Annuler", style: "cancel" },
+            { text: "Ouvrir les réglages", onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
+      return null;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return null;
+
+    const source = new File(result.assets[0].uri);
+    const dest = new File(Paths.document, `horse-${Date.now()}.jpg`);
+    try {
+      source.copy(dest);
+    } catch {
+      return null;
+    }
+    return dest.uri;
   } catch {
+    // Best-effort : cf. audit crash SecureStore/modules natifs du 2026-09-08.
     return null;
   }
-  return dest.uri;
 }

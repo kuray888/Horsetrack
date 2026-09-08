@@ -263,7 +263,7 @@ export default function HorseHubScreen() {
               <Text className="text-sm font-semibold text-text">Partager</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => Share.share({ message: buildHorseShareText(horse) })}
+              onPress={() => Share.share({ message: buildHorseShareText(horse) }).catch(() => {})}
               activeOpacity={0.8}
               className="flex-1 items-center rounded-card border border-border p-3"
             >

@@ -124,14 +124,20 @@ export default function ShareHorseModal() {
           "Cet email est peut-être déjà invité sur ce cheval, ou une erreur réseau est survenue. Réessaie."
         );
       }
+    } catch {
+      Alert.alert("Invitation impossible", "Une erreur est survenue. Réessaie.");
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleRevoke(id: string) {
-    await revokeCollaborator(id);
-    refresh();
+    try {
+      await revokeCollaborator(id);
+      refresh();
+    } catch {
+      Alert.alert("Oups", "Impossible de retirer cette personne pour l'instant. Réessaie.");
+    }
   }
 
   return (
