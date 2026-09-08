@@ -24,8 +24,16 @@ type GateStatus = "checking" | "locked" | "unlocked";
  */
 export function BiometricGate() {
   const [status, setStatus] = useState<GateStatus>("checking");
-  const appState = useRef(AppState.currentState);
   const unlocking = useRef(false);
+  // true entre le moment où on passe en "checking" (vrai passage en
+  // arrière-plan) et la réévaluation au retour — piloté explicitement plutôt
+  // que comparé à AppState "prev" : iOS émet toujours un état "inactive"
+  // intermédiaire entre "background" et "active" au retour, qui écrasait
+  // "prev" avant que la comparaison `prev === "background"` ne s'exécute et
+  // empêchait donc TOUJOURS la réévaluation au retour — l'app restait bloquée
+  // indéfiniment sur le spinner "checking" après le tout premier passage en
+  // arrière-plan, pour tous les utilisateurs (cf. audit du 2026-09-08).
+  const pendingReEval = useRef(false);
 
   async function evaluate() {
     try {
@@ -41,12 +49,14 @@ export function BiometricGate() {
     evaluate();
 
     const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
-      const prev = appState.current;
-      appState.current = next;
-
       if (next === "background") {
-        setStatus((s) => (s === "unlocked" ? "checking" : s));
-      } else if (next === "active" && prev === "background") {
+        setStatus((s) => {
+          if (s !== "unlocked") return s;
+          pendingReEval.current = true;
+          return "checking";
+        });
+      } else if (next === "active" && pendingReEval.current) {
+        pendingReEval.current = false;
         evaluate();
       }
     });

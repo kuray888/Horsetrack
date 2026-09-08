@@ -69,21 +69,27 @@ export function WeightProvider({ children }: { children: ReactNode }) {
     (weightKg: number, date: Date) => {
       if (!selectedHorse) return;
       const next: WeightMeasurement = { id: generateId(), horseId: selectedHorse.id, weightKg, date };
-      setMeasurements((list) => [...list, next]);
-      pushWeightMeasurement(next).catch(() => {});
-      // Garde Horse.weightKg (affiché ailleurs : Horse Hub, formulaires...)
-      // aligné sur la dernière mesure connue de CE cheval, pas juste la plus
-      // récemment ajoutée toutes horloges confondues (une mesure du passé
-      // saisie en retard ne doit pas écraser une mesure plus récente déjà là).
-      const horseMeasurements = [...measurements, next].filter((m) => m.horseId === selectedHorse.id);
-      const latest = horseMeasurements.reduce((a, b) => (b.date > a.date ? b : a));
-      if (latest.id === next.id) {
-        const { id: _id, emoji: _emoji, photoPath: _photoPath, isPrimary: _isPrimary, sharedRole: _sharedRole, ...rest } =
-          selectedHorse;
-        updateHorse(selectedHorse.id, { ...rest, weightKg });
-      }
+      setMeasurements((list) => {
+        const updated = [...list, next];
+        pushWeightMeasurement(next).catch(() => {});
+        // Garde Horse.weightKg (affiché ailleurs : Horse Hub, formulaires...)
+        // aligné sur la dernière mesure connue de CE cheval, pas juste la plus
+        // récemment ajoutée toutes horloges confondues (une mesure du passé
+        // saisie en retard ne doit pas écraser une mesure plus récente déjà là).
+        // Calculé depuis `list` (fresh) plutôt que la closure `measurements`,
+        // pour rester correct si deux mesures sont ajoutées coup sur coup
+        // avant un re-render (cf. audit du 2026-09-08).
+        const horseMeasurements = updated.filter((m) => m.horseId === selectedHorse.id);
+        const latest = horseMeasurements.reduce((a, b) => (b.date > a.date ? b : a));
+        if (latest.id === next.id) {
+          const { id: _id, emoji: _emoji, photoPath: _photoPath, isPrimary: _isPrimary, sharedRole: _sharedRole, ...rest } =
+            selectedHorse;
+          updateHorse(selectedHorse.id, { ...rest, weightKg });
+        }
+        return updated;
+      });
     },
-    [selectedHorse, measurements, updateHorse]
+    [selectedHorse, updateHorse]
   );
 
   const deleteMeasurement = useCallback(

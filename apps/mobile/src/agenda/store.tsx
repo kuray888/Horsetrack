@@ -496,13 +496,14 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
    * "patch + push", sans effet de bord sur les notifications. */
   const updateAppointment = useCallback(
     (apptId: string, patch: Partial<Omit<Appointment, "id" | "horseId" | "checklist" | "competitionEntries">>) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const next = { ...target, ...patch };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      pushAppointment(next).catch(() => {});
+      setAppointments((list) => {
+        const next = list.map((a) => (a.id === apptId ? { ...a, ...patch } : a));
+        const updated = next.find((a) => a.id === apptId);
+        if (updated) pushAppointment(updated).catch(() => {});
+        return next;
+      });
     },
-    [appointments]
+    []
   );
 
   const deleteAppointment = useCallback((appt: Appointment) => {
@@ -520,96 +521,92 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // ni à une restauration cloud (cf. login.tsx, qui écraserait silencieusement
   // ces changements jamais envoyés au serveur) ni au partage DP/coach.
 
-  const saveResult = useCallback(
-    (apptId: string, result: string) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const next = { ...target, result };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      pushAppointment(next).catch(() => {});
-    },
-    [appointments]
-  );
+  const saveResult = useCallback((apptId: string, result: string) => {
+    setAppointments((list) => {
+      const next = list.map((a) => (a.id === apptId ? { ...a, result } : a));
+      const updated = next.find((a) => a.id === apptId);
+      if (updated) pushAppointment(updated).catch(() => {});
+      return next;
+    });
+  }, []);
 
-  const toggleChecklistItem = useCallback(
-    (apptId: string, itemId: string) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const next = {
-        ...target,
-        checklist: target.checklist.map((c) => (c.id === itemId ? { ...c, checked: !c.checked } : c)),
-      };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      pushAppointment(next).catch(() => {});
-    },
-    [appointments]
-  );
+  const toggleChecklistItem = useCallback((apptId: string, itemId: string) => {
+    setAppointments((list) => {
+      const next = list.map((a) =>
+        a.id === apptId
+          ? { ...a, checklist: a.checklist.map((c) => (c.id === itemId ? { ...c, checked: !c.checked } : c)) }
+          : a
+      );
+      const updated = next.find((a) => a.id === apptId);
+      if (updated) pushAppointment(updated).catch(() => {});
+      return next;
+    });
+  }, []);
 
-  const addChecklistItem = useCallback(
-    (apptId: string, label: string) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const next = { ...target, checklist: [...target.checklist, { id: generateId("c"), label, checked: false }] };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      pushAppointment(next).catch(() => {});
-    },
-    [appointments]
-  );
+  const addChecklistItem = useCallback((apptId: string, label: string) => {
+    setAppointments((list) => {
+      const next = list.map((a) =>
+        a.id === apptId
+          ? { ...a, checklist: [...a.checklist, { id: generateId("c"), label, checked: false }] }
+          : a
+      );
+      const updated = next.find((a) => a.id === apptId);
+      if (updated) pushAppointment(updated).catch(() => {});
+      return next;
+    });
+  }, []);
 
-  const removeChecklistItem = useCallback(
-    (apptId: string, itemId: string) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const next = { ...target, checklist: target.checklist.filter((c) => c.id !== itemId) };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      pushAppointment(next).catch(() => {});
-    },
-    [appointments]
-  );
+  const removeChecklistItem = useCallback((apptId: string, itemId: string) => {
+    setAppointments((list) => {
+      const next = list.map((a) =>
+        a.id === apptId ? { ...a, checklist: a.checklist.filter((c) => c.id !== itemId) } : a
+      );
+      const updated = next.find((a) => a.id === apptId);
+      if (updated) pushAppointment(updated).catch(() => {});
+      return next;
+    });
+  }, []);
 
   // Épreuves de concours : contrairement à la checklist ci-dessus, chaque
   // épreuve est une ligne dans sa propre table côté serveur (cf.
   // CompetitionEntry, schema.prisma) — on pousse donc l'épreuve modifiée
   // individuellement (pushCompetitionEntry), jamais tout le rendez-vous.
-  const addCompetitionEntry = useCallback(
-    (apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const newEntry: CompetitionEntry = { ...entry, id: generateId("ce"), result: null };
-      const next = { ...target, competitionEntries: [...target.competitionEntries, newEntry] };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      pushCompetitionEntry(apptId, newEntry).catch(() => {});
-    },
-    [appointments]
-  );
+  const addCompetitionEntry = useCallback((apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => {
+    const newEntry: CompetitionEntry = { ...entry, id: generateId("ce"), result: null };
+    setAppointments((list) => {
+      const next = list.map((a) =>
+        a.id === apptId ? { ...a, competitionEntries: [...a.competitionEntries, newEntry] } : a
+      );
+      if (next.some((a) => a.id === apptId)) pushCompetitionEntry(apptId, newEntry).catch(() => {});
+      return next;
+    });
+  }, []);
 
-  const updateCompetitionEntryResult = useCallback(
-    (apptId: string, entryId: string, result: string) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const updated = target.competitionEntries.find((e) => e.id === entryId);
-      if (!updated) return;
-      const nextEntry = { ...updated, result };
-      const next = {
-        ...target,
-        competitionEntries: target.competitionEntries.map((e) => (e.id === entryId ? nextEntry : e)),
-      };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      pushCompetitionEntry(apptId, nextEntry).catch(() => {});
-    },
-    [appointments]
-  );
+  const updateCompetitionEntryResult = useCallback((apptId: string, entryId: string, result: string) => {
+    setAppointments((list) => {
+      let nextEntry: CompetitionEntry | null = null;
+      const next = list.map((a) => {
+        if (a.id !== apptId) return a;
+        const entries = a.competitionEntries.map((e) => {
+          if (e.id !== entryId) return e;
+          nextEntry = { ...e, result };
+          return nextEntry;
+        });
+        return { ...a, competitionEntries: entries };
+      });
+      if (nextEntry) pushCompetitionEntry(apptId, nextEntry).catch(() => {});
+      return next;
+    });
+  }, []);
 
-  const deleteCompetitionEntry = useCallback(
-    (apptId: string, entryId: string) => {
-      const target = appointments.find((a) => a.id === apptId);
-      if (!target) return;
-      const next = { ...target, competitionEntries: target.competitionEntries.filter((e) => e.id !== entryId) };
-      setAppointments((list) => list.map((a) => (a.id === apptId ? next : a)));
-      deleteCompetitionEntryRemote(entryId).catch(() => {});
-    },
-    [appointments]
-  );
+  const deleteCompetitionEntry = useCallback((apptId: string, entryId: string) => {
+    setAppointments((list) =>
+      list.map((a) =>
+        a.id === apptId ? { ...a, competitionEntries: a.competitionEntries.filter((e) => e.id !== entryId) } : a
+      )
+    );
+    deleteCompetitionEntryRemote(entryId).catch(() => {});
+  }, []);
 
   const addDocument = useCallback(
     (doc: Omit<Doc, "id" | "filePath" | "horseId">) => {
@@ -638,22 +635,22 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
    * à addDocument, ne retourne rien : la photo remplacée est réenvoyée par
    * pushDocument (cf. son commentaire) et son filePath reporté localement une
    * fois la synchro terminée, exactement comme à la création. */
-  const updateDocument = useCallback(
-    (docId: string, patch: Partial<Omit<Doc, "id" | "filePath">>) => {
-      const target = documents.find((d) => d.id === docId);
-      if (!target) return;
-      const next = { ...target, ...patch };
-      setDocuments((list) => list.map((d) => (d.id === docId ? next : d)));
-      pushDocument(next)
-        .then((filePath) => {
-          if (filePath && filePath !== next.filePath) {
-            setDocuments((list) => list.map((d) => (d.id === docId ? { ...d, filePath } : d)));
-          }
-        })
-        .catch(() => {});
-    },
-    [documents]
-  );
+  const updateDocument = useCallback((docId: string, patch: Partial<Omit<Doc, "id" | "filePath">>) => {
+    setDocuments((list) => {
+      const next = list.map((d) => (d.id === docId ? { ...d, ...patch } : d));
+      const updated = next.find((d) => d.id === docId);
+      if (updated) {
+        pushDocument(updated)
+          .then((filePath) => {
+            if (filePath && filePath !== updated.filePath) {
+              setDocuments((list) => list.map((d) => (d.id === docId ? { ...d, filePath } : d)));
+            }
+          })
+          .catch(() => {});
+      }
+      return next;
+    });
+  }, []);
 
   const deleteDocument = useCallback((docId: string) => {
     setDocuments((list) => list.filter((d) => d.id !== docId));
@@ -708,33 +705,35 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
    * un relevé météo qui n'a plus de sens rétroactivement. */
   const updateJournalEntry = useCallback(
     (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath">>) => {
-      const target = journal.find((j) => j.id === entryId);
-      if (!target) return;
-      const next = { ...target, ...patch };
-      setJournal((list) => list.map((j) => (j.id === entryId ? next : j)));
-      // Photo remplacée réenvoyée par pushJournalEntry, photoPath reporté
-      // localement une fois la synchro terminée — même logique que updateDocument.
-      pushJournalEntry(next)
-        .then((photoPath) => {
-          if (photoPath && photoPath !== next.photoPath) {
-            setJournal((list) => list.map((j) => (j.id === entryId ? { ...j, photoPath } : j)));
-          }
-        })
-        .catch(() => {});
+      setJournal((list) => {
+        const next = list.map((j) => (j.id === entryId ? { ...j, ...patch } : j));
+        const updated = next.find((j) => j.id === entryId);
+        if (updated) {
+          // Photo remplacée réenvoyée par pushJournalEntry, photoPath reporté
+          // localement une fois la synchro terminée — même logique que updateDocument.
+          pushJournalEntry(updated)
+            .then((photoPath) => {
+              if (photoPath && photoPath !== updated.photoPath) {
+                setJournal((list) => list.map((j) => (j.id === entryId ? { ...j, photoPath } : j)));
+              }
+            })
+            .catch(() => {});
+        }
+        return next;
+      });
     },
-    [journal]
+    []
   );
 
-  const deleteJournalEntry = useCallback(
-    (entryId: string) => {
-      const target = journal.find((j) => j.id === entryId);
-      setJournal((list) => list.filter((j) => j.id !== entryId));
+  const deleteJournalEntry = useCallback((entryId: string) => {
+    setJournal((list) => {
+      const target = list.find((j) => j.id === entryId);
       // horseId nécessaire pour supprimer aussi la photo distante (cf.
       // deleteJournalEntryRemote), le chemin étant scopé par cheval.
       deleteJournalEntryRemote(entryId, target?.horseId ?? null).catch(() => {});
-    },
-    [journal]
-  );
+      return list.filter((j) => j.id !== entryId);
+    });
+  }, []);
 
   const addExpense = useCallback(
     (expense: NewExpense) => {
