@@ -30,7 +30,7 @@ export default function Welcome() {
 
       <FadeInView delay={300}>
         <View className="gap-3 px-6 pb-2">
-          <PrimaryButton label="Commencer" onPress={() => router.push("/(onboarding)/rider-level")} />
+          <PrimaryButton label="Commencer" onPress={() => router.push("/(onboarding)/account")} />
           <Text className="text-center text-xs text-muted">
             Gratuit pour commencer · Premium en option
           </Text>

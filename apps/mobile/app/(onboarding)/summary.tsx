@@ -71,7 +71,7 @@ export default function Summary() {
 
       <FadeInView delay={300}>
         <View className="px-5 pb-2 pt-3">
-          <PrimaryButton label="Continuer" onPress={() => router.push("/(onboarding)/account")} />
+          <PrimaryButton label="Continuer" onPress={() => router.push("/(onboarding)/paywall")} />
         </View>
       </FadeInView>
     </SafeAreaView>

@@ -8,6 +8,7 @@ import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
+import { pullPendingInvites } from "@/lib/sharing";
 import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
@@ -52,15 +53,30 @@ export default function OnboardingAccount() {
   // l'écran login, ou reprise d'une création interrompue — cf. le même
   // contrôle dans createAccount), les champs email/mot de passe restent
   // vides et le bouton "Créer mon compte" resterait désactivé sans porte
-  // de sortie : on saute directement au paywall dès que l'écran s'affiche.
+  // de sortie : on poursuit directement dès que l'écran s'affiche.
   useEffect(() => {
     supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (data.session) router.replace("/(onboarding)/paywall");
+        if (data.session) continueAfterAuth();
       })
       .catch(() => {});
   }, []);
+
+  /** Compte créé ou retrouvé : direction le parcours normal (profil cavalier
+   * → cheval → paywall), SAUF si une invitation de partage attend déjà cet
+   * email — dans ce cas, un coach/groom/demi-pension invité n'a aucune raison
+   * de répondre à des questions de profil cavalier ni de créer un cheval
+   * fictif avant de pouvoir accéder à ce pour quoi il s'est inscrit (cf.
+   * (onboarding)/pending-invites.tsx et audit produit du 2026-09-08). */
+  async function continueAfterAuth() {
+    const invites = await pullPendingInvites().catch(() => []);
+    if (invites.length > 0) {
+      router.replace("/(onboarding)/pending-invites");
+    } else {
+      router.replace("/(onboarding)/rider-level");
+    }
+  }
 
   // Décompte du cooldown "Renvoyer l'e-mail" — un intervalle d'une seconde
   // tant qu'il reste du temps, jamais lancé sinon.
@@ -86,7 +102,7 @@ export default function OnboardingAccount() {
         return;
       }
       await afterAccountObtained(result.userId);
-      router.push("/(onboarding)/paywall");
+      await continueAfterAuth();
     } catch (e) {
       Alert.alert("Erreur", e instanceof Error ? e.message : "Connexion avec Apple impossible.");
     } finally {
@@ -110,7 +126,7 @@ export default function OnboardingAccount() {
       // de sortie. On poursuit directement plutôt que de re-créer un compte.
       const { data: existing } = await supabase.auth.getSession();
       if (existing.session) {
-        router.push("/(onboarding)/paywall");
+        await continueAfterAuth();
         return;
       }
 
@@ -131,7 +147,7 @@ export default function OnboardingAccount() {
         // Confirmation email désactivée pour ce projet (ou déjà satisfaite) :
         // une session existe immédiatement, on poursuit le flux normal sans
         // jamais montrer l'écran "Vérifie ton e-mail".
-        router.push("/(onboarding)/paywall");
+        await continueAfterAuth();
       } else {
         // Confirmation requise : pas de session tant que le lien n'est pas
         // cliqué — naviguer vers le paywall maintenant pousserait l'onboarding
@@ -166,7 +182,7 @@ export default function OnboardingAccount() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (data.session) {
-        router.push("/(onboarding)/paywall");
+        await continueAfterAuth();
         return;
       }
       if (error && isEmailNotConfirmedError(error.message)) {
@@ -276,10 +292,10 @@ export default function OnboardingAccount() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-display tracking-tight text-text">
-            Crée ton compte pour sauvegarder ton écurie
+            Crée ton compte Horsetrack
           </Text>
           <Text className="text-base text-muted">
-            Tes réponses et tes chevaux seront liés à ce compte.
+            On personnalise ton profil juste après.
           </Text>
         </View>
 
