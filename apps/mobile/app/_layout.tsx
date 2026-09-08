@@ -1,6 +1,7 @@
 import "../global.css";
 import { useEffect } from "react";
 import { Stack } from "expo-router";
+import * as Sentry from "@sentry/react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque";
 
@@ -8,6 +9,17 @@ import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold }
 // chargée — sans ça, les titres (font-display) flasheraient un instant dans
 // la police système avant de basculer, à chaque démarrage de l'app.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Sans DSN configurée (dev local, ou avant la mise en place du compte
+// Sentry), le SDK se désactive silencieusement tout seul — aucun impact.
+// Capture les erreurs JS fatales AVANT qu'elles ne deviennent un crash natif
+// opaque (RCTFatal/SIGABRT) — cf. les crashs TestFlight des 2026-09-07/08,
+// diagnostiqués à l'aveugle faute de vraie trace JS.
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  });
+}
 
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { SubscriptionProvider } from "@/subscription/store";
@@ -23,7 +35,7 @@ import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener"
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded] = useFonts({ BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold });
 
   useEffect(() => {
@@ -74,3 +86,5 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
