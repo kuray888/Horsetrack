@@ -57,8 +57,17 @@ export default function OnboardingAccount() {
   useEffect(() => {
     supabase.auth
       .getSession()
-      .then(({ data }) => {
-        if (data.session) continueAfterAuth();
+      .then(async ({ data }) => {
+        if (!data.session) return;
+        // Seul des 5 endroits de ce fichier qui poursuit après authentification
+        // sans passer par afterAccountObtained() d'abord — les 4 autres
+        // réconcilient toujours local_data_owner en premier. Rien n'a permis de
+        // construire un cas où ça cause un vrai bug aujourd'hui (cf. audit du
+        // 2026-09-09), mais l'aligner sur les autres coûte une ligne et évite
+        // qu'un futur changement le fasse.
+        const userId = data.session.user.id;
+        await afterAccountObtained(userId);
+        continueAfterAuth();
       })
       .catch(() => {});
   }, []);

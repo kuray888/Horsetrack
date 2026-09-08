@@ -7,7 +7,7 @@ import { useOnboarding } from "@/onboarding/store";
 import { RIDER_LEVEL_TO_HORSE_LEVEL } from "@/onboarding/options";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
-import { pullCloudData } from "@/lib/cloudSync";
+import { pullCloudData, pushRiderProfile } from "@/lib/cloudSync";
 import { pullPendingInvites } from "@/lib/sharing";
 
 /** Pivot freemium du 2026-09-03 (v2) : présente l'abonnement Premium à la fin
@@ -42,7 +42,18 @@ export default function OnboardingPaywall() {
       // le cloud en best-effort (cf. lib/cloudSync.ts).
       // L'onboarding ne propose pas encore de type d'objectif personnalisé
       // (cf. edit-rider-modal.tsx, seul écran à l'offrir pour l'instant).
-      setRiderProfile({ ...rider, primaryGoalCustom: null });
+      const newRider = { ...rider, primaryGoalCustom: null };
+      setRiderProfile(newRider);
+      // Sans cet await, le push de replaceHorses() ci-dessous (pushHorses,
+      // cf. cloudSync.ts) démarre son propre getOwnerProfile() quasiment en
+      // même temps que celui déclenché par setRiderProfile() — un aller-retour
+      // réseau contre deux (SELECT+INSERT) : pushHorses le perd presque à
+      // chaque fois, trouve encore aucune ligne rider_profiles et abandonne
+      // silencieusement (return []), sans jamais réessayer derrière. L'écurie
+      // créée à l'onboarding restait alors locale-only, invisible tant que
+      // l'utilisateur ne réinstallait pas l'app / ne changeait pas d'appareil
+      // (cf. audit du 2026-09-09).
+      await pushRiderProfile(newRider).catch(() => {});
       // Le profil sportif du cheval (discipline/niveau) n'est plus demandé à
       // l'onboarding (cf. onboarding/options.ts) — un cheval hérite par défaut
       // de la discipline/du niveau déjà déclarés par le cavalier plutôt que de
