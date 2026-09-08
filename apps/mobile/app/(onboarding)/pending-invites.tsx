@@ -3,6 +3,7 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useHorses } from "@/horses/store";
+import { useRiderProfile } from "@/rider/store";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { acceptInvite, pullPendingInvites, pullSharedHorses, type CollaboratorRole, type PendingInvite } from "@/lib/sharing";
 
@@ -28,6 +29,7 @@ const ROLE_LABEL: Record<CollaboratorRole, string> = {
  */
 export default function PendingInvitesOnboarding() {
   const { horses, hydrateFromCloud } = useHorses();
+  const { riderProfile, setRiderProfile } = useRiderProfile();
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -51,6 +53,15 @@ export default function PendingInvitesOnboarding() {
   useEffect(() => {
     if (!loaded || invites.length > 0) return;
     if (acceptedAny.current) {
+      // Ce parcours ne passe jamais par (onboarding)/paywall.tsx, seul autre
+      // endroit qui appelle setRiderProfile() — sans cet appel ici, aucune
+      // ligne rider_profiles n'existerait jamais côté serveur pour ce compte
+      // (getOwnerProfile() y échouerait indéfiniment), bloquant silencieusement
+      // toute synchro cloud si cette personne ajoute un jour son propre
+      // cheval/document/objectif. Valeurs par défaut : rien n'a été demandé
+      // dans ce parcours, ajustable plus tard depuis Profil (cf. audit du
+      // 2026-09-09).
+      setRiderProfile(riderProfile);
       markOnboardingCompleted().finally(() => router.replace("/(tabs)/today"));
     } else {
       continueToOwnProfile();
