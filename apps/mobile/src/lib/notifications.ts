@@ -106,57 +106,69 @@ function currentWeekStart(): string {
  * Today se remonte plusieurs fois — la notification existante est conservée
  * jusqu'au prochain changement de semaine.
  */
+/** Best-effort de bout en bout (cf. cancelReminder ci-dessus et audit crash
+ * SecureStore du 2026-09-08) : appelée en fire-and-forget sans catch depuis
+ * (tabs)/today.tsx à chaque affichage de l'écran, une exception ici ne doit
+ * jamais devenir un rejet de promesse non intercepté. */
 export async function scheduleWeeklySummary(
   horseName: string,
   done: number,
   total: number
 ): Promise<void> {
-  if (!(await ensureNotificationPermission())) return;
+  try {
+    if (!(await ensureNotificationPermission())) return;
 
-  const weekStart = currentWeekStart();
+    const weekStart = currentWeekStart();
 
-  // Vérifie si une notification est déjà prévue pour cette semaine.
-  const raw = await SecureStore.getItemAsync(WEEKLY_SUMMARY_KEY);
-  if (raw) {
-    const saved = JSON.parse(raw) as { id: string; weekStart: string };
-    if (saved.weekStart === weekStart) return;
-    await cancelReminder(saved.id);
-  }
+    // Vérifie si une notification est déjà prévue pour cette semaine.
+    const raw = await SecureStore.getItemAsync(WEEKLY_SUMMARY_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw) as { id: string; weekStart: string };
+      if (saved.weekStart === weekStart) return;
+      await cancelReminder(saved.id);
+    }
 
-  const trigger = nextSunday19h();
+    const trigger = nextSunday19h();
 
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  let suffix: string;
-  if (total === 0) {
-    suffix = "Pas de séance prévue cette semaine.";
-  } else if (done === total) {
-    suffix = "Semaine parfaite — exceptionnel ! 🎉";
-  } else if (pct >= 60) {
-    suffix = "Super semaine, continue comme ça ! ⭐";
-  } else if (done > 0) {
-    suffix = "Tu peux encore finir en beauté 💪";
-  } else {
-    suffix = "La semaine n'est pas finie, à toi de jouer ! 🏇";
-  }
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    let suffix: string;
+    if (total === 0) {
+      suffix = "Pas de séance prévue cette semaine.";
+    } else if (done === total) {
+      suffix = "Semaine parfaite — exceptionnel ! 🎉";
+    } else if (pct >= 60) {
+      suffix = "Super semaine, continue comme ça ! ⭐";
+    } else if (done > 0) {
+      suffix = "Tu peux encore finir en beauté 💪";
+    } else {
+      suffix = "La semaine n'est pas finie, à toi de jouer ! 🏇";
+    }
 
-  const body = total > 0 ? `${done}/${total} séances — ${suffix}` : suffix;
+    const body = total > 0 ? `${done}/${total} séances — ${suffix}` : suffix;
 
-  const id = await scheduleReminder(
-    `Bilan de la semaine avec ${horseName}`,
-    body,
-    trigger
-  );
+    const id = await scheduleReminder(
+      `Bilan de la semaine avec ${horseName}`,
+      body,
+      trigger
+    );
 
-  if (id) {
-    await SecureStore.setItemAsync(WEEKLY_SUMMARY_KEY, JSON.stringify({ id, weekStart }));
+    if (id) {
+      await SecureStore.setItemAsync(WEEKLY_SUMMARY_KEY, JSON.stringify({ id, weekStart }));
+    }
+  } catch {
+    // Best-effort : voir commentaire ci-dessus.
   }
 }
 
 /** Annule le bilan hebdomadaire (suppression de compte, déconnexion…). */
 export async function cancelWeeklySummary(): Promise<void> {
-  const raw = await SecureStore.getItemAsync(WEEKLY_SUMMARY_KEY);
-  if (!raw) return;
-  const { id } = JSON.parse(raw) as { id: string };
-  await cancelReminder(id);
-  await SecureStore.deleteItemAsync(WEEKLY_SUMMARY_KEY);
+  try {
+    const raw = await SecureStore.getItemAsync(WEEKLY_SUMMARY_KEY);
+    if (!raw) return;
+    const { id } = JSON.parse(raw) as { id: string };
+    await cancelReminder(id);
+    await SecureStore.deleteItemAsync(WEEKLY_SUMMARY_KEY);
+  } catch {
+    // Best-effort : voir cancelReminder ci-dessus.
+  }
 }

@@ -9,14 +9,26 @@ import * as SecureStore from "expo-secure-store";
 const KEY = "onboarding_completed_v1";
 
 export async function isOnboardingCompleted(): Promise<boolean> {
-  return (await SecureStore.getItemAsync(KEY)) === "true";
+  try {
+    return (await SecureStore.getItemAsync(KEY)) === "true";
+  } catch {
+    return false;
+  }
 }
 
 export async function markOnboardingCompleted(): Promise<void> {
-  await SecureStore.setItemAsync(KEY, "true");
+  try {
+    await SecureStore.setItemAsync(KEY, "true");
+  } catch {
+    // Best-effort : cf. audit crash SecureStore du 2026-09-08.
+  }
 }
 
 /** Outil de dev/test : efface le flag pour repasser par l'onboarding complet. */
 export async function resetOnboardingCompleted(): Promise<void> {
-  await SecureStore.deleteItemAsync(KEY);
+  try {
+    await SecureStore.deleteItemAsync(KEY);
+  } catch {
+    // Best-effort : cf. audit crash SecureStore du 2026-09-08.
+  }
 }

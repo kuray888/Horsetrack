@@ -5,11 +5,19 @@ const BIOMETRIC_LOCK_KEY = "biometric_lock_enabled_v1";
 
 /** Préférence utilisateur (activée depuis Profil) — distincte de la dispo matérielle. */
 export async function isBiometricLockEnabled(): Promise<boolean> {
-  return (await SecureStore.getItemAsync(BIOMETRIC_LOCK_KEY)) === "true";
+  try {
+    return (await SecureStore.getItemAsync(BIOMETRIC_LOCK_KEY)) === "true";
+  } catch {
+    return false;
+  }
 }
 
 export async function setBiometricLockEnabled(enabled: boolean): Promise<void> {
-  await SecureStore.setItemAsync(BIOMETRIC_LOCK_KEY, String(enabled));
+  try {
+    await SecureStore.setItemAsync(BIOMETRIC_LOCK_KEY, String(enabled));
+  } catch {
+    // Best-effort : cf. audit crash SecureStore du 2026-09-08.
+  }
 }
 
 export async function isBiometricsAvailable(): Promise<boolean> {
