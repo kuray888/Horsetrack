@@ -5,16 +5,9 @@ import { router } from "expo-router";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
 import { markOnboardingCompleted } from "@/onboarding/completion";
-import { acceptInvite, pullPendingInvites, pullSharedHorses, type CollaboratorRole, type PendingInvite } from "@/lib/sharing";
+import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
-
-const ROLE_LABEL: Record<CollaboratorRole, string> = {
-  DEMI_PENSION: "demi-pension",
-  COACH: "coach",
-  RIDER: "cavalière/cavalier",
-  GROOM: "groom",
-};
 
 /**
  * Atteint juste après la création de compte (cf. (onboarding)/account.tsx) si
@@ -108,7 +101,7 @@ export default function PendingInvitesOnboarding() {
           <View key={invite.id} className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
               Tu es invité·e à accéder à la fiche complète de <Text className="font-bold">{invite.horseName}</Text> (planning,
-              santé, journal, budget, documents) en tant que <Text className="font-bold">{ROLE_LABEL[invite.role]}</Text>.
+              santé, journal, budget, documents) en tant que <Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
             </Text>
             <View className="flex-row gap-2">
               <TouchableOpacity

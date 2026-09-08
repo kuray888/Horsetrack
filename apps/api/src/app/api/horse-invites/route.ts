@@ -10,11 +10,15 @@ const schema = z.object({
   role: z.enum(["DEMI_PENSION", "COACH", "RIDER", "GROOM"]),
 });
 
+// Vocabulaire aligné sur ROLE_LABEL_SHORT (apps/mobile/src/lib/sharing.ts) —
+// pas d'import cross-package possible (app API distincte), donc dupliqué,
+// mais au moins avec les mêmes mots (cf. audit du 2026-09-09 : "lad" ici vs
+// "groom" partout côté app avait dérivé).
 const ROLE_LABEL: Record<"DEMI_PENSION" | "COACH" | "RIDER" | "GROOM", string> = {
   DEMI_PENSION: "en demi-pension",
   COACH: "en tant que coach",
   RIDER: "en tant que cavalier·ère additionnel·le",
-  GROOM: "en tant que lad/palefrenier",
+  GROOM: "en tant que groom",
 };
 
 /**

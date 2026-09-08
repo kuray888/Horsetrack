@@ -6,6 +6,25 @@ export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM";
 export type InviteResult = "ok" | "no_account" | "error";
 export type CollaboratorStatus = "PENDING" | "ACCEPTED";
 
+/** Libellé badge (Title Case — HorseBanner, share-horse-modal) et forme
+ * courte pour une phrase ("en tant que {role}" — invites-modal,
+ * pending-invites.tsx) : source unique pour ne pas laisser dériver le
+ * vocabulaire entre écrans indépendants (cf. audit du 2026-09-09 : les 4
+ * copies avaient déjà divergé). */
+export const ROLE_LABEL: Record<CollaboratorRole, string> = {
+  DEMI_PENSION: "Demi-pension",
+  COACH: "Coach / enseignant",
+  RIDER: "Cavalière / cavalier",
+  GROOM: "Groom / palefrenier",
+};
+
+export const ROLE_LABEL_SHORT: Record<CollaboratorRole, string> = {
+  DEMI_PENSION: "demi-pension",
+  COACH: "coach",
+  RIDER: "cavalière/cavalier",
+  GROOM: "groom",
+};
+
 export type Collaborator = {
   id: string;
   invitedEmail: string;

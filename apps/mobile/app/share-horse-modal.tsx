@@ -12,6 +12,7 @@ import {
   inviteCollaborator,
   listCollaborators,
   revokeCollaborator,
+  ROLE_LABEL,
   type Collaborator,
   type CollaboratorRole,
 } from "@/lib/sharing";
@@ -19,11 +20,17 @@ import {
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
+const ROLE_ICON: Record<CollaboratorRole, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  DEMI_PENSION: "handshake-outline",
+  COACH: "school-outline",
+  RIDER: "account-outline",
+  GROOM: "broom",
+};
 const ROLE_META: Record<CollaboratorRole, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
-  DEMI_PENSION: { label: "Demi-pension", icon: "handshake-outline" },
-  COACH: { label: "Coach / enseignant", icon: "school-outline" },
-  RIDER: { label: "Cavalière / cavalier", icon: "account-outline" },
-  GROOM: { label: "Groom / palefrenier", icon: "broom" },
+  DEMI_PENSION: { label: ROLE_LABEL.DEMI_PENSION, icon: ROLE_ICON.DEMI_PENSION },
+  COACH: { label: ROLE_LABEL.COACH, icon: ROLE_ICON.COACH },
+  RIDER: { label: ROLE_LABEL.RIDER, icon: ROLE_ICON.RIDER },
+  GROOM: { label: ROLE_LABEL.GROOM, icon: ROLE_ICON.GROOM },
 };
 
 const STATUS_META: Record<Collaborator["status"], string> = {

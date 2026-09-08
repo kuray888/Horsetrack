@@ -3,19 +3,13 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { DISCIPLINES, HORSE_LEVELS } from "@/onboarding/options";
+import { ROLE_LABEL } from "@/lib/sharing";
 import type { Horse } from "@/horses/store";
 
 /** ~240dp (cf. audit Phase 8 tranche G, cible 220-260dp) : assez grand pour
  * rendre le cheval immédiatement identifiable, sans pousser les modules du
  * Horse Hub trop bas sur les petits écrans. */
 const BANNER_HEIGHT = 240;
-
-const ROLE_LABEL: Record<"DEMI_PENSION" | "COACH" | "RIDER" | "GROOM", string> = {
-  DEMI_PENSION: "Demi-pension",
-  COACH: "Coach / enseignant",
-  RIDER: "Cavalière / cavalier",
-  GROOM: "Groom / palefrenier",
-};
 
 function labelOf<T extends string>(options: { value: T; label: string }[], value: T): string {
   return options.find((o) => o.value === value)?.label ?? value;

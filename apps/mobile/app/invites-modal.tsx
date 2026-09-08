@@ -3,16 +3,9 @@ import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useHorses } from "@/horses/store";
-import { acceptInvite, pullPendingInvites, pullSharedHorses, type CollaboratorRole, type PendingInvite } from "@/lib/sharing";
+import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
-
-const ROLE_LABEL: Record<CollaboratorRole, string> = {
-  DEMI_PENSION: "demi-pension",
-  COACH: "coach",
-  RIDER: "cavalière/cavalier",
-  GROOM: "groom",
-};
 
 /** Affiché juste après connexion/inscription s'il existe au moins une
  * invitation en attente pour l'email du compte (cf. (auth)/login.tsx,
@@ -79,7 +72,7 @@ export default function InvitesModal() {
           <View key={invite.id} className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
               Tu es invité·e à accéder à la fiche complète de <Text className="font-bold">{invite.horseName}</Text> (planning,
-              santé, journal, budget, documents) en tant que <Text className="font-bold">{ROLE_LABEL[invite.role]}</Text>.
+              santé, journal, budget, documents) en tant que <Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
             </Text>
             <View className="flex-row gap-2">
               <TouchableOpacity
