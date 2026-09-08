@@ -162,7 +162,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       const horses = s.horses.filter((h) => h.localId !== localId);
       // garantit qu'il reste toujours un cheval primaire
       if (horses.length > 0 && !horses.some((h) => h.isPrimary)) horses[0].isPrimary = true;
-      return { ...s, horses, editingIndex: Math.min(s.editingIndex, horses.length - 1) };
+      // Le seul appelant actuel (horses.tsx) empêche déjà de vider le tableau,
+      // mais editingHorse (state.horses[editingIndex]) doit rester défini même
+      // si un futur appelant ne garde pas cette garde — cf. audit du 2026-09-08.
+      return { ...s, horses, editingIndex: Math.max(0, Math.min(s.editingIndex, horses.length - 1)) };
     });
   }, []);
 
