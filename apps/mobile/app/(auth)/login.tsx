@@ -225,6 +225,14 @@ export default function LoginScreen() {
         setLoading(false);
         return;
       }
+      // Laisse la feuille système Apple finir sa transition de fermeture avant
+      // d'enchaîner sur d'autres présentations/appels natifs (biométrie,
+      // RevenueCat) — cf. crash récurrent "retour ~1s sur l'écran de connexion
+      // puis crash silencieux" observé le 2026-09-09 sur plusieurs builds
+      // malgré le durcissement complet des accès SecureStore. Aucun impact
+      // perceptible pour l'utilisateur, spécifique au flux Apple (le mot de
+      // passe n'a pas de feuille système à laisser se fermer).
+      await new Promise((resolve) => setTimeout(resolve, 400));
       await afterSuccessfulAuth(result.userId);
     } catch (e) {
       setLoading(false);
