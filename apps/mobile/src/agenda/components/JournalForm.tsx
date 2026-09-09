@@ -74,7 +74,11 @@ export function JournalForm({
       <Locked message="Photo du jour réservée à l'abonnement Premium">
         {form.photoUri ? (
           <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
-            <Image source={{ uri: form.photoUri }} className="h-40 w-full rounded-card" contentFit="cover" />
+            <Image
+              source={{ uri: form.photoUri }}
+              style={{ width: "100%", height: 160, borderRadius: 20 }}
+              contentFit="cover"
+            />
             <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
           </TouchableOpacity>
         ) : (

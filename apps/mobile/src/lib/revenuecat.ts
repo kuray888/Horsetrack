@@ -73,8 +73,18 @@ export function configurePurchases(): void {
   // locale hors Expo Go plutôt que de planter.
   if (apiKey.startsWith("test_") && !isExpoGo) return;
 
-  Purchases.configure({ apiKey });
-  configured = true;
+  try {
+    Purchases.configure({ apiKey });
+    configured = true;
+  } catch (e) {
+    // Sans ce catch, un échec natif ici (clé invalide, SDK non initialisable)
+    // laissait `configured` à false silencieusement — le reste de l'app se
+    // rabat alors sur la simulation locale (startTrial), qui n'ouvre jamais
+    // le vrai écran d'achat Apple : symptôme "je clique sur s'abonner, ça
+    // repart direct, pas de vrai abonnement" (cf. audit du 2026-09-09), sans
+    // aucun indice de ce qui a réellement échoué.
+    console.warn("[revenuecat] configure() échoué — achats indisponibles pour cette session", e);
+  }
 }
 
 export function isPurchasesAvailable(): boolean {

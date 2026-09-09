@@ -72,7 +72,11 @@ export function DocumentForm({
       <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
       {form.fileUri ? (
         <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
-          <Image source={{ uri: form.fileUri }} className="h-32 w-full rounded-card" contentFit="cover" />
+          <Image
+            source={{ uri: form.fileUri }}
+            style={{ width: "100%", height: 128, borderRadius: 20 }}
+            contentFit="cover"
+          />
           <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
         </TouchableOpacity>
       ) : (

@@ -38,7 +38,7 @@ function HorseRow({
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} className={`${CARD} flex-row items-center gap-3`}>
       <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-highlight">
         {horse.photoUrl ? (
-          <Image source={{ uri: horse.photoUrl }} className="h-14 w-14" />
+          <Image source={{ uri: horse.photoUrl }} style={{ width: 56, height: 56 }} />
         ) : (
           <MaterialCommunityIcons name="horse-variant" size={26} color={colors.primary} />
         )}

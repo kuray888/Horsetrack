@@ -307,7 +307,7 @@ export default function TodayScreen() {
             </View>
             <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-on-primary/15">
               {horse?.photoUrl ? (
-                <Image source={{ uri: horse.photoUrl }} className="h-14 w-14" />
+                <Image source={{ uri: horse.photoUrl }} style={{ width: 56, height: 56 }} />
               ) : (
                 <MaterialCommunityIcons name="horse-variant" size={26} color={colors.textOnPrimary} />
               )}
@@ -362,7 +362,7 @@ export default function TodayScreen() {
                     } ${locked ? "opacity-40" : ""}`}
                   >
                     {h.photoUrl ? (
-                      <Image source={{ uri: h.photoUrl }} className="h-14 w-14" />
+                      <Image source={{ uri: h.photoUrl }} style={{ width: 56, height: 56 }} />
                     ) : (
                       <MaterialCommunityIcons
                         name="horse-variant"

@@ -41,7 +41,11 @@ export function JournalCard({
       {expanded ? (
         <View className="mt-4 gap-2 border-t border-border pt-4">
           {entry.photoUri ? (
-            <Image source={{ uri: entry.photoUri }} className="h-48 w-full rounded-card" contentFit="cover" />
+            <Image
+              source={{ uri: entry.photoUri }}
+              style={{ width: "100%", height: 192, borderRadius: 20 }}
+              contentFit="cover"
+            />
           ) : null}
           <Text className="text-sm text-text">{mood.emoji} Ressenti : {mood.label}</Text>
           {entry.weather ? (

@@ -38,7 +38,11 @@ export function DocumentCard({
       {expanded ? (
         <View className="mt-4 gap-2 border-t border-border pt-4">
           {doc.fileUri ? (
-            <Image source={{ uri: doc.fileUri }} className="h-40 w-full rounded-card" contentFit="cover" />
+            <Image
+              source={{ uri: doc.fileUri }}
+              style={{ width: "100%", height: 160, borderRadius: 20 }}
+              contentFit="cover"
+            />
           ) : (
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="paperclip" size={15} color={colors.textMuted} />
