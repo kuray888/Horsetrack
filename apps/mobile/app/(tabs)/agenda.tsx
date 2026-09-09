@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -178,75 +178,127 @@ export default function AgendaScreen() {
     isActiveOrTrialing,
   });
 
-  const today = daysFromNow(0);
+  // Une seule fois par montage (cf. today.tsx, même correctif, audit perf du
+  // 2026-09-09) : "aujourd'hui" ne change pas au sein d'une session, et tout
+  // ce qui suit doit dépendre d'une référence stable pour que la mémoïsation
+  // en aval serve à quelque chose.
+  const today = useMemo(() => daysFromNow(0), []);
 
   // Rendez-vous, journal et documents sont rattachés à un cheval (cf.
   // agenda/store.tsx) — le partage DP/coach se fait par cheval, donc cet
   // écran ne montre que ceux du cheval actuellement sélectionné. Le coffre-
   // fort (documents) reste privé par cavalier côté RLS (jamais partagé, cf.
   // rls.sql) : horseId n'y sert qu'à filtrer l'affichage, pas l'accès.
-  const horseAppointments = appointments.filter((a) => a.horseId === horse?.id);
-  const horseJournal = journal.filter((j) => j.horseId === horse?.id);
-  const horseExpenses = expenses.filter((e) => e.horseId === horse?.id);
+  //
+  // Mémoïsés à partir d'ici (cf. audit perf du 2026-09-09) : sans ça, taper
+  // dans le formulaire de rendez-vous (état local à cet écran) recalculait
+  // silencieusement tout le budget à chaque frappe, section budget affichée
+  // ou non.
+  const horseAppointments = useMemo(
+    () => appointments.filter((a) => a.horseId === horse?.id),
+    [appointments, horse?.id]
+  );
+  const horseJournal = useMemo(() => journal.filter((j) => j.horseId === horse?.id), [journal, horse?.id]);
+  const horseExpenses = useMemo(() => expenses.filter((e) => e.horseId === horse?.id), [expenses, horse?.id]);
 
-  const upcomingAppts = horseAppointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime());
+  const upcomingAppts = useMemo(
+    () => horseAppointments.filter((a) => a.date >= today).sort((a, b) => a.date.getTime() - b.date.getTime()),
+    [horseAppointments, today]
+  );
   // Historique complet pour tout le monde, gratuit comme Premium — pas de
   // plafond du type "14 jours en gratuit" (cf. rls.sql appointments_shared,
   // non gaté par abonnement).
-  const pastAppts = horseAppointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime());
+  const pastAppts = useMemo(
+    () => horseAppointments.filter((a) => a.date < today).sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [horseAppointments, today]
+  );
   // Prochaines échéances de soin (ex: prochain vaccin) — distinctes de la
   // date du rendez-vous lui-même (cf. Appointment.nextDueDate) : un vaccin
   // fait aujourd'hui a une échéance dans plusieurs mois, qui n'apparaîtrait
   // sinon dans aucune liste triée par `date`.
-  const upcomingDueDates = horseAppointments
-    .filter((a) => a.nextDueDate && a.nextDueDate >= today)
-    .sort((a, b) => a.nextDueDate!.getTime() - b.nextDueDate!.getTime());
+  const upcomingDueDates = useMemo(
+    () =>
+      horseAppointments
+        .filter((a) => a.nextDueDate && a.nextDueDate >= today)
+        .sort((a, b) => a.nextDueDate!.getTime() - b.nextDueDate!.getTime()),
+    [horseAppointments, today]
+  );
 
   // Filtrés par cheval sélectionné depuis leur rattachement (cf.
   // Doc.horseId) — avant, tous les documents de tous les chevaux
   // s'affichaient mélangés (cf. audit produit du 2026-09-04).
-  const sortedDocs = documents
-    .filter((d) => d.horseId === horse?.id)
-    .sort((a, b) => b.date.getTime() - a.date.getTime());
+  const sortedDocs = useMemo(
+    () => documents.filter((d) => d.horseId === horse?.id).sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [documents, horse?.id]
+  );
 
-  const sortedJournal = [...horseJournal].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const sortedJournal = useMemo(
+    () => [...horseJournal].sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [horseJournal]
+  );
 
-  const sortedExpenses = [...horseExpenses].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const sortedExpenses = useMemo(
+    () => [...horseExpenses].sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [horseExpenses]
+  );
   // Toutes les dépenses sont en EUR pour l'instant (cf. Expense.currency) —
   // un total multi-devises n'aurait pas de sens sans conversion, hors scope.
-  const totalExpenses = sortedExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = useMemo(() => sortedExpenses.reduce((sum, e) => sum + e.amount, 0), [sortedExpenses]);
   // Statut payé/à régler Premium (cf. Expense.isPaid) — en gratuit, tout
   // reste "à régler" faute de pouvoir basculer le statut, cf. handleSubmitExpense.
-  const paidExpenses = sortedExpenses.filter((e) => e.isPaid).reduce((sum, e) => sum + e.amount, 0);
+  const paidExpenses = useMemo(
+    () => sortedExpenses.filter((e) => e.isPaid).reduce((sum, e) => sum + e.amount, 0),
+    [sortedExpenses]
+  );
   const pendingExpenses = totalExpenses - paidExpenses;
 
   // "Combien me coûte réellement mon cheval ?" (cf. brief budget) : totaux
   // période courante + répartition par catégorie + historique mensuel, tous
   // calculés à partir de sortedExpenses (déjà filtré par cheval sélectionné)
   // — aucun état ni requête supplémentaire.
-  const now2 = new Date();
-  const monthTotal = sortedExpenses
-    .filter((e) => e.date.getFullYear() === now2.getFullYear() && e.date.getMonth() === now2.getMonth())
-    .reduce((sum, e) => sum + e.amount, 0);
-  const yearTotal = sortedExpenses
-    .filter((e) => e.date.getFullYear() === now2.getFullYear())
-    .reduce((sum, e) => sum + e.amount, 0);
-  const categoryBreakdown = (Object.keys(EXPENSE_META) as ExpenseCategory[])
-    .map((category) => ({
-      category,
-      total: sortedExpenses.filter((e) => e.category === category).reduce((sum, e) => sum + e.amount, 0),
-    }))
-    .filter((c) => c.total > 0)
-    .sort((a, b) => b.total - a.total);
+  const now2 = useMemo(() => new Date(), []);
+  const monthTotal = useMemo(
+    () =>
+      sortedExpenses
+        .filter((e) => e.date.getFullYear() === now2.getFullYear() && e.date.getMonth() === now2.getMonth())
+        .reduce((sum, e) => sum + e.amount, 0),
+    [sortedExpenses, now2]
+  );
+  const yearTotal = useMemo(
+    () =>
+      sortedExpenses
+        .filter((e) => e.date.getFullYear() === now2.getFullYear())
+        .reduce((sum, e) => sum + e.amount, 0),
+    [sortedExpenses, now2]
+  );
+  const categoryBreakdown = useMemo(
+    () =>
+      (Object.keys(EXPENSE_META) as ExpenseCategory[])
+        .map((category) => ({
+          category,
+          total: sortedExpenses.filter((e) => e.category === category).reduce((sum, e) => sum + e.amount, 0),
+        }))
+        .filter((c) => c.total > 0)
+        .sort((a, b) => b.total - a.total),
+    [sortedExpenses]
+  );
   // 6 derniers mois (mois courant inclus), le plus récent en premier — pas de
   // graphique, juste une liste lisible (cf. principe "présentation simple").
-  const monthlyHistory = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
-    const total = sortedExpenses
-      .filter((e) => e.date.getFullYear() === d.getFullYear() && e.date.getMonth() === d.getMonth())
-      .reduce((sum, e) => sum + e.amount, 0);
-    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: capitalize(d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })), total };
-  });
+  const monthlyHistory = useMemo(
+    () =>
+      Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
+        const total = sortedExpenses
+          .filter((e) => e.date.getFullYear() === d.getFullYear() && e.date.getMonth() === d.getMonth())
+          .reduce((sum, e) => sum + e.amount, 0);
+        return {
+          key: `${d.getFullYear()}-${d.getMonth()}`,
+          label: capitalize(d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })),
+          total,
+        };
+      }),
+    [sortedExpenses, now2]
+  );
 
   // Suggestion de rapprochement (cf. plan Phase 3) : le rendez-vous le plus
   // récent du même type pour ce cheval, jamais lié automatiquement — juste

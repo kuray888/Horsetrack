@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -71,8 +71,10 @@ export default function JournalScreen() {
     onEditStart: () => setExpandedId(null),
   });
 
-  const filtered = filterHorseId ? journal.filter((j) => j.horseId === filterHorseId) : journal;
-  const sortedJournal = [...filtered].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const sortedJournal = useMemo(() => {
+    const filtered = filterHorseId ? journal.filter((j) => j.horseId === filterHorseId) : journal;
+    return [...filtered].sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [journal, filterHorseId]);
 
   function horseName(horseId: string | null): string {
     return horses.find((h) => h.id === horseId)?.name ?? "?";

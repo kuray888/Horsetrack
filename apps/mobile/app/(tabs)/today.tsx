@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -130,30 +130,52 @@ export default function TodayScreen() {
   const ownedHorseIds = horses.filter((h) => !h.sharedRole).map((h) => h.id);
   const horse = selectedHorse;
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // Une seule fois par montage, pas à chaque render (cf. audit perf du
+  // 2026-09-09) : "aujourd'hui" ne change de toute façon pas au sein d'une
+  // même session d'app, un `new Date()` frais à chaque render ne ferait que
+  // casser toute mémoïsation en aval sans rien apporter.
+  const today = useMemo(() => new Date(), []);
+  const todayStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()), [today]);
   // 0 = lundi ... 6 = dimanche (même convention qu'ailleurs dans l'app).
-  const todayDayOffset = (today.getDay() + 6) % 7;
+  const todayDayOffset = useMemo(() => (today.getDay() + 6) % 7, [today]);
 
-  const horseSessions = sessions.filter((s) => s.horseId === horse?.id);
-  const todaySession = horseSessions.find((s) => isSameDate(s.date, todayStart)) ?? null;
+  const horseSessions = useMemo(() => sessions.filter((s) => s.horseId === horse?.id), [sessions, horse?.id]);
+  const todaySession = useMemo(
+    () => horseSessions.find((s) => isSameDate(s.date, todayStart)) ?? null,
+    [horseSessions, todayStart]
+  );
 
-  const weekStart = new Date(todayStart);
-  weekStart.setDate(weekStart.getDate() - todayDayOffset);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-  const weekSessions = horseSessions.filter((s) => s.date >= weekStart && s.date < weekEnd);
-  const weekDoneCount = weekSessions.filter((s) => s.completed).length;
+  const weekStart = useMemo(() => {
+    const d = new Date(todayStart);
+    d.setDate(d.getDate() - todayDayOffset);
+    return d;
+  }, [todayStart, todayDayOffset]);
+  const weekEnd = useMemo(() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 7);
+    return d;
+  }, [weekStart]);
+  const weekSessions = useMemo(
+    () => horseSessions.filter((s) => s.date >= weekStart && s.date < weekEnd),
+    [horseSessions, weekStart, weekEnd]
+  );
+  const weekDoneCount = useMemo(() => weekSessions.filter((s) => s.completed).length, [weekSessions]);
 
   // "Prochains événements" : séances + rendez-vous du cheval actif fusionnés
   // par le même système que Planning (cf. plan Phase 3 Étape 3) — aucune
   // deuxième logique de calendrier, juste les 3 premiers ici.
-  const horseAppointments = appointments.filter((a) => a.horseId === horse?.id);
-  const upcoming = upcomingUnifiedEvents(buildUnifiedEvents(horseSessions, horseAppointments), todayStart).slice(0, 3);
+  const horseAppointments = useMemo(
+    () => appointments.filter((a) => a.horseId === horse?.id),
+    [appointments, horse?.id]
+  );
+  const upcoming = useMemo(
+    () => upcomingUnifiedEvents(buildUnifiedEvents(horseSessions, horseAppointments), todayStart).slice(0, 3),
+    [horseSessions, horseAppointments, todayStart]
+  );
 
   // Alertes (cf. plan Phase 3 Étape 4 §6) : toutes les écuries, pas
   // seulement le cheval actif — une alerte peut concerner un autre cheval.
-  const alerts = buildHorseAlerts(horses, appointments, todayStart);
+  const alerts = useMemo(() => buildHorseAlerts(horses, appointments, todayStart), [horses, appointments, todayStart]);
 
   // Synchronise le widget iOS dès que les données de la journée changent —
   // best-effort, silencieux hors iOS/EAS build (actuellement no-op, cf.

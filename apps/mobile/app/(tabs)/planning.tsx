@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -314,57 +314,98 @@ export default function PlanningScreen() {
   // agenda.tsx.
   const [, setNotifPermission] = useState<boolean | null>(null);
 
-  const horseSessions = sessions.filter((s) => s.horseId === selectedHorse?.id);
-  const horseAppointments = appointments.filter((a) => a.horseId === selectedHorse?.id);
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const horseSessions = useMemo(
+    () => sessions.filter((s) => s.horseId === selectedHorse?.id),
+    [sessions, selectedHorse?.id]
+  );
+  const horseAppointments = useMemo(
+    () => appointments.filter((a) => a.horseId === selectedHorse?.id),
+    [appointments, selectedHorse?.id]
+  );
+  // Une seule fois par montage (cf. today.tsx/agenda.tsx, même correctif,
+  // audit perf du 2026-09-09).
+  const today = useMemo(() => new Date(), []);
+  const todayStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()), [today]);
 
   // Statistiques simples (pas d'IA, cf. src/sessions/stats.ts) — "Toujours"
   // couvre depuis la plus ancienne séance du cheval jusqu'à aujourd'hui.
   // Restent volontairement propres aux séances (cf. brief §1 : chaque type
   // d'événement garde ses informations propres) — pas de "stats unifiées".
-  const statsFrom =
-    statsPeriod === "month"
-      ? statsMonthStart(today)
-      : horseSessions.reduce((min, s) => (s.date < min ? s.date : min), today);
-  const statsTo = statsPeriod === "month" ? statsMonthEnd(today) : today;
-  const sessionStats = computeSessionStats(horseSessions, statsFrom, statsTo);
+  const statsFrom = useMemo(
+    () =>
+      statsPeriod === "month"
+        ? statsMonthStart(today)
+        : horseSessions.reduce((min, s) => (s.date < min ? s.date : min), today),
+    [statsPeriod, today, horseSessions]
+  );
+  const statsTo = useMemo(() => (statsPeriod === "month" ? statsMonthEnd(today) : today), [statsPeriod, today]);
+  const sessionStats = useMemo(
+    () => computeSessionStats(horseSessions, statsFrom, statsTo),
+    [horseSessions, statsFrom, statsTo]
+  );
 
   // Lundi de la semaine en cours, même convention que Today (0 = lundi).
-  const weekOffset = (today.getDay() + 6) % 7;
-  const weekStart = new Date(todayStart);
-  weekStart.setDate(weekStart.getDate() - weekOffset);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-  const weekSessions = horseSessions.filter((s) => s.date >= weekStart && s.date < weekEnd);
-  const weekDone = weekSessions.filter((s) => s.completed).length;
-  const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
+  const weekOffset = useMemo(() => (today.getDay() + 6) % 7, [today]);
+  const weekStart = useMemo(() => {
+    const d = new Date(todayStart);
+    d.setDate(d.getDate() - weekOffset);
+    return d;
+  }, [todayStart, weekOffset]);
+  const weekEnd = useMemo(() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 7);
+    return d;
+  }, [weekStart]);
+  const weekSessions = useMemo(
+    () => horseSessions.filter((s) => s.date >= weekStart && s.date < weekEnd),
+    [horseSessions, weekStart, weekEnd]
+  );
+  const weekDone = useMemo(() => weekSessions.filter((s) => s.completed).length, [weekSessions]);
+  const weekMinutes = useMemo(
+    () => weekSessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0),
+    [weekSessions]
+  );
 
   // Unification d'affichage seulement (cf. plan Phase 3 Étape 3) : séances et
   // rendez-vous restent deux collections séparées côté store, buildUnifiedEvents
   // ne fait que les envelopper dans un type commun pour trier/regrouper/filtrer
   // une seule liste (cf. src/planning/unifiedEvents.ts).
-  const unifiedEvents = buildUnifiedEvents(horseSessions, horseAppointments);
-  const filteredEvents = filterUnifiedEvents(unifiedEvents, filter);
+  const unifiedEvents = useMemo(
+    () => buildUnifiedEvents(horseSessions, horseAppointments),
+    [horseSessions, horseAppointments]
+  );
+  const filteredEvents = useMemo(() => filterUnifiedEvents(unifiedEvents, filter), [unifiedEvents, filter]);
 
   // Vue mensuelle (cf. MonthGrid) : regroupe les événements déjà filtrés par
-  // jour pour poser les puces de la grille et la liste du jour sélectionné.
-  const eventsByDay = new Map<string, UnifiedEvent[]>();
-  for (const e of filteredEvents) {
-    const key = e.date.toDateString();
-    eventsByDay.set(key, [...(eventsByDay.get(key) ?? []), e]);
-  }
-  const selectedDayEvents = (eventsByDay.get(selectedDay.toDateString()) ?? []).sort((a, b) =>
-    eventTime(a).localeCompare(eventTime(b))
+  // jour pour poser les puces de la grille et la liste du jour sélectionné —
+  // seulement utile en vue mois, jamais calculé en vue liste (cf. audit perf
+  // du 2026-09-09).
+  const eventsByDay = useMemo(() => {
+    if (viewMode !== "month") return new Map<string, UnifiedEvent[]>();
+    const map = new Map<string, UnifiedEvent[]>();
+    for (const e of filteredEvents) {
+      const key = e.date.toDateString();
+      map.set(key, [...(map.get(key) ?? []), e]);
+    }
+    return map;
+  }, [filteredEvents, viewMode]);
+  const selectedDayEvents = useMemo(
+    () =>
+      (eventsByDay.get(selectedDay.toDateString()) ?? []).sort((a, b) => eventTime(a).localeCompare(eventTime(b))),
+    [eventsByDay, selectedDay]
   );
 
-  const upcoming = upcomingUnifiedEvents(filteredEvents, todayStart);
-  const done = filteredEvents
-    .filter((e) => !isEventUpcoming(e, todayStart))
-    .sort((a, b) => b.date.getTime() - a.date.getTime());
+  const upcoming = useMemo(() => upcomingUnifiedEvents(filteredEvents, todayStart), [filteredEvents, todayStart]);
+  const done = useMemo(
+    () =>
+      filteredEvents
+        .filter((e) => !isEventUpcoming(e, todayStart))
+        .sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [filteredEvents, todayStart]
+  );
 
-  const upcomingGroups = groupByDay(upcoming);
-  const doneGroups = groupByDay(done.slice(0, 20));
+  const upcomingGroups = useMemo(() => groupByDay(upcoming), [upcoming]);
+  const doneGroups = useMemo(() => groupByDay(done.slice(0, 20)), [done]);
 
   const sessionHandlers = {
     onToggleDone: (s: TrainingSession) => toggleCompleted(s.id),
