@@ -360,7 +360,14 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
-    await Promise.all([SecureStore.deleteItemAsync(STORAGE_KEY), SecureStore.deleteItemAsync(SELECTED_KEY)]);
+    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // ces deletes tournent dans le second Promise.all de
+    // (auth)/login.tsx.afterSuccessfulAuth (compte jamais onboardé), un rejet
+    // non catché ici plantait tout le groupe.
+    await Promise.all([
+      SecureStore.deleteItemAsync(STORAGE_KEY).catch(() => {}),
+      SecureStore.deleteItemAsync(SELECTED_KEY).catch(() => {}),
+    ]);
     setHorses(DEFAULT_HORSES);
     setSelectedHorseId(DEFAULT_HORSES.find((h) => h.isPrimary)?.id ?? DEFAULT_HORSES[0]?.id ?? null);
   }, []);

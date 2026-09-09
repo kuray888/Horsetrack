@@ -69,7 +69,11 @@ export function RiderProfileProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
-    await SecureStore.deleteItemAsync(STORAGE_KEY);
+    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // ce delete tourne dans le second Promise.all de
+    // (auth)/login.tsx.afterSuccessfulAuth (compte jamais onboardé), un rejet
+    // non catché ici plantait tout le groupe.
+    await SecureStore.deleteItemAsync(STORAGE_KEY).catch(() => {});
     setRiderProfileState(DEFAULT_RIDER_PROFILE);
   }, []);
 

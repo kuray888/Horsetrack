@@ -791,11 +791,15 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
+    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // ces deletes tournent dans le Promise.all de
+    // (auth)/login.tsx.afterSuccessfulAuth, un rejet non catché ici plantait
+    // tout le groupe.
     await Promise.all([
-      SecureStore.deleteItemAsync(APPOINTMENTS_KEY),
-      SecureStore.deleteItemAsync(DOCUMENTS_KEY),
-      SecureStore.deleteItemAsync(JOURNAL_KEY),
-      SecureStore.deleteItemAsync(EXPENSES_KEY),
+      SecureStore.deleteItemAsync(APPOINTMENTS_KEY).catch(() => {}),
+      SecureStore.deleteItemAsync(DOCUMENTS_KEY).catch(() => {}),
+      SecureStore.deleteItemAsync(JOURNAL_KEY).catch(() => {}),
+      SecureStore.deleteItemAsync(EXPENSES_KEY).catch(() => {}),
     ]);
     setAppointments(DEFAULT_APPOINTMENTS);
     setDocuments(DEFAULT_DOCUMENTS);

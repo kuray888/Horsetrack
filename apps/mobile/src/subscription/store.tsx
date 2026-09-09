@@ -225,7 +225,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     if (isPurchasesAvailable()) await withKeyLock("revenuecat", () => logoutRevenueCat()).catch(() => {});
     // Sérialisé (cf. lib/keyLock) : même clé que persistLocal/refreshFromLocalCache
     // ci-dessus, potentiellement en vol au même instant via l'écouteur SIGNED_IN.
-    await withKeyLock(KEY, () => SecureStore.deleteItemAsync(KEY));
+    // + best-effort (cf. audit crash SecureStore Apple Sign In du 2026-09-09) :
+    // ce delete tourne dans le Promise.all de
+    // (auth)/login.tsx.afterSuccessfulAuth, un rejet non catché ici plantait
+    // tout le groupe.
+    await withKeyLock(KEY, () => SecureStore.deleteItemAsync(KEY)).catch(() => {});
     setState(DEFAULT);
   }, []);
 

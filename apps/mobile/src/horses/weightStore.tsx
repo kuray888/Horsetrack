@@ -126,7 +126,10 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
-    await SecureStore.deleteItemAsync(WEIGHT_KEY);
+    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // ce delete tourne dans le Promise.all de (auth)/login.tsx.afterSuccessfulAuth,
+    // un rejet non catché ici plantait tout le groupe.
+    await SecureStore.deleteItemAsync(WEIGHT_KEY).catch(() => {});
     setMeasurements([]);
   }, []);
 
