@@ -1,6 +1,7 @@
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "@/components/AppImage";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Locked } from "@/components/Locked";

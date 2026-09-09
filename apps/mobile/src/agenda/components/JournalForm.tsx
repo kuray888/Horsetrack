@@ -1,5 +1,6 @@
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -73,7 +74,7 @@ export function JournalForm({
       <Locked message="Photo du jour réservée à l'abonnement Premium">
         {form.photoUri ? (
           <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
-            <Image source={{ uri: form.photoUri }} className="h-40 w-full rounded-card" resizeMode="cover" />
+            <Image source={{ uri: form.photoUri }} className="h-40 w-full rounded-card" contentFit="cover" />
             <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
           </TouchableOpacity>
         ) : (

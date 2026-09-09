@@ -1,6 +1,7 @@
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import { Image } from "@/components/AppImage";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { DISCIPLINES, HORSE_LEVELS } from "@/onboarding/options";
 import { ROLE_LABEL } from "@/lib/sharing";
@@ -43,7 +44,7 @@ export function HorseBanner({
   return (
     <View className="overflow-hidden rounded-card bg-highlight" style={{ height: BANNER_HEIGHT }}>
       {hasPhoto ? (
-        <Image source={{ uri: horse.photoUrl! }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+        <Image source={{ uri: horse.photoUrl! }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
       ) : (
         <View className="h-full w-full items-center justify-center">
           <MaterialCommunityIcons name="horse-variant" size={72} color={colors.primary} />

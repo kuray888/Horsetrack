@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "@/components/AppImage";
 import { pushWidgetData } from "@/lib/widgetKit";
 import { scheduleWeeklySummary } from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";

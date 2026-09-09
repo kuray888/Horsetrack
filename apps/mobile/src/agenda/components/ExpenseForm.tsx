@@ -1,5 +1,6 @@
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Field } from "@/components/Field";
@@ -110,7 +111,7 @@ export function ExpenseForm({
         <Locked message="Joindre une facture réservé à l'abonnement Premium (coffre-fort)">
           {form.fileUri ? (
             <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
-              <Image source={{ uri: form.fileUri }} className="h-32 w-full rounded-card" resizeMode="cover" />
+              <Image source={{ uri: form.fileUri }} className="h-32 w-full rounded-card" contentFit="cover" />
               <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
             </TouchableOpacity>
           ) : (

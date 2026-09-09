@@ -1,5 +1,6 @@
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import type { Doc } from "@/agenda/store";
@@ -37,7 +38,7 @@ export function DocumentCard({
       {expanded ? (
         <View className="mt-4 gap-2 border-t border-border pt-4">
           {doc.fileUri ? (
-            <Image source={{ uri: doc.fileUri }} className="h-40 w-full rounded-card" resizeMode="cover" />
+            <Image source={{ uri: doc.fileUri }} className="h-40 w-full rounded-card" contentFit="cover" />
           ) : (
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="paperclip" size={15} color={colors.textMuted} />

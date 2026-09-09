@@ -1,5 +1,6 @@
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "@/components/AppImage";
 import { formatDate } from "@/lib/dateFormat";
 import { ACTIVITY_META, type JournalEntry } from "@/agenda/store";
 import { MOOD_META } from "@/agenda/meta";
@@ -40,7 +41,7 @@ export function JournalCard({
       {expanded ? (
         <View className="mt-4 gap-2 border-t border-border pt-4">
           {entry.photoUri ? (
-            <Image source={{ uri: entry.photoUri }} className="h-48 w-full rounded-card" resizeMode="cover" />
+            <Image source={{ uri: entry.photoUri }} className="h-48 w-full rounded-card" contentFit="cover" />
           ) : null}
           <Text className="text-sm text-text">{mood.emoji} Ressenti : {mood.label}</Text>
           {entry.weather ? (
