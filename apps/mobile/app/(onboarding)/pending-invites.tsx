@@ -67,7 +67,7 @@ export default function PendingInvitesOnboarding() {
       const ok = await acceptInvite(invite.id);
       if (ok) {
         acceptedAny.current = true;
-        const shared = await pullSharedHorses().catch(() => []);
+        const shared = (await pullSharedHorses().catch(() => null)) ?? [];
         const ownedOnly = horses.filter((h) => !h.sharedRole);
         hydrateFromCloud([...ownedOnly, ...shared]);
       }

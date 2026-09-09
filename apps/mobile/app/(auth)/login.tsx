@@ -98,10 +98,15 @@ export default function LoginScreen() {
             // Best-effort, ne lèvent jamais : cf. lib/cloudSync.ts et
             // lib/sharing.ts. Coffre-fort/calendrier/chevaux partagés sont
             // secondaires à l'écurie possédée/au profil — un échec ici ne
-            // doit pas faire échouer toute la restauration.
+            // doit pas faire échouer toute la restauration. Chaque pull
+            // distingue par contre "aucune donnée" (`[]`) d'"échec réseau/RLS"
+            // (`null`) — un domaine en échec n'est PAS hydraté du tout, pour ne
+            // jamais écraser un vrai calendrier/coffre-fort/journal local avec
+            // du vide (cf. audit du 2026-09-09 : c'était le cas avant, ce
+            // bloc écrasait tout inconditionnellement).
             const [sharedHorses, documents, appointments, journalEntries, trainingSessions, expenses, goals, weightMeasurements] =
               await Promise.all([
-                pullSharedHorses().catch(() => []),
+                pullSharedHorses().catch(() => null),
                 pullDocuments(),
                 pullAppointments(),
                 pullJournalEntries(),
@@ -111,18 +116,36 @@ export default function LoginScreen() {
                 pullWeightMeasurements(),
               ]);
 
-            hydrateFromCloud([...cloudData.horses, ...sharedHorses]);
+            hydrateFromCloud([...cloudData.horses, ...(sharedHorses ?? [])]);
             setRiderProfile(cloudData.rider);
-            hydrateDocumentsFromCloud(documents);
-            hydrateAppointmentsFromCloud(appointments);
-            hydrateJournalFromCloud(journalEntries);
-            hydrateSessionsFromCloud(trainingSessions);
-            hydrateExpensesFromCloud(expenses);
-            hydrateGoalsFromCloud(goals);
-            hydrateWeightFromCloud(weightMeasurements);
+            if (documents) hydrateDocumentsFromCloud(documents);
+            if (appointments) hydrateAppointmentsFromCloud(appointments);
+            if (journalEntries) hydrateJournalFromCloud(journalEntries);
+            if (trainingSessions) hydrateSessionsFromCloud(trainingSessions);
+            if (expenses) hydrateExpensesFromCloud(expenses);
+            if (goals) hydrateGoalsFromCloud(goals);
+            if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
 
             await markOnboardingCompleted();
             await setLocalDataOwner(userId);
+
+            const failedCount = [
+              sharedHorses,
+              documents,
+              appointments,
+              journalEntries,
+              trainingSessions,
+              expenses,
+              goals,
+              weightMeasurements,
+            ].filter((v) => v === null).length;
+            if (failedCount > 0) {
+              Alert.alert(
+                "Restauration partielle",
+                "Certaines données n'ont pas pu être récupérées à cause d'une connexion instable — rien n'est perdu côté serveur, réessaie en te déconnectant puis reconnectant une fois le réseau meilleur."
+              );
+            }
+
             await goToTodayOrInvites();
             return;
           }

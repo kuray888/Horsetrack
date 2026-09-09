@@ -39,7 +39,7 @@ export default function InvitesModal() {
       // Fusionne le cheval nouvellement accepté (et tout autre déjà
       // partagé) avec l'écurie possédée actuelle, sans attendre la
       // prochaine connexion pour le voir apparaître.
-      const shared = await pullSharedHorses().catch(() => []);
+      const shared = (await pullSharedHorses().catch(() => null)) ?? [];
       const ownedOnly = horses.filter((h) => !h.sharedRole);
       hydrateFromCloud([...ownedOnly, ...shared]);
       setInvites((list) => list.filter((i) => i.id !== invite.id));

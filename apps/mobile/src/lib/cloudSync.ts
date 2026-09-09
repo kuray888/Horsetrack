@@ -418,20 +418,24 @@ export async function deleteDocumentRemote(docId: string): Promise<void> {
 /** Restaure le coffre-fort depuis Supabase (cf. (auth)/login.tsx, même
  * déclencheur que pullCloudData). Les URLs étant signées (bucket privé,
  * validité 7 jours), elles sont régénérées à chaque appel — donc à chaque
- * connexion sur un appareil qui n'a pas déjà les données locales. */
-export async function pullDocuments(): Promise<Doc[]> {
+ * connexion sur un appareil qui n'a pas déjà les données locales.
+ * Retourne `null` (jamais `[]`) sur tout échec réseau/auth/RLS — distingue
+ * "on n'a pas pu vérifier" de "vraiment aucun document", pour que l'appelant
+ * (login.tsx) n'écrase jamais l'état local existant avec un résultat qui ne
+ * reflète pas la vraie donnée distante (cf. audit du 2026-09-09). */
+export async function pullDocuments(): Promise<Doc[] | null> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) return [];
+  if (!userId) return null;
 
   const profile = await getOwnerProfile(userId);
-  if (!profile) return [];
+  if (!profile) return null;
 
   const { data, error } = await supabase
     .from("documents")
     .select("id, horseId, category, name, date, filePath")
     .eq("riderId", profile.id);
-  if (error || !data) return [];
+  if (error || !data) return null;
 
   const docs: Doc[] = [];
   for (const row of data) {
@@ -509,13 +513,13 @@ export async function deleteAppointmentRemote(apptId: string): Promise<void> {
  * restaurées via la jointure imbriquée `competition_entries(*)` (même
  * technique que `pullCloudData` pour horse_traits/horse_injuries), pas un
  * appel séparé. */
-export async function pullAppointments(): Promise<Appointment[]> {
+export async function pullAppointments(): Promise<Appointment[] | null> {
   const { data, error } = await supabase
     .from("appointments")
     .select(
       "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, professional, cost, nextDueDate, competition_entries(id, name, discipline, time, result)"
     );
-  if (error || !data) return [];
+  if (error || !data) return null;
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,
@@ -654,11 +658,11 @@ export async function deleteJournalEntryRemote(entryId: string, horseId: string 
   }
 }
 
-export async function pullJournalEntries(): Promise<JournalEntry[]> {
+export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
   const { data, error } = await supabase
     .from("journal_entries")
     .select("id, horseId, activityType, mood, notes, date, time, weather, photoPath");
-  if (error || !data) return [];
+  if (error || !data) return null;
   const entries: JournalEntry[] = [];
   for (const row of data) {
     let photoUri: string | null = null;
@@ -717,11 +721,11 @@ export async function deleteTrainingSessionRemote(sessionId: string): Promise<vo
 
 /** Restaure les séances visibles par l'utilisateur courant — possédées ET
  * partagées (géré entièrement par RLS, cf. pullAppointments ci-dessus). */
-export async function pullTrainingSessions(): Promise<TrainingSession[]> {
+export async function pullTrainingSessions(): Promise<TrainingSession[] | null> {
   const { data, error } = await supabase
     .from("training_sessions")
     .select("id, horseId, activityType, customActivityLabel, date, time, durationMinutes, intensity, notes, completed");
-  if (error || !data) return [];
+  if (error || !data) return null;
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,
@@ -758,9 +762,9 @@ export async function deleteWeightMeasurementRemote(id: string): Promise<void> {
   if (error) console.warn("[cloudSync] deleteWeightMeasurementRemote échoué", error);
 }
 
-export async function pullWeightMeasurements(): Promise<WeightMeasurement[]> {
+export async function pullWeightMeasurements(): Promise<WeightMeasurement[] | null> {
   const { data, error } = await supabase.from("horse_weight_measurements").select("id, horseId, weightKg, date");
-  if (error || !data) return [];
+  if (error || !data) return null;
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,
@@ -816,11 +820,11 @@ export async function deleteExpenseRemote(expenseId: string): Promise<void> {
  * (cf. agenda.tsx) affiche "reçu non disponible" en croisant localement
  * `documentId` avec la liste de documents déjà chargée par l'utilisateur
  * courant, sans appel réseau supplémentaire ni fuite. */
-export async function pullExpenses(): Promise<Expense[]> {
+export async function pullExpenses(): Promise<Expense[] | null> {
   const { data, error } = await supabase
     .from("expenses")
     .select("id, horseId, amount, currency, category, date, notes, appointmentId, documentId, isPaid");
-  if (error || !data) return [];
+  if (error || !data) return null;
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,

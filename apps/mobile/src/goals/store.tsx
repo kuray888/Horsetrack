@@ -97,9 +97,11 @@ async function deleteGoalRemote(id: string): Promise<void> {
  * appel explicite et attendu ici, on ne pourrait compter QUE sur le
  * `syncFromCloud` interne déclenché par SIGNED_IN ci-dessous, qui course
  * potentiellement avec ce vidage (l'aller-retour réseau peut résoudre avant
- * OU après `clearAll`, selon le timing). */
-export async function pullAllGoals(): Promise<Goal[]> {
-  return (await fetchCloudGoals()) ?? [];
+ * OU après `clearAll`, selon le timing). Retourne `null` (jamais `[]`) sur
+ * échec réseau/auth — cf. audit du 2026-09-09 : l'appelant ne doit jamais
+ * confondre "aucun objectif" avec "on n'a pas pu vérifier". */
+export async function pullAllGoals(): Promise<Goal[] | null> {
+  return fetchCloudGoals();
 }
 
 async function fetchCloudGoals(): Promise<Goal[] | null> {

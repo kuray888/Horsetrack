@@ -171,17 +171,17 @@ export async function acceptInvite(id: string): Promise<boolean> {
  * lib/cloudSync.ts) : même forme de requête Supabase imbriquée que pour les
  * chevaux possédés, juste un point d'entrée différent (horse_collaborators
  * plutôt que rider_profiles). */
-export async function pullSharedHorses(): Promise<(Horse & { sharedRole: CollaboratorRole })[]> {
+export async function pullSharedHorses(): Promise<(Horse & { sharedRole: CollaboratorRole })[] | null> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) return [];
+  if (!userId) return null;
 
   const { data, error } = await supabase
     .from("horse_collaborators")
     .select("role, horses(*, horse_traits(*), horse_injuries(*))")
     .eq("collaboratorUserId", userId)
     .eq("status", "ACCEPTED");
-  if (error || !data) return [];
+  if (error || !data) return null;
 
   return Promise.all(
     data
