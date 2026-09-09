@@ -4,6 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
 import { safeJsonParse } from "@/lib/safeJsonParse";
+import { withKeyLock } from "@/lib/keyLock";
 import {
   ENTITLEMENT_ID,
   Purchases,
@@ -91,7 +92,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const persistLocal = useCallback(async (next: Persisted) => {
-    await SecureStore.setItemAsync(KEY, JSON.stringify(next));
+    // Sérialisé (cf. lib/keyLock) : cette écriture et le `clearAll` déclenché
+    // en parallèle par (auth)/login.tsx ciblent la même clé Keychain — cf.
+    // onAuthStateChange plus bas.
+    await withKeyLock(KEY, () => SecureStore.setItemAsync(KEY, JSON.stringify(next)));
     setState(next);
   }, []);
 
@@ -103,21 +107,30 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshFromRevenueCat = useCallback(async () => {
-    const { data } = await supabase.auth.getUser();
-    if (data.user) await loginRevenueCat(data.user.id);
-    // Non-null : on n'arrive ici que si isPurchasesAvailable() est true (cf. refresh()).
-    const info = await Purchases!.getCustomerInfo();
-    applyCustomerInfo(info);
+    // Sérialisé (cf. lib/keyLock) : `loginRevenueCat` ici et `logoutRevenueCat`
+    // dans clearAll ci-dessous peuvent être déclenchés à quelques
+    // millisecondes d'écart par SIGNED_IN vs (auth)/login.tsx — deux appels
+    // simultanés sur le même "current user" du SDK RevenueCat autrement.
+    await withKeyLock("revenuecat", async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) await loginRevenueCat(data.user.id);
+      // Non-null : on n'arrive ici que si isPurchasesAvailable() est true (cf. refresh()).
+      const info = await Purchases!.getCustomerInfo();
+      applyCustomerInfo(info);
+    });
   }, [applyCustomerInfo]);
 
   const refreshFromLocalCache = useCallback(async () => {
-    const raw = await SecureStore.getItemAsync(KEY);
-    const parsed: Persisted = { ...DEFAULT, ...safeJsonParse<Partial<Persisted>>(raw, {}) };
-    // expiration de l'essai simulé gérée localement
-    if (parsed.status === "trialing" && parsed.trialEndsAt && !computeIsActiveOrTrialing(parsed)) {
-      parsed.status = "expired";
-      await SecureStore.setItemAsync(KEY, JSON.stringify(parsed));
-    }
+    const parsed = await withKeyLock(KEY, async () => {
+      const raw = await SecureStore.getItemAsync(KEY);
+      const next: Persisted = { ...DEFAULT, ...safeJsonParse<Partial<Persisted>>(raw, {}) };
+      // expiration de l'essai simulé gérée localement
+      if (next.status === "trialing" && next.trialEndsAt && !computeIsActiveOrTrialing(next)) {
+        next.status = "expired";
+        await SecureStore.setItemAsync(KEY, JSON.stringify(next));
+      }
+      return next;
+    });
     setState(parsed);
   }, []);
 
@@ -153,11 +166,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isPurchasesAvailable()) return;
       if (event === "SIGNED_IN" && session?.user) {
-        loginRevenueCat(session.user.id)
+        withKeyLock("revenuecat", () => loginRevenueCat(session.user.id))
           .then(refreshFromRevenueCat)
           .catch((e) => console.warn("[subscription] loginRevenueCat/refresh échoué", e));
       } else if (event === "SIGNED_OUT") {
-        logoutRevenueCat()
+        withKeyLock("revenuecat", () => logoutRevenueCat())
           .then(() => persistLocal(DEFAULT))
           .catch((e) => console.warn("[subscription] logoutRevenueCat échoué", e));
       }
@@ -209,8 +222,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     // resterait alors non catché par l'appelant (cf. clearSubscription dans
     // (auth)/login.tsx et (onboarding)/account.tsx), qui ne fait que vider
     // l'état RevenueCat local avant de restaurer un autre compte.
-    if (isPurchasesAvailable()) await logoutRevenueCat().catch(() => {});
-    await SecureStore.deleteItemAsync(KEY);
+    if (isPurchasesAvailable()) await withKeyLock("revenuecat", () => logoutRevenueCat()).catch(() => {});
+    // Sérialisé (cf. lib/keyLock) : même clé que persistLocal/refreshFromLocalCache
+    // ci-dessus, potentiellement en vol au même instant via l'écouteur SIGNED_IN.
+    await withKeyLock(KEY, () => SecureStore.deleteItemAsync(KEY));
     setState(DEFAULT);
   }, []);
 
