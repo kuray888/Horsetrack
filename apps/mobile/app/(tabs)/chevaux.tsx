@@ -45,7 +45,9 @@ function HorseRow({
       </View>
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-center gap-1.5">
-          <Text className="text-base font-display-bold text-text">{horse.name}</Text>
+          <Text className="flex-1 text-base font-display-bold text-text" numberOfLines={1}>
+            {horse.name}
+          </Text>
           {horse.isPrimary ? <MaterialCommunityIcons name="star" size={13} color={colors.warning} /> : null}
           {horse.sharedRole ? (
             <View className="flex-row items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5">

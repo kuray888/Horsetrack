@@ -269,7 +269,10 @@ export function useSubscribeFlow() {
         await onSuccess();
       } catch (e) {
         if ((e as { userCancelled?: boolean })?.userCancelled) return;
-        Alert.alert("Oups", "Impossible de finaliser l'achat. Réessaie.");
+        Alert.alert(
+          "Oups",
+          "Impossible de finaliser l'achat. Vérifie ta connexion et réessaie — si le problème persiste, la boutique est peut-être temporairement indisponible."
+        );
       } finally {
         setSubmitting(false);
       }
@@ -290,7 +293,7 @@ export function useSubscribeFlow() {
       const hasEntitlement = !!info.entitlements.active[ENTITLEMENT_ID];
       Alert.alert(hasEntitlement ? "Abonnement restauré" : "Rien à restaurer", hasEntitlement ? "" : "Aucun achat actif trouvé pour ce compte.");
     } catch {
-      Alert.alert("Oups", "Impossible de restaurer tes achats.");
+      Alert.alert("Oups", "Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie.");
     } finally {
       setRestoring(false);
     }

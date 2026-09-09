@@ -155,8 +155,10 @@ as $$
             or (rp."subscriptionStatus" = 'TRIALING' and (rp."trialEndsAt" is not null and rp."trialEndsAt" > now()))
           -- Premium = illimité (cf. pivot produit du 2026-09-05) — valeur
           -- sentinelle max int32, la colonne reste `integer` (pas de
-          -- changement de type). Synchronisé avec PREMIUM_HORSE_LIMIT côté
-          -- mobile (subscription/logic.ts).
+          -- changement de type). Côté mobile, subscription/logic.ts utilise
+          -- directement `Infinity` (plus de constante PREMIUM_HORSE_LIMIT
+          -- depuis ce pivot) — les deux valeurs restent "illimité" en
+          -- pratique, rien à garder synchronisé numériquement.
           then 2147483647
           -- Palier gratuit standard (jamais abonné, essai/abo expiré ou
           -- annulé) : 1 cheval, pas une simple "grâce" temporaire — c'est la
