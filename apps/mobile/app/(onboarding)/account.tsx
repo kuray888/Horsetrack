@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import { pullPendingInvites } from "@/lib/sharing";
+import { withTimeout } from "@/lib/withTimeout";
 import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
@@ -139,7 +140,11 @@ export default function OnboardingAccount() {
         return;
       }
 
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+      const { data, error } = await withTimeout(
+        supabase.auth.signUp({ email: email.trim(), password }),
+        12000,
+        "Ça prend plus de temps que prévu — vérifie ta connexion et réessaie."
+      );
 
       if (error) {
         const message = isEmailAlreadyRegisteredError(error.message)

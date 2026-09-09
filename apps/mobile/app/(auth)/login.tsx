@@ -19,6 +19,7 @@ import {
   pullWeightMeasurements,
 } from "@/lib/cloudSync";
 import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
+import { withTimeout } from "@/lib/withTimeout";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
@@ -93,7 +94,11 @@ export default function LoginScreen() {
         ]);
 
         try {
-          const cloudData = await pullCloudData();
+          const cloudData = await withTimeout(
+            pullCloudData(),
+            15000,
+            "La restauration de tes données prend plus de temps que prévu — vérifie ta connexion et réessaie."
+          );
           if (cloudData) {
             // Best-effort, ne lèvent jamais : cf. lib/cloudSync.ts et
             // lib/sharing.ts. Coffre-fort/calendrier/chevaux partagés sont
@@ -180,7 +185,11 @@ export default function LoginScreen() {
   async function signIn() {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: email.trim(), password }),
+        12000,
+        "Ça prend plus de temps que prévu — vérifie ta connexion et réessaie."
+      );
 
       if (error) {
         Alert.alert("Erreur", error.message);

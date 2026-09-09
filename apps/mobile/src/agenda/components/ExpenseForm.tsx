@@ -132,7 +132,7 @@ export function ExpenseForm({
         <View className="flex-1">
           <PrimaryButton
             label={editingExpenseId ? "Enregistrer" : "Ajouter"}
-            disabled={!form.amount.trim() || !form.date}
+            disabled={!form.amount.trim() || !form.date || !(Number(form.amount.replace(",", ".")) > 0)}
             onPress={onSubmit}
           />
         </View>

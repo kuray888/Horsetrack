@@ -125,10 +125,19 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     try {
       configurePurchases();
       if (isPurchasesAvailable()) {
-        await refreshFromRevenueCat();
-      } else {
-        await refreshFromLocalCache();
+        try {
+          await refreshFromRevenueCat();
+          return;
+        } catch (e) {
+          // Échec réseau/RevenueCat au lancement : sans ce repli, `state`
+          // restait à DEFAULT ("free") — un abonné Premium hors ligne au
+          // démarrage se voyait donc paywallé jusqu'au prochain lancement en
+          // ligne, sans le moindre message (cf. audit du 2026-09-09). On
+          // retombe sur le dernier état confirmé, déjà en cache local.
+          console.warn("[subscription] refreshFromRevenueCat échoué, repli sur le dernier état connu", e);
+        }
       }
+      await refreshFromLocalCache();
     } finally {
       setLoading(false);
     }

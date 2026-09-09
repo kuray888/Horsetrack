@@ -100,33 +100,12 @@ export type NewHorse = {
   injuries: Injury[];
 };
 
-const DEFAULT_HORSES: Horse[] = [
-  {
-    id: "h1",
-    name: "Tornado",
-    emoji: "🐴",
-    photoUrl: null,
-    photoPath: null,
-    birthYear: new Date().getFullYear() - 9,
-    sex: "GELDING",
-    breed: "Selle Français",
-    coat: "Bai",
-    heightCm: 165,
-    weightKg: 550,
-    discipline: "SHOW_JUMPING",
-    level: "CLUB",
-    fitnessLevel: "GOOD",
-    workload: "THREE_TO_FOUR",
-    isPrimary: true,
-    strengths: ["Saut", "Mental"],
-    weaknesses: ["Impulsion"],
-    temperament: ["Calme", "Joueur"],
-    healthConditions: [],
-    restDayActivities: ["Paddock / pré", "Marche en main"],
-    injuries: [],
-    sharedRole: null,
-  },
-];
+// Aucune donnée de démonstration (cf. même choix déjà fait sur
+// agenda/store.tsx, audit produit du 2026-09-03) : un cheval fictif ("Tornado")
+// ici s'affichait brièvement sur Today/Chevaux/Horse Hub à chaque lancement
+// froid, le temps que la vraie lecture SecureStore résolve — indiscernable
+// d'une vraie écurie pour l'utilisateur (cf. audit du 2026-09-09).
+const DEFAULT_HORSES: Horse[] = [];
 
 /** Active une activité différente selon le jour de la semaine (0 = lundi ...
  * 6 = dimanche) plutôt que d'afficher toute la liste choisie à chaque jour de

@@ -123,12 +123,16 @@ export async function inviteCollaborator(horseId: string, email: string, role: C
   return "ok";
 }
 
-export async function listCollaborators(horseId: string): Promise<Collaborator[]> {
+/** `null` (jamais `[]`) sur échec réseau/RLS — distingue "on n'a pas pu
+ * vérifier" de "vraiment personne de partagé" (cf. audit du 2026-09-09) :
+ * share-horse-modal.tsx ne doit ni afficher l'état vide à tort, ni laisser
+ * inviter un second collaborateur alors que le premier n'a pas pu être lu. */
+export async function listCollaborators(horseId: string): Promise<Collaborator[] | null> {
   const { data, error } = await supabase
     .from("horse_collaborators")
     .select("id, invitedEmail, role, status")
     .eq("horseId", horseId);
-  if (error || !data) return [];
+  if (error || !data) return null;
   return data;
 }
 

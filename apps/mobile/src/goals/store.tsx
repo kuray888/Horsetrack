@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -138,57 +137,27 @@ const GoalsContext = createContext<GoalsContextValue | null>(null);
 export function GoalsProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
-  // Incrémenté à chaque mutation locale (add/update/delete/hydrate) — permet
-  // à syncFromCloud() de détecter qu'un ajout/une modif a eu lieu pendant son
-  // aller-retour réseau et d'ignorer sa réponse (sinon un snapshot cloud
-  // récupéré AVANT cette mutation l'écrase silencieusement à la résolution,
-  // cf. audit du 2026-09-08 : seul store à relancer un fetch cloud complet au
-  // montage, en parallèle de la lecture locale).
-  const localVersionRef = useRef(0);
 
   const persist = useCallback((next: Goal[]) => {
     SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
   }, []);
 
-  // Charge le cache local immédiatement (rapide, dispo hors-ligne), puis
-  // réconcilie avec le cloud dès qu'une session existe — le cloud est la
-  // source de vérité pour un objectif créé sur un autre appareil.
+  // Charge le cache local — la restauration cloud n'est plus déclenchée ici :
+  // (auth)/login.tsx appelle déjà pullAllGoals()+hydrateFromCloud() de façon
+  // explicite à la connexion, seul endroit où une vraie synchro cloud a lieu
+  // (même architecture que horses/sessions/weight/rider). Ce store relançait
+  // en plus son propre fetch au montage ET à chaque SIGNED_IN — 3 lectures
+  // concurrentes de la même donnée à chaque connexion pour rien (cf. audit du
+  // 2026-09-09), le seul store à le faire.
   useEffect(() => {
     SecureStore.getItemAsync(STORAGE_KEY)
       .then((raw) => setGoals(reviveGoals(safeJsonParse<Goal[]>(raw, []))))
       .catch((e) => console.warn("[goals] lecture SecureStore échouée, objectifs par défaut", e))
       .finally(() => setLoading(false));
-
-    // Best-effort, jamais rejeté : cf. (auth)/login.tsx où SIGNED_IN déclenche
-    // aussi un hydrateFromCloud explicite en parallèle de cet appel — sans ce
-    // `.catch`, un rejet ici (réseau, RLS pas encore alignée) devenait un rejet
-    // de promesse non géré au moment précis de la navigation post-connexion
-    // (cf. audit crash Apple Sign In du 2026-09-07).
-    const syncFromCloud = () => {
-      const versionAtStart = localVersionRef.current;
-      fetchCloudGoals()
-        .then((cloud) => {
-          if (!cloud) return;
-          // Une mutation locale (add/update/delete) a eu lieu pendant cet
-          // aller-retour réseau : ce snapshot est obsolète, on l'ignore pour
-          // ne pas écraser un objectif tout juste créé/modifié.
-          if (localVersionRef.current !== versionAtStart) return;
-          setGoals(cloud);
-          persist(cloud);
-        })
-        .catch((e) => console.warn("[goals] syncFromCloud échoué", e));
-    };
-    syncFromCloud();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") syncFromCloud();
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [persist]);
+  }, []);
 
   const addGoal = useCallback(
     (goal: NewGoal) => {
-      localVersionRef.current += 1;
       const next: Goal = { ...goal, id: generateId() };
       setGoals((prev) => {
         const updated = [...prev, next];
@@ -202,7 +171,6 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
 
   const updateGoal = useCallback(
     (id: string, goal: NewGoal) => {
-      localVersionRef.current += 1;
       const next: Goal = { ...goal, id };
       setGoals((prev) => {
         const updated = prev.map((g) => (g.id === id ? next : g));
@@ -216,7 +184,6 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
 
   const deleteGoal = useCallback(
     (id: string) => {
-      localVersionRef.current += 1;
       setGoals((prev) => {
         const updated = prev.filter((g) => g.id !== id);
         persist(updated);
@@ -228,14 +195,12 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   );
 
   const clearAll = useCallback(async () => {
-    localVersionRef.current += 1;
     await SecureStore.deleteItemAsync(STORAGE_KEY);
     setGoals([]);
   }, []);
 
   const hydrateFromCloud = useCallback(
     (next: Goal[]) => {
-      localVersionRef.current += 1;
       setGoals(next);
       persist(next);
     },

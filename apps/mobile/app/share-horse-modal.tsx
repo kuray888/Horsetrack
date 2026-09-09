@@ -73,6 +73,7 @@ export default function ShareHorseModal() {
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<CollaboratorRole>("DEMI_PENSION");
   const [submitting, setSubmitting] = useState(false);
@@ -81,11 +82,17 @@ export default function ShareHorseModal() {
     if (!horseId) return;
     listCollaborators(horseId)
       .then((list) => {
-        setCollaborators(list);
+        if (list) {
+          setCollaborators(list);
+          setLoadError(false);
+        } else {
+          setLoadError(true);
+        }
         setLoaded(true);
       })
       .catch((e) => {
         console.warn("[share-horse] listCollaborators échoué", e);
+        setLoadError(true);
         setLoaded(true);
       });
   }, [horseId]);
@@ -161,7 +168,17 @@ export default function ShareHorseModal() {
           sur toute la fiche de ce cheval (planning, santé, concours, journal, budget, documents).
         </Text>
 
-        {!loaded ? null : collaborators.length === 0 ? (
+        {!loaded ? null : loadError ? (
+          <View className={`${CARD} items-center gap-2`}>
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+              <MaterialCommunityIcons name="wifi-off" size={22} color={colors.textMuted} />
+            </View>
+            <Text className="text-sm text-muted">Impossible de charger les personnes partagées. Vérifie ta connexion.</Text>
+            <TouchableOpacity onPress={refresh} hitSlop={8}>
+              <Text className="text-sm font-semibold text-accent">Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        ) : collaborators.length === 0 ? (
           <View className={`${CARD} items-center gap-2`}>
             <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
               <MaterialCommunityIcons name="handshake-outline" size={22} color={colors.textMuted} />
@@ -187,7 +204,7 @@ export default function ShareHorseModal() {
           </View>
         )}
 
-        {atLimit ? (
+        {loadError ? null : atLimit ? (
           <View className={`${CARD} items-center gap-2`}>
             <Text className="text-sm text-muted">
               Limite d&apos;un·e collaborateur·rice par cheval atteinte — révoque l&apos;accès actuel pour en inviter
