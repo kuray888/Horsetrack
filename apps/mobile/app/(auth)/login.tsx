@@ -212,6 +212,12 @@ export default function LoginScreen() {
   }
 
   async function handleAppleSignIn() {
+    // AppleAuthenticationButton n'a pas de prop `disabled` (contrairement à
+    // PrimaryButton ci-dessous) — sans cette garde, un second appui pendant
+    // que le sheet natif Apple est encore à l'écran relance signInAsync() en
+    // parallèle du premier appel, ce qu'iOS gère mal (cf. RequestUnknownException
+    // + crash RCTFatal observés le 2026-09-09 sur un appui rapproché).
+    if (loading) return;
     setLoading(true);
     try {
       const result = await signInWithApple();
@@ -284,13 +290,18 @@ export default function LoginScreen() {
               <Text className="text-xs text-muted">ou</Text>
               <View className="h-px flex-1 bg-border" />
             </View>
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              cornerRadius={12}
-              style={{ height: 48, width: "100%" }}
-              onPress={handleAppleSignIn}
-            />
+            {/* pointerEvents plutôt qu'une prop `disabled` : ce composant natif n'en
+                expose pas — cf. la garde `if (loading) return` dans handleAppleSignIn,
+                cette couche évite en plus que le tap n'atteigne le bouton natif. */}
+            <View pointerEvents={loading ? "none" : "auto"} style={{ opacity: loading ? 0.6 : 1 }}>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={12}
+                style={{ height: 48, width: "100%" }}
+                onPress={handleAppleSignIn}
+              />
+            </View>
           </>
         ) : null}
         <TouchableOpacity onPress={() => router.push("/(onboarding)/welcome")}>
