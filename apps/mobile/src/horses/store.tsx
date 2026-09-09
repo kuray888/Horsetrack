@@ -10,6 +10,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { deleteHorsePhotoRemote, pushHorses } from "@/lib/cloudSync";
+import { resolveLocalFileUri } from "@/lib/imagePicker";
 import type {
   Discipline,
   HorseDraft,
@@ -138,6 +139,11 @@ function reviveHorses(horses: Horse[]): Horse[] {
     // cet appareil (cf. lib/imagePicker.ts, stockage persistant) — rien à
     // migrer, juste combler le champ pour ne pas planter le typage.
     photoPath: h.photoPath ?? null,
+    // Reconstruit contre le dossier documents actuel (cf. lib/imagePicker.ts
+    // resolveLocalFileUri) — sans ça, une photo locale jamais uploadée
+    // disparaissait après chaque mise à jour/réinstallation de l'app (cf.
+    // audit du 2026-09-09).
+    photoUrl: resolveLocalFileUri(h.photoUrl),
     coat: h.coat ?? null,
     injuries: h.injuries.map((i) => ({
       ...i,
