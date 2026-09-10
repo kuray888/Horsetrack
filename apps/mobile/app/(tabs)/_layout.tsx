@@ -21,8 +21,6 @@ const TAB_ICONS_FOCUSED: Record<string, keyof typeof MaterialCommunityIcons.glyp
   profile: "account-circle",
 };
 
-const AnimatedIcon = Animated.createAnimatedComponent(MaterialCommunityIcons);
-
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const colors = useThemeColors();
   const scale = useRef(new Animated.Value(1)).current;
@@ -35,12 +33,22 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   }, [focused, scale]);
 
   return (
-    <AnimatedIcon
-      name={focused ? TAB_ICONS_FOCUSED[name] : TAB_ICONS[name]}
-      size={24}
-      color={focused ? colors.primary : colors.textMuted}
-      style={{ transform: [{ scale }] }}
-    />
+    // Anime ce View plutôt que l'icône directement : sous la Nouvelle
+    // Architecture (Fabric), la ref renvoyée par @expo/vector-icons n'expose
+    // plus `setNativeProps` (retiré de RNVIconComponent), donc
+    // Animated.createAnimatedComponent(MaterialCommunityIcons) plantait dès
+    // scale.setValue() avec "undefined is not a function" — juste après la
+    // connexion, à la toute première navigation vers les onglets (cf. audit
+    // crash Apple Sign In du 2026-09-10 : la vraie cause de RCTFatal/SIGABRT
+    // depuis le début, jamais vue faute de vraie stack JS). Animated.View
+    // reste, lui, pleinement supporté par Fabric.
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <MaterialCommunityIcons
+        name={focused ? TAB_ICONS_FOCUSED[name] : TAB_ICONS[name]}
+        size={24}
+        color={focused ? colors.primary : colors.textMuted}
+      />
+    </Animated.View>
   );
 }
 
