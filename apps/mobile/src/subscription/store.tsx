@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, ReactNode } from "react";
 import { Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import type { CustomerInfo } from "react-native-purchases";
@@ -264,6 +264,21 @@ export function useSubscribeFlow() {
   const { startTrial, applyCustomerInfo } = useSubscription();
   const [submitting, setSubmitting] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  // `onSuccess` (cf. subscribe ci-dessous) navigue systématiquement ailleurs
+  // (paywall.tsx finish() : router.replace vers (tabs)/today, ou fermeture du
+  // paywall app) avant que ce hook ne reprenne la main dans `finally` — cet
+  // écran-ci peut donc déjà être démonté au moment de setSubmitting(false)/
+  // setRestoring(false). Un setState après démontage n'est normalement qu'un
+  // avertissement React, jamais un crash à lui seul, mais reste un état
+  // incohérent à éviter proprement plutôt qu'à laisser au hasard du timing
+  // (cf. audit du crash de fin d'onboarding du 2026-09-11, cause exacte
+  // non confirmée faute de trace Sentry).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const subscribe = useCallback(
     async (period: BillingPeriod, onSuccess: () => void | Promise<void>) => {
@@ -293,7 +308,7 @@ export function useSubscribeFlow() {
           "Impossible de finaliser l'achat. Vérifie ta connexion et réessaie — si le problème persiste, la boutique est peut-être temporairement indisponible."
         );
       } finally {
-        setSubmitting(false);
+        if (mountedRef.current) setSubmitting(false);
       }
     },
     [startTrial, applyCustomerInfo]
@@ -314,7 +329,7 @@ export function useSubscribeFlow() {
     } catch {
       Alert.alert("Oups", "Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie.");
     } finally {
-      setRestoring(false);
+      if (mountedRef.current) setRestoring(false);
     }
   }, [applyCustomerInfo]);
 

@@ -265,8 +265,17 @@ export function PaywallView({
           automatique, résiliable à tout moment dans les réglages.
         </Text>
         {onSkip ? (
-          <TouchableOpacity onPress={onSkip} disabled={submitting} hitSlop={8}>
-            <Text className="text-center text-sm font-semibold text-muted">Continuer avec le palier gratuit</Text>
+          // Texte plus contrasté (text-text, pas text-muted) qu'auparavant :
+          // avec l'essai d'1 mois gratuit mis en avant juste au-dessus, ce
+          // lien passait inaperçu à côté du bouton principal — au point que
+          // quasi personne ne remarquait qu'un palier gratuit permanent existe
+          // aussi, sans même avoir à s'engager sur un essai (cf. retour produit
+          // du 2026-09-12). Reste un simple lien texte, pas un bouton, pour ne
+          // pas rivaliser visuellement avec le CTA principal.
+          <TouchableOpacity onPress={onSkip} disabled={submitting} hitSlop={8} className="py-1">
+            <Text className="text-center text-sm font-semibold text-text underline">
+              Continuer avec le palier gratuit
+            </Text>
           </TouchableOpacity>
         ) : null}
         <View className="flex-row justify-center gap-5">
