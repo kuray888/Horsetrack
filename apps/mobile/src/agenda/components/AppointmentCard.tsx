@@ -200,7 +200,7 @@ export function AppointmentCard({
               ) : (
                 <Text className="text-sm text-muted">Aucune épreuve renseignée.</Text>
               )}
-              <Locked message="Plusieurs épreuves par concours réservé à l'abonnement Premium">
+              <Locked message="Détail des épreuves réservé à l'abonnement Premium">
                 <AddCompetitionEntryForm onAdd={onAddCompetitionEntry} />
               </Locked>
             </View>

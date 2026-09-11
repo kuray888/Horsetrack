@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
 import { colors } from "@/theme/colors";
 import { FadeInView } from "@/components/FadeInView";
+import { BackButton } from "@/components/BackButton";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { ensureNotificationPermission } from "@/lib/notifications";
 import { useHorses } from "@/horses/store";
@@ -15,7 +16,6 @@ import {
   daysFromNow,
   type Appointment,
   type Doc,
-  type JournalEntry,
   type Expense,
   type ExpenseCategory,
 } from "@/agenda/store";
@@ -24,17 +24,26 @@ import { AppointmentForm } from "@/agenda/components/AppointmentForm";
 import { AppointmentCard } from "@/agenda/components/AppointmentCard";
 import { DocumentForm } from "@/agenda/components/DocumentForm";
 import { DocumentCard } from "@/agenda/components/DocumentCard";
-import { JournalForm } from "@/agenda/components/JournalForm";
-import { JournalCard } from "@/agenda/components/JournalCard";
 import { ExpenseForm } from "@/agenda/components/ExpenseForm";
 import { ExpenseCard } from "@/agenda/components/ExpenseCard";
 import { SectionSwitcher, AGENDA_SECTIONS, type AgendaSection } from "@/agenda/components/SectionSwitcher";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { useDocumentForm } from "@/agenda/hooks/useDocumentForm";
-import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
+
+// Titre/sous-titre par section — avant, l'écran affichait toujours "Agenda" /
+// "Rendez-vous et documents de {cheval}" quelle que soit la section active
+// (ex: Budget affichait un sous-titre parlant de rendez-vous), cf. audit
+// pré-publication. Section "journal" retirée (cf. AGENDA_SECTIONS) : elle
+// dupliquait l'onglet Journal réel sans qu'aucune navigation n'y mène plus,
+// le Horse Hub renvoyant désormais directement vers l'onglet Journal.
+const SECTION_META: Record<AgendaSection, { title: string; subtitle: (horseName: string) => string }> = {
+  appointments: { title: "Santé & rendez-vous", subtitle: (n) => `Rendez-vous et échéances de soin de ${n}` },
+  documents: { title: "Documents", subtitle: (n) => `Coffre-fort numérique de ${n}` },
+  finances: { title: "Budget", subtitle: (n) => `Dépenses et budget de ${n}` },
+};
 
 export default function AgendaScreen() {
   const { selectedHorse: horse } = useHorses();
@@ -42,7 +51,6 @@ export default function AgendaScreen() {
   const {
     appointments,
     documents,
-    journal,
     expenses,
     addAppointment,
     updateAppointment,
@@ -57,19 +65,20 @@ export default function AgendaScreen() {
     addDocument,
     updateDocument,
     deleteDocument,
-    addJournalEntry,
-    updateJournalEntry,
-    deleteJournalEntry,
     addExpense,
     updateExpense,
     deleteExpense,
     toggleExpensePaid,
     linkExpenseDocument,
   } = useAgenda();
-  // Section initiale optionnelle (cf. app/horse/[id]/sante.tsx et voisins,
-  // qui renvoient ici avec ?section=... pour ouvrir directement le bon
+  // Section initiale optionnelle (cf. app/horse/[id]/index.tsx, qui renvoie
+  // ici via router.dismissTo avec ?section=... pour ouvrir directement le bon
   // onglet) — ignorée si absente ou invalide, comportement par défaut
-  // inchangé pour toute navigation qui n'en passe pas (ex: today.tsx "Voir tout").
+  // inchangé pour toute navigation qui n'en passe pas (ex: today.tsx "Voir
+  // tout"). dismissTo retrouve l'instance "(tabs)" déjà montée dans la pile
+  // plutôt que d'en empiler une nouvelle (cf. horse/[id]/index.tsx) : pas
+  // besoin d'une cible de retour explicite ici, `router.back()` (via
+  // BackButton par défaut) reste cohérent.
   const { section: sectionParam } = useLocalSearchParams<{ section?: string }>();
   const initialSection = AGENDA_SECTIONS.includes(sectionParam as AgendaSection)
     ? (sectionParam as AgendaSection)
@@ -79,18 +88,17 @@ export default function AgendaScreen() {
   // des Tabs Expo Router) : sans cet ajustement, une deuxième navigation ici
   // avec un ?section= différent (ex: Horse Hub > Budget après Horse Hub >
   // Santé) ne changerait rien, `useState(initialSection)` ne s'exécutant
-  // qu'au premier montage. Pattern "ajuster l'état pendant le rendu" plutôt
-  // qu'un useEffect (cf. react.dev/learn/you-might-not-need-an-effect) : pas
-  // de rendu supplémentaire, et ça évite un set-state-in-effect. Ne touche
-  // rien si le paramètre est absent/invalide (ex: appui direct sur l'onglet),
-  // pour ne pas écraser le choix de l'utilisateur dans le SectionSwitcher.
-  const [syncedSectionParam, setSyncedSectionParam] = useState(sectionParam);
-  if (sectionParam !== syncedSectionParam) {
-    setSyncedSectionParam(sectionParam);
+  // qu'au premier montage. useEffect plutôt que le pattern "ajuster pendant
+  // le rendu" utilisé avant (cf. audit pré-publication : ce dernier ne
+  // rattrapait pas fiablement un changement de section quand la navigation
+  // traverse deux navigateurs différents, Stack racine → Tabs imbriqués,
+  // comme depuis le Horse Hub) — moins optimal en théorie, mais correct dans
+  // tous les cas plutôt que correct seulement dans certains.
+  useEffect(() => {
     if (AGENDA_SECTIONS.includes(sectionParam as AgendaSection)) {
       setSection(sectionParam as AgendaSection);
     }
-  }
+  }, [sectionParam]);
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -141,24 +149,6 @@ export default function AgendaScreen() {
     onEditStart: () => setExpandedDocId(null),
   });
 
-  const [expandedJournalId, setExpandedJournalId] = useState<string | null>(null);
-  const {
-    showJournalForm,
-    setShowJournalForm,
-    journalForm,
-    setJournalForm,
-    savingJournal,
-    editingJournalId,
-    startEditJournal,
-    cancelJournalForm,
-    handleSubmitJournalEntry,
-    handlePickJournalPhoto,
-  } = useJournalForm({
-    addJournalEntry,
-    updateJournalEntry,
-    onEditStart: () => setExpandedJournalId(null),
-  });
-
   const {
     showExpenseForm,
     setShowExpenseForm,
@@ -184,11 +174,11 @@ export default function AgendaScreen() {
   // en aval serve à quelque chose.
   const today = useMemo(() => daysFromNow(0), []);
 
-  // Rendez-vous, journal et documents sont rattachés à un cheval (cf.
-  // agenda/store.tsx) — le partage DP/coach se fait par cheval, donc cet
-  // écran ne montre que ceux du cheval actuellement sélectionné. Le coffre-
-  // fort (documents) reste privé par cavalier côté RLS (jamais partagé, cf.
-  // rls.sql) : horseId n'y sert qu'à filtrer l'affichage, pas l'accès.
+  // Rendez-vous et documents sont rattachés à un cheval (cf. agenda/store.tsx)
+  // — le partage DP/coach se fait par cheval, donc cet écran ne montre que
+  // ceux du cheval actuellement sélectionné. Le coffre-fort (documents) reste
+  // privé par cavalier côté RLS (jamais partagé, cf. rls.sql) : horseId n'y
+  // sert qu'à filtrer l'affichage, pas l'accès.
   //
   // Mémoïsés à partir d'ici (cf. audit perf du 2026-09-09) : sans ça, taper
   // dans le formulaire de rendez-vous (état local à cet écran) recalculait
@@ -198,7 +188,6 @@ export default function AgendaScreen() {
     () => appointments.filter((a) => a.horseId === horse?.id),
     [appointments, horse?.id]
   );
-  const horseJournal = useMemo(() => journal.filter((j) => j.horseId === horse?.id), [journal, horse?.id]);
   const horseExpenses = useMemo(() => expenses.filter((e) => e.horseId === horse?.id), [expenses, horse?.id]);
 
   const upcomingAppts = useMemo(
@@ -230,11 +219,6 @@ export default function AgendaScreen() {
   const sortedDocs = useMemo(
     () => documents.filter((d) => d.horseId === horse?.id).sort((a, b) => b.date.getTime() - a.date.getTime()),
     [documents, horse?.id]
-  );
-
-  const sortedJournal = useMemo(
-    () => [...horseJournal].sort((a, b) => b.date.getTime() - a.date.getTime()),
-    [horseJournal]
   );
 
   const sortedExpenses = useMemo(
@@ -330,13 +314,6 @@ export default function AgendaScreen() {
     );
   }
 
-  function confirmDeleteJournalEntry(entry: JournalEntry) {
-    Alert.alert("Supprimer cette entrée ?", "Cette action est définitive.", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", style: "destructive", onPress: () => deleteJournalEntry(entry.id) },
-    ]);
-  }
-
   function confirmDeleteExpense(expense: Expense) {
     Alert.alert("Supprimer cette dépense ?", "Cette action est définitive.", [
       { text: "Annuler", style: "cancel" },
@@ -347,10 +324,11 @@ export default function AgendaScreen() {
   return (
     <>
     <Screen>
+      <BackButton />
       <FadeInView>
         <View className="gap-1">
-          <Text className="text-3xl font-display tracking-tight text-text">Agenda</Text>
-          <Text className="text-base text-muted">Rendez-vous et documents de {horse?.name ?? "ton cheval"}</Text>
+          <Text className="text-3xl font-display tracking-tight text-text">{SECTION_META[section].title}</Text>
+          <Text className="text-base text-muted">{SECTION_META[section].subtitle(horse?.name ?? "ton cheval")}</Text>
         </View>
       </FadeInView>
 
@@ -507,53 +485,6 @@ export default function AgendaScreen() {
                   onToggleExpand={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)}
                   onDelete={() => confirmDeleteDocument(doc)}
                   onEdit={() => startEditDoc(doc)}
-                />
-              </FadeInView>
-            ))
-          )}
-        </>
-      ) : section === "journal" ? (
-        <>
-          <FadeInView delay={100}>
-            <Text className="text-sm text-muted">
-              Note ici tes séances libres (balade, longe, repos…) : ton ressenti, tes notes, et la météo du jour
-              ajoutée automatiquement (si la localisation est autorisée) — elle s&apos;affichera sur l&apos;entrée
-              une fois enregistrée.
-            </Text>
-          </FadeInView>
-
-          <FadeInView delay={140}>
-            <JournalForm
-              show={showJournalForm}
-              form={journalForm}
-              setForm={setJournalForm}
-              editingJournalId={editingJournalId}
-              saving={savingJournal}
-              onOpen={() => setShowJournalForm(true)}
-              onCancel={cancelJournalForm}
-              onSubmit={handleSubmitJournalEntry}
-              onPickPhoto={handlePickJournalPhoto}
-            />
-          </FadeInView>
-
-          {sortedJournal.length === 0 ? (
-            <FadeInView delay={200}>
-              <View className={`${CARD} items-center gap-2`}>
-                <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
-                  <MaterialCommunityIcons name="notebook-outline" size={22} color={colors.textMuted} />
-                </View>
-                <Text className="text-sm text-muted">Aucune entrée de journal pour l&apos;instant.</Text>
-              </View>
-            </FadeInView>
-          ) : (
-            sortedJournal.map((entry, i) => (
-              <FadeInView key={entry.id} delay={200 + i * 60}>
-                <JournalCard
-                  entry={entry}
-                  expanded={expandedJournalId === entry.id}
-                  onToggleExpand={() => setExpandedJournalId(expandedJournalId === entry.id ? null : entry.id)}
-                  onDelete={() => confirmDeleteJournalEntry(entry)}
-                  onEdit={() => startEditJournal(entry)}
                 />
               </FadeInView>
             ))

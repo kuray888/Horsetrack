@@ -350,12 +350,25 @@ function categoryFromDb(category: string): Doc["category"] {
   return category.toLowerCase() as Doc["category"];
 }
 
+/** Devine l'extension/le type MIME réels du fichier local plutôt que de
+ * forcer ".jpg"/"image/jpeg" pour tout (cf. audit pré-publication) : un
+ * document du coffre-fort peut être un PDF (cf. pickAndPersistDocumentFile),
+ * et un objet Storage uploadé avec un mauvais Content-Type ne s'affiche pas
+ * correctement une fois resservi (signed URL). */
+function documentContentType(localUri: string): { ext: string; contentType: string } {
+  const ext = localUri.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return { ext: "pdf", contentType: "application/pdf" };
+  if (ext === "png") return { ext: "png", contentType: "image/png" };
+  return { ext: ext && /^[a-z0-9]{2,5}$/.test(ext) ? ext : "jpg", contentType: "image/jpeg" };
+}
+
 async function uploadDocumentPhoto(userId: string, docId: string, localUri: string): Promise<string | null> {
   try {
     const bytes = await new File(localUri).bytes();
-    const path = `${userId}/${docId}.jpg`;
+    const { ext, contentType } = documentContentType(localUri);
+    const path = `${userId}/${docId}.${ext}`;
     const { error } = await supabase.storage.from("documents").upload(path, bytes, {
-      contentType: "image/jpeg",
+      contentType,
       upsert: true,
     });
     return error ? null : path;

@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
+import { translateAuthError } from "@/lib/authErrors";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -29,7 +30,7 @@ export default function ResetPasswordScreen() {
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
-        Alert.alert("Erreur", error.message);
+        Alert.alert("Erreur", translateAuthError(error.message));
         return;
       }
 
@@ -41,7 +42,7 @@ export default function ResetPasswordScreen() {
       // (cf. audit du 2026-09-08).
       Alert.alert(
         "Erreur",
-        e instanceof Error ? e.message : "Impossible de mettre à jour le mot de passe pour l'instant. Vérifie ta connexion et réessaie."
+        e instanceof Error ? translateAuthError(e.message) : "Impossible de mettre à jour le mot de passe pour l'instant. Vérifie ta connexion et réessaie."
       );
     } finally {
       setLoading(false);

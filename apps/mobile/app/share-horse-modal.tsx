@@ -122,21 +122,30 @@ export default function ShareHorseModal() {
       const result = await inviteCollaborator(horseId, trimmed, role);
       if (result === "ok") {
         setEmail("");
-        refresh();
-      } else if (result === "no_account") {
         Alert.alert(
-          "Pas encore de compte Horsetrack",
-          "Cette personne doit d'abord créer un compte Horsetrack avec cet email avant de pouvoir être invitée."
+          "Invitation envoyée",
+          "Si cette personne n'a pas encore de compte Horsetrack, elle recevra un email pour en créer un et rejoindre ce cheval."
+        );
+        refresh();
+      } else if (result === "duplicate") {
+        Alert.alert("Déjà invité·e", "Cet email est déjà invité sur ce cheval.");
+      } else if (result === "quota") {
+        Alert.alert(
+          "Limite atteinte",
+          "Un·e collaborateur·rice est déjà connecté·e à ce cheval — révoque son accès pour en inviter un·e autre."
+        );
+      } else if (result === "not_premium") {
+        // Ce cas signifie que le serveur ne voit pas cet abonnement comme actif,
+        // même si cet écran n'est accessible qu'aux comptes Premium côté app —
+        // signe d'un abonnement pas encore synchronisé côté serveur plutôt que
+        // d'un vrai bug de partage (cf. audit pré-publication : le partage
+        // gratuit n'existe pas, l'écran ne serait pas accessible sinon).
+        Alert.alert(
+          "Abonnement non reconnu par le serveur",
+          "Ton abonnement Premium n'est pas encore confirmé côté serveur. Réessaie dans quelques minutes, ou restaure tes achats depuis Profil si le problème persiste."
         );
       } else {
-        // Cause la plus probable : cet email est déjà invité sur ce cheval
-        // (contrainte unique horseId+invitedEmail) — pas une erreur réseau,
-        // mais on ne peut pas distinguer les deux côté client sans détail
-        // d'erreur structuré, donc message générique.
-        Alert.alert(
-          "Invitation impossible",
-          "Cet email est peut-être déjà invité sur ce cheval, ou une erreur réseau est survenue. Réessaie."
-        );
+        Alert.alert("Invitation impossible", "Une erreur réseau est survenue. Réessaie.");
       }
     } catch {
       Alert.alert("Invitation impossible", "Une erreur est survenue. Réessaie.");

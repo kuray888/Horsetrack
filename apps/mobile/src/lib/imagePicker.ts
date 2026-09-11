@@ -78,3 +78,41 @@ export function resolveLocalFileUri(uri: string | null): string | null {
   if (!filename) return uri;
   return new File(Paths.document, filename).uri;
 }
+
+/** Variante pour les documents du coffre-fort (cf. agenda/hooks/useDocumentForm.ts)
+ * : contrairement à pickAndPersistImage (photos de cheval/reçus, toujours de
+ * vraies images), un document peut être un PDF — notamment un PDF scanné
+ * depuis l'app Notes/Fichiers puis enregistré dans la pellicule, que le
+ * picker Photos laisse sélectionner même en ne demandant que des "images".
+ * Avant, le fichier était systématiquement recopié en ".jpg" quel que soit
+ * son contenu réel, cassant l'affichage des PDF (cf. audit pré-publication :
+ * un lecteur d'image ne peut pas décoder des octets PDF, quelle que soit
+ * l'extension). Ici, l'extension réelle (déduite du mimeType renvoyé par le
+ * picker, ou à défaut de l'URI source) est préservée. N'affecte que le
+ * coffre-fort — pickAndPersistImage reste inchangée pour les autres usages. */
+export async function pickAndPersistDocumentFile(): Promise<string | null> {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") return null;
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.7,
+  });
+  if (result.canceled || !result.assets[0]) return null;
+
+  const asset = result.assets[0];
+  const extFromMime = asset.mimeType === "application/pdf" ? "pdf" : null;
+  const extFromUri = asset.uri.split(".").pop()?.toLowerCase();
+  const ext = extFromMime ?? (extFromUri && /^[a-z0-9]{2,5}$/.test(extFromUri) ? extFromUri : "jpg");
+
+  const source = new File(asset.uri);
+  const dest = new File(Paths.document, `document-${Date.now()}.${ext}`);
+  try {
+    source.copy(dest);
+  } catch {
+    return null;
+  }
+  return dest.uri;
+}

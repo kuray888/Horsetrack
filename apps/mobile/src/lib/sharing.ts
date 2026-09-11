@@ -3,7 +3,14 @@ import { mapRemoteHorse, type RemoteHorse } from "@/lib/cloudSync";
 import type { Horse } from "@/horses/store";
 
 export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM";
-export type InviteResult = "ok" | "no_account" | "error";
+/** "duplicate"/"quota"/"not_premium" distinguent les causes réelles d'un
+ * insert refusé par la base (contrainte unique horseId+invitedEmail, quota
+ * d'1 collaborateur/cheval, ou abonnement Premium non actif côté serveur cf.
+ * rls.sql horse_collaborators_owner_insert) — avant, tout refus retombait
+ * sur "error" et affichait le même message générique quelle qu'en soit la
+ * cause, rendant le vrai problème indiagnosticable (cf. audit
+ * pré-publication : partage annoncé "impossible" sans jamais dire pourquoi). */
+export type InviteResult = "ok" | "duplicate" | "quota" | "not_premium" | "error";
 export type CollaboratorStatus = "PENDING" | "ACCEPTED";
 
 /** Libellé badge (Title Case — HorseBanner, share-horse-modal) et forme
@@ -55,36 +62,15 @@ function generateId(): string {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/**
- * Vérifie qu'un compte Horsetrack existe déjà pour cet email — appelé avant
- * de créer l'invitation (cf. inviteCollaborator) pour ne jamais inviter
- * quelqu'un qui n'aura aucun moyen de découvrir le partage (cf. audit produit
- * du 2026-09-03). Fail-open en cas d'erreur réseau/auth : cette vérification
- * est une aide UX, pas une frontière de sécurité (l'acceptation reste de
- * toute façon gardée par RLS sur l'email authentifié) — bloquer toutes les
- * invitations à cause d'un problème réseau transitoire serait pire que le
- * problème qu'on essaie d'éviter.
- */
-async function accountExists(email: string): Promise<boolean> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    if (!token) return true;
-    const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/account/exists?email=${encodeURIComponent(email)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return true;
-    const json = await res.json().catch(() => null);
-    return json?.exists !== false;
-  } catch {
-    return true;
-  }
-}
-
-/** Prévient l'invité par email qu'un partage l'attend — best-effort, ne doit
- * jamais faire échouer l'invitation elle-même (la ligne horse_collaborators
- * existe déjà) : un échec réseau/Resend retarde juste la découverte du
- * partage jusqu'à ce que l'invité ouvre l'app avec le même email. Envoie
+/** Prévient l'invité par email qu'un partage l'attend — que ce compte existe
+ * déjà ou non (cf. horse-invites/route.ts, dont le texte couvre les deux cas :
+ * "connecte-toi (ou crée un compte)"). C'est ce qui garantit qu'un invité sans
+ * compte découvre bien l'invitation, sans avoir besoin de le pré-vérifier ni
+ * de bloquer l'invitation à ce stade (cf. commentaire en tête de fichier).
+ * Best-effort, ne doit jamais faire échouer l'invitation elle-même (la ligne
+ * horse_collaborators existe déjà) : un échec réseau/Resend retarde juste la
+ * découverte du partage jusqu'à ce que l'invité ouvre l'app avec le même
+ * email. Envoie
  * `horseId` (pas un `horseName` fourni par le client) : la route vérifie que
  * l'appelant possède bien ce cheval et lit elle-même son nom en base, cf.
  * apps/api/.../horse-invites/route.ts — un cheval qu'on ne possède pas ne
@@ -107,8 +93,6 @@ async function notifyInvitee(horseId: string, invitedEmail: string, role: Collab
 export async function inviteCollaborator(horseId: string, email: string, role: CollaboratorRole): Promise<InviteResult> {
   const invitedEmail = email.trim().toLowerCase();
 
-  if (!(await accountExists(invitedEmail))) return "no_account";
-
   // `updatedAt` (`@updatedAt` côté Prisma) n'a pas non plus de vrai DEFAULT
   // SQL — même raison que `id` ci-dessus, à fournir explicitement.
   const { error } = await supabase.from("horse_collaborators").insert({
@@ -118,7 +102,16 @@ export async function inviteCollaborator(horseId: string, email: string, role: C
     role,
     updatedAt: new Date().toISOString(),
   });
-  if (error) return "error";
+  if (error) {
+    // Journalisé pour diagnostic (cf. type ci-dessus) — jamais montré tel
+    // quel à l'utilisateur, mais indispensable pour distinguer les causes
+    // sans accès direct aux logs serveur/RLS.
+    console.warn("[sharing] inviteCollaborator insert a échoué", error.code, error.message);
+    if (error.code === "23505") return "duplicate"; // contrainte unique horseId+invitedEmail
+    if (error.message?.toLowerCase().includes("already has a collaborator")) return "quota"; // trigger enforce_horse_collaborator_quota
+    if (error.code === "42501") return "not_premium"; // rejet RLS (horse_owner_is_active_or_trialing)
+    return "error";
+  }
   notifyInvitee(horseId, invitedEmail, role);
   return "ok";
 }

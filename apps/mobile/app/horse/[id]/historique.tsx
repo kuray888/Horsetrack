@@ -2,6 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
+import { BackButton } from "@/components/BackButton";
 import { useHorses } from "@/horses/store";
 import { useAgenda } from "@/agenda/store";
 import { useSessions } from "@/sessions/store";
@@ -26,7 +27,10 @@ export default function HorseHistoriqueScreen() {
     <Screen>
       <FadeInView>
         <View className="gap-1">
-          <Text className="text-3xl font-display tracking-tight text-text">Historique</Text>
+          <View className="flex-row items-center gap-1">
+            <BackButton />
+            <Text className="text-3xl font-display tracking-tight text-text">Historique</Text>
+          </View>
           <Text className="text-base text-muted">La vie de {horse?.name ?? "ce cheval"}, en un coup d&apos;œil</Text>
         </View>
       </FadeInView>

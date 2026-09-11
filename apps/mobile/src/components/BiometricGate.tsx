@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, AppStateStatus, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, AppStateStatus, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
-import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
+import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
 import { colors } from "@/theme/colors";
 
 type GateStatus = "checking" | "locked" | "unlocked";
@@ -46,6 +47,9 @@ export function BiometricGate() {
   }
 
   useEffect(() => {
+    // evaluate() est async et ne fait setStatus qu'après ses deux awaits :
+    // pas un setState synchrone dans l'effet, juste un lancement de vérification.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     evaluate();
 
     const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
@@ -77,7 +81,41 @@ export function BiometricGate() {
     }
   }
 
+  // Échappatoire si la biométrie devient indisponible (Face ID désactivé
+  // dans les réglages système, capteur en panne, appareil restauré...) :
+  // sans ça, "Déverrouiller" retente indéfiniment le même échec et rien
+  // d'autre sur cet écran n'atteint Profil pour désactiver le réglage — un
+  // blocage permanent (cf. audit pré-publication). Se déconnecter est sûr
+  // ici : sans session, il n'y a plus rien à protéger par ce verrou local.
+  function offerFallback() {
+    Alert.alert(
+      "Impossible de confirmer ton identité",
+      "Vérifie que Face ID/Touch ID est bien activé pour Horsetrack dans les réglages de ton téléphone, ou déconnecte-toi pour désactiver le verrouillage.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Se déconnecter et désactiver le verrouillage",
+          style: "destructive",
+          onPress: async () => {
+            await setBiometricLockEnabled(false);
+            await supabase.auth.signOut();
+            // Même navigation explicite qu'un déconnexion normale (cf.
+            // profile.tsx signOut) : rien n'écoute les changements de
+            // session pour rediriger automatiquement. `setStatus` retire le
+            // verrou (overlay racine, au-dessus du Stack) pour révéler
+            // l'écran de connexion qu'on vient de pousser en dessous.
+            router.replace("/(auth)/login");
+            setStatus("unlocked");
+          },
+        },
+      ]
+    );
+  }
+
   useEffect(() => {
+    // tryUnlock() est async et ne fait setStatus qu'après son await : pas un
+    // setState synchrone dans l'effet.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (status === "locked") tryUnlock();
   }, [status]);
 
@@ -104,6 +142,9 @@ export function BiometricGate() {
         className="rounded-card bg-primary px-6 py-3"
       >
         <Text className="text-base font-bold text-on-primary">Déverrouiller</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={offerFallback} hitSlop={12}>
+        <Text className="text-sm font-semibold text-muted">Ça ne fonctionne pas ?</Text>
       </TouchableOpacity>
     </View>
   );

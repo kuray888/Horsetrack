@@ -6,6 +6,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
+import { translateAuthError } from "@/lib/authErrors";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import { pullPendingInvites } from "@/lib/sharing";
@@ -149,7 +150,7 @@ export default function OnboardingAccount() {
       if (error) {
         const message = isEmailAlreadyRegisteredError(error.message)
           ? "Un compte existe déjà avec cet email — connecte-toi plutôt."
-          : error.message;
+          : translateAuthError(error.message);
         Alert.alert("Erreur", message);
         return;
       }

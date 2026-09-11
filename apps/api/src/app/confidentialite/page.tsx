@@ -10,9 +10,10 @@ export default function ConfidentialitePage() {
     <LegalPage title="Politique de Confidentialité — Horsetrack" updated="3 septembre 2026">
       <h2>1. Qui sommes-nous</h2>
       <p>
-        Anis Armand MESLIN, Entreprise individuelle (EI), 60 Route des Gardes, Passerelle 8 – RDC G, 92190 Meudon
-        (immatriculé sous le numéro 952 094 456 R.C.S. Nanterre) (« nous »), éditeur de l&apos;application
-        Horsetrack, est responsable du traitement des données décrites dans cette politique.
+        Léa Lilou VERCASSON, Entrepreneur individuel (micro-entreprise), 14 Rue Robert Esnault-Pelterie, 78117
+        Toussus-le-Noble (immatriculée sous le numéro SIREN 981 898 125, SIRET 981 898 125 00027) (« nous »),
+        éditrice de l&apos;application Horsetrack, est responsable du traitement des données décrites dans cette
+        politique.
       </p>
       <p>Contact pour toute question relative à vos données : horsetrack.app@gmail.com.</p>
 

@@ -6,7 +6,7 @@
 
 ## 1. Objet
 
-Les présentes Conditions Générales d'Utilisation (« CGU ») régissent l'accès et l'utilisation de l'application mobile Horsetrack (« l'Application »), éditée par Anis Armand MESLIN, Entreprise individuelle (EI), dont le siège est situé 60 Route des Gardes, Passerelle 8 – RDC G, 92190 Meudon, immatriculée sous le numéro 952 094 456 R.C.S. Nanterre (« l'Éditeur »).
+Les présentes Conditions Générales d'Utilisation (« CGU ») régissent l'accès et l'utilisation de l'application mobile Horsetrack (« l'Application »), éditée par Léa Lilou VERCASSON, Entrepreneur individuel (micro-entreprise), dont le siège est situé 14 Rue Robert Esnault-Pelterie, 78117 Toussus-le-Noble, immatriculée sous le numéro SIREN 981 898 125 (SIRET 981 898 125 00027) au Registre National des Entreprises [à confirmer avec un professionnel du droit : mention RNE ou RCS selon la qualification exacte des activités commerciales/artisanales exercées] (« l'Éditeur »).
 
 En créant un compte ou en utilisant l'Application, l'utilisateur (« l'Utilisateur ») accepte sans réserve les présentes CGU.
 
@@ -81,7 +81,7 @@ L'Éditeur peut modifier les présentes CGU à tout moment. Les Utilisateurs ser
 
 ## 12. Droit applicable et litiges
 
-Les présentes CGU sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux du ressort de Nanterre seront seuls compétents, sous réserve des dispositions impératives applicables aux consommateurs.
+Les présentes CGU sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux du ressort de Versailles [à confirmer avec un professionnel du droit] seront seuls compétents, sous réserve des dispositions impératives applicables aux consommateurs.
 
 ## 13. Contact
 

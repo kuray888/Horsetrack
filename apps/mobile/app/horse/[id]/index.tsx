@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
+import { BackButton } from "@/components/BackButton";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
 import { useWeight } from "@/horses/weightStore";
@@ -135,6 +136,7 @@ export default function HorseHubScreen() {
   if (!horse) {
     return (
       <Screen>
+        <BackButton />
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
             <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
@@ -237,6 +239,7 @@ export default function HorseHubScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
     <Screen>
+      <BackButton />
       <FadeInView>
         <HorseBanner
           horse={horse}

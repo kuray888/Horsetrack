@@ -137,7 +137,7 @@ export function AppointmentForm({
               keyboardType="number-pad"
             />
           </Field>
-          <Locked message="Plusieurs épreuves par concours réservé à l'abonnement Premium">
+          <Locked message="Détail des épreuves réservé à l'abonnement Premium">
             <View className="gap-2">
               <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
               {form.competitionEntries.map((entry) => (

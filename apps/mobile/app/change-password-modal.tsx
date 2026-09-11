@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
+import { translateAuthError } from "@/lib/authErrors";
 import { colors } from "@/theme/colors";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 pr-11 text-base text-text";
@@ -148,7 +149,7 @@ export default function ChangePasswordModal() {
             Alert.alert("Session expirée", "Reconnecte-toi pour changer ton mot de passe.");
             router.replace("/(auth)/login");
           } else {
-            Alert.alert("Erreur", reauthError.message);
+            Alert.alert("Erreur", translateAuthError(reauthError.message));
           }
           return;
         }
@@ -162,7 +163,7 @@ export default function ChangePasswordModal() {
         } else if (isWeakPasswordError(error.message)) {
           Alert.alert("Mot de passe trop faible", "Choisis un mot de passe plus long ou plus complexe.");
         } else {
-          Alert.alert("Erreur", error.message);
+          Alert.alert("Erreur", translateAuthError(error.message));
         }
         return;
       }
@@ -173,7 +174,7 @@ export default function ChangePasswordModal() {
       Alert.alert(
         "Erreur",
         e instanceof Error
-          ? e.message
+          ? translateAuthError(e.message)
           : "Impossible de mettre à jour le mot de passe pour l'instant. Vérifie ta connexion et réessaie."
       );
     } finally {

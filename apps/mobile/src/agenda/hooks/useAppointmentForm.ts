@@ -62,8 +62,17 @@ export function useAppointmentForm({
   setNotifPermission: (value: boolean | null | ((prev: boolean | null) => boolean | null)) => void;
   onEditStart: () => void;
 }) {
+  // Rappel par défaut "aucun" en gratuit : le champ reste verrouillé (cf.
+  // AppointmentForm.tsx, <Locked>) et handleSubmitAppointment force de toute
+  // façon "none" à la soumission pour un compte non Premium (cf. plus bas) —
+  // afficher "1 jour avant" pré-sélectionné sous le cadenas laissait croire
+  // qu'un rappel serait programmé, cf. audit pré-publication.
+  function initialApptForm(): AppointmentFormValue {
+    return { ...emptyApptForm, reminder: isActiveOrTrialing ? "1d" : "none" };
+  }
+
   const [showApptForm, setShowApptForm] = useState(false);
-  const [apptForm, setApptForm] = useState(emptyApptForm);
+  const [apptForm, setApptForm] = useState<AppointmentFormValue>(initialApptForm);
   const [submittingAppt, setSubmittingAppt] = useState(false);
   // Non-null pendant l'édition d'un rendez-vous existant (cf. startEditAppt) —
   // réutilise le même formulaire/état que la création (apptForm), distingue
@@ -93,7 +102,7 @@ export function useAppointmentForm({
   function cancelApptForm() {
     setShowApptForm(false);
     setEditingApptId(null);
-    setApptForm(emptyApptForm);
+    setApptForm(initialApptForm());
   }
 
   /** Programme le rappel (push + email) pour la date/heure/option courantes du

@@ -63,7 +63,8 @@
       "expo-build-properties",
       "expo-status-bar",
       "@sentry/react-native",
-      "expo-image"
+      "expo-image",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

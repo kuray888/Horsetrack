@@ -19,11 +19,17 @@ export function PasswordRecoveryListener() {
       const tokens = extractRecoveryTokens(url);
       if (!tokens) return;
 
-      const { error } = await supabase.auth.setSession({
+      await supabase.auth.setSession({
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
       });
-      if (!error) router.replace("/reset-password");
+      // Navigue vers /reset-password que setSession ait réussi ou non (lien
+      // expiré/déjà utilisé) : cet écran vérifie lui-même la session
+      // (`ready`) et affiche déjà un message clair "Ce lien n'est plus
+      // valide" quand elle est absente — avant, un setSession en échec ne
+      // naviguait nulle part, laissant le lien ouvrir l'app sans aucune
+      // explication (cf. audit pré-publication).
+      router.replace("/reset-password");
     }
 
     Linking.getInitialURL()

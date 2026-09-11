@@ -6,7 +6,8 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
-import { authenticateWithBiometrics, isBiometricLockEnabled } from "@/lib/biometrics";
+import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
+import { translateAuthError } from "@/lib/authErrors";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import {
@@ -68,13 +69,38 @@ export default function LoginScreen() {
     if (await isBiometricLockEnabled()) {
       const confirmed = await authenticateWithBiometrics("Confirmer avec Face ID");
       if (!confirmed) {
-        await supabase.auth.signOut();
         setLoading(false);
-        Alert.alert("Connexion annulée", "Confirme ton identité pour te connecter.");
+        // Avant : déconnexion + alerte simple sans aucune issue — si la
+        // biométrie devient indisponible (Face ID désactivé, capteur en
+        // panne...), la connexion était bloquée en boucle, sans jamais
+        // pouvoir atteindre Profil pour désactiver le réglage (cf. audit
+        // pré-publication). "Désactiver le verrouillage" continue la
+        // connexion déjà obtenue (mot de passe/Apple déjà validé) au lieu de
+        // forcer une reconnexion.
+        Alert.alert(
+          "Confirmation impossible",
+          "Ton identité n'a pas pu être confirmée (Face ID/Touch ID indisponible ou refusé). Tu peux réessayer, ou désactiver le verrouillage biométrique.",
+          [
+            { text: "Réessayer", style: "cancel", onPress: () => supabase.auth.signOut() },
+            {
+              text: "Désactiver le verrouillage",
+              style: "destructive",
+              onPress: async () => {
+                await setBiometricLockEnabled(false);
+                setLoading(true);
+                await continueAfterAuth(userId);
+              },
+            },
+          ]
+        );
         return;
       }
     }
 
+    await continueAfterAuth(userId);
+  }
+
+  async function continueAfterAuth(userId: string | undefined) {
     // L'abonnement (RevenueCat, pas encore branché) n'est pas sauvegardé dans
     // le cloud — si cet appareil a servi à un AUTRE compte avant, on le vide
     // pour ne pas le montrer à celui-ci. Écurie, profil cavalier, coffre-fort,
@@ -182,6 +208,14 @@ export default function LoginScreen() {
     await goToTodayOrInvites();
   }
 
+  async function resendConfirmationEmail() {
+    const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
+    Alert.alert(
+      error ? "Erreur" : "Email envoyé",
+      error ? translateAuthError(error.message) : "Un nouveau lien de confirmation vient de t'être envoyé."
+    );
+  }
+
   async function signIn() {
     setLoading(true);
     try {
@@ -192,7 +226,18 @@ export default function LoginScreen() {
       );
 
       if (error) {
-        Alert.alert("Erreur", error.message);
+        // "Email not confirmed" a une vraie porte de sortie (renvoyer le lien)
+        // plutôt qu'un simple message — sans compte confirmé, "Mot de passe
+        // oublié" n'est pas garanti de fonctionner non plus (cf. audit
+        // pré-publication).
+        if (error.message.toLowerCase().includes("email not confirmed")) {
+          Alert.alert("Email non confirmé", translateAuthError(error.message), [
+            { text: "OK", style: "cancel" },
+            { text: "Renvoyer l'email", onPress: resendConfirmationEmail },
+          ]);
+          return;
+        }
+        Alert.alert("Erreur", translateAuthError(error.message));
         return;
       }
 
@@ -204,7 +249,7 @@ export default function LoginScreen() {
       // (onboarding)/account.tsx, audit du 2026-09-06).
       Alert.alert(
         "Erreur",
-        e instanceof Error ? e.message : "Connexion impossible pour l'instant. Vérifie ta connexion et réessaie."
+        e instanceof Error ? translateAuthError(e.message) : "Connexion impossible pour l'instant. Vérifie ta connexion et réessaie."
       );
     } finally {
       setLoading(false);
@@ -236,7 +281,7 @@ export default function LoginScreen() {
       await afterSuccessfulAuth(result.userId);
     } catch (e) {
       setLoading(false);
-      Alert.alert("Erreur", e instanceof Error ? e.message : "Connexion avec Apple impossible.");
+      Alert.alert("Erreur", e instanceof Error ? translateAuthError(e.message) : "Connexion avec Apple impossible.");
     }
   }
 
