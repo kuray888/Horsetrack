@@ -21,6 +21,14 @@ if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
   });
 }
 
+import { installGlobalErrorHandler, recordCrash } from "@/lib/crashLog";
+import { LastCrashNotice } from "@/components/LastCrashNotice";
+
+// Complément à Sentry.ErrorBoundary ci-dessous : capture les exceptions
+// fatales qui échappent au rendu React (callback, timer, continuation de
+// promesse) — cf. lib/crashLog.ts. Fonctionne même sans Sentry configuré.
+installGlobalErrorHandler();
+
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { SubscriptionProvider } from "@/subscription/store";
 import { HorsesProvider } from "@/horses/store";
@@ -46,7 +54,10 @@ function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <Sentry.ErrorBoundary fallback={({ error, resetError }) => <CrashFallback error={error} resetError={resetError} />}>
+    <Sentry.ErrorBoundary
+      fallback={({ error, resetError }) => <CrashFallback error={error} resetError={resetError} />}
+      onError={(error) => recordCrash(error, false)}
+    >
     <ThemeProvider>
     <PickerOverlayProvider>
     <GlossaryProvider>
@@ -75,6 +86,7 @@ function RootLayout() {
                     </Stack>
                     <PasswordRecoveryListener />
                     <BiometricGate />
+                    <LastCrashNotice />
                   </GoalsProvider>
                 </SessionsProvider>
               </AgendaProvider>
