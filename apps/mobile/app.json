@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Horsetrack",
-    "slug": "cheval",
+    "slug": "horsetrack",
     "version": "1.0.3",
     "orientation": "portrait",
     "scheme": "horsetrack",
