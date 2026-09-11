@@ -59,3 +59,22 @@ export async function pickAndPersistImage(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Reconstruit une URI locale persistée (Horse.photoUrl, Doc.fileUri,
+ * JournalEntry.photoUri...) contre le dossier documents ACTUEL plutôt que de
+ * réutiliser telle quelle la chaîne sauvegardée en SecureStore. iOS attribue
+ * un nouveau conteneur (donc un nouveau chemin absolu file:///.../Documents/)
+ * à chaque mise à jour ou réinstallation de l'app, même si le contenu du
+ * dossier Documents lui-même est conservé — l'ancienne URI absolue ne
+ * pointait donc plus vers rien après coup ("la photo disparaît après un
+ * moment", cf. audit du 2026-09-09), alors que le fichier existait toujours
+ * sous le même nom. Ne touche pas les URL distantes (http/https, cf.
+ * lib/cloudSync.ts createSignedUrl) : seules les URI `file://` sont concernées.
+ */
+export function resolveLocalFileUri(uri: string | null): string | null {
+  if (!uri || !uri.startsWith("file://")) return uri;
+  const filename = uri.split("/").pop();
+  if (!filename) return uri;
+  return new File(Paths.document, filename).uri;
+}

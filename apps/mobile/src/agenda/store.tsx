@@ -25,6 +25,7 @@ import {
   deleteExpenseRemote,
 } from "@/lib/cloudSync";
 import { safeJsonParse } from "@/lib/safeJsonParse";
+import { resolveLocalFileUri } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
 import type { Discipline } from "@/onboarding/store";
 
@@ -381,7 +382,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             parsedDocs.map((d) => ({
               ...d,
               date: new Date(d.date),
-              fileUri: d.fileUri ?? null,
+              // Reconstruit contre le dossier documents actuel (cf.
+              // lib/imagePicker.ts resolveLocalFileUri) — même souci que
+              // Horse.photoUrl (cf. audit du 2026-09-09).
+              fileUri: resolveLocalFileUri(d.fileUri ?? null),
               filePath: d.filePath ?? null,
               horseId: d.horseId ?? null,
             }))
@@ -397,7 +401,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
               date: new Date(j.date),
               horseId: j.horseId ?? null,
               weather: j.weather ?? null,
-              photoUri: j.photoUri ?? null,
+              // Reconstruit contre le dossier documents actuel (cf.
+              // lib/imagePicker.ts resolveLocalFileUri) — même souci que
+              // Horse.photoUrl (cf. audit du 2026-09-09).
+              photoUri: resolveLocalFileUri(j.photoUri ?? null),
               photoPath: j.photoPath ?? null,
             }))
           );
