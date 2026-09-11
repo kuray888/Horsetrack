@@ -34,6 +34,7 @@ import { BiometricGate } from "@/components/BiometricGate";
 import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener";
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
+import { CrashFallback } from "@/components/CrashFallback";
 
 function RootLayout() {
   const [fontsLoaded] = useFonts({ BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold });
@@ -45,6 +46,7 @@ function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    <Sentry.ErrorBoundary fallback={({ error, resetError }) => <CrashFallback error={error} resetError={resetError} />}>
     <ThemeProvider>
     <PickerOverlayProvider>
     <GlossaryProvider>
@@ -84,6 +86,7 @@ function RootLayout() {
     </GlossaryProvider>
     </PickerOverlayProvider>
     </ThemeProvider>
+    </Sentry.ErrorBoundary>
   );
 }
 
