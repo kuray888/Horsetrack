@@ -219,6 +219,7 @@ export function PaywallView({
     // ci-dessus) : un `false` confirmé pour ANNUAL ne doit pas rester collé
     // si le cavalier bascule ensuite sur MONTHLY, qui peut avoir sa propre
     // éligibilité.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTrialEligible(true);
     isTrialEligible(period).then((eligible: boolean | null) => {
       if (!cancelled && eligible === false) setTrialEligible(false);

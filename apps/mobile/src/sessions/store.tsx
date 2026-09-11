@@ -94,6 +94,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     if (!loaded || horsesLoading) return;
     const fallbackHorseId = selectedHorse?.id ?? horses.find((h) => h.isPrimary)?.id ?? horses[0]?.id ?? null;
     if (!fallbackHorseId) return;
+    // Migration ponctuelle et idempotente (no-op si déjà à jour), pas une
+    // synchronisation dérivée de props à chaque rendu.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessions((list) =>
       list.every((s) => s.horseId) ? list : list.map((s) => (s.horseId ? s : { ...s, horseId: fallbackHorseId }))
     );

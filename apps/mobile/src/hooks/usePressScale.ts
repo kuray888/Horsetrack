@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useState } from "react";
 import { Animated } from "react-native";
 
 /**
@@ -8,7 +8,7 @@ import { Animated } from "react-native";
  * FadeInView (pas reanimated, qui plante dans Expo Go ici).
  */
 export function usePressScale(activeScale = 0.96) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(1));
 
   function onPressIn() {
     Animated.spring(scale, { toValue: activeScale, useNativeDriver: true, speed: 50, bounciness: 0 }).start();

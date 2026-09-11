@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Animated, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
@@ -29,7 +29,7 @@ export function CircularProgress({
   // Anime le remplissage de l'anneau (apparition + tout changement de valeur),
   // au lieu de sauter directement à la valeur cible. `useNativeDriver: false` car
   // strokeDashoffset n'est pas une propriété animable par le native driver.
-  const animatedProgress = useRef(new Animated.Value(0)).current;
+  const [animatedProgress] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.timing(animatedProgress, {
       toValue: clamped,

@@ -440,6 +440,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     if (!loaded || horsesLoading) return;
     const fallbackHorseId = selectedHorse?.id ?? horses.find((h) => h.isPrimary)?.id ?? horses[0]?.id ?? null;
     if (!fallbackHorseId) return;
+    // Migration ponctuelle et idempotente (chaque setState no-op si déjà à jour) :
+    // pas une synchronisation dérivée de props à chaque rendu.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAppointments((list) => (list.every((a) => a.horseId) ? list : list.map((a) => (a.horseId ? a : { ...a, horseId: fallbackHorseId }))));
     setJournal((list) => (list.every((j) => j.horseId) ? list : list.map((j) => (j.horseId ? j : { ...j, horseId: fallbackHorseId }))));
     setExpenses((list) => (list.every((e) => e.horseId) ? list : list.map((e) => (e.horseId ? e : { ...e, horseId: fallbackHorseId }))));

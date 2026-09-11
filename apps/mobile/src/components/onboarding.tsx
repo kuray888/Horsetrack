@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Animated, View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -15,7 +15,7 @@ import type { Option } from "@/onboarding/options";
  * (cf. Planning, qui réutilise ce composant pour le taux de complétion). */
 export function ProgressBar({ step, total }: { step: number; total: number }) {
   const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((step / total) * 100))) : 0;
-  const width = useRef(new Animated.Value(0)).current;
+  const [width] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(width, { toValue: pct, duration: 400, useNativeDriver: false }).start();

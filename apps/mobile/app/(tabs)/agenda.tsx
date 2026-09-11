@@ -96,6 +96,9 @@ export default function AgendaScreen() {
   // tous les cas plutôt que correct seulement dans certains.
   useEffect(() => {
     if (AGENDA_SECTIONS.includes(sectionParam as AgendaSection)) {
+      // Changement de destination explicite (cf. commentaire ci-dessus) —
+      // pas une synchronisation dérivée de props à chaque rendu.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSection(sectionParam as AgendaSection);
     }
   }, [sectionParam]);

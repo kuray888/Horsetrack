@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Animated } from "react-native";
 
 type Props = {
@@ -11,8 +11,8 @@ type Props = {
  * React Native (pas `react-native-reanimated`, qui plante dans Expo Go ici).
  */
 export function FadeInView({ delay = 0, children }: Props) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [translateY] = useState(() => new Animated.Value(12));
 
   useEffect(() => {
     Animated.parallel([
