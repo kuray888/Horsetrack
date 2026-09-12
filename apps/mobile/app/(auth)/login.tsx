@@ -241,6 +241,17 @@ export default function LoginScreen() {
         return;
       }
 
+      // Laisse le clavier (encore visible/en cours de fermeture juste après
+      // l'appui sur "Se connecter") finir sa transition avant d'enchaîner sur
+      // authenticateWithBiometrics() dans afterSuccessfulAuth (si le
+      // verrouillage Face ID est activé) — même précaution que
+      // handleAppleSignIn ci-dessous pour la feuille système Apple, jamais
+      // appliquée ici jusqu'ici sous l'hypothèse que "le mot de passe n'a pas
+      // de feuille système à laisser se fermer" : le clavier lui-même EST une
+      // transition native du même genre (cf. crash reproduit à la connexion
+      // par mot de passe le 2026-09-12, même signature que le crash Apple du
+      // 2026-09-09 corrigé plus bas).
+      await new Promise((resolve) => setTimeout(resolve, 400));
       await afterSuccessfulAuth(data.user?.id);
     } catch (e) {
       // Toute exception (réseau, erreur inattendue non renvoyée comme
