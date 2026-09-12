@@ -296,7 +296,16 @@ set search_path = public
 as $$
 begin
   perform pg_advisory_xact_lock(hashtextextended('horse_collaborators_quota:' || new."horseId", 0));
-  if (select count(*) from public.horse_collaborators hc2 where hc2."horseId" = new."horseId") >= 1 then
+  -- Une invitation PENDING expirée (jamais acceptée, jamais renvoyée) ne doit
+  -- pas occuper indéfiniment l'unique slot de collaborateur — sinon le
+  -- propriétaire n'a d'autre recours que de la révoquer à la main avant de
+  -- pouvoir en inviter un autre. `expiresAt is null` couvre les lignes créées
+  -- avant l'ajout de ce champ (traitées comme non expirantes, cf. schema.prisma).
+  if (
+    select count(*) from public.horse_collaborators hc2
+    where hc2."horseId" = new."horseId"
+      and (hc2.status = 'ACCEPTED' or hc2."expiresAt" is null or hc2."expiresAt" > now())
+  ) >= 1 then
     raise exception 'horse % already has a collaborator', new."horseId";
   end if;
   return new;
@@ -685,7 +694,14 @@ create policy "horse_collaborators_owner_insert" on public.horse_collaborators
   for insert with check (
     public.owns_horse("horseId")
     and public.horse_owner_is_active_or_trialing("horseId")
-    and (select count(*) from public.horse_collaborators hc2 where hc2."horseId" = "horseId") < 1
+    -- Même exclusion des invitations PENDING expirées que enforce_horse_collaborator_quota
+    -- ci-dessus (le WITH CHECK seul ne suffit pas à fermer la race condition,
+    -- d'où le trigger, mais doit rester cohérent avec lui).
+    and (
+      select count(*) from public.horse_collaborators hc2
+      where hc2."horseId" = "horseId"
+        and (hc2.status = 'ACCEPTED' or hc2."expiresAt" is null or hc2."expiresAt" > now())
+    ) < 1
   );
 
 -- Voir enforce_horse_collaborator_quota ci-dessus : même fermeture de race
@@ -705,9 +721,15 @@ create policy "horse_collaborators_accepted_select" on public.horse_collaborator
 
 -- with check supplémentaire (collaboratorUserId = soi-même) : empêche un
 -- invité d'accepter sa propre ligne en y inscrivant l'id de quelqu'un d'autre.
+-- `using` exige en plus une invitation encore valide (expiresAt null ou futur)
+-- : une invitation PENDING expirée ne doit plus pouvoir être acceptée, même si
+-- l'owner ne l'a pas révoquée à la main (cf. enforce_horse_collaborator_quota).
 drop policy if exists "horse_collaborators_invitee_accept" on public.horse_collaborators;
 create policy "horse_collaborators_invitee_accept" on public.horse_collaborators
-  for update using (lower("invitedEmail") = lower(auth.jwt() ->> 'email'))
+  for update using (
+    lower("invitedEmail") = lower(auth.jwt() ->> 'email')
+    and ("expiresAt" is null or "expiresAt" > now())
+  )
   with check (lower("invitedEmail") = lower(auth.jwt() ->> 'email') and "collaboratorUserId" = auth.uid()::text);
 
 -- training_sessions : séances planifiées manuellement par le cavalier — le

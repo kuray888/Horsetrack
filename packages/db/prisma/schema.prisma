@@ -502,6 +502,13 @@ model HorseCollaborator {
   role   HorseCollaboratorRole
   status HorseCollaboratorStatus @default(PENDING)
 
+  /// Fixée à la création (cf. lib/sharing.ts inviteCollaborator, +14 jours) —
+  /// `null` uniquement pour les lignes créées avant l'ajout de ce champ,
+  /// traitées comme non expirantes par rls.sql (cf. commentaires associés) le
+  /// temps qu'elles soient révoquées ou renouvelées. Une fois ACCEPTED, ce
+  /// champ n'est plus consulté : seule une invitation PENDING peut expirer.
+  expiresAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

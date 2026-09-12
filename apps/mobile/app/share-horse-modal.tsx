@@ -128,7 +128,11 @@ export default function ShareHorseModal() {
         );
         refresh();
       } else if (result === "duplicate") {
-        Alert.alert("Déjà invité·e", "Cet email est déjà invité sur ce cheval.");
+        // Une invitation PENDING pour ce même email est renvoyée automatiquement
+        // (nouveau rôle/nouvelle validité) plutôt que de finir ici (cf.
+        // inviteCollaborator) — "duplicate" ne signifie donc plus qu'une chose :
+        // cet email est déjà un·e collaborateur·rice ACCEPTED sur ce cheval.
+        Alert.alert("Déjà collaborateur·rice", "Cette personne a déjà accepté un accès à ce cheval.");
       } else if (result === "quota") {
         Alert.alert(
           "Limite atteinte",
@@ -154,9 +158,9 @@ export default function ShareHorseModal() {
     }
   }
 
-  async function handleRevoke(id: string) {
+  async function handleRevoke(collaborator: Collaborator) {
     try {
-      await revokeCollaborator(id);
+      await revokeCollaborator(horseId, collaborator);
       refresh();
     } catch {
       Alert.alert("Oups", "Impossible de retirer cette personne pour l'instant. Réessaie.");
@@ -206,7 +210,7 @@ export default function ShareHorseModal() {
                     {ROLE_META[c.role].label} · {STATUS_META[c.status]}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => handleRevoke(c.id)} hitSlop={8}>
+                <TouchableOpacity onPress={() => handleRevoke(c)} hitSlop={8}>
                   <Text className="text-sm font-semibold text-danger">Révoquer</Text>
                 </TouchableOpacity>
               </View>

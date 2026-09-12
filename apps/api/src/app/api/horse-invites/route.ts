@@ -59,6 +59,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cheval introuvable" }, { status: 403 });
   }
 
+  // La ligne horse_collaborators doit déjà exister (créée par le client via
+  // Supabase avant cet appel, cf. lib/sharing.ts inviteCollaborator) — sans ce
+  // contrôle, un compte authentifié possédant bien ce cheval pouvait déclencher
+  // un email d'invitation vers n'importe quelle adresse sans jamais créer le
+  // partage réel, cette route ne vérifiant jusqu'ici que la possession du
+  // cheval (surface de spam mineure, sans élévation de privilège puisque la
+  // ligne elle-même reste protégée par RLS ailleurs).
+  const invite = await db.horseCollaborator.findFirst({
+    where: { horseId, invitedEmail: { equals: invitedEmail, mode: "insensitive" }, status: "PENDING" },
+    select: { id: true },
+  });
+  if (!invite) {
+    return NextResponse.json({ error: "Invitation introuvable" }, { status: 404 });
+  }
+
   const inviter = await db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
   const inviterName = inviter?.name || inviter?.email || "Un cavalier";
 

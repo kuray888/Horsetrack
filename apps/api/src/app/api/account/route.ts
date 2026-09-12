@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, db } from "@cheval/db";
 import { deleteSupabaseAuthUser, getUserIdFromRequest } from "@/lib/supabaseAdmin";
+import { sendEmail } from "@/lib/resend";
 
 /** Suppression de compte (exigée par la guideline App Store 5.1.1(v)) — supprime
  * d'abord les données Prisma (cascade : rider_profiles, horses, traits,
@@ -20,6 +21,17 @@ export async function DELETE(req: NextRequest) {
   // libère jamais sans ça).
   await db.horseCollaborator.deleteMany({ where: { collaboratorUserId: userId } });
 
+  // Lu avant la suppression : le cascade Horse→HorseCollaborator (cf.
+  // schema.prisma) va couper l'accès de tout collaborateur ACCEPTED sur un
+  // cheval que ce compte possédait, sans jamais les en prévenir — ils ne le
+  // découvraient qu'au prochain sync, le cheval ayant juste disparu (cf.
+  // audit du 2026-09-12 : même angle mort que la révocation manuelle). Email
+  // best-effort envoyé après coup, une fois la suppression confirmée.
+  const affectedCollaborators = await db.horseCollaborator.findMany({
+    where: { horse: { owner: { userId } }, status: "ACCEPTED" },
+    select: { invitedEmail: true, horse: { select: { name: true } } },
+  });
+
   try {
     await db.user.delete({ where: { id: userId } });
   } catch (e) {
@@ -38,6 +50,18 @@ export async function DELETE(req: NextRequest) {
         { status: 500 }
       );
     }
+  }
+
+  for (const c of affectedCollaborators) {
+    sendEmail(
+      c.invitedEmail,
+      `Ton accès à ${c.horse.name} sur Horsetrack a été retiré`,
+      [
+        `Le compte propriétaire de ${c.horse.name} a été supprimé sur Horsetrack, ce qui met fin à ton accès partagé à ce cheval.`,
+        "",
+        "Si tu penses qu'il s'agit d'une erreur, rapproche-toi directement de cette personne.",
+      ].join("\n")
+    ).catch(() => {});
   }
 
   const { error } = await deleteSupabaseAuthUser(userId);

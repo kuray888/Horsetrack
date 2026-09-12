@@ -90,8 +90,12 @@ async function notifyInvitee(horseId: string, invitedEmail: string, role: Collab
   }
 }
 
+const INVITE_VALIDITY_DAYS = 14;
+
 export async function inviteCollaborator(horseId: string, email: string, role: CollaboratorRole): Promise<InviteResult> {
   const invitedEmail = email.trim().toLowerCase();
+  const expiresAt = new Date(Date.now() + INVITE_VALIDITY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const updatedAt = new Date().toISOString();
 
   // `updatedAt` (`@updatedAt` côté Prisma) n'a pas non plus de vrai DEFAULT
   // SQL — même raison que `id` ci-dessus, à fournir explicitement.
@@ -100,14 +104,34 @@ export async function inviteCollaborator(horseId: string, email: string, role: C
     horseId,
     invitedEmail,
     role,
-    updatedAt: new Date().toISOString(),
+    expiresAt,
+    updatedAt,
   });
   if (error) {
     // Journalisé pour diagnostic (cf. type ci-dessus) — jamais montré tel
     // quel à l'utilisateur, mais indispensable pour distinguer les causes
     // sans accès direct aux logs serveur/RLS.
     console.warn("[sharing] inviteCollaborator insert a échoué", error.code, error.message);
-    if (error.code === "23505") return "duplicate"; // contrainte unique horseId+invitedEmail
+    if (error.code === "23505") {
+      // Contrainte unique horseId+invitedEmail : une ligne existe déjà pour
+      // cet email. Si elle est encore PENDING (jamais acceptée), on la
+      // renouvelle (nouveau rôle/nouvelle expiration, email renvoyé) plutôt
+      // que de laisser l'owner bloqué sur "duplicate" sans autre recours que
+      // révoquer puis réinviter à la main. Si elle est déjà ACCEPTED, ce
+      // n'est pas un renvoi possible : c'est vraiment déjà un collaborateur.
+      const { data: updated, error: updateError } = await supabase
+        .from("horse_collaborators")
+        .update({ role, expiresAt, updatedAt })
+        .eq("horseId", horseId)
+        .eq("invitedEmail", invitedEmail)
+        .eq("status", "PENDING")
+        .select("id");
+      if (!updateError && updated && updated.length > 0) {
+        notifyInvitee(horseId, invitedEmail, role);
+        return "ok";
+      }
+      return "duplicate";
+    }
     if (error.message?.toLowerCase().includes("already has a collaborator")) return "quota"; // trigger enforce_horse_collaborator_quota
     if (error.code === "42501") return "not_premium"; // rejet RLS (horse_owner_is_active_or_trialing)
     return "error";
@@ -129,8 +153,29 @@ export async function listCollaborators(horseId: string): Promise<Collaborator[]
   return data;
 }
 
-export async function revokeCollaborator(id: string): Promise<void> {
-  await supabase.from("horse_collaborators").delete().eq("id", id);
+/** Best-effort, symétrique de notifyInvitee ci-dessus : prévient l'ex-
+ * collaborateur·rice que son accès vient d'être retiré, plutôt que de le
+ * laisser le découvrir silencieusement à la prochaine synchro (cf. audit du
+ * 2026-09-12). Appelé après une suppression déjà effective côté base — un
+ * échec réseau/Resend ici ne doit jamais faire échouer la révocation. */
+async function notifyRevoked(horseId: string, invitedEmail: string): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/horse-invites/revoke`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ horseId, invitedEmail }),
+    });
+  } catch {
+    // best-effort, cf. commentaire ci-dessus.
+  }
+}
+
+export async function revokeCollaborator(horseId: string, collaborator: Collaborator): Promise<void> {
+  await supabase.from("horse_collaborators").delete().eq("id", collaborator.id);
+  notifyRevoked(horseId, collaborator.invitedEmail);
 }
 
 /** Invitations en attente pour l'email du compte courant — affichées via
@@ -155,11 +200,18 @@ export async function acceptInvite(id: string): Promise<boolean> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) return false;
-  const { error } = await supabase
+  // `.select("id")` est indispensable ici : la policy RLS
+  // horse_collaborators_invitee_accept filtre désormais aussi les invitations
+  // expirées via son `using` (cf. rls.sql) — un update dont la ligne ne
+  // matche plus ce `using` ne renvoie aucune erreur, juste 0 ligne affectée.
+  // Sans vérifier `data`, on renverrait `true` (invitation "acceptée") alors
+  // que rien n'a changé côté base.
+  const { data, error } = await supabase
     .from("horse_collaborators")
     .update({ status: "ACCEPTED", collaboratorUserId: userId, updatedAt: new Date().toISOString() })
-    .eq("id", id);
-  return !error;
+    .eq("id", id)
+    .select("id");
+  return !error && !!data && data.length > 0;
 }
 
 /** Chevaux partagés (collaboration ACCEPTED) avec l'utilisateur courant — à
