@@ -52,7 +52,7 @@ type SubscriptionContextValue = Persisted & {
   loading: boolean;
   /** Démarre l'essai Premium d'1 mois en mode simulation locale (utilisé
    * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
-  startTrial: (period: BillingPeriod) => Promise<void>;
+  startTrial: (period: BillingPeriod) => Promise<Persisted>;
   refresh: () => Promise<void>;
   applyCustomerInfo: (info: CustomerInfo) => void;
   /** Valide et applique un code promo — validation exclusivement côté serveur
@@ -181,9 +181,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   /** Simulation locale (1 mois), utilisée uniquement tant que RevenueCat
    * n'est pas configuré — cf. useSubscribeFlow. */
   const startTrial = useCallback(
-    async (period: BillingPeriod) => {
+    async (period: BillingPeriod): Promise<Persisted> => {
       const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      await persistLocal({ status: "trialing", billingPeriod: period, trialEndsAt });
+      const next: Persisted = { status: "trialing", billingPeriod: period, trialEndsAt };
+      await persistLocal(next);
+      return next;
     },
     [persistLocal]
   );
@@ -281,14 +283,14 @@ export function useSubscribeFlow() {
   }, []);
 
   const subscribe = useCallback(
-    async (period: BillingPeriod, onSuccess: () => void | Promise<void>) => {
+    async (period: BillingPeriod, onSuccess: (persisted: Persisted) => void | Promise<void>) => {
       setSubmitting(true);
       try {
         if (!isPurchasesAvailable()) {
           // RevenueCat pas encore configuré (.env vide) : simulation locale,
           // identique au comportement avant le branchement RevenueCat.
-          await startTrial(period);
-          await onSuccess();
+          const persisted = await startTrial(period);
+          await onSuccess(persisted);
           return;
         }
 
@@ -299,8 +301,17 @@ export function useSubscribeFlow() {
         }
         // Non-null : isPurchasesAvailable() a déjà été vérifié plus haut dans ce bloc.
         const { customerInfo } = await Purchases!.purchasePackage(pkg);
+        // On calcule le résultat de l'achat ici plutôt que de laisser l'appelant
+        // relire `subscription` (cf. useSubscription()) : applyCustomerInfo()
+        // ci-dessous ne fait que programmer un re-render, donc toute closure
+        // déjà capturée côté appelant (ex. finish() de l'onboarding, créée au
+        // rendu précédent l'achat) resterait sur l'ancien statut (souvent
+        // "free") au moment de son exécution — bug constaté : chevaux ajoutés
+        // pendant l'onboarding supprimés juste après un abonnement Premium
+        // réussi, car maxHorses() lisait encore l'état pré-achat.
+        const persisted = persistedFromCustomerInfo(customerInfo);
         applyCustomerInfo(customerInfo);
-        await onSuccess();
+        await onSuccess(persisted);
       } catch (e) {
         if ((e as { userCancelled?: boolean })?.userCancelled) return;
         Alert.alert(

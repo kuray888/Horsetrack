@@ -1,7 +1,7 @@
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
-import { maxHorses, useSubscribeFlow, useSubscription, type BillingPeriod } from "@/subscription/store";
+import { maxHorses, useSubscribeFlow, useSubscription, type BillingPeriod, type Persisted } from "@/subscription/store";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { useOnboarding } from "@/onboarding/store";
 import { RIDER_LEVEL_TO_HORSE_LEVEL } from "@/onboarding/options";
@@ -21,7 +21,12 @@ export default function OnboardingPaywall() {
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
   const subscription = useSubscription();
 
-  async function finish() {
+  // `justSubscribed` : statut renvoyé par subscribe() juste après un achat/essai
+  // réussi — à utiliser au lieu de `subscription` (cf. useSubscription()
+  // ci-dessus) quand il est fourni, car ce dernier reste sur sa valeur au
+  // moment du rendu précédent l'achat (le re-render déclenché par
+  // applyCustomerInfo() n'arrive pas avant que ce closure ne s'exécute).
+  async function finish(justSubscribed?: Persisted) {
     // Ce compte a-t-il déjà terminé l'onboarding ailleurs ? Cas réel : sur
     // account.tsx, un email déjà utilisé propose "connecte-toi plutôt" — une
     // fois connecté, on atterrit quand même ici avec un brouillon d'onboarding
@@ -77,7 +82,7 @@ export default function OnboardingPaywall() {
       // ou changement d'appareil (cf. audit du 2026-09-12). Garde le cheval
       // principal en priorité, cohérent avec l'étoile déjà affichée sur
       // horses.tsx.
-      const limit = maxHorses(subscription);
+      const limit = maxHorses(justSubscribed ?? subscription);
       const withinLimit =
         horsesWithSportProfile.length <= limit
           ? horsesWithSportProfile
