@@ -1,7 +1,7 @@
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
-import { useSubscribeFlow, type BillingPeriod } from "@/subscription/store";
+import { maxHorses, useSubscribeFlow, useSubscription, type BillingPeriod } from "@/subscription/store";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { useOnboarding } from "@/onboarding/store";
 import { RIDER_LEVEL_TO_HORSE_LEVEL } from "@/onboarding/options";
@@ -19,6 +19,7 @@ export default function OnboardingPaywall() {
   const { replaceHorses, hydrateFromCloud } = useHorses();
   const { setRiderProfile } = useRiderProfile();
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
+  const subscription = useSubscription();
 
   async function finish() {
     // Ce compte a-t-il déjà terminé l'onboarding ailleurs ? Cas réel : sur
@@ -64,7 +65,30 @@ export default function OnboardingPaywall() {
         discipline: h.discipline ?? rider.mainDiscipline,
         level: h.level ?? (rider.level ? RIDER_LEVEL_TO_HORSE_LEVEL[rider.level] : "CLUB"),
       }));
-      replaceHorses(horsesWithSportProfile);
+      // horses.tsx laisse ajouter autant de chevaux qu'on veut pendant
+      // l'onboarding (juste un avertissement textuel "le premier est
+      // gratuit, les suivants avec Premium"), sans bloquer — la décision
+      // gratuit/Premium n'est prise qu'ici, à la toute fin. Sans cette
+      // troncature, un compte resté gratuit voyait les chevaux en trop
+      // apparaître normalement en local (éditables, utilisables partout)
+      // alors que le serveur les rejette silencieusement un par un (cf.
+      // rls.sql horses_insert_own + cloudSync.ts pushHorses) : des chevaux
+      // fantômes qui disparaîtraient sans prévenir à la moindre réinstallation
+      // ou changement d'appareil (cf. audit du 2026-09-12). Garde le cheval
+      // principal en priorité, cohérent avec l'étoile déjà affichée sur
+      // horses.tsx.
+      const limit = maxHorses(subscription);
+      const withinLimit =
+        horsesWithSportProfile.length <= limit
+          ? horsesWithSportProfile
+          : [...horsesWithSportProfile].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)).slice(0, limit);
+      replaceHorses(withinLimit);
+      if (withinLimit.length < horsesWithSportProfile.length) {
+        Alert.alert(
+          "Un seul cheval sur le palier gratuit",
+          `Le palier gratuit est limité à 1 cheval — seul ${withinLimit[0]?.name ?? "ton premier cheval"} a été conservé. Passe à Premium depuis ton profil pour ajouter les autres.`
+        );
+      }
     }
     // Le compte créé juste avant (cf. account.tsx) donne une session dans le
     // cas standard. Si la confirmation par email est activée côté Supabase, la
