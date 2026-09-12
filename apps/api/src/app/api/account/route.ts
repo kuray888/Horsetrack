@@ -24,7 +24,20 @@ export async function DELETE(req: NextRequest) {
     await db.user.delete({ where: { id: userId } });
   } catch (e) {
     const alreadyDeleted = e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025";
-    if (!alreadyDeleted) throw e;
+    if (alreadyDeleted) {
+      // ok, on continue vers la suppression Supabase Auth
+    } else {
+      console.error("[account:delete] échec suppression Prisma", e);
+      const fkViolation = e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003";
+      return NextResponse.json(
+        {
+          error: fkViolation
+            ? "Suppression bloquée par des données liées à ton compte — contacte le support."
+            : "Erreur serveur lors de la suppression de tes données.",
+        },
+        { status: 500 }
+      );
+    }
   }
 
   const { error } = await deleteSupabaseAuthUser(userId);

@@ -195,6 +195,7 @@ export default function ProfileScreen() {
       ]);
       router.replace("/(onboarding)/welcome");
     } catch (e) {
+      console.error("[profile:deleteAccount]", e);
       Alert.alert("Oups", e instanceof Error ? e.message : "Impossible de supprimer le compte pour l'instant.");
     } finally {
       setDeletingAccount(false);
