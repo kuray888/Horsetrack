@@ -24,7 +24,16 @@ const eventSchema = z.object({
   app_user_id: z.string().optional(),
   event_timestamp_ms: z.number().optional(),
   entitlement_ids: z.array(z.string()).optional(),
-  period_type: z.enum(["TRIAL", "INTRO", "NORMAL"]).optional(),
+  // "PROMOTIONAL" : octroi d'entitlement promotionnel/à vie depuis le
+  // dashboard RevenueCat (ex. compte de test), absent des 3 valeurs
+  // habituelles d'un achat store — sa présence faisait échouer le parsing
+  // (400), donc le webhook entier pour cet event (RevenueCat marque ça
+  // "Failure" et ne réessaie qu'avec le même payload, donc échoue à
+  // l'identique indéfiniment) : rider_profiles n'était alors jamais mis à
+  // jour, laissant ces comptes bloqués sur "Abonnement non reconnu par le
+  // serveur" malgré un entitlement actif côté RevenueCat (cf. audit du
+  // 2026-09-12).
+  period_type: z.enum(["TRIAL", "INTRO", "NORMAL", "PROMOTIONAL"]).optional(),
   product_id: z.string().optional(),
   expiration_at_ms: z.number().nullable().optional(),
 });
