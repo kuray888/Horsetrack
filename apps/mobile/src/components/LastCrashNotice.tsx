@@ -14,9 +14,13 @@ export function LastCrashNotice() {
   useEffect(() => {
     getLastCrash().then((crash) => {
       if (!crash) return;
+      // Tronquée : une Alert n'affiche confortablement qu'un texte court,
+      // et l'essentiel pour diagnostiquer (fichier/fonction) apparaît dans
+      // les toutes premières lignes d'une stack Hermes.
+      const stackPreview = crash.stack ? `\n\n${crash.stack.slice(0, 600)}` : "";
       Alert.alert(
         "Dernier plantage détecté",
-        `${crash.isFatal ? "Fatal" : "Rendu"} · ${new Date(crash.at).toLocaleString("fr-FR")}\n\n${crash.message}`,
+        `${crash.isFatal ? "Fatal" : "Rendu"} · ${new Date(crash.at).toLocaleString("fr-FR")}\n\n${crash.message}${stackPreview}`,
         [{ text: "OK", onPress: () => clearLastCrash() }]
       );
     });
