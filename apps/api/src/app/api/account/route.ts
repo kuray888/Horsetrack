@@ -66,6 +66,7 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await deleteSupabaseAuthUser(userId);
   if (error) {
+    console.error("[account:delete] échec suppression Supabase Auth", error);
     return NextResponse.json(
       { error: "Tes données ont été supprimées, mais la fermeture du compte a échoué — réessaie." },
       { status: 500 }
