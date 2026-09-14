@@ -4,6 +4,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
+import { useSessions } from "@/sessions/store";
+import { useAgenda } from "@/agenda/store";
+import { useWeight } from "@/horses/weightStore";
+import { pullAppointments, pullJournalEntries, pullTrainingSessions, pullWeightMeasurements } from "@/lib/cloudSync";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
 
@@ -23,6 +27,9 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 export default function PendingInvitesOnboarding() {
   const { horses, hydrateFromCloud } = useHorses();
   const { riderProfile, setRiderProfile } = useRiderProfile();
+  const { hydrateFromCloud: hydrateSessionsFromCloud } = useSessions();
+  const { hydrateAppointmentsFromCloud, hydrateJournalFromCloud } = useAgenda();
+  const { hydrateFromCloud: hydrateWeightFromCloud } = useWeight();
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -70,6 +77,18 @@ export default function PendingInvitesOnboarding() {
         const shared = (await pullSharedHorses().catch(() => null)) ?? [];
         const ownedOnly = horses.filter((h) => !h.sharedRole);
         hydrateFromCloud([...ownedOnly, ...shared]);
+        // Voir invites-modal.tsx : pullSharedHorses() ne ramène que le profil
+        // du cheval, jamais son journal/planning/entraînement/poids.
+        const [appointments, journalEntries, trainingSessions, weightMeasurements] = await Promise.all([
+          pullAppointments(),
+          pullJournalEntries(),
+          pullTrainingSessions(),
+          pullWeightMeasurements(),
+        ]);
+        if (appointments) hydrateAppointmentsFromCloud(appointments);
+        if (journalEntries) hydrateJournalFromCloud(journalEntries);
+        if (trainingSessions) hydrateSessionsFromCloud(trainingSessions);
+        if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
       }
       setInvites((list) => list.filter((i) => i.id !== invite.id));
     } catch {

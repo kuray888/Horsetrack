@@ -3,6 +3,10 @@ import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useHorses } from "@/horses/store";
+import { useSessions } from "@/sessions/store";
+import { useAgenda } from "@/agenda/store";
+import { useWeight } from "@/horses/weightStore";
+import { pullAppointments, pullJournalEntries, pullTrainingSessions, pullWeightMeasurements } from "@/lib/cloudSync";
 import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -12,6 +16,9 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
  * (onboarding)/paywall.tsx, lib/sharing.ts). */
 export default function InvitesModal() {
   const { horses, hydrateFromCloud } = useHorses();
+  const { hydrateFromCloud: hydrateSessionsFromCloud } = useSessions();
+  const { hydrateAppointmentsFromCloud, hydrateJournalFromCloud } = useAgenda();
+  const { hydrateFromCloud: hydrateWeightFromCloud } = useWeight();
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -42,6 +49,23 @@ export default function InvitesModal() {
       const shared = (await pullSharedHorses().catch(() => null)) ?? [];
       const ownedOnly = horses.filter((h) => !h.sharedRole);
       hydrateFromCloud([...ownedOnly, ...shared]);
+      // pullSharedHorses() ne ramène que le profil du cheval (traits/
+      // blessures) — sans ces 4 pulls, le journal/planning/entraînement/poids
+      // du cheval fraîchement partagé restaient invisibles jusqu'à la
+      // PROCHAINE connexion sur un nouvel appareil (cf. (auth)/login.tsx, qui
+      // ne les rapatrie que si ce device ne connaît pas encore ce compte) —
+      // sur le même appareil/compte déjà connu, ils n'étaient jamais tirés du
+      // tout (cf. audit du 2026-09-14).
+      const [appointments, journalEntries, trainingSessions, weightMeasurements] = await Promise.all([
+        pullAppointments(),
+        pullJournalEntries(),
+        pullTrainingSessions(),
+        pullWeightMeasurements(),
+      ]);
+      if (appointments) hydrateAppointmentsFromCloud(appointments);
+      if (journalEntries) hydrateJournalFromCloud(journalEntries);
+      if (trainingSessions) hydrateSessionsFromCloud(trainingSessions);
+      if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
       setInvites((list) => list.filter((i) => i.id !== invite.id));
     } catch {
       Alert.alert("Erreur", "Impossible d'accepter l'invitation pour l'instant. Réessaie plus tard.");
@@ -71,8 +95,8 @@ export default function InvitesModal() {
         {invites.map((invite) => (
           <View key={invite.id} className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
-              Tu es invité·e à accéder à la fiche complète de <Text className="font-bold">{invite.horseName}</Text> (planning,
-              santé, journal, budget, documents) en tant que <Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
+              Tu es invité·e à accéder à la fiche de <Text className="font-bold">{invite.horseName}</Text> (planning,
+              santé, journal, budget) en tant que <Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
             </Text>
             <View className="flex-row gap-2">
               <TouchableOpacity
