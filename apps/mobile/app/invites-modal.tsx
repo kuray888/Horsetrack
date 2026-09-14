@@ -56,11 +56,18 @@ export default function InvitesModal() {
       // ne les rapatrie que si ce device ne connaît pas encore ce compte) —
       // sur le même appareil/compte déjà connu, ils n'étaient jamais tirés du
       // tout (cf. audit du 2026-09-14).
+      // Chaque pull est isolé par son propre .catch (comme pullSharedHorses
+      // ci-dessus) : pullJournalEntries en particulier peut rejeter (pas
+      // juste renvoyer null) si createSignedUrl échoue au niveau réseau —
+      // sans cet isolement, un aléa réseau sur UN SEUL de ces 4 pulls faisait
+      // remonter une fausse erreur "invitation impossible à accepter" alors
+      // qu'elle avait déjà réussi, ou faisait disparaître l'invite en silence
+      // côté onboarding (cf. audit du 2026-09-14).
       const [appointments, journalEntries, trainingSessions, weightMeasurements] = await Promise.all([
-        pullAppointments(),
-        pullJournalEntries(),
-        pullTrainingSessions(),
-        pullWeightMeasurements(),
+        pullAppointments().catch(() => null),
+        pullJournalEntries().catch(() => null),
+        pullTrainingSessions().catch(() => null),
+        pullWeightMeasurements().catch(() => null),
       ]);
       if (appointments) hydrateAppointmentsFromCloud(appointments);
       if (journalEntries) hydrateJournalFromCloud(journalEntries);

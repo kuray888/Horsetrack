@@ -34,6 +34,10 @@ type WeightContextValue = {
   deleteMeasurement: (id: string) => void;
   hydrateFromCloud: (measurements: WeightMeasurement[]) => void;
   clearAll: () => Promise<void>;
+  /** Purge locale des mesures d'UN cheval supprimé (cf. agenda/store.tsx
+   * removeHorseData, même besoin) — pas de recalcul de Horse.weightKg
+   * nécessaire ici, le cheval lui-même disparaît de l'écurie dans le même geste. */
+  removeHorseData: (horseId: string) => void;
   loading: boolean;
 };
 
@@ -133,9 +137,13 @@ export function WeightProvider({ children }: { children: ReactNode }) {
     setMeasurements([]);
   }, []);
 
+  const removeHorseData = useCallback((horseId: string) => {
+    setMeasurements((list) => list.filter((m) => m.horseId !== horseId));
+  }, []);
+
   const value = useMemo<WeightContextValue>(
-    () => ({ measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, loading: !loaded }),
-    [measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, loaded]
+    () => ({ measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, removeHorseData, loading: !loaded }),
+    [measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, removeHorseData, loaded]
   );
 
   return <WeightContext.Provider value={value}>{children}</WeightContext.Provider>;

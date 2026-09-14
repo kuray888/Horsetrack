@@ -402,7 +402,19 @@ export async function pushDocument(doc: Doc): Promise<string | null> {
   let filePath = doc.filePath;
   if (doc.fileUri?.startsWith("file://")) {
     const uploaded = await uploadDocumentPhoto(userId, doc.id, doc.fileUri);
-    if (uploaded) filePath = uploaded;
+    if (uploaded) {
+      // Le chemin inclut l'extension réelle (documentContentType) — un
+      // remplacement qui change de type de fichier (ex: jpg → pdf) upload donc
+      // à un NOUVEAU chemin plutôt que d'écraser l'ancien objet (contrairement
+      // au cas même-extension, cf. commentaire au-dessus de cette fonction).
+      // Sans ce nettoyage, l'ancien objet restait orphelin dans Storage,
+      // jamais référencé par aucune ligne `documents` et donc invisible/
+      // impossible à supprimer depuis l'app.
+      if (doc.filePath && doc.filePath !== uploaded) {
+        await supabase.storage.from("documents").remove([doc.filePath]).catch(() => {});
+      }
+      filePath = uploaded;
+    }
   }
 
   const { error } = await supabase.from("documents").upsert({
@@ -418,14 +430,18 @@ export async function pushDocument(doc: Doc): Promise<string | null> {
   return error ? null : filePath;
 }
 
-export async function deleteDocumentRemote(docId: string): Promise<void> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (!userId) return;
+/** `filePath` doit être le chemin Storage réel du document (cf. Doc.filePath,
+ * rapporté par pullDocuments/pushDocument) — un document peut être un PDF ou
+ * un PNG (cf. documentContentType), pas seulement un ".jpg" : reconstruire le
+ * chemin en supposant ".jpg" ratait la suppression Storage pour tout autre
+ * type de fichier, laissant l'objet orphelin indéfiniment (la ligne DB
+ * disparaît, donc plus aucune référence ne permet de le retrouver ensuite). */
+export async function deleteDocumentRemote(docId: string, filePath: string | null): Promise<void> {
   await supabase.from("documents").delete().eq("id", docId);
+  if (!filePath) return;
   // Best-effort : si l'objet Storage ne se supprime pas, RLS empêche de
   // toute façon tout accès par un autre utilisateur — pas une fuite.
-  await supabase.storage.from("documents").remove([`${userId}/${docId}.jpg`]);
+  await supabase.storage.from("documents").remove([filePath]).catch(() => {});
 }
 
 /** Restaure le coffre-fort depuis Supabase (cf. (auth)/login.tsx, même

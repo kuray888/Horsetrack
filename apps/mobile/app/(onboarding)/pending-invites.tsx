@@ -78,12 +78,16 @@ export default function PendingInvitesOnboarding() {
         const ownedOnly = horses.filter((h) => !h.sharedRole);
         hydrateFromCloud([...ownedOnly, ...shared]);
         // Voir invites-modal.tsx : pullSharedHorses() ne ramène que le profil
-        // du cheval, jamais son journal/planning/entraînement/poids.
+        // du cheval, jamais son journal/planning/entraînement/poids. Chaque
+        // pull est isolé par son propre .catch : pullJournalEntries peut
+        // rejeter (createSignedUrl) si le réseau flanche, ce qui sinon ferait
+        // disparaître l'invite en silence sans jamais avoir rapatrié ces
+        // données (cf. audit du 2026-09-14).
         const [appointments, journalEntries, trainingSessions, weightMeasurements] = await Promise.all([
-          pullAppointments(),
-          pullJournalEntries(),
-          pullTrainingSessions(),
-          pullWeightMeasurements(),
+          pullAppointments().catch(() => null),
+          pullJournalEntries().catch(() => null),
+          pullTrainingSessions().catch(() => null),
+          pullWeightMeasurements().catch(() => null),
         ]);
         if (appointments) hydrateAppointmentsFromCloud(appointments);
         if (journalEntries) hydrateJournalFromCloud(journalEntries);

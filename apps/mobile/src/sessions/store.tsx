@@ -59,6 +59,9 @@ type SessionsContextValue = {
   /** Efface les séances locales (changement/déconnexion de compte sur cet
    * appareil, cf. (auth)/login.tsx, (onboarding)/account.tsx). */
   clearAll: () => Promise<void>;
+  /** Purge locale des séances d'UN cheval supprimé (cf. agenda/store.tsx
+   * removeHorseData, même besoin — cascade Postgres déjà fait côté serveur). */
+  removeHorseData: (horseId: string) => void;
   loading: boolean;
 };
 
@@ -142,6 +145,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(remote)).catch(() => {});
   }, []);
 
+  const removeHorseData = useCallback((horseId: string) => {
+    setSessions((list) => list.filter((s) => s.horseId !== horseId));
+  }, []);
+
   const clearAll = useCallback(async () => {
     // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
     // ce delete tourne dans le Promise.all de (auth)/login.tsx.afterSuccessfulAuth,
@@ -169,9 +176,21 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       upcomingForSelectedHorse,
       hydrateFromCloud,
       clearAll,
+      removeHorseData,
       loading: !loaded,
     }),
-    [sessions, addSession, updateSession, deleteSession, toggleCompleted, upcomingForSelectedHorse, hydrateFromCloud, clearAll, loaded]
+    [
+      sessions,
+      addSession,
+      updateSession,
+      deleteSession,
+      toggleCompleted,
+      upcomingForSelectedHorse,
+      hydrateFromCloud,
+      clearAll,
+      removeHorseData,
+      loaded,
+    ]
   );
 
   return <SessionsContext.Provider value={value}>{children}</SessionsContext.Provider>;

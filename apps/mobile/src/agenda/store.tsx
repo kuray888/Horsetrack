@@ -332,6 +332,15 @@ type AgendaContextValue = {
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
   /** Efface rendez-vous + documents + journal + dépenses locaux (cf. suppression de compte dans Profil). */
   clearAll: () => Promise<void>;
+  /** Purge locale des rendez-vous/journal/dépenses d'UN cheval supprimé (cf.
+   * edit-horse-modal.tsx) — le cascade Postgres (onDelete: Cascade) fait déjà
+   * le ménage côté serveur, mais rien ne nettoyait ces listes en local :
+   * elles restaient visibles indéfiniment dans les vues non filtrées par
+   * cheval (ex: Journal "tous les chevaux"), sous un nom de cheval devenu "?"
+   * (cf. audit du 2026-09-14). Ne fait aucun appel réseau : le serveur a déjà
+   * supprimé ces lignes via la suppression du cheval lui-même.
+   */
+  removeHorseData: (horseId: string) => void;
 };
 
 const AgendaContext = createContext<AgendaContextValue | null>(null);
@@ -662,10 +671,14 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const deleteDocument = useCallback((docId: string) => {
-    setDocuments((list) => list.filter((d) => d.id !== docId));
-    deleteDocumentRemote(docId).catch(() => {});
-  }, []);
+  const deleteDocument = useCallback(
+    (docId: string) => {
+      const filePath = documents.find((d) => d.id === docId)?.filePath ?? null;
+      setDocuments((list) => list.filter((d) => d.id !== docId));
+      deleteDocumentRemote(docId, filePath).catch(() => {});
+    },
+    [documents]
+  );
 
   const hydrateDocumentsFromCloud = useCallback((docs: Doc[]) => {
     setDocuments(docs);
@@ -743,6 +756,12 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       deleteJournalEntryRemote(entryId, target?.horseId ?? null).catch(() => {});
       return list.filter((j) => j.id !== entryId);
     });
+  }, []);
+
+  const removeHorseData = useCallback((horseId: string) => {
+    setAppointments((list) => list.filter((a) => a.horseId !== horseId));
+    setJournal((list) => list.filter((j) => j.horseId !== horseId));
+    setExpenses((list) => list.filter((e) => e.horseId !== horseId));
   }, []);
 
   const addExpense = useCallback(
@@ -849,6 +868,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       linkExpenseDocument,
       hydrateExpensesFromCloud,
       clearAll,
+      removeHorseData,
     }),
     [
       appointments,
@@ -877,6 +897,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addExpense,
       updateExpense,
       deleteExpense,
+      removeHorseData,
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
