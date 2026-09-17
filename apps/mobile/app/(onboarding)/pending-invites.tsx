@@ -47,7 +47,7 @@ export default function PendingInvitesOnboarding() {
   function continueToOwnProfile() {
     // Les invitations non traitées restent PENDING côté serveur — resurgiront
     // après le paywall (cf. paywall.tsx), aucune perte.
-    router.replace("/(onboarding)/riding-context");
+    router.replace("/(onboarding)/rider-level");
   }
 
   useEffect(() => {

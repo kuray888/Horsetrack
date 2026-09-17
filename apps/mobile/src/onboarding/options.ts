@@ -2,7 +2,6 @@ import type { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
 import type {
   RiderLevel,
-  RidingContext,
   RideFrequency,
   Discipline,
   RiderGoal,
@@ -14,7 +13,7 @@ import type {
 } from "./store";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 7;
+export const TOTAL_STEPS = 6;
 
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";
@@ -24,27 +23,19 @@ export type OptionIcon = { name: keyof typeof MaterialCommunityIcons.glyphMap; c
 /** Libellés FR affichés à l'utilisateur, indexés par la valeur d'enum (= valeur Prisma). */
 export type Option<T extends string> = { value: T; label: string; icon?: OptionIcon };
 
-// Seuls 3 niveaux proposés à la création/modification (cf. audit Phase 8,
-// tranche D) : "Club" et les Galop 1-7 retirés de l'UI cavalier — ne pas
-// confondre avec HorseLevel.CLUB (niveau du CHEVAL), qui reste inchangé.
-// L'enum Prisma RiderLevel garde ses 5 valeurs (GALOP_1_4/GALOP_5_7 inclus) :
-// aucune migration ici, seulement le nombre d'options proposées. Les rares
-// profils existants sur une ancienne valeur Galop restent lisibles tels
-// quels (cf. labelOf/profile.tsx), simplement plus reproposables au choix.
+// 4 niveaux proposés à la création/modification — "Poney / Club" réintroduit
+// (cf. demande du 2026-09-17, qui revient sur le retrait fait à l'audit Phase
+// 8 tranche D) en réutilisant GALOP_1_4, déjà présent dans l'enum Prisma
+// RiderLevel mais jusqu'ici masqué de l'UI (cf. RIDER_LEVEL_TO_HORSE_LEVEL
+// plus bas, qui le fait déjà correspondre à HorseLevel.CLUB) — aucune
+// migration nécessaire. GALOP_5_7 reste masqué : seule "Poney / Club" a été
+// redemandée, pas les Galops détaillés. Ne pas confondre avec HorseLevel.CLUB
+// (niveau du CHEVAL), qui reste un enum distinct.
 export const RIDER_LEVELS: Option<RiderLevel>[] = [
   { value: "BEGINNER", label: "Débutant" },
   { value: "AMATEUR", label: "Amateur" },
   { value: "PRO", label: "Professionnel" },
-];
-
-/** Rapport au(x) cheval(aux) — cf. audit du 2026-09-16, section onboarding.
- * Purement informatif (adapte le vocabulaire affiché ailleurs dans l'app,
- * ex. "ton écurie" vs "le cheval du club") : aucune fonctionnalité, quota ou
- * palier d'abonnement n'en dépend. */
-export const RIDING_CONTEXTS: Option<RidingContext>[] = [
-  { value: "OWNER", label: "Je suis propriétaire de mon cheval", icon: { name: "home-heart", color: colors.primary } },
-  { value: "HALF_BOARD", label: "Je suis en demi-pension", icon: { name: "handshake-outline", color: colors.accent } },
-  { value: "CLUB", label: "Je monte un cheval de club / centre équestre", icon: { name: "school-outline", color: colors.warning } },
+  { value: "GALOP_1_4", label: "Poney / Club" },
 ];
 
 export const RIDE_FREQUENCIES: Option<RideFrequency>[] = [

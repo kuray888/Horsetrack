@@ -13,7 +13,6 @@ import { createContext, useContext, useState, ReactNode, useMemo, useCallback } 
 
 // ─── Enums (alignés Prisma) ───
 export type RiderLevel = "BEGINNER" | "GALOP_1_4" | "GALOP_5_7" | "AMATEUR" | "PRO";
-export type RidingContext = "OWNER" | "HALF_BOARD" | "CLUB";
 export type RideFrequency = "DAILY" | "SEVERAL_PER_WEEK" | "WEEKEND" | "OCCASIONAL";
 export type Discipline =
   | "SHOW_JUMPING"
@@ -69,7 +68,6 @@ export type HorseDraft = {
 
 export type RiderDraft = {
   level: RiderLevel | null;
-  ridingContext: RidingContext | null;
   mainDiscipline: Discipline | null;
   rideFrequency: RideFrequency | null;
   primaryGoal: RiderGoal | null;
@@ -125,7 +123,6 @@ type OnboardingContextValue = OnboardingState & {
 const initialState: OnboardingState = {
   rider: {
     level: null,
-    ridingContext: null,
     mainDiscipline: null,
     rideFrequency: null,
     primaryGoal: null,

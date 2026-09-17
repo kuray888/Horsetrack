@@ -7,7 +7,7 @@ export default function Goal() {
   const { rider, setRider } = useOnboarding();
   return (
     <OnboardingShell
-      step={5}
+      step={4}
       total={TOTAL_STEPS}
       title="Ton objectif principal ?"
       subtitle="Ça reste dans ton profil cavalier."

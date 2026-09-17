@@ -51,7 +51,6 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
   const existing = await getOwnerProfile(userId);
   const fields = {
     level: rider.level,
-    ridingContext: rider.ridingContext,
     mainDiscipline: rider.mainDiscipline,
     rideFrequency: rider.rideFrequency,
     primaryGoal: rider.primaryGoal,
@@ -340,7 +339,6 @@ export async function pullCloudData(): Promise<CloudData | null> {
 
   const rider: RiderProfile = {
     level: profile.level,
-    ridingContext: profile.ridingContext ?? null,
     mainDiscipline: profile.mainDiscipline,
     rideFrequency: profile.rideFrequency,
     primaryGoal: profile.primaryGoal,

@@ -7,7 +7,7 @@ export default function Frequency() {
   const { rider, setRider } = useOnboarding();
   return (
     <OnboardingShell
-      step={4}
+      step={3}
       total={TOTAL_STEPS}
       title="À quelle fréquence montes-tu ?"
       subtitle="Ça reste dans ton profil cavalier."

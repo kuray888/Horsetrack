@@ -33,11 +33,6 @@ model RiderProfile {
 
   // Profil cavalier (onboarding)
   level             RiderLevel?
-  /// Rapport au(x) cheval(aux) monté(s) — propriétaire, demi-pensionnaire ou
-  /// cavalier d'un cheval de club/centre équestre (cf. audit du 2026-09-16,
-  /// section onboarding). Adapte uniquement le vocabulaire affiché ("ton
-  /// écurie" vs "le cheval du club"), aucun gating fonctionnel dessus.
-  ridingContext     RidingContext?
   mainDiscipline    Discipline?
   rideFrequency     RideFrequency?
   primaryGoal       RiderGoal?
@@ -520,15 +515,6 @@ model HorseCollaborator {
   @@unique([horseId, invitedEmail])
   @@index([collaboratorUserId])
   @@map("horse_collaborators")
-}
-
-/// Rapport au(x) cheval(aux) — cf. RiderProfile.ridingContext.
-enum RidingContext {
-  OWNER // propriétaire
-  HALF_BOARD // demi-pensionnaire
-  CLUB // cheval de club / centre équestre
-
-  @@map("riding_context")
 }
 
 enum RiderLevel {
