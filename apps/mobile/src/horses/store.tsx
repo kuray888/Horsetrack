@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -243,6 +244,9 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   // indicateur "non synchronisé" quand une vraie erreur réseau/serveur
   // survient (pas le quota du palier gratuit, qui a son propre traitement).
   const [syncFailed, setSyncFailed] = useState(false);
+  // Ref et non state : lu au moment exact du push suivant (pas de closure
+  // périmée) et ne doit déclencher aucun rendu — cf. son usage dans persist().
+  const needsFullSyncRef = useRef(false);
 
   useEffect(() => {
     Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)])
@@ -271,12 +275,26 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     // (cf. pushHorses), il faut le push global pour rester correct.
     (next: Horse[], changedIds?: string[]) => {
       SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      // Rattrapage : tant qu'un push précédent n'a pas abouti (erreur réseau,
+      // ou profil serveur pas encore créé), on ignore `changedIds` et on
+      // republie TOUT. Sans ça, le cheval resté non synchronisé ne serait
+      // jamais retenté : avant l'introduction du push ciblé, chaque
+      // modification republiait l'écurie entière et rattrapait donc
+      // implicitement les échecs précédents — ce filet avait disparu avec
+      // l'optimisation (cf. audit du 2026-09-17).
+      const catchUp = needsFullSyncRef.current;
       // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
       // programme/affichage local ne doit jamais attendre le réseau. Exclut les
       // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
       // sans effet (RLS bloque, cf. owns_rider_profile) et inutile.
-      return pushHorses(next.filter((h) => !h.sharedRole), changedIds)
-        .then(({ photoUpdates, rejectedIds, hadUnexpectedError }) => {
+      return pushHorses(next.filter((h) => !h.sharedRole), catchUp ? undefined : changedIds)
+        .then(({ photoUpdates, rejectedIds, hadUnexpectedError, skipped }) => {
+          // Invariant : `needsFullSyncRef` faux ⟺ tout était synchronisé au
+          // dernier push. Un push ciblé qui réussit alors que le drapeau
+          // était déjà faux suffit donc à affirmer que plus rien n'est en
+          // attente. `skipped` n'est pas une erreur à afficher (cas normal
+          // pendant l'onboarding) mais laisse bien l'écurie à resynchroniser.
+          needsFullSyncRef.current = hadUnexpectedError || skipped;
           setSyncFailed(hadUnexpectedError);
           if (photoUpdates.length === 0 && rejectedIds.length === 0) return;
           setHorses((prev) => {
@@ -313,7 +331,10 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
             return merged;
           });
         })
-        .catch(() => setSyncFailed(true));
+        .catch(() => {
+          needsFullSyncRef.current = true;
+          setSyncFailed(true);
+        });
     },
     [selectedHorseId]
   );

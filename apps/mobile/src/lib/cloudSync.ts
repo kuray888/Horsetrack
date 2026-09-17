@@ -177,7 +177,13 @@ async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
  * lecture) à la moindre modification d'un seul cheval — renommer l'un de 5
  * chevaux déclenchait 5 upserts. Omis (undefined), tous les `horses` fournis
  * sont upsertés — comportement historique, utilisé pour les opérations
- * intrinsèquement globales (replaceHorses, removeHorse). */
+ * intrinsèquement globales (replaceHorses, removeHorse).
+ *
+ * `skipped` : true quand rien n'a pu être tenté (pas de session, ou pas
+ * encore de rider_profile côté serveur). Ce n'est pas une erreur à montrer à
+ * l'utilisateur, mais l'appelant doit retenir que l'écurie reste à
+ * synchroniser — cf. horses/store.tsx, qui repasse alors en push global au
+ * prochain appel plutôt que de ne republier que le cheval suivant modifié. */
 export async function pushHorses(
   horses: Horse[],
   onlyIds?: string[]
@@ -185,16 +191,17 @@ export async function pushHorses(
   photoUpdates: Array<{ id: string; photoPath: string | null }>;
   rejectedIds: string[];
   hadUnexpectedError: boolean;
+  skipped: boolean;
 }> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) return { photoUpdates: [], rejectedIds: [], hadUnexpectedError: false };
+  if (!userId) return { photoUpdates: [], rejectedIds: [], hadUnexpectedError: false, skipped: true };
 
   const profile = await getOwnerProfile(userId);
   // Pas encore de rider_profile côté serveur (ex: confirmation email en
   // attente, cf. (onboarding)/account.tsx) : on retentera au prochain push,
   // pushRiderProfile() crée la ligne dès qu'une session existe.
-  if (!profile) return { photoUpdates: [], rejectedIds: [], hadUnexpectedError: false };
+  if (!profile) return { photoUpdates: [], rejectedIds: [], hadUnexpectedError: false, skipped: true };
 
   const now = new Date().toISOString();
   const photoUpdates: Array<{ id: string; photoPath: string | null }> = [];
@@ -307,7 +314,7 @@ export async function pushHorses(
     }
   }
 
-  return { photoUpdates, rejectedIds: confirmedRejectedIds, hadUnexpectedError };
+  return { photoUpdates, rejectedIds: confirmedRejectedIds, hadUnexpectedError, skipped: false };
 }
 
 type CloudData = { rider: RiderProfile; horses: Horse[] };
