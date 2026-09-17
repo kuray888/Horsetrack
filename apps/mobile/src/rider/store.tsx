@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { pushRiderProfile } from "@/lib/cloudSync";
-import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
+import type { Discipline, RiderGoal, RiderLevel, RideFrequency, RidingContext } from "@/onboarding/store";
 
 /**
  * Profil cavalier, persisté localement et sauvegardé vers Supabase en
@@ -16,6 +16,10 @@ const STORAGE_KEY = "rider_profile_v1";
 
 export type RiderProfile = {
   level: RiderLevel | null;
+  /** Propriétaire / demi-pensionnaire / cheval de club — cf. onboarding
+   * (onboarding)/riding-context.tsx. Purement informatif (adapte le
+   * vocabulaire affiché), aucune fonctionnalité ne dépend de sa valeur. */
+  ridingContext: RidingContext | null;
   mainDiscipline: Discipline | null;
   rideFrequency: RideFrequency | null;
   primaryGoal: RiderGoal | null;
@@ -29,6 +33,7 @@ export type RiderProfile = {
 
 const DEFAULT_RIDER_PROFILE: RiderProfile = {
   level: null,
+  ridingContext: null,
   mainDiscipline: null,
   rideFrequency: null,
   primaryGoal: null,
@@ -53,9 +58,14 @@ export function RiderProfileProvider({ children }: { children: ReactNode }) {
     SecureStore.getItemAsync(STORAGE_KEY)
       .then((raw) => {
         const parsed = safeJsonParse(raw, DEFAULT_RIDER_PROFILE);
-        // Profil sauvegardé avant l'introduction de primaryGoalCustom — même
-        // souci déjà rencontré sur Horse.restDayActivities/Goal.customType.
-        setRiderProfileState({ ...parsed, primaryGoalCustom: parsed.primaryGoalCustom ?? null });
+        // Profil sauvegardé avant l'introduction de primaryGoalCustom/
+        // ridingContext — même souci déjà rencontré sur
+        // Horse.restDayActivities/Goal.customType.
+        setRiderProfileState({
+          ...parsed,
+          ridingContext: parsed.ridingContext ?? null,
+          primaryGoalCustom: parsed.primaryGoalCustom ?? null,
+        });
       })
       .catch((e) => console.warn("[rider] lecture SecureStore échouée, profil par défaut", e))
       .finally(() => setLoading(false));

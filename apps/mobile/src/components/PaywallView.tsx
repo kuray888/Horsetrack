@@ -239,7 +239,11 @@ export function PaywallView({
         </View>
       ) : null}
 
-      <ScrollView contentContainerClassName="px-5 pt-6 pb-4 gap-5" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerClassName="px-5 pt-6 pb-4 gap-5"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="gap-2">
           <Text className="text-3xl font-display leading-tight tracking-tight text-text">{title}</Text>
           <Text className="text-base text-muted">Annulable à tout moment depuis les réglages.</Text>

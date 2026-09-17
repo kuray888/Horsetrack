@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
@@ -16,7 +16,8 @@ import { useHorses } from "@/horses/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda, ACTIVITY_META, type Appointment, type ExpenseCategory } from "@/agenda/store";
 import { APPT_META, suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
-import { maxHorses, useSubscription } from "@/subscription/store";
+import { useSubscription } from "@/subscription/store";
+import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
 import {
   buildUnifiedEvents,
   upcomingUnifiedEvents,
@@ -126,8 +127,6 @@ export default function TodayScreen() {
   } = useAgenda();
   const subscription = useSubscription();
   const { isActiveOrTrialing } = subscription;
-  const horseLimit = maxHorses(subscription);
-  const ownedHorseIds = horses.filter((h) => !h.sharedRole).map((h) => h.id);
   const horse = selectedHorse;
 
   // Une seule fois par montage, pas à chaque render (cf. audit perf du
@@ -339,55 +338,11 @@ export default function TodayScreen() {
         <WeatherForecastStrip />
       </FadeInView>
 
-      {/* Sélecteur de cheval — visible seulement à partir de 2 chevaux dans l'écurie */}
+      {/* Sélecteur de cheval — visible seulement à partir de 2 chevaux dans
+          l'écurie (cf. HorseSwitcher, même composant sur Planning/Agenda). */}
       {horses.length > 1 ? (
         <FadeInView delay={40}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 pr-2">
-            {horses.map((h) => {
-              const isSelected = h.id === horse?.id;
-              // Les chevaux partagés (DP/coach) ne comptent jamais dans le
-              // quota du palier — seul leur rang parmi les chevaux POSSÉDÉS
-              // compte pour le verrouillage (cf. profile.tsx, même logique).
-              const locked = !h.sharedRole && ownedHorseIds.indexOf(h.id) >= horseLimit;
-              return (
-                <TouchableOpacity
-                  key={h.id}
-                  onPress={() => (locked ? router.push("/paywall") : selectHorse(h.id))}
-                  activeOpacity={0.8}
-                  className="items-center gap-1"
-                >
-                  <View
-                    className={`relative h-14 w-14 items-center justify-center overflow-hidden rounded-full ${
-                      isSelected ? "border-2 border-primary bg-highlight" : "border border-border bg-surface"
-                    } ${locked ? "opacity-40" : ""}`}
-                  >
-                    {h.photoUrl ? (
-                      <Image source={{ uri: h.photoUrl }} style={{ width: 56, height: 56 }} />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="horse-variant"
-                        size={24}
-                        color={isSelected ? colors.primary : colors.textMuted}
-                      />
-                    )}
-                    {locked ? (
-                      <View className="absolute inset-0 items-center justify-center bg-surface/50">
-                        <Text className="text-sm">🔒</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text
-                    className={`max-w-[64px] text-center text-xs font-semibold ${
-                      isSelected ? "text-primary" : "text-muted"
-                    }`}
-                    numberOfLines={1}
-                  >
-                    {h.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <HorseSwitcher />
         </FadeInView>
       ) : null}
 

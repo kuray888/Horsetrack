@@ -281,7 +281,15 @@ set search_path = public
 as $$
 begin
   perform pg_advisory_xact_lock(hashtextextended('horses_quota:' || new."ownerId", 0));
-  if (select count(*) from public.horses h2 where h2."ownerId" = new."ownerId") >= public.effective_horse_limit(new."ownerId") then
+  -- `h2.id <> new.id` : exclut la ligne en cours d'upsert d'elle-même. Sans
+  -- ça, ce trigger BEFORE INSERT (qui se déclenche aussi pour un upsert
+  -- résolu en UPDATE via ON CONFLICT, cf. cloudSync.ts pushHorses) comptait
+  -- un cheval déjà existant contre son propre quota à CHAQUE resynchro —
+  -- un compte gratuit ayant déjà son unique cheval en base ne pouvait plus
+  -- jamais réenregistrer sa fiche (nom, photo, poids...), rejeté en boucle
+  -- silencieuse (cf. audit du 2026-09-16). Une vraie création n'est pas
+  -- affectée : aucune ligne ne porte encore cet id au moment du check.
+  if (select count(*) from public.horses h2 where h2."ownerId" = new."ownerId" and h2.id <> new.id) >= public.effective_horse_limit(new."ownerId") then
     raise exception 'horse quota exceeded for rider profile %', new."ownerId";
   end if;
   return new;
@@ -455,11 +463,14 @@ create policy "horses_delete_own" on public.horses
 -- Compte les chevaux déjà possédés (hors celui en cours d'insertion, pas
 -- encore commité) et compare au quota du palier — bloque l'ajout au-delà de
 -- la limite, quel que soit le client qui tente l'insert (app ou appel direct).
+-- `h2.id <> "id"` : même correction que enforce_horse_quota ci-dessus — sans
+-- elle, un upsert résolu en UPDATE (ON CONFLICT) comptait la ligne existante
+-- contre son propre quota à chaque resynchro (cf. audit du 2026-09-16).
 drop policy if exists "horses_insert_own" on public.horses;
 create policy "horses_insert_own" on public.horses
   for insert with check (
     public.owns_rider_profile("ownerId")
-    and (select count(*) from public.horses h2 where h2."ownerId" = "ownerId") < public.effective_horse_limit("ownerId")
+    and (select count(*) from public.horses h2 where h2."ownerId" = "ownerId" and h2.id <> "id") < public.effective_horse_limit("ownerId")
   );
 
 -- Voir enforce_horse_quota ci-dessus : ferme la course entre inserts

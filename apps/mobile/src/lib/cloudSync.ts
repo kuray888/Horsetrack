@@ -51,6 +51,7 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
   const existing = await getOwnerProfile(userId);
   const fields = {
     level: rider.level,
+    ridingContext: rider.ridingContext,
     mainDiscipline: rider.mainDiscipline,
     rideFrequency: rider.rideFrequency,
     primaryGoal: rider.primaryGoal,
@@ -151,20 +152,55 @@ async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
  * `pushDocument`. Le chemin étant déterministe par cheval ("{horseId}/photo.jpg"),
  * remplacer une photo existante par une autre ne change PAS cette valeur (même
  * chemin, objet Storage écrasé) : seules les transitions "pas de photo → une
- * photo" et "une photo → supprimée" sont réellement à reporter localement. */
-export async function pushHorses(horses: Horse[]): Promise<Array<{ id: string; photoPath: string | null }>> {
+ * photo" et "une photo → supprimée" sont réellement à reporter localement.
+ *
+ * `rejectedIds` : chevaux dont l'insert a été refusé par le trigger
+ * `enforce_horse_quota` (quota du palier gratuit dépassé, cf. rls.sql) — cf.
+ * audit du 2026-09-16, un compte resté sur ce palier après avoir créé un 2ᵉ
+ * cheval le gardait indéfiniment en local bien qu'il n'ait jamais existé côté
+ * serveur, faisant échouer en boucle silencieuse toute écriture liée
+ * (journal, séances, traits...) avec des 42501 en cascade. L'appelant doit
+ * retirer ces chevaux de l'état local plutôt que les garder.
+ *
+ * `hadUnexpectedError` : true si une erreur RÉSEAU/SERVEUR (pas le quota
+ * attendu) a empêché au moins un cheval de se synchroniser — cf. audit du
+ * 2026-09-16 : jusqu'ici, ces échecs n'étaient qu'un `console.warn` invisible
+ * en production, sans aucun moyen pour l'utilisateur de savoir qu'une
+ * modification n'était jamais partie. L'appelant s'en sert pour afficher un
+ * indicateur "non synchronisé", jamais pour bloquer quoi que ce soit.
+ *
+ * `onlyIds` : restreint l'upsert (et les traits/blessures) à ces chevaux —
+ * `horses` reste néanmoins la liste COMPLÈTE de l'écurie possédée, utilisée
+ * telle quelle pour détecter les chevaux obsolètes à supprimer côté serveur
+ * (cf. plus bas) ; ne jamais y passer une liste partielle sous peine de
+ * supprimer par erreur des chevaux non modifiés. Cf. audit du 2026-09-16 :
+ * avant, `persist()` republiait TOUTE l'écurie (upsert + traits + une
+ * lecture) à la moindre modification d'un seul cheval — renommer l'un de 5
+ * chevaux déclenchait 5 upserts. Omis (undefined), tous les `horses` fournis
+ * sont upsertés — comportement historique, utilisé pour les opérations
+ * intrinsèquement globales (replaceHorses, removeHorse). */
+export async function pushHorses(
+  horses: Horse[],
+  onlyIds?: string[]
+): Promise<{
+  photoUpdates: Array<{ id: string; photoPath: string | null }>;
+  rejectedIds: string[];
+  hadUnexpectedError: boolean;
+}> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) return [];
+  if (!userId) return { photoUpdates: [], rejectedIds: [], hadUnexpectedError: false };
 
   const profile = await getOwnerProfile(userId);
   // Pas encore de rider_profile côté serveur (ex: confirmation email en
   // attente, cf. (onboarding)/account.tsx) : on retentera au prochain push,
   // pushRiderProfile() crée la ligne dès qu'une session existe.
-  if (!profile) return [];
+  if (!profile) return { photoUpdates: [], rejectedIds: [], hadUnexpectedError: false };
 
   const now = new Date().toISOString();
   const photoUpdates: Array<{ id: string; photoPath: string | null }> = [];
+  const rejectedIds: string[] = [];
+  let hadUnexpectedError = false;
   // Un cheval à la fois, pas un upsert groupé : Postgres/RLS rejette un
   // upsert multi-lignes EN BLOC si UNE SEULE ligne viole le WITH CHECK (cf.
   // rls.sql horses_insert_own, quota du palier) — avec un upsert groupé, un
@@ -172,7 +208,8 @@ export async function pushHorses(horses: Horse[]): Promise<Array<{ id: string; p
   // silencieusement les DEUX (pas juste le 2ᵉ en trop), cf. audit du
   // 2026-09-03. Séparé, seul le cheval en trop échoue ; les autres, dans la
   // limite, sont bien sauvegardés.
-  for (const h of horses) {
+  const toUpsert = onlyIds ? horses.filter((h) => onlyIds.includes(h.id)) : horses;
+  for (const h of toUpsert) {
     let photoPath = h.photoPath;
     if (h.photoUrl?.startsWith("file://")) {
       // Photo fraîchement choisie (jamais un chemin distant) : à uploader. En
@@ -184,8 +221,6 @@ export async function pushHorses(horses: Horse[]): Promise<Array<{ id: string; p
       await deleteHorsePhotoRemote(h.id);
       photoPath = null;
     }
-    if (photoPath !== h.photoPath) photoUpdates.push({ id: h.id, photoPath });
-
     const { error } = await supabase.from("horses").upsert({
       id: h.id,
       ownerId: profile.id,
@@ -204,29 +239,76 @@ export async function pushHorses(horses: Horse[]): Promise<Array<{ id: string; p
       isPrimary: h.isPrimary,
       updatedAt: now,
     });
-    if (error) console.warn("[cloudSync] upsert horse échoué", h.id, error);
+    if (error) {
+      console.warn("[cloudSync] upsert horse échoué", h.id, error);
+      if (error.message?.toLowerCase().includes("horse quota exceeded")) {
+        rejectedIds.push(h.id);
+      } else {
+        hadUnexpectedError = true;
+      }
+    } else if (photoPath !== h.photoPath) {
+      // Signalé seulement si la ligne a bien été enregistrée (cf. audit du
+      // 2026-09-16) : avant, cette mise à jour était poussée dans l'état
+      // local même quand l'upsert échouait juste après, faisant croire à une
+      // synchro réussie alors que la ligne serveur n'avait pas bougé.
+      photoUpdates.push({ id: h.id, photoPath });
+    }
   }
 
   // Supprime côté distant les chevaux qui n'existent plus localement — pas de
-  // suppression de cheval dans l'UI actuelle, mais garde la sync correcte le
-  // jour où elle arrive plutôt que de laisser des chevaux fantômes.
-  const { data: remoteHorses, error: selectHorsesError } = await supabase
-    .from("horses")
-    .select("id")
-    .eq("ownerId", profile.id);
-  if (selectHorsesError) console.warn("[cloudSync] lecture horses échouée", selectHorsesError);
-  const localIds = horses.map((h) => h.id);
-  const staleHorseIds = (remoteHorses ?? []).map((r) => r.id).filter((id) => !localIds.includes(id));
-  if (staleHorseIds.length > 0) {
-    const { error } = await supabase.from("horses").delete().in("id", staleHorseIds);
-    if (error) console.warn("[cloudSync] suppression horses obsolètes échouée", error);
+  // suppression de cheval dans l'UI actuelle sans passer par removeHorse()
+  // (qui, elle, appelle toujours pushHorses sans `onlyIds`), donc rien à
+  // nettoyer ici pour un push ciblé : `onlyIds` ne réduit jamais l'écurie, il
+  // ne fait qu'écarter les chevaux non modifiés de l'upsert. Ce
+  // select+delete ne tourne donc que pour les pushs globaux
+  // (replaceHorses/removeHorse), pas à chaque simple renommage/photo.
+  if (!onlyIds) {
+    const { data: remoteHorses, error: selectHorsesError } = await supabase
+      .from("horses")
+      .select("id")
+      .eq("ownerId", profile.id);
+    if (selectHorsesError) {
+      console.warn("[cloudSync] lecture horses échouée", selectHorsesError);
+      hadUnexpectedError = true;
+    }
+    const localIds = horses.map((h) => h.id);
+    const staleHorseIds = (remoteHorses ?? []).map((r) => r.id).filter((id) => !localIds.includes(id));
+    if (staleHorseIds.length > 0) {
+      const { error } = await supabase.from("horses").delete().in("id", staleHorseIds);
+      if (error) console.warn("[cloudSync] suppression horses obsolètes échouée", error);
+    }
   }
 
-  for (const horse of horses) {
+  for (const horse of toUpsert) {
+    // Jamais créé côté serveur (cf. rejectedIds ci-dessus) : y pousser ses
+    // traits/blessures échouerait de toute façon en RLS (aucune ligne
+    // "horses" à référencer), inutile de tenter.
+    if (rejectedIds.includes(horse.id)) continue;
     await pushHorseTraitsAndInjuries(horse);
   }
 
-  return photoUpdates;
+  // Confirmation explicite avant de faire supprimer un cheval en local par
+  // l'appelant (cf. horses/store.tsx persist) — jamais sur la seule foi du
+  // message d'erreur "horse quota exceeded" ci-dessus. Cf. audit du
+  // 2026-09-16 (C1/C2) : cette même erreur a déjà été renvoyée à tort par le
+  // passé pour des chevaux parfaitement existants (bug de comptage du quota
+  // corrigé dans enforce_horse_quota, cf. rls.sql) — un futur bug similaire
+  // ne doit plus jamais se traduire par une suppression locale erronée. Si
+  // la ligne existe malgré tout côté serveur, on la laisse en l'état plutôt
+  // que de la retirer : elle sera resynchronisée normalement au prochain push.
+  let confirmedRejectedIds = rejectedIds;
+  if (rejectedIds.length > 0) {
+    const { data: stillPresent, error: verifyError } = await supabase.from("horses").select("id").in("id", rejectedIds);
+    if (verifyError) {
+      console.warn("[cloudSync] vérification des chevaux refusés échouée, aucune suppression locale", verifyError);
+      confirmedRejectedIds = [];
+    } else {
+      const presentIds = new Set((stillPresent ?? []).map((r) => r.id));
+      confirmedRejectedIds = rejectedIds.filter((id) => !presentIds.has(id));
+    }
+  }
+
+  return { photoUpdates, rejectedIds: confirmedRejectedIds, hadUnexpectedError };
 }
 
 type CloudData = { rider: RiderProfile; horses: Horse[] };
@@ -258,6 +340,7 @@ export async function pullCloudData(): Promise<CloudData | null> {
 
   const rider: RiderProfile = {
     level: profile.level,
+    ridingContext: profile.ridingContext ?? null,
     mainDiscipline: profile.mainDiscipline,
     rideFrequency: profile.rideFrequency,
     primaryGoal: profile.primaryGoal,

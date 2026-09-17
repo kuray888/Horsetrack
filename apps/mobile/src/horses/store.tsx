@@ -219,6 +219,15 @@ type HorsesContextValue = {
   /** Efface l'écurie locale (cf. suppression de compte dans Profil) — remet
    * l'état exactement comme à l'installation, pas juste un tableau vide. */
   clearAll: () => Promise<void>;
+  /** true si la dernière tentative de synchro a rencontré une vraie erreur
+   * réseau/serveur (pas le quota du palier gratuit) — cf. audit du
+   * 2026-09-16. Purement indicatif, ne bloque jamais l'usage de l'app. */
+  syncFailed: boolean;
+  /** Retente la synchro de l'écurie actuelle (cf. tirer-pour-rafraîchir sur
+   * l'onglet Chevaux) — mêmes garanties best-effort que persist(), la
+   * promesse se résout une fois la tentative terminée (jamais rejetée),
+   * pour piloter un indicateur de chargement. */
+  retrySync: () => Promise<void>;
 };
 
 const HorsesContext = createContext<HorsesContextValue | null>(null);
@@ -227,6 +236,13 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [horses, setHorses] = useState<Horse[]>(DEFAULT_HORSES);
   const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null);
+  // État volatile (jamais persisté) : reflète uniquement la dernière
+  // tentative de synchro, pas un historique — cf. audit du 2026-09-16, cette
+  // information n'existait nulle part avant (échecs seulement en
+  // console.warn). Ne bloque jamais rien, sert uniquement à afficher un
+  // indicateur "non synchronisé" quand une vraie erreur réseau/serveur
+  // survient (pas le quota du palier gratuit, qui a son propre traitement).
+  const [syncFailed, setSyncFailed] = useState(false);
 
   useEffect(() => {
     Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)])
@@ -239,39 +255,77 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const persist = useCallback((next: Horse[]) => {
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
-    // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
-    // programme/affichage local ne doit jamais attendre le réseau. Exclut les
-    // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
-    // sans effet (RLS bloque, cf. owns_rider_profile) et inutile.
-    pushHorses(next.filter((h) => !h.sharedRole))
-      .then((updates) => {
-        // Reporte le photoPath résultant d'un upload/suppression de photo
-        // (cf. cloudSync.ts pushHorses) dans l'état local — sans ça, une photo
-        // tout juste uploadée resterait marquée "pas encore envoyée" jusqu'à
-        // la prochaine synchro et serait ré-uploadée inutilement.
-        if (updates.length === 0) return;
-        setHorses((prev) => {
-          const merged = prev.map((h) => {
-            const update = updates.find((u) => u.id === h.id);
-            return update ? { ...h, photoPath: update.photoPath } : h;
+  const persist = useCallback(
+    // Le retour (résolu une fois la synchro tentée, jamais rejeté) sert
+    // uniquement à retrySync() ci-dessous, pour piloter le spinner du
+    // tirer-pour-rafraîchir — tous les appels existants l'ignorent déjà
+    // (fire-and-forget), cf. commentaire "best-effort" juste en dessous.
+    //
+    // `changedIds` (cf. cloudSync.ts pushHorses `onlyIds`) : restreint
+    // l'upsert au(x) cheval(aux) réellement modifié(s) — omis, TOUS les
+    // chevaux fournis sont republiés. Cf. audit du 2026-09-16 : sans ça,
+    // renommer un cheval d'une écurie de 5 déclenchait 5 upserts + une
+    // lecture de nettoyage à chaque frappe. Ne PAS passer `changedIds` quand
+    // l'écurie elle-même change de composition (ajout/suppression/remplacement) :
+    // le nettoyage des chevaux obsolètes côté serveur ne tourne alors plus
+    // (cf. pushHorses), il faut le push global pour rester correct.
+    (next: Horse[], changedIds?: string[]) => {
+      SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
+      // programme/affichage local ne doit jamais attendre le réseau. Exclut les
+      // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
+      // sans effet (RLS bloque, cf. owns_rider_profile) et inutile.
+      return pushHorses(next.filter((h) => !h.sharedRole), changedIds)
+        .then(({ photoUpdates, rejectedIds, hadUnexpectedError }) => {
+          setSyncFailed(hadUnexpectedError);
+          if (photoUpdates.length === 0 && rejectedIds.length === 0) return;
+          setHorses((prev) => {
+            // Reporte le photoPath résultant d'un upload/suppression de photo
+            // (cf. cloudSync.ts pushHorses) dans l'état local — sans ça, une photo
+            // tout juste uploadée resterait marquée "pas encore envoyée" jusqu'à
+            // la prochaine synchro et serait ré-uploadée inutilement.
+            let merged = prev.map((h) => {
+              const update = photoUpdates.find((u) => u.id === h.id);
+              return update ? { ...h, photoPath: update.photoPath } : h;
+            });
+            if (rejectedIds.length > 0) {
+              // Cheval refusé par le trigger enforce_horse_quota (palier
+              // gratuit déjà à sa limite, cf. cloudSync.ts pushHorses) : il
+              // n'a jamais existé côté serveur et n'existera jamais tant que
+              // le compte reste sur ce palier. Le garder en local le rendrait
+              // fantôme pour toujours, cf. audit du 2026-09-16 — on le retire
+              // ici plutôt que via removeHorse() : ce n'est pas une
+              // suppression demandée par l'utilisateur, donc son garde-fou
+              // "au moins un cheval possédé" ne s'applique pas.
+              merged = merged.filter((h) => !rejectedIds.includes(h.id));
+              if (merged.length > 0 && !merged.some((h) => h.isPrimary)) {
+                const fallbackId = merged.find((h) => !h.sharedRole)?.id;
+                merged = merged.map((h) => (h.id === fallbackId ? { ...h, isPrimary: true } : h));
+              }
+              if (rejectedIds.includes(selectedHorseId ?? "")) {
+                const fallbackId =
+                  merged.find((h) => h.isPrimary)?.id ?? merged.find((h) => !h.sharedRole)?.id ?? merged[0]?.id ?? null;
+                setSelectedHorseId(fallbackId);
+                if (fallbackId) SecureStore.setItemAsync(SELECTED_KEY, fallbackId).catch(() => {});
+              }
+            }
+            SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
+            return merged;
           });
-          SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
-          return merged;
-        });
-      })
-      .catch(() => {});
-  }, []);
+        })
+        .catch(() => setSyncFailed(true));
+    },
+    [selectedHorseId]
+  );
 
   const addHorse = useCallback(
     (horse: NewHorse) => {
+      const id = generateId();
       setHorses((prev) => {
-        const next = [
-          ...prev,
-          { ...horse, id: generateId(), emoji: "🐴", photoPath: null, isPrimary: false, sharedRole: null },
-        ];
-        persist(next);
+        const next = [...prev, { ...horse, id, emoji: "🐴", photoPath: null, isPrimary: false, sharedRole: null }];
+        // Seul ce nouveau cheval a besoin d'être upserté (cf. cloudSync.ts
+        // pushHorses `onlyIds`) — les autres n'ont pas changé.
+        persist(next, [id]);
         return next;
       });
     },
@@ -282,7 +336,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     (id: string, horse: NewHorse) => {
       setHorses((prev) => {
         const next = prev.map((h) => (h.id === id ? { ...h, ...horse } : h));
-        persist(next);
+        persist(next, [id]);
         return next;
       });
     },
@@ -340,7 +394,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     (id: string, photoUrl: string) => {
       setHorses((prev) => {
         const next = prev.map((h) => (h.id === id ? { ...h, photoUrl } : h));
-        persist(next);
+        persist(next, [id]);
         return next;
       });
     },
@@ -383,6 +437,8 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     [horses, selectedHorseId]
   );
 
+  const retrySync = useCallback(() => persist(horses), [persist, horses]);
+
   const value = useMemo<HorsesContextValue>(
     () => ({
       loading,
@@ -396,6 +452,8 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       selectedHorse,
       selectHorse,
       clearAll,
+      syncFailed,
+      retrySync,
     }),
     [
       loading,
@@ -409,6 +467,8 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       selectedHorse,
       selectHorse,
       clearAll,
+      syncFailed,
+      retrySync,
     ]
   );
 

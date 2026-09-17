@@ -7,7 +7,7 @@ export default function RiderLevel() {
   const { rider, setRider } = useOnboarding();
   return (
     <OnboardingShell
-      step={1}
+      step={2}
       total={TOTAL_STEPS}
       title="Quel cavalier es-tu ?"
       subtitle="Ça reste dans ton profil cavalier."

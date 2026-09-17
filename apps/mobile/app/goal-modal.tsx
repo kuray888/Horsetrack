@@ -96,7 +96,11 @@ export default function GoalModal() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerClassName="gap-5 px-5 pt-6 pb-4" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerClassName="gap-5 px-5 pt-6 pb-4"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <Field label="Titre">
           <TextInput
             className={INPUT}

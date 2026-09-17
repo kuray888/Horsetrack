@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from "react-native";
+import { Alert, View, Text, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { OnboardingShell } from "@/components/onboarding";
@@ -15,13 +15,36 @@ export default function Horses() {
   const namedHorses = horses.filter((h) => h.name.trim().length > 0);
 
   function addAnother() {
+    // Avertit AVANT de faire remplir une fiche complète plutôt qu'après (cf.
+    // audit du 2026-09-16) : la troncature au palier gratuit n'arrivait
+    // qu'au paywall final, laissant l'utilisateur découvrir après coup
+    // qu'un cheval qu'il venait de détailler (race, robe, traits, santé...)
+    // ne serait pas gardé. Ne s'affiche qu'à partir du 2ᵉ cheval — le
+    // premier est toujours inclus au palier gratuit.
+    if (namedHorses.length >= 1) {
+      Alert.alert(
+        "Un seul cheval sur le palier gratuit",
+        "Tu peux ajouter ce cheval, mais il ne sera conservé qu'avec Horsetrack Premium — sinon seul ton premier cheval restera à la fin de l'inscription.",
+        [
+          { text: "Annuler", style: "cancel" },
+          {
+            text: "Continuer",
+            onPress: () => {
+              startNewHorse();
+              router.push("/(onboarding)/horse-basics");
+            },
+          },
+        ]
+      );
+      return;
+    }
     startNewHorse();
     router.push("/(onboarding)/horse-basics");
   }
 
   return (
     <OnboardingShell
-      step={6}
+      step={7}
       total={TOTAL_STEPS}
       title="Ton écurie"
       subtitle="Ajoute tous les chevaux de ton écurie — le premier est gratuit, les suivants avec Horsetrack Premium."

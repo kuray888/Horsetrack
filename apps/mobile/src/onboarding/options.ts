@@ -2,6 +2,7 @@ import type { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
 import type {
   RiderLevel,
+  RidingContext,
   RideFrequency,
   Discipline,
   RiderGoal,
@@ -13,7 +14,7 @@ import type {
 } from "./store";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 6;
+export const TOTAL_STEPS = 7;
 
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";
@@ -36,6 +37,16 @@ export const RIDER_LEVELS: Option<RiderLevel>[] = [
   { value: "PRO", label: "Professionnel" },
 ];
 
+/** Rapport au(x) cheval(aux) — cf. audit du 2026-09-16, section onboarding.
+ * Purement informatif (adapte le vocabulaire affiché ailleurs dans l'app,
+ * ex. "ton écurie" vs "le cheval du club") : aucune fonctionnalité, quota ou
+ * palier d'abonnement n'en dépend. */
+export const RIDING_CONTEXTS: Option<RidingContext>[] = [
+  { value: "OWNER", label: "Je suis propriétaire de mon cheval", icon: { name: "home-heart", color: colors.primary } },
+  { value: "HALF_BOARD", label: "Je suis en demi-pension", icon: { name: "handshake-outline", color: colors.accent } },
+  { value: "CLUB", label: "Je monte un cheval de club / centre équestre", icon: { name: "school-outline", color: colors.warning } },
+];
+
 export const RIDE_FREQUENCIES: Option<RideFrequency>[] = [
   { value: "DAILY", label: "Tous les jours", icon: { name: "calendar-month-outline", color: colors.primary } },
   { value: "SEVERAL_PER_WEEK", label: "Plusieurs fois par semaine", icon: { name: "horse-variant", color: colors.accent } },
@@ -45,10 +56,12 @@ export const RIDE_FREQUENCIES: Option<RideFrequency>[] = [
 
 export const DISCIPLINES: Option<Discipline>[] = [
   { value: "SHOW_JUMPING", label: "Saut d'obstacles (CSO)", icon: { name: "flag-checkered", color: colors.accent } },
+  { value: "HUNTER", label: "Hunter", icon: { name: "leaf-circle-outline", color: colors.primary } },
   { value: "DRESSAGE", label: "Dressage", icon: { name: "target", color: colors.primary } },
   { value: "EVENTING", label: "Concours complet", icon: { name: "medal-outline", color: colors.accent } },
   { value: "WESTERN", label: "Western", icon: { name: "horseshoe", color: colors.warning } },
   { value: "ENDURANCE", label: "Endurance", icon: { name: "compass-outline", color: colors.success } },
+  { value: "ATTELAGE", label: "Attelage", icon: { name: "cart-variant", color: colors.warning } },
   { value: "LEISURE", label: "Loisir / Balade", icon: { name: "pine-tree", color: colors.success } },
   { value: "ETHOLOGY", label: "Éthologie", icon: { name: "handshake-outline", color: colors.accent } },
 ];

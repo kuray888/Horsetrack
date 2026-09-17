@@ -1,4 +1,5 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import { RefreshControl, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
@@ -23,12 +24,18 @@ function labelOf<T extends string>(options: { value: T; label: string }[], value
 function HorseRow({
   horse,
   locked,
+  isActive,
   nextSessionLabel,
   nextDueLabel,
   onPress,
 }: {
   horse: Horse;
   locked: boolean;
+  /** Cheval actuellement sélectionné (cf. horses/store.tsx selectedHorse) —
+   * celui qui pilote Planning/Agenda/Journal filtré/Accueil. Distinct de
+   * `isPrimary` (l'étoile) : un cheval peut être principal sans être celui
+   * actuellement consulté, confusion identifiée à l'audit du 2026-09-16. */
+  isActive: boolean;
   nextSessionLabel: string | null;
   nextDueLabel: string | null;
   onPress: () => void;
@@ -49,6 +56,12 @@ function HorseRow({
             {horse.name}
           </Text>
           {horse.isPrimary ? <MaterialCommunityIcons name="star" size={13} color={colors.warning} /> : null}
+          {isActive ? (
+            <View className="flex-row items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5">
+              <View className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <Text className="text-[11px] font-semibold text-primary">Actif</Text>
+            </View>
+          ) : null}
           {horse.sharedRole ? (
             <View className="flex-row items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5">
               <MaterialCommunityIcons name="handshake-outline" size={11} color={colors.accent} />
@@ -74,7 +87,14 @@ function HorseRow({
 
 export default function ChevauxScreen() {
   const colors = useThemeColors();
-  const { horses, selectHorse } = useHorses();
+  const { horses, selectedHorse, selectHorse, syncFailed, retrySync } = useHorses();
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await retrySync();
+    setRefreshing(false);
+  }
   const subscription = useSubscription();
   const horseLimit = maxHorses(subscription);
   const { sessions } = useSessions();
@@ -105,6 +125,7 @@ export default function ChevauxScreen() {
       <HorseRow
         horse={horse}
         locked={locked}
+        isActive={horse.id === selectedHorse?.id}
         nextSessionLabel={nextSession ? `Séance ${daysUntilLabel(nextSession.date)} · ${ACTIVITY_META[nextSession.activityType].label}` : null}
         nextDueLabel={nextDue ? `${APPT_META[nextDue.type].label} ${daysUntilLabel(nextDue.nextDueDate!)}` : null}
         onPress={() => openHorse(horse)}
@@ -113,10 +134,30 @@ export default function ChevauxScreen() {
   }
 
   return (
-    <Screen>
+    <Screen
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+      }
+    >
       <FadeInView>
         <Text className="text-3xl font-display tracking-tight text-text">Chevaux</Text>
       </FadeInView>
+
+      {/* Cf. audit du 2026-09-16 : avant, un échec de synchro n'était visible
+          que dans les logs — glisse vers le bas pour retenter. */}
+      {syncFailed ? (
+        <FadeInView delay={20}>
+          <View className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5">
+            <MaterialCommunityIcons name="cloud-off-outline" size={18} color={colors.warning} />
+            <Text className="flex-1 text-sm text-text">
+              Certaines modifications ne sont pas encore synchronisées.
+            </Text>
+            <TouchableOpacity onPress={onRefresh} hitSlop={8}>
+              <Text className="text-sm font-bold text-warning">Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        </FadeInView>
+      ) : null}
 
       {ownedHorses.length > 0 ? (
         <>
@@ -129,7 +170,18 @@ export default function ChevauxScreen() {
             </FadeInView>
           ))}
         </>
-      ) : null}
+      ) : (
+        <FadeInView delay={40}>
+          <View className={`${CARD} items-center gap-2`}>
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
+              <MaterialCommunityIcons name="horse-variant" size={22} color={colors.textMuted} />
+            </View>
+            <Text className="text-center text-sm text-muted">
+              Aucun cheval pour l&apos;instant — ajoute le premier ci-dessous.
+            </Text>
+          </View>
+        </FadeInView>
+      )}
 
       <FadeInView delay={120}>
         <TouchableOpacity

@@ -85,7 +85,7 @@ export default function OnboardingAccount() {
     if (invites.length > 0) {
       router.replace("/(onboarding)/pending-invites");
     } else {
-      router.replace("/(onboarding)/rider-level");
+      router.replace("/(onboarding)/riding-context");
     }
   }
 

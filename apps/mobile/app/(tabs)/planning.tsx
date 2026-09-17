@@ -16,6 +16,7 @@ import { colors as staticColors } from "@/theme/colors";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDuration, isSameDate, MONTHS } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
+import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
 import { useSubscription } from "@/subscription/store";
 import { OTHER_OPTION } from "@/onboarding/options";
 import { useAgenda, ACTIVITY_META, type ActivityType, type Appointment, type CompetitionEntry, type ExpenseCategory } from "@/agenda/store";
@@ -225,7 +226,7 @@ function MonthGrid({
 
 export default function PlanningScreen() {
   const colors = useThemeColors();
-  const { selectedHorse } = useHorses();
+  const { horses, selectedHorse } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
   const {
@@ -625,6 +626,15 @@ export default function PlanningScreen() {
           <Text className="text-base text-muted">La vie équestre de {selectedHorse?.name ?? "ton cheval"}, en un seul endroit</Text>
         </View>
       </FadeInView>
+
+      {/* Sélecteur de cheval — même composant que sur Accueil/Agenda (cf.
+          audit du 2026-09-16) : sans lui, ce sous-titre était le seul indice
+          du cheval concerné, et rien ne permettait de le changer ici. */}
+      {horses.length > 1 ? (
+        <FadeInView delay={20}>
+          <HorseSwitcher />
+        </FadeInView>
+      ) : null}
 
       <FadeInView delay={20}>
         <View className="flex-row gap-2 self-start rounded-full bg-surface p-1">

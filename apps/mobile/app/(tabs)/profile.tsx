@@ -27,7 +27,7 @@ import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
-import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
+import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES, RIDING_CONTEXTS } from "@/onboarding/options";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -274,6 +274,7 @@ export default function ProfileScreen() {
 
       <FadeInView delay={300}>
         <View className={CARD}>
+          <InfoRow label="Rapport au cheval" value={labelOf(RIDING_CONTEXTS, riderProfile.ridingContext)} />
           <InfoRow label="Niveau" value={labelOf(RIDER_LEVELS, riderProfile.level)} />
           <InfoRow label="Discipline principale" value={labelOf(DISCIPLINES, riderProfile.mainDiscipline)} />
           <InfoRow label="Fréquence de monte" value={labelOf(RIDE_FREQUENCIES, riderProfile.rideFrequency)} />

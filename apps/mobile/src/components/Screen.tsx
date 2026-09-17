@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import { ReactElement, ReactNode } from "react";
+import { RefreshControlProps, ScrollView, View } from "react-native";
 import { SafeAreaView, Edge } from "react-native-safe-area-context";
 
 type Props = {
@@ -9,18 +9,25 @@ type Props = {
   edges?: Edge[];
   /** Classes Tailwind ajoutées au conteneur de contenu. */
   className?: string;
+  /** Élément <RefreshControl> pour le tirer-pour-rafraîchir — sans effet si `scroll` est false. */
+  refreshControl?: ReactElement<RefreshControlProps>;
 };
 
 /**
  * Conteneur d'écran standard : fond de page + safe area + padding/gap cohérents.
  * Encapsule la logique SafeAreaView + ScrollView ; le style passe par Tailwind.
  */
-export function Screen({ children, scroll = true, edges = ["top"], className }: Props) {
+export function Screen({ children, scroll = true, edges = ["top"], className, refreshControl }: Props) {
   const content = `p-5 gap-4 ${className ?? ""}`;
   return (
     <SafeAreaView className="flex-1 bg-background" edges={edges}>
       {scroll ? (
-        <ScrollView contentContainerClassName={content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerClassName={content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={refreshControl}
+        >
           {children}
         </ScrollView>
       ) : (

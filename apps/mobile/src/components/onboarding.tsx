@@ -72,6 +72,7 @@ export function OnboardingShell({
       <ScrollView
         contentContainerClassName="px-5 pt-6 pb-4 gap-5"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <FadeInView>
           <View className="gap-2">

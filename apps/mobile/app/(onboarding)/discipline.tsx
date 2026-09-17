@@ -7,7 +7,7 @@ export default function DisciplineStep() {
   const { rider, setRider } = useOnboarding();
   return (
     <OnboardingShell
-      step={2}
+      step={3}
       total={TOTAL_STEPS}
       title="Ta discipline principale ?"
       subtitle="Celle que tu pratiques le plus souvent."

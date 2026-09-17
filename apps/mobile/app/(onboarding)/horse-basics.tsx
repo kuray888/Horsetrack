@@ -26,7 +26,7 @@ export default function HorseBasics() {
   return (
     <>
     <OnboardingShell
-      step={5}
+      step={6}
       total={TOTAL_STEPS}
       title="Présente-nous ton cheval"
       subtitle="Le nom suffit pour commencer — tu pourras compléter sa fiche plus tard."

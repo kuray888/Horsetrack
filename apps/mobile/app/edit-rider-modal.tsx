@@ -5,10 +5,10 @@ import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton, SingleSelect } from "@/components/onboarding";
 import { Field } from "@/components/Field";
-import { DISCIPLINES, OTHER_OPTION, RIDER_GOALS, RIDER_LEVELS, RIDE_FREQUENCIES } from "@/onboarding/options";
+import { DISCIPLINES, OTHER_OPTION, RIDER_GOALS, RIDER_LEVELS, RIDE_FREQUENCIES, RIDING_CONTEXTS } from "@/onboarding/options";
 import { useRiderProfile } from "@/rider/store";
 import { colors } from "@/theme/colors";
-import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
+import type { Discipline, RiderGoal, RiderLevel, RideFrequency, RidingContext } from "@/onboarding/store";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -20,6 +20,7 @@ const GOAL_OPTIONS: { value: GoalSelection; label: string }[] = [...RIDER_GOALS,
 
 export default function EditRiderModal() {
   const { riderProfile, setRiderProfile } = useRiderProfile();
+  const [ridingContext, setRidingContext] = useState<RidingContext | null>(riderProfile.ridingContext);
   const [level, setLevel] = useState<RiderLevel | null>(riderProfile.level);
   const [mainDiscipline, setMainDiscipline] = useState<Discipline | null>(riderProfile.mainDiscipline);
   const [rideFrequency, setRideFrequency] = useState<RideFrequency | null>(riderProfile.rideFrequency);
@@ -38,6 +39,7 @@ export default function EditRiderModal() {
   function submit() {
     if (!canSave || primaryGoal === null) return;
     setRiderProfile({
+      ridingContext,
       level,
       mainDiscipline,
       rideFrequency,
@@ -56,7 +58,15 @@ export default function EditRiderModal() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerClassName="gap-5 px-5 pt-6 pb-4" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerClassName="gap-5 px-5 pt-6 pb-4"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Field label="Rapport au cheval">
+          <SingleSelect options={RIDING_CONTEXTS} value={ridingContext} onChange={setRidingContext} />
+        </Field>
+
         <Field label="Niveau">
           <SingleSelect options={RIDER_LEVELS} value={level} onChange={setLevel} />
         </Field>

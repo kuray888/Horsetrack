@@ -9,6 +9,7 @@ import { BackButton } from "@/components/BackButton";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { ensureNotificationPermission } from "@/lib/notifications";
 import { useHorses } from "@/horses/store";
+import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
 import { useSubscription } from "@/subscription/store";
 import { Locked } from "@/components/Locked";
 import {
@@ -46,7 +47,7 @@ const SECTION_META: Record<AgendaSection, { title: string; subtitle: (horseName:
 };
 
 export default function AgendaScreen() {
-  const { selectedHorse: horse } = useHorses();
+  const { horses, selectedHorse: horse } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
   const {
     appointments,
@@ -334,6 +335,15 @@ export default function AgendaScreen() {
           <Text className="text-base text-muted">{SECTION_META[section].subtitle(horse?.name ?? "ton cheval")}</Text>
         </View>
       </FadeInView>
+
+      {/* Sélecteur de cheval — même composant que sur Accueil/Planning (cf.
+          audit du 2026-09-16) : sans lui, seul le sous-titre indiquait le
+          cheval concerné, sans moyen de le changer depuis cet écran. */}
+      {horses.length > 1 ? (
+        <FadeInView delay={60}>
+          <HorseSwitcher />
+        </FadeInView>
+      ) : null}
 
       <FadeInView delay={80}>
         <SectionSwitcher section={section} onChange={setSection} />
