@@ -90,6 +90,14 @@ function persistedFromCustomerInfo(info: CustomerInfo): Persisted {
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<Persisted>(DEFAULT);
   const [loading, setLoading] = useState(true);
+  // Lu (jamais écrit en dépendance) par applyCustomerInfo ci-dessous — évite
+  // que son identité change à chaque changement de `state`, ce qui aurait
+  // fait réabonner l'effet onAuthStateChange plus bas à chaque fois (cf. son
+  // tableau de dépendances, qui inclut refreshFromRevenueCat → applyCustomerInfo).
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const persistLocal = useCallback(async (next: Persisted) => {
     // Sérialisé (cf. lib/keyLock) : cette écriture et le `clearAll` déclenché
@@ -101,7 +109,26 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const applyCustomerInfo = useCallback(
     (info: CustomerInfo) => {
-      persistLocal(persistedFromCustomerInfo(info)).catch((e) => console.warn("[subscription] persistLocal échoué", e));
+      const next = persistedFromCustomerInfo(info);
+      // Un code promo (redeemPromoCode plus bas) accorde un essai directement
+      // en base (rider_profiles.subscriptionStatus/trialEndsAt côté serveur),
+      // sans jamais passer par RevenueCat/Apple — marqué localement par
+      // `billingPeriod: null` (seule valeur que redeemPromoCode écrit, cf. son
+      // .then ci-dessous). RevenueCat ne peut évidemment pas voir cet essai et
+      // répond "aucun entitlement actif" à chaque refresh (cf. refresh(),
+      // appelé à CHAQUE lancement de l'app) : sans cette garde, `next` valait
+      // alors {status:"free",...} et écrasait aussitôt l'essai promo en local
+      // — dès le lancement suivant, potentiellement le jour même de son
+      // activation, bien avant sa vraie date d'expiration (cf. audit du
+      // 2026-09-18). Un vrai achat/essai Apple détecté par RevenueCat
+      // (`next.status !== "free"`) reste toujours prioritaire et écrase
+      // normalement l'essai promo — seul le cas "RevenueCat ne voit rien" est
+      // gardé.
+      const current = stateRef.current;
+      const hasValidPromoTrial =
+        current.status === "trialing" && current.billingPeriod === null && computeIsActiveOrTrialing(current);
+      if (next.status === "free" && hasValidPromoTrial) return;
+      persistLocal(next).catch((e) => console.warn("[subscription] persistLocal échoué", e));
     },
     [persistLocal]
   );
