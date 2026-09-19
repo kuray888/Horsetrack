@@ -37,47 +37,85 @@ export function selectableHorses<T extends FilterableHorse>(horses: T[], horseLi
   return horses.filter((h) => !h.sharedRole && ownedIds.indexOf(h.id) < horseLimit);
 }
 
-/** Le sélecteur multi-chevaux ne s'affiche qu'à partir de deux chevaux
- * utilisables : avec un seul, il n'y a aucun choix à faire et la case à
- * cocher unique n'apporterait que du bruit (même principe que HorseSwitcher,
- * masqué en dessous de 2 chevaux). En pratique, un compte gratuit
- * (FREE_HORSE_LIMIT = 1) n'atteint jamais ce seuil : la fonctionnalité se
- * gate donc d'elle-même, sans <Locked> supplémentaire. */
-export function shouldOfferHorseChoice(selectable: ChosenHorse[]): boolean {
-  return selectable.length >= 2;
+/** Le sélecteur multi-chevaux ne s'affiche que si le choix a un sens :
+ *
+ * 1. Au moins DEUX chevaux utilisables — avec un seul, il n'y a aucun choix à
+ *    faire et la case unique n'apporterait que du bruit (même principe que
+ *    HorseSwitcher). En pratique un compte gratuit (FREE_HORSE_LIMIT = 1)
+ *    n'atteint jamais ce seuil : la fonctionnalité se gate d'elle-même, sans
+ *    <Locked> supplémentaire.
+ * 2. Une cible par défaut (`fallbackIds`) entièrement composée de chevaux
+ *    proposables. Quand l'écran est cadré sur un cheval PARTAGÉ (absent de
+ *    `selectable`, jamais écrit en masse — cf. plus haut), le sélecteur
+ *    afficherait des puces toutes décochées alors que la création part sur ce
+ *    cheval partagé : incohérent, donc masqué et comportement d'origine. */
+export function shouldOfferHorseChoice(selectable: ChosenHorse[], fallbackIds: string[]): boolean {
+  return selectable.length >= 2 && fallbackIds.every((id) => selectable.some((h) => h.id === id));
 }
 
+/** Plafond d'entrées créées par UNE soumission de rendez-vous (chevaux ×
+ * occurrences de récurrence). Égal au maximum d'occurrences qu'un seul cheval
+ * pouvait déjà produire (cf. lib/recurrence.ts) : chaque entrée programme une
+ * notification locale ET un e-mail de rappel, et iOS ne conserve que les 64
+ * notifications locales les plus proches. Multiplier sans borne par le nombre
+ * de chevaux enverrait des rappels dans le vide, en silence. */
+export const MAX_ENTRIES_PER_SUBMIT = 52;
+
 /** Chevaux effectivement visés par une soumission de formulaire : le choix
- * explicite de l'utilisateur s'il en a fait un, sinon le cheval actif seul.
- * Un tableau vide signifie « aucun choix explicite » et non « aucun cheval »,
- * ce qui permet à tous les écrans qui n'affichent pas le sélecteur de garder
- * exactement le comportement d'avant sans rien changer chez eux.
+ * explicite de l'utilisateur s'il en a fait un, sinon `fallbackIds`.
  *
- * Filtre toujours sur `selectable` : une case cochée puis devenue
- * inutilisable (fin d'essai Premium, cheval supprimé depuis un autre
- * appareil) ne doit pas créer une entrée fantôme. */
+ * `fallbackIds` est la cible PAR DÉFAUT de l'écran appelant, et c'est lui qui
+ * porte la différence entre les deux vues du Planning : le cheval actif seul
+ * quand un cheval est ciblé, TOUS les chevaux proposables quand la puce
+ * « Tous » est posée (« je sélectionne Tous pour enregistrer une séance »
+ * doit vouloir dire tous, pas le cheval actif — cf. bug du 2026-09-20). Il
+ * n'est volontairement PAS filtré sur `selectable` : le cheval actif peut être
+ * un cheval partagé, absent de la liste proposable, et doit garder le
+ * comportement d'origine.
+ *
+ * Un tableau `explicitIds` vide signifie « aucun choix explicite » et non
+ * « aucun cheval », ce qui permet à tous les écrans qui n'affichent pas le
+ * sélecteur de garder exactement le comportement d'avant.
+ *
+ * Le choix explicite, lui, est toujours filtré sur `selectable` : une case
+ * cochée puis devenue inutilisable (fin d'essai Premium, cheval supprimé
+ * depuis un autre appareil) ne doit pas créer une entrée fantôme. */
 export function resolveTargetHorseIds(
   explicitIds: string[],
   selectable: ChosenHorse[],
-  activeHorseId: string | null
+  fallbackIds: string[]
 ): string[] {
   const allowed = explicitIds.filter((id) => selectable.some((h) => h.id === id));
-  if (allowed.length > 0) return allowed;
-  return activeHorseId ? [activeHorseId] : [];
+  return allowed.length > 0 ? allowed : fallbackIds;
 }
 
 /** Applique un clic sur la puce d'un cheval. Refuse de tout décocher : un
  * formulaire sans aucun cheval ne pourrait rien créer, et laisser
  * l'utilisateur y arriver pour lui refuser ensuite la soumission serait une
- * impasse. `current` vide valant « cheval actif », on matérialise d'abord ce
- * choix implicite avant de le modifier. */
-export function toggleHorseId(
-  current: string[],
-  horseId: string,
-  activeHorseId: string | null
-): string[] {
-  const base = current.length > 0 ? current : activeHorseId ? [activeHorseId] : [];
+ * impasse. `current` vide valant « cible par défaut », on matérialise d'abord
+ * ce choix implicite avant de le modifier — décocher un cheval depuis « Tous »
+ * donne donc bien « tous sauf celui-là ». */
+export function toggleHorseId(current: string[], horseId: string, fallbackIds: string[]): string[] {
+  const base = current.length > 0 ? current : fallbackIds;
   if (!base.includes(horseId)) return [...base, horseId];
   if (base.length === 1) return base;
   return base.filter((id) => id !== horseId);
+}
+
+/** Chevaux visés qui n'apparaîtront PAS dans la vue de l'écran qui les crée —
+ * `visibleIds` étant ce que la liste affiche (le cheval actif dans Agenda, tous
+ * ou le cheval filtré dans Planning). Sert à prévenir l'utilisateur : une
+ * entrée créée pour un autre cheval que celui affiché disparaît sinon
+ * silencieusement, comme si l'enregistrement avait échoué. */
+export function targetsOutsideView(targetIds: string[], visibleIds: string[]): string[] {
+  return targetIds.filter((id) => !visibleIds.includes(id));
+}
+
+/** Message de confirmation pour les chevaux de `targetsOutsideView`. */
+export function hiddenTargetsMessage(names: string[]): string {
+  if (names.length === 0) return "";
+  const who = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
+  return names.length === 1
+    ? `Créé pour ${who}, qui n'apparaît pas dans cette vue. Change de cheval actif (ou choisis « Tous » dans Planning) pour le retrouver.`
+    : `Créé pour ${who}, qui n'apparaissent pas dans cette vue. Change de cheval actif (ou choisis « Tous » dans Planning) pour les retrouver.`;
 }

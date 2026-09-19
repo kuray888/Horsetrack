@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  hiddenTargetsMessage,
+  MAX_ENTRIES_PER_SUBMIT,
   resolveTargetHorseIds,
   selectableHorses,
   shouldOfferHorseChoice,
+  targetsOutsideView,
   toggleHorseId,
 } from "@/horses/selectableHorses";
 
@@ -27,47 +30,90 @@ describe("selectableHorses", () => {
 
 describe("shouldOfferHorseChoice", () => {
   it("ne propose un choix qu'à partir de deux chevaux utilisables", () => {
-    expect(shouldOfferHorseChoice([])).toBe(false);
-    expect(shouldOfferHorseChoice([owned("a")])).toBe(false);
-    expect(shouldOfferHorseChoice([owned("a"), owned("b")])).toBe(true);
+    expect(shouldOfferHorseChoice([], [])).toBe(false);
+    expect(shouldOfferHorseChoice([owned("a")], ["a"])).toBe(false);
+    expect(shouldOfferHorseChoice([owned("a"), owned("b")], ["a"])).toBe(true);
+  });
+
+  it("le masque quand l'écran est cadré sur un cheval partagé (hors des proposables)", () => {
+    expect(shouldOfferHorseChoice([owned("a"), owned("b")], ["shared-1"])).toBe(false);
+  });
+
+  it("l'accepte quand la cible par défaut couvre tous les proposables (vue « Tous »)", () => {
+    expect(shouldOfferHorseChoice([owned("a"), owned("b")], ["a", "b"])).toBe(true);
+  });
+});
+
+describe("targetsOutsideView", () => {
+  it("ne signale que les chevaux absents de la vue", () => {
+    expect(targetsOutsideView(["a", "b", "c"], ["a"])).toEqual(["b", "c"]);
+    expect(targetsOutsideView(["a"], ["a", "b"])).toEqual([]);
+  });
+});
+
+describe("hiddenTargetsMessage", () => {
+  it("accorde le singulier et le pluriel", () => {
+    expect(hiddenTargetsMessage([])).toBe("");
+    expect(hiddenTargetsMessage(["Bella"])).toContain("Bella, qui n'apparaît pas");
+    expect(hiddenTargetsMessage(["Bella", "Sultan", "Nova"])).toContain("Bella, Sultan et Nova, qui n'apparaissent pas");
+  });
+});
+
+describe("MAX_ENTRIES_PER_SUBMIT", () => {
+  it("reste sous la limite iOS de 64 notifications locales en attente", () => {
+    expect(MAX_ENTRIES_PER_SUBMIT).toBeLessThan(64);
   });
 });
 
 describe("resolveTargetHorseIds", () => {
-  const selectable = [owned("a"), owned("b")];
+  const selectable = [owned("a"), owned("b"), owned("c")];
 
-  it("retombe sur le cheval actif quand aucun choix n'a été fait", () => {
-    expect(resolveTargetHorseIds([], selectable, "a")).toEqual(["a"]);
+  it("retombe sur la cible par défaut quand aucun choix n'a été fait", () => {
+    expect(resolveTargetHorseIds([], selectable, ["a"])).toEqual(["a"]);
   });
 
-  it("ne cible rien quand il n'y a ni choix ni cheval actif", () => {
-    expect(resolveTargetHorseIds([], selectable, null)).toEqual([]);
+  it("vise tous les chevaux quand la cible par défaut les couvre tous (vue « Tous »)", () => {
+    // Le bug du 2026-09-20 : « Tous » sélectionné, séance enregistrée sur le
+    // seul cheval actif. Le défaut de la vue « Tous » est la liste entière.
+    expect(resolveTargetHorseIds([], selectable, ["a", "b", "c"])).toEqual(["a", "b", "c"]);
   });
 
-  it("respecte le choix explicite", () => {
-    expect(resolveTargetHorseIds(["a", "b"], selectable, "a")).toEqual(["a", "b"]);
+  it("ne cible rien quand il n'y a ni choix ni cible par défaut", () => {
+    expect(resolveTargetHorseIds([], selectable, [])).toEqual([]);
+  });
+
+  it("respecte le choix explicite, même face à un défaut « tous »", () => {
+    expect(resolveTargetHorseIds(["b"], selectable, ["a", "b", "c"])).toEqual(["b"]);
   });
 
   it("ignore un cheval devenu inutilisable depuis le choix", () => {
-    expect(resolveTargetHorseIds(["a", "zzz"], selectable, "a")).toEqual(["a"]);
+    expect(resolveTargetHorseIds(["a", "zzz"], selectable, ["c"])).toEqual(["a"]);
   });
 
-  it("retombe sur le cheval actif si plus aucun choix n'est valable", () => {
-    expect(resolveTargetHorseIds(["zzz"], selectable, "b")).toEqual(["b"]);
+  it("retombe sur la cible par défaut si plus aucun choix n'est valable", () => {
+    expect(resolveTargetHorseIds(["zzz"], selectable, ["b"])).toEqual(["b"]);
+  });
+
+  it("garde un cheval actif partagé comme cible par défaut, absent des proposables", () => {
+    expect(resolveTargetHorseIds([], selectable, ["shared-1"])).toEqual(["shared-1"]);
   });
 });
 
 describe("toggleHorseId", () => {
-  it("matérialise le cheval actif avant d'en ajouter un deuxième", () => {
-    expect(toggleHorseId([], "b", "a")).toEqual(["a", "b"]);
+  it("matérialise la cible par défaut avant d'en ajouter un deuxième", () => {
+    expect(toggleHorseId([], "b", ["a"])).toEqual(["a", "b"]);
   });
 
   it("décoche un cheval déjà choisi", () => {
-    expect(toggleHorseId(["a", "b"], "a", "a")).toEqual(["b"]);
+    expect(toggleHorseId(["a", "b"], "a", ["a"])).toEqual(["b"]);
+  });
+
+  it("depuis « Tous », décocher un cheval donne tous les autres", () => {
+    expect(toggleHorseId([], "b", ["a", "b", "c"])).toEqual(["a", "c"]);
   });
 
   it("refuse de tout décocher", () => {
-    expect(toggleHorseId(["a"], "a", "a")).toEqual(["a"]);
-    expect(toggleHorseId([], "a", "a")).toEqual(["a"]);
+    expect(toggleHorseId(["a"], "a", ["a"])).toEqual(["a"]);
+    expect(toggleHorseId([], "a", ["a"])).toEqual(["a"]);
   });
 });

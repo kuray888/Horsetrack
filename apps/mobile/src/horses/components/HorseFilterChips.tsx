@@ -21,17 +21,22 @@ export function HorseFilterChips({
   value,
   onChange,
   allLabel = "Tous",
+  showAll = true,
 }: {
   horses: { id: string; name: string }[];
   value: string | null;
   onChange: (horseId: string | null) => void;
   allLabel?: string;
+  /** Faux : pas de puce « Tous ». Le Planning la retire quand il n'y a pas au
+   * moins deux chevaux proposables — « Tous » n'aurait alors rien à mêler et
+   * afficherait les événements d'un seul cheval sous le nom d'un autre. */
+  showAll?: boolean;
 }) {
   if (horses.length <= 1) return null;
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2 pr-2">
-      <Chip label={allLabel} selected={value === null} onPress={() => onChange(null)} />
+      {showAll ? <Chip label={allLabel} selected={value === null} onPress={() => onChange(null)} /> : null}
       {horses.map((h) => (
         <Chip key={h.id} label={h.name} selected={value === h.id} onPress={() => onChange(h.id)} />
       ))}

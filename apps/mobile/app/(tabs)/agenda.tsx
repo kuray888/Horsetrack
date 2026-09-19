@@ -297,11 +297,15 @@ export default function AgendaScreen() {
   // Suggestion de rapprochement (cf. plan Phase 3) : le rendez-vous le plus
   // récent du même type pour ce cheval, jamais lié automatiquement — juste
   // proposé, l'utilisateur choisit de le lier ou non.
-  function suggestedAppointmentFor(category: ExpenseCategory): Appointment | null {
+  function suggestedAppointmentFor(category: ExpenseCategory, horseId: string | null): Appointment | null {
     const apptType = expenseCategoryToAppointmentType(category);
     if (!apptType) return null;
-    const candidates = horseAppointments
-      .filter((a) => a.type === apptType)
+    // Rendez-vous du cheval effectivement visé par la dépense (coché dans le
+    // formulaire), pas forcément le cheval actif : sinon une dépense pour B se
+    // liait au rendez-vous de A.
+    const targetId = horseId ?? horse?.id ?? null;
+    const candidates = appointments
+      .filter((a) => a.horseId === targetId && a.type === apptType)
       .sort((a, b) => b.date.getTime() - a.date.getTime());
     return candidates[0] ?? null;
   }
@@ -387,7 +391,8 @@ export default function AgendaScreen() {
               editingApptId={editingApptId}
               submitting={submittingAppt}
               selectableHorses={selectableHorses}
-              activeHorseId={horse?.id ?? null}
+              fallbackHorseIds={horse ? [horse.id] : []}
+              singleTargetName={horse?.name ?? null}
               onOpen={() => setShowApptForm(true)}
               onCancel={cancelApptForm}
               onSubmit={handleSubmitAppointment}
@@ -600,7 +605,7 @@ export default function AgendaScreen() {
               editingExpenseId={editingExpenseId}
               suggestedAppointmentFor={suggestedAppointmentFor}
               selectableHorses={selectableHorses}
-              activeHorseId={horse?.id ?? null}
+              fallbackHorseIds={horse ? [horse.id] : []}
               onOpen={() => setShowExpenseForm(true)}
               onCancel={cancelExpenseForm}
               onSubmit={handleSubmitExpense}

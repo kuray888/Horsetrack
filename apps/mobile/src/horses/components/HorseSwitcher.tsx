@@ -15,7 +15,20 @@ import { maxHorses, useSubscription } from "@/subscription/store";
  * contexte visible et actionnable à l'endroit où on le remarque, plutôt que
  * de le subir silencieusement en revenant sur un autre onglet. Rien affiché
  * en dessous de 2 chevaux : aucun choix à faire avec un seul. */
-export function HorseSwitcher() {
+export function HorseSwitcher({
+  hideSelection = false,
+  onSelect,
+}: {
+  /** Aucun avatar mis en avant : pour un écran dont la vue ne suit PAS le
+   * cheval actif (Planning en vue « Tous »). Sans ça, l'anneau restait sur le
+   * cheval actif pendant que la puce affichait « Tous » — deux indicateurs de
+   * sélection qui se contredisent. */
+  hideSelection?: boolean;
+  /** Appelé après le changement de cheval actif. Permet à l'écran de recadrer
+   * sa vue même quand on touche le cheval DÉJÀ actif (aucun changement de
+   * contexte n'est alors détecté par le store). */
+  onSelect?: (horseId: string) => void;
+} = {}) {
   const colors = useThemeColors();
   const { horses, selectedHorse, selectHorse } = useHorses();
   const subscription = useSubscription();
@@ -30,12 +43,19 @@ export function HorseSwitcher() {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 pr-2">
       {horses.map((h) => {
-        const isSelected = h.id === selectedHorse?.id;
+        const isSelected = !hideSelection && h.id === selectedHorse?.id;
         const locked = !h.sharedRole && ownedHorseIds.indexOf(h.id) >= horseLimit;
         return (
           <TouchableOpacity
             key={h.id}
-            onPress={() => (locked ? router.push("/paywall") : selectHorse(h.id))}
+            onPress={() => {
+              if (locked) {
+                router.push("/paywall");
+                return;
+              }
+              selectHorse(h.id);
+              onSelect?.(h.id);
+            }}
             activeOpacity={0.8}
             className="items-center gap-1"
             accessibilityRole="button"

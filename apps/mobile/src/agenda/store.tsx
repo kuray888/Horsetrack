@@ -311,8 +311,11 @@ type AgendaContextValue = {
   addCompetitionEntry: (apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => void;
   updateCompetitionEntryResult: (apptId: string, entryId: string, result: string) => void;
   deleteCompetitionEntry: (apptId: string, entryId: string) => void;
-  /** Retourne l'id généré localement — cf. addDocument dans le provider. */
-  addDocument: (doc: Omit<Doc, "id" | "filePath" | "horseId">) => string;
+  /** Retourne l'id généré localement — cf. addDocument dans le provider.
+   * `horseId` optionnel, même mécanisme que `addAppointment` : sinon le cheval
+   * actif. Un reçu créé avec une dépense doit suivre le cheval de CETTE dépense,
+   * pas le cheval actif (cf. useExpenseForm). */
+  addDocument: (doc: Omit<Doc, "id" | "filePath" | "horseId"> & { horseId?: string | null }) => string;
   updateDocument: (docId: string, patch: Partial<Omit<Doc, "id" | "filePath">>) => void;
   deleteDocument: (docId: string) => void;
   /** Remplace les documents locaux par ceux restaurés depuis le cloud (cf.
@@ -641,9 +644,15 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDocument = useCallback(
-    (doc: Omit<Doc, "id" | "filePath" | "horseId">) => {
+    (doc: Omit<Doc, "id" | "filePath" | "horseId"> & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = doc;
       const id = generateId("d");
-      const next: Doc = { ...doc, id, filePath: null, horseId: selectedHorse?.id ?? null };
+      const next: Doc = {
+        ...rest,
+        id,
+        filePath: null,
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
+      };
       setDocuments((list) => [...list, next]);
       // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Le filePath
       // résultant est reporté localement pour ne pas re-uploader la même photo

@@ -15,28 +15,30 @@ import { resolveTargetHorseIds, toggleHorseId } from "@/horses/selectableHorses"
  * amont via `shouldOfferHorseChoice` — et jamais en édition : chaque entrée
  * créée est une copie indépendante, on ne réaffecte pas après coup.
  *
- * `value` vide signifie « aucun choix explicite », donc le cheval actif seul
- * (cf. resolveTargetHorseIds) : l'affichage matérialise ce défaut en cochant
- * le cheval actif, sans avoir à écrire cet état au montage.
+ * `value` vide signifie « aucun choix explicite », donc `fallbackIds` (cf.
+ * resolveTargetHorseIds) : le cheval actif seul, ou tous les chevaux quand
+ * l'écran est en vue « Tous ». L'affichage matérialise ce défaut en cochant
+ * les chevaux concernés, sans avoir à écrire cet état au montage.
  *
  * Distinct de HorseSwitcher, qui change le cheval ACTIF de toute l'app : ici
  * on ne choisit que les destinataires de l'entrée en cours de saisie, rien
  * n'est changé globalement. D'où des cases à cocher plutôt que des avatars. */
 export function HorseMultiSelect({
   horses,
-  activeHorseId,
+  fallbackIds,
   value,
   onChange,
   label = "Pour quel(s) cheval(aux) ?",
 }: {
   horses: { id: string; name: string }[];
-  activeHorseId: string | null;
+  /** Cible par défaut tant que l'utilisateur n'a rien coché (cf. ci-dessus). */
+  fallbackIds: string[];
   value: string[];
   onChange: (next: string[]) => void;
   label?: string;
 }) {
   const colors = useThemeColors();
-  const selectedIds = resolveTargetHorseIds(value, horses, activeHorseId);
+  const selectedIds = resolveTargetHorseIds(value, horses, fallbackIds);
 
   return (
     <Field label={label}>
@@ -46,7 +48,7 @@ export function HorseMultiSelect({
           return (
             <TouchableOpacity
               key={h.id}
-              onPress={() => onChange(toggleHorseId(value, h.id, activeHorseId))}
+              onPress={() => onChange(toggleHorseId(value, h.id, fallbackIds))}
               activeOpacity={0.8}
               accessibilityRole="checkbox"
               accessibilityLabel={h.name}

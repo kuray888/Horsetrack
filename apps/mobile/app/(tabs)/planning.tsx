@@ -19,6 +19,13 @@ import { useHorses } from "@/horses/store";
 import { useSelectableHorses } from "@/horses/useSelectableHorses";
 import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
 import { HorseFilterChips } from "@/horses/components/HorseFilterChips";
+import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
+import {
+  hiddenTargetsMessage,
+  resolveTargetHorseIds,
+  shouldOfferHorseChoice,
+  targetsOutsideView,
+} from "@/horses/selectableHorses";
 import { useSubscription } from "@/subscription/store";
 import { OTHER_OPTION } from "@/onboarding/options";
 import { useAgenda, ACTIVITY_META, type ActivityType, type Appointment, type CompetitionEntry, type ExpenseCategory } from "@/agenda/store";
@@ -124,6 +131,10 @@ type SessionForm = {
   intensity: SessionIntensity;
   notes: string;
   recurrence: Recurrence;
+  /** Chevaux visés à la création — vide = « aucun choix explicite », donc la
+   * cible par défaut de la vue (cf. defaultHorseIds : tous en vue « Tous »,
+   * sinon le cheval ciblé). Ignoré en édition, comme pour les rendez-vous. */
+  horseIds: string[];
 };
 
 function emptyForm(): SessionForm {
@@ -137,6 +148,7 @@ function emptyForm(): SessionForm {
     intensity: "medium",
     notes: "",
     recurrence: NEVER_RECURRENCE,
+    horseIds: [],
   };
 }
 
@@ -151,6 +163,7 @@ function formFromSession(session: TrainingSession): SessionForm {
     intensity: session.intensity ?? "medium",
     notes: session.notes,
     recurrence: NEVER_RECURRENCE,
+    horseIds: [],
   };
 }
 
@@ -250,13 +263,6 @@ export default function PlanningScreen() {
     setSyncedActiveHorseId(selectedHorse?.id ?? null);
     setFilterHorseId(selectedHorse?.id ?? null);
   }
-  const filterHorse = filterHorseId ? horses.find((h) => h.id === filterHorseId) ?? null : null;
-  // Cheval qui recevra une entrée créée depuis cet écran quand l'utilisateur
-  // ne choisit rien d'autre : celui du filtre s'il en cible un, sinon le
-  // cheval actif — même règle que le Journal, jamais une troisième notion de
-  // « cheval courant ».
-  const targetHorse = filterHorse ?? selectedHorse;
-  const showingAllHorses = filterHorseId === null && selectableHorses.length > 1;
   // Le cheval actif peut être un cheval PARTAGÉ (demi-pension, coach), absent
   // de `selectableHorses` — on n'écrit jamais en masse sur le cheval de
   // quelqu'un d'autre, cf. horses/selectableHorses.ts. Sans l'ajouter aux
@@ -270,6 +276,39 @@ export default function PlanningScreen() {
         ? [...selectableHorses, selectedHorse]
         : selectableHorses,
     [selectableHorses, selectedHorse]
+  );
+  // « Tous » n'a de sens que s'il y a au moins DEUX chevaux proposables à
+  // mêler. Compte gratuit avec un cheval possédé et un cheval partagé : une
+  // puce « Tous » afficherait les événements du seul cheval possédé sous le
+  // nom du cheval partagé actif.
+  const canShowAllHorses = selectableHorses.length > 1;
+  // Filtre EFFECTIF (null = « Tous »), dérivé de l'état brut pour qu'un état
+  // devenu invalide ne survive pas : un cheval verrouillé depuis (fin d'essai
+  // Premium) ou supprimé ailleurs n'est plus dans les puces, et « Tous » sans
+  // deux chevaux proposables retombe sur le cheval actif.
+  const activeFilterId =
+    filterHorseId && filterChipHorses.some((h) => h.id === filterHorseId)
+      ? filterHorseId
+      : filterHorseId === null && canShowAllHorses
+        ? null
+        : (selectedHorse?.id ?? null);
+  const filterHorse = activeFilterId ? horses.find((h) => h.id === activeFilterId) ?? null : null;
+  // Cheval qui recevra une entrée créée depuis cet écran quand l'utilisateur
+  // ne choisit rien d'autre : celui du filtre s'il en cible un, sinon le
+  // cheval actif — même règle que le Journal, jamais une troisième notion de
+  // « cheval courant ».
+  const targetHorse = filterHorse ?? selectedHorse;
+  const showingAllHorses = activeFilterId === null;
+  // Cible par défaut d'une création tant que rien n'est coché dans le
+  // formulaire : TOUS les chevaux proposables quand la puce « Tous » est
+  // posée, sinon le cheval ciblé (filtre, ou cheval actif). Sélectionner
+  // « Tous » puis enregistrer une séance doit la créer pour tous — pas pour
+  // le seul cheval actif (bug du 2026-09-20). Le sélecteur du formulaire
+  // permet ensuite d'en décocher.
+  const defaultHorseIds = useMemo(
+    () =>
+      showingAllHorses ? selectableHorses.map((h) => h.id) : targetHorse ? [targetHorse.id] : [],
+    [showingAllHorses, selectableHorses, targetHorse]
   );
   const { isActiveOrTrialing } = useSubscription();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
@@ -328,6 +367,10 @@ export default function PlanningScreen() {
     setSyncedFilterParam(filterParam);
     if (isNewPlanningDestination(syncedFilterParam, filterParam)) {
       setFilter(filterParam as PlanningFilterValue);
+      // Ces destinations viennent d'un écran cadré sur le cheval ACTIF (fiche
+      // cheval, qui le sélectionne à son ouverture) : la vue « Tous » gardée
+      // d'une visite précédente ne doit pas s'y substituer.
+      setFilterHorseId(selectedHorse?.id ?? null);
     }
   }
   // Même pattern que syncedFilterParam ci-dessus, pour Quick Add "Séance"
@@ -344,6 +387,10 @@ export default function PlanningScreen() {
   if (openFormKey !== syncedOpenFormKey) {
     setSyncedOpenFormKey(openFormKey);
     if (openFormParam === "session") {
+      // « Planifier une séance » vient de l'Accueil ou d'une fiche cheval, donc
+      // pour le cheval actif — pas pour toute l'écurie si la vue « Tous »
+      // était restée sélectionnée depuis une visite précédente.
+      setFilterHorseId(selectedHorse?.id ?? null);
       openCreateForm();
     }
   }
@@ -367,16 +414,16 @@ export default function PlanningScreen() {
   const horseSessions = useMemo(
     () =>
       sessions.filter((s) =>
-        filterHorseId ? s.horseId === filterHorseId : s.horseId !== null && selectableHorseIds.includes(s.horseId)
+        activeFilterId ? s.horseId === activeFilterId : s.horseId !== null && selectableHorseIds.includes(s.horseId)
       ),
-    [sessions, filterHorseId, selectableHorseIds]
+    [sessions, activeFilterId, selectableHorseIds]
   );
   const horseAppointments = useMemo(
     () =>
       appointments.filter((a) =>
-        filterHorseId ? a.horseId === filterHorseId : a.horseId !== null && selectableHorseIds.includes(a.horseId)
+        activeFilterId ? a.horseId === activeFilterId : a.horseId !== null && selectableHorseIds.includes(a.horseId)
       ),
-    [appointments, filterHorseId, selectableHorseIds]
+    [appointments, activeFilterId, selectableHorseIds]
   );
   // Une seule fois par montage (cf. today.tsx/agenda.tsx, même correctif,
   // audit perf du 2026-09-09).
@@ -504,6 +551,7 @@ export default function PlanningScreen() {
   } = useAppointmentForm({
     horse: targetHorse ?? null,
     selectableHorses,
+    defaultHorseIds,
     appointments,
     addAppointment,
     updateAppointment,
@@ -529,6 +577,7 @@ export default function PlanningScreen() {
     isActiveOrTrialing,
     horse: targetHorse ?? null,
     selectableHorses,
+    defaultHorseIds,
   });
 
   const {
@@ -545,7 +594,7 @@ export default function PlanningScreen() {
     // Suit le filtre quand il cible un cheval, sinon fallback d'origine sur
     // le cheval actif — exactement ce que fait l'onglet Journal (cf.
     // (tabs)/journal.tsx).
-    addJournalEntry: (entry) => addJournalEntry(filterHorseId ? { ...entry, horseId: filterHorseId } : entry),
+    addJournalEntry: (entry) => addJournalEntry(activeFilterId ? { ...entry, horseId: activeFilterId } : entry),
     updateJournalEntry,
     onEditStart: () => setExpandedId(null),
   });
@@ -582,13 +631,13 @@ export default function PlanningScreen() {
   // Même logique de rapprochement que agenda.tsx/le Horse Hub — dupliquée
   // Suggestion de rapprochement pour le formulaire de dépense (cf.
   // agenda/meta.ts suggestedAppointmentFor, partagé avec today.tsx/Horse Hub).
-  function suggestedAppointmentFor(category: ExpenseCategory): Appointment | null {
-    // Le rapprochement lie une dépense au rendez-vous du MÊME cheval. En vue
-    // « Tous les chevaux », `horseAppointments` en mêle plusieurs : sans ce
-    // recadrage, on proposerait de lier la dépense au vaccin d'un autre
-    // cheval.
+  function suggestedAppointmentFor(category: ExpenseCategory, horseId: string | null): Appointment | null {
+    // Le rapprochement lie une dépense au rendez-vous du MÊME cheval que
+    // celui qu'elle vise (`horseId`, coché dans le formulaire) — pas au cheval
+    // actif ni à ceux mêlés par la vue « Tous » : sinon une dépense pour B se
+    // liait au vaccin de A.
     return findSuggestedAppointment(
-      horseAppointments.filter((a) => a.horseId === (targetHorse?.id ?? null)),
+      appointments.filter((a) => a.horseId === (horseId ?? targetHorse?.id ?? null)),
       category
     );
   }
@@ -639,6 +688,7 @@ export default function PlanningScreen() {
     // `customActivityLabel` ne porte le texte que si "Autre" est réellement
     // sélectionné — même règle que Goal.type/customType.
     const customActivityLabel = form.typeSelection === OTHER_OPTION ? form.customActivityLabel.trim() || null : null;
+    let hiddenNames: string[] = [];
     if (editingId) {
       const existing = horseSessions.find((s) => s.id === editingId);
       if (!existing) return;
@@ -657,25 +707,39 @@ export default function PlanningScreen() {
       // calculée (cf. src/lib/recurrence.ts) — pas de notion de "série" liée
       // côté modèle, chaque occurrence est une TrainingSession indépendante
       // (éditable/supprimable une par une).
-      for (const date of computeRecurrenceDates(form.date, form.recurrence)) {
-        addSession({
-          // Suit le filtre d'affichage quand il cible un cheval, sinon le
-          // cheval actif — créer une séance là où on ne la verrait pas
-          // apparaître serait déroutant (même règle que le Journal).
-          horseId: targetHorse?.id ?? null,
-          activityType: form.activityType,
-          customActivityLabel,
-          date,
-          time: form.time,
-          durationMinutes: form.durationMinutes,
-          intensity: form.intensity,
-          notes: form.notes,
-        });
+      //
+      // Chevaux × dates, comme pour les rendez-vous (cf. useAppointmentForm) :
+      // une séance complète et indépendante par cheval visé. Sans choix
+      // explicite, la cible par défaut de la vue s'applique — TOUS les chevaux
+      // en vue « Tous », le cheval ciblé sinon (jamais le seul cheval actif
+      // quand « Tous » est posé, bug du 2026-09-20).
+      const sessionHorseIds = shouldOfferHorseChoice(selectableHorses, defaultHorseIds)
+        ? resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds)
+        : defaultHorseIds;
+      hiddenNames = targetsOutsideView(sessionHorseIds, defaultHorseIds).map(
+        (id) => selectableHorses.find((h) => h.id === id)?.name ?? "un autre cheval"
+      );
+      for (const sessionHorseId of sessionHorseIds.length > 0 ? sessionHorseIds : [targetHorse?.id ?? null]) {
+        for (const date of computeRecurrenceDates(form.date, form.recurrence)) {
+          addSession({
+            horseId: sessionHorseId,
+            activityType: form.activityType,
+            customActivityLabel,
+            date,
+            time: form.time,
+            durationMinutes: form.durationMinutes,
+            intensity: form.intensity,
+            notes: form.notes,
+          });
+        }
       }
     }
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm());
+    // Une séance créée pour un cheval que la vue n'affiche pas semblerait
+    // perdue : on le dit (cf. hiddenTargetsMessage).
+    if (hiddenNames.length > 0) Alert.alert("Séance enregistrée", hiddenTargetsMessage(hiddenNames));
   }
 
   function handleDuplicate(session: TrainingSession) {
@@ -711,6 +775,16 @@ export default function PlanningScreen() {
     ]);
   }
 
+  // Nombre de séances que la soumission va créer : occurrences × chevaux
+  // visés. Même calcul que handleSubmit, sinon le bouton mentirait.
+  const sessionOccurrenceCount =
+    form.recurrence.mode === "custom" && form.date ? computeRecurrenceDates(form.date, form.recurrence).length : 1;
+  const sessionHorseCount =
+    editingId || !shouldOfferHorseChoice(selectableHorses, defaultHorseIds)
+      ? 1
+      : Math.max(1, resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds).length);
+  const sessionCreateCount = sessionOccurrenceCount * sessionHorseCount;
+
   return (
     <>
     <Screen>
@@ -731,14 +805,31 @@ export default function PlanningScreen() {
       {horses.length > 1 ? (
         <FadeInView delay={20}>
           <View className="gap-2">
-            <HorseSwitcher />
+            {/* En vue « Tous », aucun avatar n'est mis en avant (sinon l'anneau
+                restait sur le cheval actif pendant que la puce disait « Tous »),
+                et toucher un avatar — même le cheval déjà actif — recadre la
+                vue sur lui. */}
+            <HorseSwitcher hideSelection={showingAllHorses} onSelect={(id) => setFilterHorseId(id)} />
             {/* Filtre d'affichage, distinct du sélecteur ci-dessus : « Tous »
                 mêle les chevaux de l'écurie dans une seule liste, chaque
                 événement portant alors la pastille de son cheval. Limité aux
                 chevaux possédés et non verrouillés (cf.
                 horses/selectableHorses.ts). */}
-            <HorseFilterChips horses={filterChipHorses} value={filterHorseId} onChange={setFilterHorseId} />
-            {targetHorse ? (
+            <HorseFilterChips
+              horses={filterChipHorses}
+              value={activeFilterId}
+              onChange={setFilterHorseId}
+              showAll={canShowAllHorses}
+            />
+            {showingAllHorses ? (
+              // Le Journal est volontairement exclu : un souvenir (souvent
+              // avec une photo) est propre à un cheval, le dupliquer sur toute
+              // l'écurie n'aurait pas de sens.
+              <Text className="px-1 text-xs text-muted">
+                Séances, rendez-vous et dépenses : tous les chevaux par défaut, à décocher dans le formulaire.
+                {targetHorse ? ` Souvenirs du journal : ${targetHorse.name} (cheval actif).` : ""}
+              </Text>
+            ) : targetHorse ? (
               <Text className="px-1 text-xs text-muted">
                 Les nouvelles entrées seront rattachées à {targetHorse.name}
                 {filterHorse ? " (cheval du filtre)" : " (cheval actif)"}.
@@ -780,7 +871,9 @@ export default function PlanningScreen() {
               </Text>
             </CircularProgress>
             <View className="flex-1 gap-0.5">
-              <Text className="text-sm font-bold uppercase tracking-wide text-on-primary/80">Cette semaine</Text>
+              <Text className="text-sm font-bold uppercase tracking-wide text-on-primary/80">
+                Cette semaine{showingAllHorses ? " · toute l'écurie" : ""}
+              </Text>
               <Text className="text-[15px] leading-5 text-on-primary">
                 {weekDone} séance{weekDone > 1 ? "s" : ""} faite{weekDone > 1 ? "s" : ""} · {formatDuration(weekMinutes)} au
                 programme
@@ -940,6 +1033,14 @@ export default function PlanningScreen() {
                 onChange={(intensity) => setForm((f) => ({ ...f, intensity }))}
               />
             </Field>
+            {!editingId && shouldOfferHorseChoice(selectableHorses, defaultHorseIds) ? (
+              <HorseMultiSelect
+                horses={selectableHorses}
+                fallbackIds={defaultHorseIds}
+                value={form.horseIds}
+                onChange={(horseIds) => setForm((f) => ({ ...f, horseIds }))}
+              />
+            ) : null}
             {!editingId ? (
               <RecurrenceField
                 value={form.recurrence}
@@ -969,13 +1070,7 @@ export default function PlanningScreen() {
               <View className="flex-1">
                 <PrimaryButton
                   label={
-                    editingId
-                      ? "Enregistrer"
-                      : form.recurrence.mode === "custom" &&
-                          form.date &&
-                          computeRecurrenceDates(form.date, form.recurrence).length > 1
-                        ? `Ajouter (×${computeRecurrenceDates(form.date, form.recurrence).length})`
-                        : "Ajouter"
+                    editingId ? "Enregistrer" : sessionCreateCount > 1 ? `Ajouter (×${sessionCreateCount})` : "Ajouter"
                   }
                   disabled={!form.date}
                   onPress={handleSubmit}
@@ -991,7 +1086,8 @@ export default function PlanningScreen() {
             editingApptId={editingApptId}
             submitting={submittingAppt}
             selectableHorses={selectableHorses}
-            activeHorseId={targetHorse?.id ?? null}
+            fallbackHorseIds={defaultHorseIds}
+            singleTargetName={targetHorse?.name ?? null}
             onOpen={() => setShowApptForm(true)}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}
@@ -1007,7 +1103,7 @@ export default function PlanningScreen() {
             editingExpenseId={editingExpenseId}
             suggestedAppointmentFor={suggestedAppointmentFor}
             selectableHorses={selectableHorses}
-            activeHorseId={targetHorse?.id ?? null}
+            fallbackHorseIds={defaultHorseIds}
             onOpen={() => setShowExpenseForm(true)}
             onCancel={cancelExpenseForm}
             onSubmit={handleSubmitExpense}

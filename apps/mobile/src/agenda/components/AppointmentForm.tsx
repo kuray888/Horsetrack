@@ -8,7 +8,8 @@ import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
 import { RecurrenceField } from "@/components/RecurrenceField";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
-import { resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
+import { AmountModeField } from "@/agenda/components/AmountModeField";
+import { MAX_ENTRIES_PER_SUBMIT, resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import { computeRecurrenceDates } from "@/lib/recurrence";
 import type { ReminderOption } from "@/lib/notifications";
 import type { AppointmentType, CompetitionEntry } from "@/agenda/store";
@@ -30,7 +31,8 @@ export function AppointmentForm({
   editingApptId,
   submitting,
   selectableHorses = [],
-  activeHorseId = null,
+  fallbackHorseIds = [],
+  singleTargetName = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -49,7 +51,14 @@ export function AppointmentForm({
    * cheval actif comme avant. Doit venir de `useSelectableHorses` (chevaux
    * possédés et non verrouillés), jamais de `horses` brut. */
   selectableHorses?: { id: string; name: string }[];
-  activeHorseId?: string | null;
+  /** Chevaux visés tant que rien n'est coché : le cheval actif, ou tous les
+   * chevaux proposables en vue « Tous » du Planning. */
+  fallbackHorseIds?: string[];
+  /** Nom du cheval visé par un concours : un concours est toujours créé pour UN
+   * seul cheval (dossard et épreuves sont propres à chaque cheval, cf.
+   * useAppointmentForm), donc le sélecteur est masqué pour ce type et on dit
+   * simplement pour quel cheval il sera créé. */
+  singleTargetName?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -61,15 +70,27 @@ export function AppointmentForm({
     return <AddToggle label="Ajouter un rendez-vous" onPress={onOpen} color={colors.primary} />;
   }
 
+  // Le concours reste toujours sur un seul cheval (cf. singleTargetName).
+  const isConcours = form.type === "concours";
+  const offerHorseChoice =
+    !editingApptId && !isConcours && shouldOfferHorseChoice(selectableHorses, fallbackHorseIds);
   // Nombre d'entrées que la soumission va créer : occurrences de récurrence ×
   // chevaux visés. Doit rester le MÊME calcul que handleSubmitAppointment
   // (cf. sa double boucle), sinon le bouton mentirait sur ce qu'il va faire.
   const occurrenceCount =
     form.recurrence.mode === "custom" && form.date ? computeRecurrenceDates(form.date, form.recurrence).length : 1;
-  const targetHorseCount = editingApptId
-    ? 1
-    : Math.max(1, resolveTargetHorseIds(form.horseIds, selectableHorses, activeHorseId).length);
+  const targetHorseCount =
+    editingApptId || isConcours
+      ? 1
+      : Math.max(
+          1,
+          (offerHorseChoice
+            ? resolveTargetHorseIds(form.horseIds, selectableHorses, fallbackHorseIds)
+            : fallbackHorseIds
+          ).length
+        );
   const createCount = occurrenceCount * targetHorseCount;
+  const overLimit = !editingApptId && createCount > MAX_ENTRIES_PER_SUBMIT;
 
   return (
     <View className={`${CARD} gap-3`}>
@@ -87,13 +108,19 @@ export function AppointmentForm({
           onChange={(type) => setForm((f) => ({ ...f, type }))}
         />
       </Field>
-      {!editingApptId && shouldOfferHorseChoice(selectableHorses) ? (
+      {offerHorseChoice ? (
         <HorseMultiSelect
           horses={selectableHorses}
-          activeHorseId={activeHorseId}
+          fallbackIds={fallbackHorseIds}
           value={form.horseIds}
           onChange={(horseIds) => setForm((f) => ({ ...f, horseIds }))}
         />
+      ) : null}
+      {!editingApptId && isConcours && singleTargetName && selectableHorses.length >= 2 ? (
+        <Text className="text-xs text-muted">
+          Ce concours sera créé pour {singleTargetName} seulement : le dossard et les épreuves sont propres à chaque
+          cheval. Choisis un autre cheval dans le filtre pour en créer un pour lui.
+        </Text>
       ) : null}
       <Field label="Titre">
         <TextInput
@@ -132,6 +159,13 @@ export function AppointmentForm({
               keyboardType="decimal-pad"
             />
           </Field>
+          <AmountModeField
+            mode={form.costMode}
+            onChange={(costMode) => setForm((f) => ({ ...f, costMode }))}
+            horseCount={targetHorseCount}
+            amount={Number(form.cost.replace(",", "."))}
+            noun="rendez-vous"
+          />
           <DatePickerField
             label="Prochaine échéance (optionnel)"
             value={form.nextDueDate}
@@ -210,6 +244,11 @@ export function AppointmentForm({
           </Locked>
         </>
       ) : null}
+      {overLimit ? (
+        <Text className="text-xs text-danger">
+          {`${createCount} rendez-vous d'un coup, c'est trop (maximum ${MAX_ENTRIES_PER_SUBMIT}) : chacun programme un rappel. Réduis la répétition ou le nombre de chevaux.`}
+        </Text>
+      ) : null}
       <View className="flex-row gap-2">
         <TouchableOpacity onPress={onCancel} className="flex-1 items-center rounded-card border border-border p-4">
           <Text className="text-base font-semibold text-muted">Annuler</Text>
@@ -225,7 +264,7 @@ export function AppointmentForm({
                     ? `Ajouter (×${createCount})`
                     : "Ajouter"
             }
-            disabled={!form.title.trim() || !form.date || submitting}
+            disabled={!form.title.trim() || !form.date || submitting || overLimit}
             onPress={onSubmit}
           />
         </View>

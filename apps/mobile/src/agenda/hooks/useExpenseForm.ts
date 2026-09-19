@@ -1,10 +1,16 @@
 import { useState } from "react";
+import { Alert } from "react-native";
 import { formatDate } from "@/lib/dateFormat";
 import { chooseAndPickDocument } from "@/lib/imagePicker";
 import { daysFromNow, useAgenda, type Expense, type ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
 import { amountsForHorses, type AmountMode } from "@/agenda/splitAmount";
-import { resolveTargetHorseIds } from "@/horses/selectableHorses";
+import {
+  hiddenTargetsMessage,
+  resolveTargetHorseIds,
+  shouldOfferHorseChoice,
+  targetsOutsideView,
+} from "@/horses/selectableHorses";
 import type { Horse } from "@/horses/store";
 
 const emptyExpenseForm = {
@@ -47,6 +53,7 @@ export function useExpenseForm({
   isActiveOrTrialing,
   horse = null,
   selectableHorses = [],
+  defaultHorseIds,
 }: {
   addExpense: AgendaActions["addExpense"];
   updateExpense: AgendaActions["updateExpense"];
@@ -59,6 +66,8 @@ export function useExpenseForm({
   /** Chevaux proposables pour créer la même dépense d'un coup (cf.
    * useSelectableHorses). Vide = pas de sélecteur, rien ne change. */
   selectableHorses?: Horse[];
+  /** Cf. useAppointmentForm : cible par défaut, sinon `horse`. */
+  defaultHorseIds?: string[];
 }) {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
@@ -95,6 +104,7 @@ export function useExpenseForm({
     const amount = Number(expenseForm.amount.replace(",", "."));
     if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
 
+    let hiddenNames: string[] = [];
     if (editingExpenseId) {
       updateExpense(editingExpenseId, {
         amount,
@@ -105,10 +115,21 @@ export function useExpenseForm({
         appointmentId: expenseForm.appointmentId,
       });
     } else {
+      // Chevaux visés : le choix du formulaire s'il est proposé, sinon la cible
+      // par défaut de l'écran (cf. shouldOfferHorseChoice — sur un cheval
+      // partagé le sélecteur est masqué et on garde le comportement d'origine).
+      const fallbackIds = defaultHorseIds ?? (horse ? [horse.id] : []);
+      const targetHorseIds = shouldOfferHorseChoice(selectableHorses, fallbackIds)
+        ? resolveTargetHorseIds(expenseForm.horseIds, selectableHorses, fallbackIds)
+        : fallbackIds;
       // La facture jointe devient un document du coffre-fort (catégorie
       // "facture"), lié à la dépense — seulement si Premium (coffre-fort
       // gaté, cf. Locked sur le bouton "Joindre une facture" plus bas) et si
-      // une photo a effectivement été prise.
+      // une photo a effectivement été prise. Rattaché au PREMIER cheval visé
+      // (et non au cheval actif) : il apparaît ainsi dans le coffre d'un cheval
+      // dont on paie la facture. C'est un seul document pour les N dépenses —
+      // une seule facture, la rescanner par cheval n'aurait pas de sens
+      // (Expense.documentId n'est pas unique, cf. schema.prisma).
       const documentId =
         isActiveOrTrialing && expenseForm.fileUri
           ? addDocument({
@@ -116,18 +137,11 @@ export function useExpenseForm({
               name: `Facture ${EXPENSE_META[expenseForm.category].label.toLowerCase()} — ${formatDate(date)}`,
               date,
               fileUri: expenseForm.fileUri,
+              ...(targetHorseIds[0] ? { horseId: targetHorseIds[0] } : {}),
             })
           : null;
       // Une dépense par cheval visé, chacune indépendante (même invariant que
-      // les rendez-vous : aucune notion de série côté modèle). Le reçu, lui,
-      // reste UN seul document du coffre-fort partagé par les N dépenses :
-      // c'est une seule facture, la rescanner par cheval n'aurait pas de sens
-      // (Expense.documentId n'est pas unique, cf. schema.prisma).
-      const targetHorseIds = resolveTargetHorseIds(
-        expenseForm.horseIds,
-        selectableHorses,
-        horse?.id ?? null
-      );
+      // les rendez-vous : aucune notion de série côté modèle).
       const amounts = amountsForHorses(amount, Math.max(1, targetHorseIds.length), expenseForm.amountMode);
       // Un rendez-vous n'appartient qu'à un cheval : le lien de rapprochement
       // ne peut pas suivre sur les dépenses des autres. Plutôt que de le
@@ -151,8 +165,14 @@ export function useExpenseForm({
           isPaid: false,
         });
       });
+      // Une dépense créée pour un cheval que la liste de cet écran n'affiche
+      // pas semblerait perdue : on le dit (cf. hiddenTargetsMessage).
+      hiddenNames = targetsOutsideView(targetHorseIds, fallbackIds).map(
+        (id) => selectableHorses.find((h) => h.id === id)?.name ?? "un autre cheval"
+      );
     }
     cancelExpenseForm();
+    if (hiddenNames.length > 0) Alert.alert("Dépense enregistrée", hiddenTargetsMessage(hiddenNames));
   }
 
   async function handlePickExpensePhoto() {
@@ -171,6 +191,8 @@ export function useExpenseForm({
       name: `Facture ${EXPENSE_META[expense.category].label.toLowerCase()} — ${formatDate(expense.date)}`,
       date: expense.date,
       fileUri: uri,
+      // Le cheval de CETTE dépense, pas le cheval actif (cf. handleSubmitExpense).
+      horseId: expense.horseId,
     });
     linkExpenseDocument(expense.id, documentId);
   }
