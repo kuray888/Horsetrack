@@ -1,4 +1,5 @@
 import { Alert, Linking, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
@@ -19,11 +20,14 @@ function isPdfDoc(doc: Doc): boolean {
   return (doc.filePath ?? doc.fileUri ?? "").toLowerCase().endsWith(".pdf");
 }
 
-/** Ouvre le document en plein format dans le lecteur natif : Quick Look (iOS)
- * / équivalent Android pour un fichier local pas encore synchronisé,
- * Safari/Chrome pour une URL signée distante (déjà consultable telle quelle,
- * pas besoin de la retélécharger). Sert aux PDF comme aux photos : la
- * vignette de la carte ne suffit pas à lire un compte rendu. */
+/** Ouvre un PDF. Fichier local (pas encore synchronisé) : feuille de partage
+ * système — ce N'EST PAS un lecteur (elle propose d'enregistrer ou de
+ * partager, cf. le commentaire erroné d'origine qui parlait de Quick Look) ;
+ * un vrai affichage in-app d'un PDF exige un module natif que le projet n'a
+ * pas. URL signée distante : Safari/Chrome, qui l'affichent tel quel.
+ *
+ * Les PHOTOS n'utilisent plus cette fonction : elles ont leur visionneur
+ * plein écran (cf. app/document-viewer.tsx, `openPhoto` ci-dessous). */
 async function openDocument(fileUri: string, mimeType: string) {
   if (fileUri.startsWith("file://")) {
     if (await Sharing.isAvailableAsync()) {
@@ -34,6 +38,11 @@ async function openDocument(fileUri: string, mimeType: string) {
     return;
   }
   await Linking.openURL(fileUri);
+}
+
+/** Ouvre une photo de document en grand dans la visionneuse intégrée. */
+function openPhoto(uri: string, title: string) {
+  router.push({ pathname: "/document-viewer", params: { uri, title } });
 }
 
 export function DocumentCard({
@@ -76,7 +85,7 @@ export function DocumentCard({
             </TouchableOpacity>
           ) : doc.fileUri ? (
             <TouchableOpacity
-              onPress={() => openDocument(doc.fileUri!, "image/jpeg")}
+              onPress={() => openPhoto(doc.fileUri!, doc.name)}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Ouvrir le document en grand"

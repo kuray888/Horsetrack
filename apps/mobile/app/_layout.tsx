@@ -75,6 +75,7 @@ function RootLayout() {
                       <Stack.Screen name="(onboarding)" />
                       <Stack.Screen name="(tabs)" />
                       <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="document-viewer" options={{ presentation: "fullScreenModal", animation: "fade" }} />
                       <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="share-horse-modal" options={{ presentation: "modal" }} />
