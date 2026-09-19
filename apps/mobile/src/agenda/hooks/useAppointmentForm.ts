@@ -9,6 +9,7 @@ import {
 import { cancelEmailReminder, scheduleEmailReminder } from "@/lib/emailReminders";
 import { NEVER_RECURRENCE, computeRecurrenceDates, type Recurrence } from "@/lib/recurrence";
 import type { Horse } from "@/horses/store";
+import { resolveTargetHorseIds } from "@/horses/selectableHorses";
 import {
   defaultChecklist,
   useAgenda,
@@ -35,6 +36,16 @@ const emptyApptForm = {
   // en édition, et masquée/forcée à "never" pour un concours (cf.
   // handleSubmitAppointment) — cf. AppointmentForm.tsx pour l'UI.
   recurrence: NEVER_RECURRENCE as Recurrence,
+  /** Chevaux visés par la création, quand l'écran propose le choix (cf.
+   * `selectableHorses` passé au hook, et HorseMultiSelect côté UI). Un
+   * tableau VIDE signifie « aucun choix explicite » — donc le cheval actif,
+   * exactement comme avant : tous les écrans qui n'affichent pas le
+   * sélecteur gardent ainsi leur comportement d'origine sans rien changer
+   * chez eux (cf. resolveTargetHorseIds). Ignoré en édition : on ne
+   * réaffecte jamais un rendez-vous existant à un autre cheval, chaque
+   * entrée créée est une copie indépendante (même principe que la
+   * récurrence ci-dessus). */
+  horseIds: [] as string[],
 };
 
 export type AppointmentFormValue = typeof emptyApptForm;
@@ -47,6 +58,7 @@ type AgendaActions = ReturnType<typeof useAgenda>;
  * faisait déjà (fermer la carte dépliée avant d'ouvrir le formulaire). */
 export function useAppointmentForm({
   horse,
+  selectableHorses = [],
   appointments,
   addAppointment,
   updateAppointment,
@@ -55,6 +67,11 @@ export function useAppointmentForm({
   onEditStart,
 }: {
   horse: Horse | null;
+  /** Chevaux proposables à la création, quand l'écran veut offrir le choix
+   * « pour quel(s) cheval(aux) ? » (cf. useSelectableHorses). Laissé vide par
+   * les écrans déjà cadrés sur un seul cheval — fiche cheval, santé d'un
+   * cheval — où proposer d'en viser un autre n'aurait aucun sens. */
+  selectableHorses?: Horse[];
   appointments: Appointment[];
   addAppointment: AgendaActions["addAppointment"];
   updateAppointment: AgendaActions["updateAppointment"];
@@ -94,6 +111,7 @@ export function useAppointmentForm({
       cost: appt.cost !== null ? String(appt.cost).replace(".", ",") : "",
       nextDueDate: appt.nextDueDate,
       recurrence: NEVER_RECURRENCE,
+      horseIds: [],
     });
     onEditStart();
     setShowApptForm(true);
@@ -108,16 +126,25 @@ export function useAppointmentForm({
   /** Programme le rappel (push + email) pour la date/heure/option courantes du
    * formulaire — factorisé entre création et édition (cf. handleSubmitAppointment)
    * : éditer un rendez-vous reprogramme son rappel exactement comme à la
-   * création, l'ancien étant annulé juste avant côté appelant. */
+   * création, l'ancien étant annulé juste avant côté appelant.
+   *
+   * `horseName` ouvre le corps de la notification depuis le 2026-09-19 : un
+   * même rendez-vous créé pour plusieurs chevaux produit autant de rappels à
+   * la même minute, et sans le nom ils étaient strictement indiscernables
+   * (le titre ne porte que l'intitulé saisi, ex. « Rappel : Vaccin »). Ajouté
+   * inconditionnellement plutôt que seulement en multi-chevaux : deux
+   * formats de notification selon l'état du compte au moment de la
+   * programmation coûteraient plus cher à comprendre que ce mot en tête. */
   async function scheduleApptReminder(
     title: string,
     date: Date,
     time: string,
     location: string,
-    reminder: ReminderOption
+    reminder: ReminderOption,
+    horseName: string | null
   ): Promise<{ reminderNotificationId: string | null; emailReminderId: string | null }> {
     const trigger = computeReminderTrigger(date, time, reminder);
-    const notifBody = `${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`;
+    const notifBody = `${horseName ? `${horseName} · ` : ""}${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`;
     if (!trigger) return { reminderNotificationId: null, emailReminderId: null };
     // L'échec de programmation du rappel (permission révoquée, erreur OS) ne
     // doit jamais empêcher l'ajout/l'édition du rendez-vous lui-même.
@@ -140,7 +167,8 @@ export function useAppointmentForm({
   async function scheduleNextDueReminder(
     apptType: AppointmentType,
     title: string,
-    nextDueDate: Date
+    nextDueDate: Date,
+    horseName: string | null
   ): Promise<string | null> {
     if (!isActiveOrTrialing) return null;
     const trigger = new Date(nextDueDate);
@@ -150,12 +178,22 @@ export function useAppointmentForm({
     try {
       return await scheduleReminder(
         `Échéance à venir : ${title}`,
-        `${APPT_META[apptType].label} prévu(e) le ${formatDate(nextDueDate)} pour ${horse?.name ?? "ton cheval"}.`,
+        `${APPT_META[apptType].label} prévu(e) le ${formatDate(nextDueDate)} pour ${horseName ?? "ton cheval"}.`,
         trigger
       );
     } catch {
       return null;
     }
+  }
+
+  /** Nom à afficher dans un rappel pour un cheval donné. Cherche d'abord
+   * parmi les chevaux proposables (cas multi-chevaux), puis le cheval actif.
+   * `null` si introuvable — le corps du rappel repart alors sans nom, comme
+   * avant l'ajout de ce champ, plutôt que d'afficher un identifiant. */
+  function horseNameFor(horseId: string | null): string | null {
+    if (!horseId) return null;
+    if (horse?.id === horseId) return horse.name;
+    return selectableHorses.find((h) => h.id === horseId)?.name ?? null;
   }
 
   async function handleSubmitAppointment() {
@@ -186,15 +224,17 @@ export function useAppointmentForm({
         cancelReminder(editing.reminderNotificationId);
         cancelEmailReminder(editing.emailReminderId);
         cancelReminder(editing.nextDueNotificationId);
+        const editingHorseName = horseNameFor(editing.horseId);
         const { reminderNotificationId, emailReminderId } = await scheduleApptReminder(
           title,
           date,
           time,
           location,
-          reminder
+          reminder,
+          editingHorseName
         );
         const nextDueNotificationId = nextDueDate
-          ? await scheduleNextDueReminder(apptForm.type, title, nextDueDate)
+          ? await scheduleNextDueReminder(apptForm.type, title, nextDueDate, editingHorseName)
           : null;
         updateAppointment(editing.id, {
           type: apptForm.type,
@@ -218,48 +258,64 @@ export function useAppointmentForm({
         // que l'utilisateur ne bascule sur "concours".
         const recurrence: Recurrence = isConcours ? NEVER_RECURRENCE : apptForm.recurrence;
         const occurrenceDates = computeRecurrenceDates(date, recurrence);
-        for (let i = 0; i < occurrenceDates.length; i++) {
-          const occurrenceDate = occurrenceDates[i];
-          const { reminderNotificationId, emailReminderId } = await scheduleApptReminder(
-            title,
-            occurrenceDate,
-            time,
-            location,
-            reminder
-          );
-          // La prochaine échéance de soin ne s'applique qu'à la première
-          // occurrence — la dupliquer sur chaque semaine répétée n'aurait pas
-          // de sens (et programmerait le même rappel plusieurs fois).
-          const occurrenceNextDueDate = i === 0 ? nextDueDate : null;
-          const nextDueNotificationId = occurrenceNextDueDate
-            ? await scheduleNextDueReminder(apptForm.type, title, occurrenceNextDueDate)
-            : null;
-          addAppointment({
-            type: apptForm.type,
-            title,
-            date: occurrenceDate,
-            time,
-            location,
-            notes: "",
-            reminder,
-            reminderNotificationId,
-            emailReminderId,
-            professional,
-            cost,
-            nextDueDate: occurrenceNextDueDate,
-            nextDueNotificationId,
-            checklist: isConcours ? defaultChecklist() : [],
-            dossard: isConcours ? apptForm.dossard.trim() || null : null,
-            // Plusieurs épreuves par concours est Premium (cf. section "Épreuves"
-            // verrouillée dans le formulaire, et competition_entries_insert_shared
-            // côté rls.sql) — sans ce clamp, un compte gratuit créerait des
-            // entrées localement qu'un push cloud rejetterait ensuite, désynchro-
-            // nisant l'app du serveur.
-            competitionEntries:
-              isConcours && isActiveOrTrialing
-                ? apptForm.competitionEntries.filter((e) => e.name.trim() && e.time.trim())
-                : [],
-          });
+        // Deux boucles imbriquées, chevaux × dates : le même rendez-vous
+        // répété dans le temps ET étalé sur plusieurs chevaux. Chaque tour
+        // produit une entrée COMPLÈTE et INDÉPENDANTE — il n'existe aucun
+        // identifiant de série côté modèle (cf. commentaire du champ
+        // `recurrence` plus haut), et la décision produit du 2026-09-19 est
+        // de garder cet invariant : modifier ou supprimer une entrée ne
+        // touche qu'elle, l'utilisateur désignant le cheval voulu via la
+        // pastille de nom du Planning (cf. vue « Tous les chevaux »).
+        const targetHorseIds = resolveTargetHorseIds(apptForm.horseIds, selectableHorses, horse.id);
+        for (const targetHorseId of targetHorseIds) {
+          const targetHorseName = horseNameFor(targetHorseId);
+          for (let i = 0; i < occurrenceDates.length; i++) {
+            const occurrenceDate = occurrenceDates[i];
+            const { reminderNotificationId, emailReminderId } = await scheduleApptReminder(
+              title,
+              occurrenceDate,
+              time,
+              location,
+              reminder,
+              targetHorseName
+            );
+            // La prochaine échéance de soin ne s'applique qu'à la première
+            // occurrence — la dupliquer sur chaque semaine répétée n'aurait pas
+            // de sens (et programmerait le même rappel plusieurs fois). Elle
+            // vaut en revanche pour CHAQUE cheval : le prochain vaccin de l'un
+            // ne dit rien de celui de l'autre.
+            const occurrenceNextDueDate = i === 0 ? nextDueDate : null;
+            const nextDueNotificationId = occurrenceNextDueDate
+              ? await scheduleNextDueReminder(apptForm.type, title, occurrenceNextDueDate, targetHorseName)
+              : null;
+            addAppointment({
+              horseId: targetHorseId,
+              type: apptForm.type,
+              title,
+              date: occurrenceDate,
+              time,
+              location,
+              notes: "",
+              reminder,
+              reminderNotificationId,
+              emailReminderId,
+              professional,
+              cost,
+              nextDueDate: occurrenceNextDueDate,
+              nextDueNotificationId,
+              checklist: isConcours ? defaultChecklist() : [],
+              dossard: isConcours ? apptForm.dossard.trim() || null : null,
+              // Plusieurs épreuves par concours est Premium (cf. section "Épreuves"
+              // verrouillée dans le formulaire, et competition_entries_insert_shared
+              // côté rls.sql) — sans ce clamp, un compte gratuit créerait des
+              // entrées localement qu'un push cloud rejetterait ensuite, désynchro-
+              // nisant l'app du serveur.
+              competitionEntries:
+                isConcours && isActiveOrTrialing
+                  ? apptForm.competitionEntries.filter((e) => e.name.trim() && e.time.trim())
+                  : [],
+            });
+          }
         }
       }
       cancelApptForm();

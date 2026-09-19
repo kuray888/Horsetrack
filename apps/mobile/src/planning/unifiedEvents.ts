@@ -53,6 +53,13 @@ export function filterUnifiedEvents(events: UnifiedEvent[], filter: PlanningFilt
   return events.filter((e) => e.kind === "appointment" && e.category === filter);
 }
 
+/** Cheval d'un événement unifié, quel que soit son type — pour afficher la
+ * pastille de nom quand la liste en mêle plusieurs (cf. Planning en vue
+ * « Tous les chevaux »). */
+export function eventHorseId(event: UnifiedEvent): string | null {
+  return event.kind === "session" ? event.session.horseId : event.appointment.horseId;
+}
+
 /** Heure d'un événement unifié, quel que soit son type — pour trier une
  * liste d'un même jour (cf. Planning, vue mois). */
 export function eventTime(event: UnifiedEvent): string {

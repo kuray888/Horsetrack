@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
@@ -7,6 +7,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
+import { HorseFilterChips, HorseNameBadge } from "@/horses/components/HorseFilterChips";
 import { useAgenda, type JournalEntry } from "@/agenda/store";
 import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { JournalForm } from "@/agenda/components/JournalForm";
@@ -99,29 +100,12 @@ export default function JournalScreen() {
 
       {horses.length > 1 ? (
         <FadeInView delay={40}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2 pr-2">
-            <TouchableOpacity
-              onPress={() => setFilterHorseId(null)}
-              activeOpacity={0.8}
-              className={`rounded-full border px-3.5 py-2 ${filterHorseId === null ? "border-primary bg-highlight" : "border-border bg-surface"}`}
-            >
-              <Text className={`text-sm font-semibold ${filterHorseId === null ? "text-primary" : "text-text"}`}>
-                Tous
-              </Text>
-            </TouchableOpacity>
-            {horses.map((h) => (
-              <TouchableOpacity
-                key={h.id}
-                onPress={() => setFilterHorseId(h.id)}
-                activeOpacity={0.8}
-                className={`rounded-full border px-3.5 py-2 ${filterHorseId === h.id ? "border-primary bg-highlight" : "border-border bg-surface"}`}
-              >
-                <Text className={`text-sm font-semibold ${filterHorseId === h.id ? "text-primary" : "text-text"}`}>
-                  {h.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {/* Le Journal liste TOUS les chevaux, partagés compris : un cavalier
+              en demi-pension y écrit et y relit ses souvenirs depuis
+              l'origine. Le Planning, lui, s'en tient aux chevaux possédés
+              (cf. horses/selectableHorses.ts) — d'où la liste passée en
+              paramètre plutôt que lue dans le composant. */}
+          <HorseFilterChips horses={horses} value={filterHorseId} onChange={setFilterHorseId} />
         </FadeInView>
       ) : null}
 
@@ -170,10 +154,7 @@ export default function JournalScreen() {
           <FadeInView key={entry.id} delay={120 + i * 60}>
             <View className="gap-1.5">
               {filterHorseId === null && horses.length > 1 ? (
-                <View className="flex-row items-center gap-1 self-start rounded-full bg-highlight px-2.5 py-1">
-                  <MaterialCommunityIcons name="horse-variant" size={11} color={colors.primary} />
-                  <Text className="text-xs font-semibold text-primary">{horseName(entry.horseId)}</Text>
-                </View>
+                <HorseNameBadge name={horseName(entry.horseId)} />
               ) : null}
               <JournalCard
                 entry={entry}

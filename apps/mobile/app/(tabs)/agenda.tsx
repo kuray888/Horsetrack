@@ -9,6 +9,7 @@ import { BackButton } from "@/components/BackButton";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { ensureNotificationPermission } from "@/lib/notifications";
 import { useHorses } from "@/horses/store";
+import { useSelectableHorses } from "@/horses/useSelectableHorses";
 import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
 import { useSubscription } from "@/subscription/store";
 import { Locked } from "@/components/Locked";
@@ -48,6 +49,8 @@ const SECTION_META: Record<AgendaSection, { title: string; subtitle: (horseName:
 
 export default function AgendaScreen() {
   const { horses, selectedHorse: horse } = useHorses();
+  // Cf. planning.tsx, même règle : possédés et non verrouillés seulement.
+  const selectableHorses = useSelectableHorses();
   const { isActiveOrTrialing } = useSubscription();
   const {
     appointments,
@@ -128,6 +131,7 @@ export default function AgendaScreen() {
     removeApptFormEntry,
   } = useAppointmentForm({
     horse: horse ?? null,
+    selectableHorses,
     appointments,
     addAppointment,
     updateAppointment,
@@ -170,6 +174,8 @@ export default function AgendaScreen() {
     addDocument,
     linkExpenseDocument,
     isActiveOrTrialing,
+    horse: horse ?? null,
+    selectableHorses,
   });
 
   // Une seule fois par montage (cf. today.tsx, même correctif, audit perf du
@@ -380,6 +386,8 @@ export default function AgendaScreen() {
               setForm={setApptForm}
               editingApptId={editingApptId}
               submitting={submittingAppt}
+              selectableHorses={selectableHorses}
+              activeHorseId={horse?.id ?? null}
               onOpen={() => setShowApptForm(true)}
               onCancel={cancelApptForm}
               onSubmit={handleSubmitAppointment}
@@ -591,6 +599,8 @@ export default function AgendaScreen() {
               setForm={setExpenseForm}
               editingExpenseId={editingExpenseId}
               suggestedAppointmentFor={suggestedAppointmentFor}
+              selectableHorses={selectableHorses}
+              activeHorseId={horse?.id ?? null}
               onOpen={() => setShowExpenseForm(true)}
               onCancel={cancelExpenseForm}
               onSubmit={handleSubmitExpense}

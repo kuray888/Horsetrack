@@ -16,7 +16,9 @@ import { colors as staticColors } from "@/theme/colors";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDuration, isSameDate, MONTHS } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
+import { useSelectableHorses } from "@/horses/useSelectableHorses";
 import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
+import { HorseFilterChips } from "@/horses/components/HorseFilterChips";
 import { useSubscription } from "@/subscription/store";
 import { OTHER_OPTION } from "@/onboarding/options";
 import { useAgenda, ACTIVITY_META, type ActivityType, type Appointment, type CompetitionEntry, type ExpenseCategory } from "@/agenda/store";
@@ -33,6 +35,7 @@ import {
   buildUnifiedEvents,
   filterUnifiedEvents,
   eventTime,
+  eventHorseId,
   isEventUpcoming,
   isNewPlanningDestination,
   upcomingUnifiedEvents,
@@ -227,6 +230,47 @@ function MonthGrid({
 export default function PlanningScreen() {
   const colors = useThemeColors();
   const { horses, selectedHorse } = useHorses();
+  // Chevaux qu'on peut viser depuis cet écran : possédés et non verrouillés
+  // par le palier (cf. horses/selectableHorses.ts pour la règle et ses
+  // raisons). Vide ou singleton = rien ne change par rapport à avant.
+  const selectableHorses = useSelectableHorses();
+  // Filtre d'AFFICHAGE par cheval (null = « Tous »), sur le modèle du Journal
+  // — ne change jamais le cheval actif de l'app, contrairement à
+  // HorseSwitcher juste à côté. Démarre sur le cheval actif : c'est
+  // exactement ce que cet écran montrait avant, « Tous » est un pas
+  // supplémentaire et délibéré.
+  const [filterHorseId, setFilterHorseId] = useState<string | null>(selectedHorse?.id ?? null);
+  // Changer de cheval actif (HorseSwitcher, présent sur cet écran) recadre le
+  // filtre sur ce cheval : sans ça, basculer sur un autre cheval ne changerait
+  // rien à la liste et donnerait l'impression d'un bouton mort. Même pattern
+  // « ajuster l'état pendant le rendu » que journal.tsx (cf. son commentaire
+  // sur ?horse=), et non un useEffect.
+  const [syncedActiveHorseId, setSyncedActiveHorseId] = useState(selectedHorse?.id ?? null);
+  if ((selectedHorse?.id ?? null) !== syncedActiveHorseId) {
+    setSyncedActiveHorseId(selectedHorse?.id ?? null);
+    setFilterHorseId(selectedHorse?.id ?? null);
+  }
+  const filterHorse = filterHorseId ? horses.find((h) => h.id === filterHorseId) ?? null : null;
+  // Cheval qui recevra une entrée créée depuis cet écran quand l'utilisateur
+  // ne choisit rien d'autre : celui du filtre s'il en cible un, sinon le
+  // cheval actif — même règle que le Journal, jamais une troisième notion de
+  // « cheval courant ».
+  const targetHorse = filterHorse ?? selectedHorse;
+  const showingAllHorses = filterHorseId === null && selectableHorses.length > 1;
+  // Le cheval actif peut être un cheval PARTAGÉ (demi-pension, coach), absent
+  // de `selectableHorses` — on n'écrit jamais en masse sur le cheval de
+  // quelqu'un d'autre, cf. horses/selectableHorses.ts. Sans l'ajouter aux
+  // puces, le Planning s'ouvrirait sur ses événements avec aucune puce
+  // sélectionnée, ce qui donnerait un filtre cassé. Ajout d'AFFICHAGE
+  // uniquement : « Tous » reste limité aux chevaux possédés (cf.
+  // horseSessions/horseAppointments).
+  const filterChipHorses = useMemo(
+    () =>
+      selectedHorse && !selectableHorses.some((h) => h.id === selectedHorse.id)
+        ? [...selectableHorses, selectedHorse]
+        : selectableHorses,
+    [selectableHorses, selectedHorse]
+  );
   const { isActiveOrTrialing } = useSubscription();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
   const {
@@ -315,13 +359,24 @@ export default function PlanningScreen() {
   // agenda.tsx.
   const [, setNotifPermission] = useState<boolean | null>(null);
 
+  // `filterHorseId` null = « Tous les chevaux » : on garde alors tout ce qui
+  // appartient à un cheval proposable (possédé, non verrouillé — cf.
+  // horses/selectableHorses.ts), et pas la liste brute : une entrée d'un
+  // cheval verrouillé par le palier gratuit n'a pas à réapparaître ici.
+  const selectableHorseIds = useMemo(() => selectableHorses.map((h) => h.id), [selectableHorses]);
   const horseSessions = useMemo(
-    () => sessions.filter((s) => s.horseId === selectedHorse?.id),
-    [sessions, selectedHorse?.id]
+    () =>
+      sessions.filter((s) =>
+        filterHorseId ? s.horseId === filterHorseId : s.horseId !== null && selectableHorseIds.includes(s.horseId)
+      ),
+    [sessions, filterHorseId, selectableHorseIds]
   );
   const horseAppointments = useMemo(
-    () => appointments.filter((a) => a.horseId === selectedHorse?.id),
-    [appointments, selectedHorse?.id]
+    () =>
+      appointments.filter((a) =>
+        filterHorseId ? a.horseId === filterHorseId : a.horseId !== null && selectableHorseIds.includes(a.horseId)
+      ),
+    [appointments, filterHorseId, selectableHorseIds]
   );
   // Une seule fois par montage (cf. today.tsx/agenda.tsx, même correctif,
   // audit perf du 2026-09-09).
@@ -447,7 +502,8 @@ export default function PlanningScreen() {
     updateApptFormEntry,
     removeApptFormEntry,
   } = useAppointmentForm({
-    horse: selectedHorse ?? null,
+    horse: targetHorse ?? null,
+    selectableHorses,
     appointments,
     addAppointment,
     updateAppointment,
@@ -465,7 +521,15 @@ export default function PlanningScreen() {
     cancelExpenseForm,
     handleSubmitExpense,
     handlePickExpensePhoto,
-  } = useExpenseForm({ addExpense, updateExpense, addDocument, linkExpenseDocument, isActiveOrTrialing });
+  } = useExpenseForm({
+    addExpense,
+    updateExpense,
+    addDocument,
+    linkExpenseDocument,
+    isActiveOrTrialing,
+    horse: targetHorse ?? null,
+    selectableHorses,
+  });
 
   const {
     showJournalForm,
@@ -477,7 +541,14 @@ export default function PlanningScreen() {
     cancelJournalForm,
     handleSubmitJournalEntry,
     handlePickJournalPhoto,
-  } = useJournalForm({ addJournalEntry, updateJournalEntry, onEditStart: () => setExpandedId(null) });
+  } = useJournalForm({
+    // Suit le filtre quand il cible un cheval, sinon fallback d'origine sur
+    // le cheval actif — exactement ce que fait l'onglet Journal (cf.
+    // (tabs)/journal.tsx).
+    addJournalEntry: (entry) => addJournalEntry(filterHorseId ? { ...entry, horseId: filterHorseId } : entry),
+    updateJournalEntry,
+    onEditStart: () => setExpandedId(null),
+  });
 
   // Ferme tout formulaire de création/édition resté ouvert d'une visite
   // précédente dès qu'une NOUVELLE destination explicite arrive depuis Horse
@@ -512,7 +583,14 @@ export default function PlanningScreen() {
   // Suggestion de rapprochement pour le formulaire de dépense (cf.
   // agenda/meta.ts suggestedAppointmentFor, partagé avec today.tsx/Horse Hub).
   function suggestedAppointmentFor(category: ExpenseCategory): Appointment | null {
-    return findSuggestedAppointment(horseAppointments, category);
+    // Le rapprochement lie une dépense au rendez-vous du MÊME cheval. En vue
+    // « Tous les chevaux », `horseAppointments` en mêle plusieurs : sans ce
+    // recadrage, on proposerait de lier la dépense au vaccin d'un autre
+    // cheval.
+    return findSuggestedAppointment(
+      horseAppointments.filter((a) => a.horseId === (targetHorse?.id ?? null)),
+      category
+    );
   }
 
   function handleQuickAdd(option: QuickAddOption) {
@@ -581,6 +659,10 @@ export default function PlanningScreen() {
       // (éditable/supprimable une par une).
       for (const date of computeRecurrenceDates(form.date, form.recurrence)) {
         addSession({
+          // Suit le filtre d'affichage quand il cible un cheval, sinon le
+          // cheval actif — créer une séance là où on ne la verrait pas
+          // apparaître serait déroutant (même règle que le Journal).
+          horseId: targetHorse?.id ?? null,
           activityType: form.activityType,
           customActivityLabel,
           date,
@@ -600,6 +682,9 @@ export default function PlanningScreen() {
     const date = new Date(session.date);
     date.setDate(date.getDate() + 7);
     addSession({
+      // Le cheval de la séance dupliquée, jamais le cheval courant : en vue
+      // « Tous les chevaux », on duplique celle qu'on a sous les yeux.
+      horseId: session.horseId,
       activityType: session.activityType,
       customActivityLabel: session.customActivityLabel,
       date,
@@ -608,6 +693,15 @@ export default function PlanningScreen() {
       intensity: session.intensity,
       notes: session.notes,
     });
+  }
+
+  /** Nom à afficher en pastille sur un événement, en vue « Tous les
+   * chevaux » seulement — null ailleurs, la liste ne portant alors que sur un
+   * cheval déjà nommé dans l'en-tête. */
+  function eventHorseName(event: UnifiedEvent): string | null {
+    if (!showingAllHorses) return null;
+    const horseId = eventHorseId(event);
+    return selectableHorses.find((h) => h.id === horseId)?.name ?? null;
   }
 
   function confirmDelete(session: TrainingSession) {
@@ -623,7 +717,11 @@ export default function PlanningScreen() {
       <FadeInView>
         <View className="gap-1">
           <Text className="text-3xl font-display tracking-tight text-text">Planning</Text>
-          <Text className="text-base text-muted">La vie équestre de {selectedHorse?.name ?? "ton cheval"}, en un seul endroit</Text>
+          <Text className="text-base text-muted">
+            {showingAllHorses
+              ? "La vie équestre de toute l'écurie, en un seul endroit"
+              : `La vie équestre de ${filterHorse?.name ?? selectedHorse?.name ?? "ton cheval"}, en un seul endroit`}
+          </Text>
         </View>
       </FadeInView>
 
@@ -634,9 +732,16 @@ export default function PlanningScreen() {
         <FadeInView delay={20}>
           <View className="gap-2">
             <HorseSwitcher />
-            {selectedHorse ? (
+            {/* Filtre d'affichage, distinct du sélecteur ci-dessus : « Tous »
+                mêle les chevaux de l'écurie dans une seule liste, chaque
+                événement portant alors la pastille de son cheval. Limité aux
+                chevaux possédés et non verrouillés (cf.
+                horses/selectableHorses.ts). */}
+            <HorseFilterChips horses={filterChipHorses} value={filterHorseId} onChange={setFilterHorseId} />
+            {targetHorse ? (
               <Text className="px-1 text-xs text-muted">
-                Les nouvelles entrées seront rattachées à {selectedHorse.name}.
+                Les nouvelles entrées seront rattachées à {targetHorse.name}
+                {filterHorse ? " (cheval du filtre)" : " (cheval actif)"}.
               </Text>
             ) : null}
           </View>
@@ -685,6 +790,12 @@ export default function PlanningScreen() {
         </FadeInView>
       ) : null}
 
+      {/* Statistiques masquées en vue « Tous les chevaux » : `perWeek` et
+          `restDays` sont des notions PAR cheval (cf. sessions/stats.ts) —
+          « 4 jours de repos » agrégé sur trois chevaux ne veut rien dire, et
+          afficher un chiffre faux serait pire que ne rien afficher. Elles
+          reviennent dès qu'une puce cible un cheval. */}
+      {showingAllHorses ? null : (
       <FadeInView delay={50}>
         <View className={CARD}>
           <TouchableOpacity
@@ -762,6 +873,7 @@ export default function PlanningScreen() {
           ) : null}
         </View>
       </FadeInView>
+      )}
 
       <FadeInView delay={60}>
         {showForm ? (
@@ -878,6 +990,8 @@ export default function PlanningScreen() {
             setForm={setApptForm}
             editingApptId={editingApptId}
             submitting={submittingAppt}
+            selectableHorses={selectableHorses}
+            activeHorseId={targetHorse?.id ?? null}
             onOpen={() => setShowApptForm(true)}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}
@@ -892,6 +1006,8 @@ export default function PlanningScreen() {
             setForm={setExpenseForm}
             editingExpenseId={editingExpenseId}
             suggestedAppointmentFor={suggestedAppointmentFor}
+            selectableHorses={selectableHorses}
+            activeHorseId={targetHorse?.id ?? null}
             onOpen={() => setShowExpenseForm(true)}
             onCancel={cancelExpenseForm}
             onSubmit={handleSubmitExpense}
@@ -953,6 +1069,7 @@ export default function PlanningScreen() {
                   onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
                   sessionHandlers={sessionHandlers}
                   appointmentHandlers={appointmentHandlers}
+                  horseName={eventHorseName(event)}
                 />
               </FadeInView>
             ))
@@ -989,6 +1106,7 @@ export default function PlanningScreen() {
                       onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
                       sessionHandlers={sessionHandlers}
                       appointmentHandlers={appointmentHandlers}
+                      horseName={eventHorseName(event)}
                     />
                   </FadeInView>
                 ))}
@@ -1026,6 +1144,7 @@ export default function PlanningScreen() {
                             onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
                             sessionHandlers={sessionHandlers}
                             appointmentHandlers={appointmentHandlers}
+                            horseName={eventHorseName(event)}
                           />
                         </FadeInView>
                       ))}

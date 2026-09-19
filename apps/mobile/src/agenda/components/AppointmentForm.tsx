@@ -7,6 +7,8 @@ import { PrimaryButton } from "@/components/onboarding";
 import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
 import { RecurrenceField } from "@/components/RecurrenceField";
+import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
+import { resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import { computeRecurrenceDates } from "@/lib/recurrence";
 import type { ReminderOption } from "@/lib/notifications";
 import type { AppointmentType, CompetitionEntry } from "@/agenda/store";
@@ -27,6 +29,8 @@ export function AppointmentForm({
   setForm,
   editingApptId,
   submitting,
+  selectableHorses = [],
+  activeHorseId = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -39,6 +43,13 @@ export function AppointmentForm({
   setForm: (updater: (f: AppointmentFormValue) => AppointmentFormValue) => void;
   editingApptId: string | null;
   submitting: boolean;
+  /** Chevaux proposables pour créer le même rendez-vous d'un coup. Omis par
+   * les écrans déjà cadrés sur un cheval précis (fiche cheval, santé d'un
+   * cheval) : le sélecteur n'y apparaît pas, et le rendez-vous part sur le
+   * cheval actif comme avant. Doit venir de `useSelectableHorses` (chevaux
+   * possédés et non verrouillés), jamais de `horses` brut. */
+  selectableHorses?: { id: string; name: string }[];
+  activeHorseId?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -49,6 +60,16 @@ export function AppointmentForm({
   if (!show) {
     return <AddToggle label="Ajouter un rendez-vous" onPress={onOpen} color={colors.primary} />;
   }
+
+  // Nombre d'entrées que la soumission va créer : occurrences de récurrence ×
+  // chevaux visés. Doit rester le MÊME calcul que handleSubmitAppointment
+  // (cf. sa double boucle), sinon le bouton mentirait sur ce qu'il va faire.
+  const occurrenceCount =
+    form.recurrence.mode === "custom" && form.date ? computeRecurrenceDates(form.date, form.recurrence).length : 1;
+  const targetHorseCount = editingApptId
+    ? 1
+    : Math.max(1, resolveTargetHorseIds(form.horseIds, selectableHorses, activeHorseId).length);
+  const createCount = occurrenceCount * targetHorseCount;
 
   return (
     <View className={`${CARD} gap-3`}>
@@ -66,6 +87,14 @@ export function AppointmentForm({
           onChange={(type) => setForm((f) => ({ ...f, type }))}
         />
       </Field>
+      {!editingApptId && shouldOfferHorseChoice(selectableHorses) ? (
+        <HorseMultiSelect
+          horses={selectableHorses}
+          activeHorseId={activeHorseId}
+          value={form.horseIds}
+          onChange={(horseIds) => setForm((f) => ({ ...f, horseIds }))}
+        />
+      ) : null}
       <Field label="Titre">
         <TextInput
           className={INPUT}
@@ -192,10 +221,8 @@ export function AppointmentForm({
                 ? "Un instant…"
                 : editingApptId
                   ? "Enregistrer"
-                  : form.recurrence.mode === "custom" &&
-                      form.date &&
-                      computeRecurrenceDates(form.date, form.recurrence).length > 1
-                    ? `Ajouter (×${computeRecurrenceDates(form.date, form.recurrence).length})`
+                  : createCount > 1
+                    ? `Ajouter (×${createCount})`
                     : "Ajouter"
             }
             disabled={!form.title.trim() || !form.date || submitting}

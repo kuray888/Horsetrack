@@ -48,7 +48,11 @@ function generateId(): string {
 
 type SessionsContextValue = {
   sessions: TrainingSession[];
-  addSession: (session: NewTrainingSession) => void;
+  /** `horseId` optionnel : sinon, rattaché au cheval globalement sélectionné
+   * — même mécanisme que `addAppointment`/`addJournalEntry` (cf.
+   * agenda/store.tsx), pour qu'un écran filtré sur un cheval précis (vue
+   * « Tous les chevaux » du Planning) puisse créer là où il affiche. */
+  addSession: (session: NewTrainingSession & { horseId?: string | null }) => void;
   updateSession: (session: TrainingSession) => void;
   deleteSession: (sessionId: string) => void;
   toggleCompleted: (sessionId: string) => void;
@@ -111,8 +115,14 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, [sessions, loaded]);
 
   const addSession = useCallback(
-    (session: NewTrainingSession) => {
-      const next: TrainingSession = { ...session, id: generateId(), horseId: selectedHorse?.id ?? null, completed: false };
+    (session: NewTrainingSession & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = session;
+      const next: TrainingSession = {
+        ...rest,
+        id: generateId(),
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
+        completed: false,
+      };
       setSessions((list) => [...list, next]);
       pushTrainingSession(next).catch(() => {});
     },

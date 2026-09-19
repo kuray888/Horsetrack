@@ -143,8 +143,9 @@ export type Appointment = {
   nextDueNotificationId: string | null;
 };
 
-/** `horseId` n'est pas fourni par l'appelant : `addAppointment` le rattache
- * automatiquement au cheval actuellement sélectionné (cf. AgendaProvider). */
+/** `horseId` n'est pas fourni ici : `addAppointment` le rattache par défaut au
+ * cheval actuellement sélectionné, sauf si l'appelant l'impose explicitement
+ * (cf. AgendaProvider, même mécanisme optionnel que `addJournalEntry`). */
 export type NewAppointment = Omit<
   Appointment,
   "id" | "horseId" | "result" | "checklist" | "competitionEntries"
@@ -293,7 +294,11 @@ type AgendaContextValue = {
   documents: Doc[];
   journal: JournalEntry[];
   expenses: Expense[];
-  addAppointment: (appt: NewAppointment) => void;
+  /** `horseId` optionnel : sinon, rattaché au cheval globalement sélectionné
+   * (cf. implémentation dans le provider) — permet à un appelant qui connaît
+   * déjà le bon cheval (ex: création pour plusieurs chevaux d'un coup) de
+   * l'imposer explicitement. */
+  addAppointment: (appt: NewAppointment & { horseId?: string | null }) => void;
   updateAppointment: (
     apptId: string,
     patch: Partial<Omit<Appointment, "id" | "horseId" | "checklist" | "competitionEntries">>
@@ -324,7 +329,8 @@ type AgendaContextValue = {
   ) => void;
   updateJournalEntry: (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath">>) => void;
   deleteJournalEntry: (entryId: string) => void;
-  addExpense: (expense: NewExpense) => void;
+  /** `horseId` optionnel — même rôle que dans `addAppointment` ci-dessus. */
+  addExpense: (expense: NewExpense & { horseId?: string | null }) => void;
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, "id" | "horseId" | "isPaid" | "documentId">>) => void;
   deleteExpense: (expenseId: string) => void;
   toggleExpensePaid: (expenseId: string) => void;
@@ -481,11 +487,18 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, [expenses, loaded]);
 
   const addAppointment = useCallback(
-    (appt: NewAppointment) => {
+    // `horseId` optionnel : par défaut le cheval globalement sélectionné,
+    // comme avant — un appelant peut l'imposer explicitement (cf. création
+    // d'un même rendez-vous pour plusieurs chevaux, useAppointmentForm) sans
+    // qu'il y ait deux sources de vérité : c'est toujours soit un choix
+    // explicite de l'appelant, soit le même fallback qu'avant. Même
+    // mécanisme que `addJournalEntry` plus bas.
+    (appt: NewAppointment & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = appt;
       const next: Appointment = {
-        ...appt,
+        ...rest,
         id: generateId("a"),
-        horseId: selectedHorse?.id ?? null,
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
         result: null,
         checklist: appt.checklist ?? [],
         competitionEntries: appt.competitionEntries ?? [],
@@ -765,8 +778,14 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addExpense = useCallback(
-    (expense: NewExpense) => {
-      const next: Expense = { ...expense, id: generateId("e"), horseId: selectedHorse?.id ?? null };
+    // `horseId` optionnel — même mécanisme que `addAppointment`/`addJournalEntry`.
+    (expense: NewExpense & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = expense;
+      const next: Expense = {
+        ...rest,
+        id: generateId("e"),
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
+      };
       setExpenses((list) => [...list, next]);
       pushExpense(next).catch(() => {});
     },
