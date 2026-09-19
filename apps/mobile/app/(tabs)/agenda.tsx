@@ -146,7 +146,7 @@ export default function AgendaScreen() {
     startEditDoc,
     cancelDocForm,
     handleSubmitDocument,
-    handlePickDocPhoto,
+    handlePickDocument,
   } = useDocumentForm({
     addDocument,
     updateDocument,
@@ -341,7 +341,12 @@ export default function AgendaScreen() {
           cheval concerné, sans moyen de le changer depuis cet écran. */}
       {horses.length > 1 ? (
         <FadeInView delay={60}>
-          <HorseSwitcher />
+          <View className="gap-2">
+            <HorseSwitcher />
+            {horse ? (
+              <Text className="px-1 text-xs text-muted">Les nouvelles entrées seront rattachées à {horse.name}.</Text>
+            ) : null}
+          </View>
         </FadeInView>
       ) : null}
 
@@ -476,7 +481,7 @@ export default function AgendaScreen() {
               onOpen={() => setShowDocForm(true)}
               onCancel={cancelDocForm}
               onSubmit={handleSubmitDocument}
-              onPickPhoto={handlePickDocPhoto}
+              onPickDocument={handlePickDocument}
             />
           </FadeInView>
 

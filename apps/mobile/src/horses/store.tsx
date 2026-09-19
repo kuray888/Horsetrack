@@ -200,6 +200,11 @@ type HorsesContextValue = {
   horses: Horse[];
   addHorse: (horse: NewHorse) => void;
   updateHorse: (id: string, horse: NewHorse) => void;
+  /** Ne modifie que les antécédents de santé d'un cheval POSSÉDÉ (conditions
+   * et/ou blessures) — pour l'écran Santé, qui ne doit jamais réécrire le
+   * reste de la fiche avec les valeurs qu'il avait au moment de son rendu.
+   * No-op pour un cheval partagé (lecture seule, cf. Horse.sharedRole). */
+  updateHorseHealth: (id: string, patch: Partial<Pick<Horse, "healthConditions" | "injuries">>) => void;
   /** Remplace toute l'écurie par les chevaux de l'onboarding — appelé une
    * seule fois à la fin du parcours (cf. (onboarding)/paywall.tsx). */
   replaceHorses: (drafts: HorseDraft[]) => void;
@@ -364,6 +369,19 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const updateHorseHealth = useCallback(
+    (id: string, patch: Partial<Pick<Horse, "healthConditions" | "injuries">>) => {
+      setHorses((prev) => {
+        const target = prev.find((h) => h.id === id);
+        if (!target || target.sharedRole) return prev;
+        const next = prev.map((h) => (h.id === id ? { ...h, ...patch } : h));
+        persist(next, [id]);
+        return next;
+      });
+    },
+    [persist]
+  );
+
   const replaceHorses = useCallback(
     (drafts: HorseDraft[]) => {
       const completed = drafts.filter(
@@ -466,6 +484,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       horses,
       addHorse,
       updateHorse,
+      updateHorseHealth,
       replaceHorses,
       hydrateFromCloud,
       updateHorsePhoto,
@@ -481,6 +500,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       horses,
       addHorse,
       updateHorse,
+      updateHorseHealth,
       replaceHorses,
       hydrateFromCloud,
       updateHorsePhoto,

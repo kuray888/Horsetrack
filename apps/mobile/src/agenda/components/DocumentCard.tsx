@@ -13,20 +13,21 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 /** Un PDF ne peut pas être décodé par <Image> (cf. audit pré-publication :
  * écran vide à l'ouverture) — détecté via filePath (chemin Storage brut,
  * une fois synchronisé) ou fileUri (fichier local pas encore synchronisé,
- * cf. lib/imagePicker.ts pickAndPersistDocumentFile). Pas via l'URL signée
+ * cf. lib/imagePicker.ts pickAndPersistDocument). Pas via l'URL signée
  * elle-même : son "?token=..." final empêcherait un simple `.endsWith`. */
 function isPdfDoc(doc: Doc): boolean {
   return (doc.filePath ?? doc.fileUri ?? "").toLowerCase().endsWith(".pdf");
 }
 
-/** Ouvre le PDF dans le lecteur natif — Quick Look (iOS) / equivalent Android
- * pour un fichier local pas encore synchronisé, Safari/Chrome pour une URL
- * signée distante (déjà consultable telle quelle, pas besoin de la
- * retélécharger). */
-async function openPdf(fileUri: string) {
+/** Ouvre le document en plein format dans le lecteur natif : Quick Look (iOS)
+ * / équivalent Android pour un fichier local pas encore synchronisé,
+ * Safari/Chrome pour une URL signée distante (déjà consultable telle quelle,
+ * pas besoin de la retélécharger). Sert aux PDF comme aux photos : la
+ * vignette de la carte ne suffit pas à lire un compte rendu. */
+async function openDocument(fileUri: string, mimeType: string) {
   if (fileUri.startsWith("file://")) {
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(fileUri, { mimeType: "application/pdf" });
+      await Sharing.shareAsync(fileUri, { mimeType });
     } else {
       Alert.alert("Impossible d'ouvrir", "Aucune application disponible pour afficher ce document.");
     }
@@ -66,7 +67,7 @@ export function DocumentCard({
         <View className="mt-4 gap-2 border-t border-border pt-4">
           {doc.fileUri && isPdfDoc(doc) ? (
             <TouchableOpacity
-              onPress={() => openPdf(doc.fileUri!)}
+              onPress={() => openDocument(doc.fileUri!, "application/pdf")}
               activeOpacity={0.8}
               className="flex-row items-center justify-center gap-2 rounded-card border border-border p-4"
             >
@@ -74,11 +75,20 @@ export function DocumentCard({
               <Text className="text-sm font-semibold text-accent">Consulter le PDF</Text>
             </TouchableOpacity>
           ) : doc.fileUri ? (
-            <Image
-              source={{ uri: doc.fileUri }}
-              style={{ width: "100%", height: 160, borderRadius: 20 }}
-              contentFit="cover"
-            />
+            <TouchableOpacity
+              onPress={() => openDocument(doc.fileUri!, "image/jpeg")}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Ouvrir le document en grand"
+              className="gap-2"
+            >
+              <Image
+                source={{ uri: doc.fileUri }}
+                style={{ width: "100%", height: 260, borderRadius: 20 }}
+                contentFit="contain"
+              />
+              <Text className="text-center text-xs font-semibold text-accent">Toucher pour ouvrir en grand</Text>
+            </TouchableOpacity>
           ) : (
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="paperclip" size={15} color={colors.textMuted} />

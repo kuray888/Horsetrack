@@ -1,6 +1,5 @@
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Field } from "@/components/Field";
@@ -8,6 +7,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { PrimaryButton } from "@/components/onboarding";
 import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
+import { AttachmentPreview } from "@/agenda/components/AttachmentPreview";
 import type { Appointment, ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
 import type { ExpenseFormValue } from "@/agenda/hooks/useExpenseForm";
@@ -111,12 +111,8 @@ export function ExpenseForm({
         <Locked message="Joindre une facture réservé à l'abonnement Premium (coffre-fort)">
           {form.fileUri ? (
             <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
-              <Image
-                source={{ uri: form.fileUri }}
-                style={{ width: "100%", height: 128, borderRadius: 20 }}
-                contentFit="cover"
-              />
-              <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
+              <AttachmentPreview uri={form.fileUri} height={128} />
+              <Text className="text-center text-sm font-semibold text-accent">Changer la facture</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -125,7 +121,7 @@ export function ExpenseForm({
               className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
             >
               <MaterialCommunityIcons name="paperclip" size={17} color={colors.textMuted} />
-              <Text className="text-sm font-semibold text-muted">Joindre une facture</Text>
+              <Text className="text-sm font-semibold text-muted">Joindre une facture (photos ou PDF)</Text>
             </TouchableOpacity>
           )}
         </Locked>

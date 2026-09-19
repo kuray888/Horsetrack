@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { pickAndPersistDocumentFile } from "@/lib/imagePicker";
+import { chooseAndPickDocument } from "@/lib/imagePicker";
 import { useAgenda, type Doc, type DocumentCategory } from "@/agenda/store";
 
 const emptyDocForm = {
@@ -54,8 +54,8 @@ export function useDocumentForm({
     cancelDocForm();
   }
 
-  async function handlePickDocPhoto() {
-    const uri = await pickAndPersistDocumentFile();
+  async function handlePickDocument() {
+    const uri = await chooseAndPickDocument();
     if (uri) setDocForm((f) => ({ ...f, fileUri: uri }));
   }
 
@@ -68,6 +68,6 @@ export function useDocumentForm({
     startEditDoc,
     cancelDocForm,
     handleSubmitDocument,
-    handlePickDocPhoto,
+    handlePickDocument,
   };
 }

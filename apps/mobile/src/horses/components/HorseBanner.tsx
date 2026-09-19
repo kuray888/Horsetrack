@@ -39,6 +39,10 @@ export function HorseBanner({
   const age = horse.birthYear ? `${new Date().getFullYear() - horse.birthYear} ans` : null;
   const subtitle = `${labelOf(DISCIPLINES, horse.discipline)} · ${labelOf(HORSE_LEVELS, horse.level)}`;
   const details = [horse.breed, horse.coat, age].filter(Boolean).join(" · ") || "Aucune info supplémentaire";
+  // Saisi à la création (et modifiable depuis la fiche) mais jusqu'ici affiché
+  // nulle part — cf. audit du 2026-09-19 : une donnée qu'on demande à
+  // l'utilisateur doit lui être rendue quelque part.
+  const temperament = horse.temperament.length > 0 ? horse.temperament.join(", ") : null;
   const hasPhoto = !!horse.photoUrl;
 
   return (
@@ -108,6 +112,11 @@ export function HorseBanner({
         <Text className={`text-xs ${hasPhoto ? "text-white/75" : "text-muted"}`} numberOfLines={1}>
           {details}
         </Text>
+        {temperament ? (
+          <Text className={`text-xs ${hasPhoto ? "text-white/75" : "text-muted"}`} numberOfLines={1}>
+            Tempérament : {temperament}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

@@ -38,6 +38,8 @@ export default function HorseBasics() {
         <TouchableOpacity
           onPress={pickPhoto}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Choisir une photo du cheval"
           className="h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-dashed border-border bg-surface"
         >
           {editingHorse.photoUrl ? (

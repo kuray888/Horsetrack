@@ -440,7 +440,7 @@ function categoryFromDb(category: string): Doc["category"] {
 
 /** Devine l'extension/le type MIME réels du fichier local plutôt que de
  * forcer ".jpg"/"image/jpeg" pour tout (cf. audit pré-publication) : un
- * document du coffre-fort peut être un PDF (cf. pickAndPersistDocumentFile),
+ * document du coffre-fort peut être un PDF (cf. pickAndPersistDocument),
  * et un objet Storage uploadé avec un mauvais Content-Type ne s'affiche pas
  * correctement une fois resservi (signed URL). */
 function documentContentType(localUri: string): { ext: string; contentType: string } {

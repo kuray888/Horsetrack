@@ -176,10 +176,10 @@ function MonthGrid({
           {MONTHS[monthCursor.getMonth()]} {monthCursor.getFullYear()}
         </Text>
         <View className="flex-row gap-1">
-          <TouchableOpacity onPress={() => onChangeMonth(-1)} hitSlop={8} className="p-1.5">
+          <TouchableOpacity onPress={() => onChangeMonth(-1)} hitSlop={8} className="p-1.5" accessibilityRole="button" accessibilityLabel="Mois précédent">
             <MaterialCommunityIcons name="chevron-left" size={20} color={colors.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onChangeMonth(1)} hitSlop={8} className="p-1.5">
+          <TouchableOpacity onPress={() => onChangeMonth(1)} hitSlop={8} className="p-1.5" accessibilityRole="button" accessibilityLabel="Mois suivant">
             <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -632,7 +632,14 @@ export default function PlanningScreen() {
           du cheval concerné, et rien ne permettait de le changer ici. */}
       {horses.length > 1 ? (
         <FadeInView delay={20}>
-          <HorseSwitcher />
+          <View className="gap-2">
+            <HorseSwitcher />
+            {selectedHorse ? (
+              <Text className="px-1 text-xs text-muted">
+                Les nouvelles entrées seront rattachées à {selectedHorse.name}.
+              </Text>
+            ) : null}
+          </View>
         </FadeInView>
       ) : null}
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatDate } from "@/lib/dateFormat";
-import { pickAndPersistImage } from "@/lib/imagePicker";
+import { chooseAndPickDocument } from "@/lib/imagePicker";
 import { daysFromNow, useAgenda, type Expense, type ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
 
@@ -112,7 +112,7 @@ export function useExpenseForm({
   }
 
   async function handlePickExpensePhoto() {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPickDocument();
     if (uri) setExpenseForm((f) => ({ ...f, fileUri: uri }));
   }
 
@@ -120,7 +120,7 @@ export function useExpenseForm({
    * handleSubmitExpense, qui le fait à la création) — même principe : nouveau
    * document du coffre-fort, puis lien via linkExpenseDocument. */
   async function handleAttachReceipt(expense: Expense) {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPickDocument();
     if (!uri) return;
     const documentId = addDocument({
       category: "facture",

@@ -13,6 +13,7 @@ import { APPT_META, HEALTH_APPT_TYPES, daysUntilLabel } from "@/agenda/meta";
 import { formatDate } from "@/lib/dateFormat";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
+import { HealthHistory } from "@/horses/components/HealthHistory";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -139,6 +140,20 @@ export default function HorseSanteScreen() {
             onRemoveEntry={removeApptFormEntry}
           />
         </FadeInView>
+
+        {/* Antécédents (problèmes de santé + blessures), cf. HealthHistory : masqués
+            pendant la saisie d'un rendez-vous, comme la liste des soins. */}
+        {!showApptForm ? (
+          <FadeInView delay={50}>
+            <HealthHistory horse={horse} />
+          </FadeInView>
+        ) : null}
+
+        {!showApptForm ? (
+          <FadeInView delay={55}>
+            <Text className="mt-1 text-sm font-bold uppercase tracking-wide text-muted">Soins et rendez-vous</Text>
+          </FadeInView>
+        ) : null}
 
         {!showApptForm && history.length === 0 ? (
           <FadeInView delay={60}>

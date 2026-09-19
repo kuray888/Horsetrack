@@ -1,12 +1,13 @@
 import { APPT_META, daysUntilLabel } from "@/agenda/meta";
 import { findNextDue, findNextCompetition } from "@/agenda/upcoming";
 import type { Appointment } from "@/agenda/store";
+import { recoveryAlertMessage } from "@/horses/injuries";
 import type { Horse } from "@/horses/store";
 
 export type HorseAlert = {
   horseId: string;
   horseName: string;
-  kind: "health" | "concours";
+  kind: "health" | "concours" | "injury";
   message: string;
 };
 
@@ -29,7 +30,7 @@ export function buildHorseAlerts(horses: Horse[], appointments: Appointment[], t
   const alerts: HorseAlert[] = [];
 
   for (const horse of horses) {
-    const candidates: { kind: "health" | "concours"; daysUntil: number; message: string }[] = [];
+    const candidates: { kind: HorseAlert["kind"]; daysUntil: number; message: string }[] = [];
 
     const nextDue = findNextDue(appointments, horse.id, today);
     if (nextDue) {
@@ -47,8 +48,15 @@ export function buildHorseAlerts(horses: Horse[], appointments: Appointment[], t
       }
     }
 
+    // Blessure en cours de récupération (cf. injuries.ts) : pas d'échéance
+    // datée, donc classée APRÈS toute alerte datée — une seule bannière par
+    // cheval, on ne la fait passer devant un vaccin ou un concours imminent.
+    const injuryMessage = recoveryAlertMessage(horse.injuries);
+    if (injuryMessage) candidates.push({ kind: "injury", daysUntil: Number.POSITIVE_INFINITY, message: injuryMessage });
+
     if (candidates.length === 0) continue;
-    candidates.sort((a, b) => a.daysUntil - b.daysUntil);
+    // Comparaison explicite plutôt que `a - b` : Infinity - Infinity vaut NaN.
+    candidates.sort((a, b) => (a.daysUntil < b.daysUntil ? -1 : a.daysUntil > b.daysUntil ? 1 : 0));
     const top = candidates[0];
     alerts.push({ horseId: horse.id, horseName: horse.name, kind: top.kind, message: top.message });
   }

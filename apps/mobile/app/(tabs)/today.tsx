@@ -361,15 +361,17 @@ export default function TodayScreen() {
                 key={alert.horseId}
                 onPress={() => {
                   selectHorse(alert.horseId);
-                  router.push(`/horse/${alert.horseId}`);
+                  // Une blessure en cours se suit dans Santé (bouton "Marquer
+                  // comme rétablie") plutôt que dans la fiche générale.
+                  router.push(alert.kind === "injury" ? `/horse/${alert.horseId}/sante` : `/horse/${alert.horseId}`);
                 }}
                 activeOpacity={0.7}
                 className="flex-row items-center gap-2"
               >
                 <MaterialCommunityIcons
-                  name={alert.kind === "health" ? "heart-pulse" : "trophy-outline"}
+                  name={alert.kind === "health" ? "heart-pulse" : alert.kind === "injury" ? "bandage" : "trophy-outline"}
                   size={15}
-                  color={alert.kind === "health" ? colors.warning : colors.accent}
+                  color={alert.kind === "concours" ? colors.accent : colors.warning}
                 />
                 <Text className="flex-1 text-sm text-text">
                   <Text className="font-semibold">{alert.horseName}</Text> · {alert.message}
