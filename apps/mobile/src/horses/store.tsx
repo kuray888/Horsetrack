@@ -13,6 +13,7 @@ import { safeJsonParse } from "@/lib/safeJsonParse";
 import { deleteHorsePhotoRemote, pushHorses } from "@/lib/cloudSync";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
 import { useSubscription } from "@/subscription/store";
+import { withKeyLock } from "@/lib/keyLock";
 import type {
   Discipline,
   HorseDraft,
@@ -315,12 +316,21 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       // modification republiait l'écurie entière et rattrapait donc
       // implicitement les échecs précédents — ce filet avait disparu avec
       // l'optimisation (cf. audit du 2026-09-17).
-      const catchUp = needsFullSyncRef.current;
       // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
       // programme/affichage local ne doit jamais attendre le réseau. Exclut les
       // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
       // sans effet (RLS bloque, cf. owns_rider_profile) et inutile.
-      return pushHorses(next.filter((h) => !h.sharedRole), catchUp ? undefined : changedIds)
+      //
+      // Un push à la fois (cf. lib/keyLock) : chaque push d'un cheval remplace
+      // ses tags côté serveur (suppression puis réinsertion, cf.
+      // pushHorseTraitsAndInjuries). Deux pushs qui se chevauchent — cocher
+      // plusieurs problèmes de santé à la suite sur l'écran Santé en lance un
+      // par tap — laissaient les tags en double. `catchUp` est lu au moment de
+      // partir, pas à l'appel : il doit refléter le résultat du push précédent.
+      return withKeyLock("horses-push", () => {
+        const catchUp = needsFullSyncRef.current;
+        return pushHorses(next.filter((h) => !h.sharedRole), catchUp ? undefined : changedIds);
+      })
         .then(({ photoUpdates, rejectedIds, hadUnexpectedError, skipped }) => {
           // Invariant : `needsFullSyncRef` faux ⟺ tout était synchronisé au
           // dernier push. Un push ciblé qui réussit alors que le drapeau

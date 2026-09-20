@@ -382,6 +382,15 @@ export type RemoteHorse = Omit<
   horse_injuries: RemoteInjury[];
 };
 
+/** Tags d'un même type, sans doublon. Des synchros qui se chevauchaient
+ * (cf. horses/store.tsx persist, désormais en file) ont pu laisser deux lignes
+ * pour le même tag côté serveur : les afficher deux fois ne rendrait service à
+ * personne, et la déduplication à la lecture nettoie aussi les comptes déjà
+ * touchés. L'ordre de première apparition est conservé. */
+function tagsOfKind(traits: RemoteTrait[], kind: string): string[] {
+  return [...new Set(traits.filter((t) => t.kind === kind).map((t) => t.tag))];
+}
+
 /** Convertit la forme "brute" renvoyée par une requête Supabase imbriquée
  * (horses(*, horse_traits(*), horse_injuries(*))) en `Horse` local — partagée
  * entre `pullCloudData` (chevaux possédés) et `lib/sharing.ts` `pullSharedHorses`
@@ -404,10 +413,10 @@ export async function mapRemoteHorse(h: RemoteHorse): Promise<Horse> {
     photoUrl,
     emoji: "🐴",
     sharedRole: null,
-    strengths: h.horse_traits.filter((t) => t.kind === "STRENGTH").map((t) => t.tag),
-    weaknesses: h.horse_traits.filter((t) => t.kind === "WEAKNESS").map((t) => t.tag),
-    temperament: h.horse_traits.filter((t) => t.kind === "TEMPERAMENT").map((t) => t.tag),
-    healthConditions: h.horse_traits.filter((t) => t.kind === "HEALTH_CONDITION").map((t) => t.tag),
+    strengths: tagsOfKind(h.horse_traits, "STRENGTH"),
+    weaknesses: tagsOfKind(h.horse_traits, "WEAKNESS"),
+    temperament: tagsOfKind(h.horse_traits, "TEMPERAMENT"),
+    healthConditions: tagsOfKind(h.horse_traits, "HEALTH_CONDITION"),
     // Pas encore synchronisé côté serveur (cf. décision lors de son ajout) —
     // l'utilisateur devra le ressaisir une fois après une restauration.
     restDayActivities: [],

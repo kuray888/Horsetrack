@@ -111,6 +111,39 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return { ...DEFAULT, ...safeJsonParse<Partial<Persisted>>(raw, {}) };
   }, []);
 
+  /** Essai par code promo connu du SERVEUR mais pas de cet appareil : nouvel
+   * iPhone, réinstallation, autre appareil. Le code n'est utilisable qu'une
+   * fois (« déjà utilisé »), et rien d'autre ne recopie l'essai serveur
+   * (rider_profiles.subscriptionStatus/trialEndsAt) vers l'app — sans ça, le
+   * serveur traitait le compte en Premium (quota de chevaux, coffre-fort)
+   * pendant que l'app le croyait gratuit et le paywallait pour toute la durée
+   * de l'essai. N'adopte que un essai ENCORE en cours ; jamais « actif » (un
+   * abonnement que RevenueCat ne voit plus peut être résilié, le webhook en
+   * retard). Best-effort : renvoie null au moindre doute. */
+  const readServerTrial = useCallback(async (): Promise<{ trial: Persisted; userId: string } | null> => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return null;
+      const userId = userData.user.id;
+      const { data, error } = await supabase
+        .from("rider_profiles")
+        .select("subscriptionStatus, trialEndsAt")
+        .eq("userId", userId)
+        .maybeSingle();
+      if (error || !data || data.subscriptionStatus !== "TRIALING" || !data.trialEndsAt) return null;
+      const trial: Persisted = {
+        status: "trialing",
+        billingPeriod: null,
+        trialEndsAt: new Date(data.trialEndsAt).toISOString(),
+      };
+      // `userId` est rendu à l'appelant pour qu'il vérifie, au moment d'écrire,
+      // que c'est toujours ce compte qui est connecté.
+      return computeIsActiveOrTrialing(trial) ? { trial, userId } : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const applyCustomerInfo = useCallback(
     async (info: CustomerInfo) => {
       const next = persistedFromCustomerInfo(info);
@@ -143,11 +176,32 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           return;
         }
         await persistLocal(next);
+        // Rien de local ni chez RevenueCat : le serveur connaît peut-être un
+        // essai par code promo (cf. readServerTrial). Sans attendre — cette
+        // lecture réseau ne doit pas retarder le lancement de tous les comptes
+        // gratuits — et sans jamais écraser un état devenu Premium entre-temps
+        // (achat en cours, autre refresh).
+        readServerTrial()
+          .then(async (found) => {
+            if (!found) return;
+            // Le compte a pu changer pendant ces deux appels réseau
+            // (déconnexion, bascule vers un autre compte sur le même appareil —
+            // la même course que withKeyLock règle pour le Keychain). Écrire
+            // sans revérifier donnait l'essai d'un compte à un autre, et la
+            // garde anti-écrasement ci-dessus le lui conservait ensuite à
+            // chaque lancement, jusqu'à sa date de fin.
+            const { data: current } = await supabase.auth.getUser();
+            if (current.user?.id !== found.userId) return;
+            const latest = await readPersisted();
+            if (computeIsActiveOrTrialing(latest)) return;
+            await persistLocal(found.trial);
+          })
+          .catch((e) => console.warn("[subscription] restauration de l'essai promo échouée", e));
       } catch (e) {
         console.warn("[subscription] applyCustomerInfo échoué", e);
       }
     },
-    [persistLocal, readPersisted]
+    [persistLocal, readPersisted, readServerTrial]
   );
 
   const refreshFromRevenueCat = useCallback(async () => {

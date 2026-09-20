@@ -559,14 +559,18 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         endDate: appt.endDate ?? null,
       };
       setAppointments((list) => [...list, next]);
-      pushAppointment(next).catch(() => {});
       // Épreuves saisies dans le sous-formulaire à la création (cf.
       // agenda.tsx) : chacune vit dans sa propre table côté serveur
       // (contrairement à checklist, sérialisée dans la ligne appointment),
-      // donc un push par épreuve après la création du rendez-vous parent.
-      for (const entry of next.competitionEntries) {
-        pushCompetitionEntry(next.id, entry).catch(() => {});
-      }
+      // donc un push par épreuve APRÈS celui du rendez-vous parent : envoyés en
+      // parallèle, une épreuve pouvait arriver avant lui, être refusée (sa règle
+      // RLS exige que le rendez-vous existe) et ne jamais se synchroniser —
+      // avec pour seule trace un message dans les logs.
+      pushAppointment(next)
+        .then(() =>
+          Promise.all(next.competitionEntries.map((entry) => pushCompetitionEntry(next.id, entry).catch(() => {})))
+        )
+        .catch(() => {});
     },
     [selectedHorse]
   );

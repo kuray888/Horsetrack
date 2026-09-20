@@ -252,48 +252,56 @@ export function AppointmentForm({
               />
             </Field>
           )}
-          <Locked message="Détail des épreuves réservé à l'abonnement Premium">
-            <View className="gap-2">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
-              {form.competitionEntries.map((entry) => (
-                <View key={entry.id} className="gap-2 rounded-card border border-border p-3">
-                  <View className="flex-row items-center gap-2">
-                    <TextInput
-                      className={`${INPUT} flex-1`}
-                      placeholder="Ex : Épreuve club 2 — 1m10"
-                      value={entry.name}
-                      onChangeText={(name) => onUpdateEntry(entry.id, { name })}
-                    />
-                    <TouchableOpacity onPress={() => onRemoveEntry(entry.id)} hitSlop={8} activeOpacity={0.7}>
-                      <Text className="text-sm text-muted">✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <ChipSelect
-                    options={Object.entries(DISCIPLINE_META).map(([value, meta]) => ({
-                      value: value as Discipline,
-                      label: meta.label,
-                      icon: meta.icon,
-                    }))}
-                    value={entry.discipline}
-                    onChange={(discipline) => onUpdateEntry(entry.id, { discipline })}
-                  />
-                  <TextInput
-                    className={INPUT}
-                    placeholder="Heure de l'épreuve (ex : 09h15)"
-                    value={entry.time}
-                    onChangeText={(time) => onUpdateEntry(entry.id, { time })}
-                  />
+          {/* Les épreuves d'un concours EXISTANT se gèrent depuis sa carte (ajout,
+              résultat, suppression : chacune est une ligne à part côté serveur).
+              Les proposer ici les laissait modifiables alors que l'enregistrement
+              ne les prend pas en compte — la modification disparaissait en silence. */}
+          {editingApptId ? null : (
+            <>
+              <Locked message="Détail des épreuves réservé à l'abonnement Premium">
+                <View className="gap-2">
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
+                  {form.competitionEntries.map((entry) => (
+                    <View key={entry.id} className="gap-2 rounded-card border border-border p-3">
+                      <View className="flex-row items-center gap-2">
+                        <TextInput
+                          className={`${INPUT} flex-1`}
+                          placeholder="Ex : Épreuve club 2 — 1m10"
+                          value={entry.name}
+                          onChangeText={(name) => onUpdateEntry(entry.id, { name })}
+                        />
+                        <TouchableOpacity onPress={() => onRemoveEntry(entry.id)} hitSlop={8} activeOpacity={0.7}>
+                          <Text className="text-sm text-muted">✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <ChipSelect
+                        options={Object.entries(DISCIPLINE_META).map(([value, meta]) => ({
+                          value: value as Discipline,
+                          label: meta.label,
+                          icon: meta.icon,
+                        }))}
+                        value={entry.discipline}
+                        onChange={(discipline) => onUpdateEntry(entry.id, { discipline })}
+                      />
+                      <TextInput
+                        className={INPUT}
+                        placeholder="Heure de l'épreuve (ex : 09h15)"
+                        value={entry.time}
+                        onChangeText={(time) => onUpdateEntry(entry.id, { time })}
+                      />
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    onPress={onAddEntry}
+                    activeOpacity={0.8}
+                    className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-3"
+                  >
+                    <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
+                  </TouchableOpacity>
                 </View>
-              ))}
-              <TouchableOpacity
-                onPress={onAddEntry}
-                activeOpacity={0.8}
-                className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-3"
-              >
-                <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
-              </TouchableOpacity>
-            </View>
-          </Locked>
+              </Locked>
+            </>
+          )}
         </>
       ) : null}
       {overLimit ? (
