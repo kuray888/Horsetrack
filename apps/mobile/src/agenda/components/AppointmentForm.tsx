@@ -12,7 +12,8 @@ import { AmountModeField } from "@/agenda/components/AmountModeField";
 import { MAX_ENTRIES_PER_SUBMIT, resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import { computeRecurrenceDates } from "@/lib/recurrence";
 import type { ReminderOption } from "@/lib/notifications";
-import type { AppointmentType, CompetitionEntry } from "@/agenda/store";
+import type { AppointmentType, CompetitionEntry, CompetitionLevel } from "@/agenda/store";
+import { defaultInternationalEnd } from "@/planning/eventSpan";
 import { APPT_META, HEALTH_APPT_TYPES, REMINDER_META, DISCIPLINE_META } from "@/agenda/meta";
 import type { AppointmentFormValue } from "@/agenda/hooks/useAppointmentForm";
 import type { Discipline } from "@/onboarding/store";
@@ -32,7 +33,6 @@ export function AppointmentForm({
   submitting,
   selectableHorses = [],
   fallbackHorseIds = [],
-  singleTargetName = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -54,11 +54,6 @@ export function AppointmentForm({
   /** Chevaux visés tant que rien n'est coché : le cheval actif, ou tous les
    * chevaux proposables en vue « Tous » du Planning. */
   fallbackHorseIds?: string[];
-  /** Nom du cheval visé par un concours : un concours est toujours créé pour UN
-   * seul cheval (dossard et épreuves sont propres à chaque cheval, cf.
-   * useAppointmentForm), donc le sélecteur est masqué pour ce type et on dit
-   * simplement pour quel cheval il sera créé. */
-  singleTargetName?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -70,17 +65,16 @@ export function AppointmentForm({
     return <AddToggle label="Ajouter un rendez-vous" onPress={onOpen} color={colors.primary} />;
   }
 
-  // Le concours reste toujours sur un seul cheval (cf. singleTargetName).
   const isConcours = form.type === "concours";
-  const offerHorseChoice =
-    !editingApptId && !isConcours && shouldOfferHorseChoice(selectableHorses, fallbackHorseIds);
+  const isInternational = isConcours && form.competitionLevel === "international";
+  const offerHorseChoice = !editingApptId && shouldOfferHorseChoice(selectableHorses, fallbackHorseIds);
   // Nombre d'entrées que la soumission va créer : occurrences de récurrence ×
   // chevaux visés. Doit rester le MÊME calcul que handleSubmitAppointment
   // (cf. sa double boucle), sinon le bouton mentirait sur ce qu'il va faire.
   const occurrenceCount =
     form.recurrence.mode === "custom" && form.date ? computeRecurrenceDates(form.date, form.recurrence).length : 1;
   const targetHorseCount =
-    editingApptId || isConcours
+    editingApptId
       ? 1
       : Math.max(
           1,
@@ -116,12 +110,6 @@ export function AppointmentForm({
           onChange={(horseIds) => setForm((f) => ({ ...f, horseIds }))}
         />
       ) : null}
-      {!editingApptId && isConcours && singleTargetName && selectableHorses.length >= 2 ? (
-        <Text className="text-xs text-muted">
-          Ce concours sera créé pour {singleTargetName} seulement : le dossard et les épreuves sont propres à chaque
-          cheval. Choisis un autre cheval dans le filtre pour en créer un pour lui.
-        </Text>
-      ) : null}
       <Field label="Titre">
         <TextInput
           className={INPUT}
@@ -130,7 +118,60 @@ export function AppointmentForm({
           onChangeText={(title) => setForm((f) => ({ ...f, title }))}
         />
       </Field>
-      <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
+      <DatePickerField
+        label={isInternational ? "Premier jour" : "Date"}
+        value={form.date}
+        onChange={(date) =>
+          setForm((f) => ({
+            ...f,
+            date,
+            // Un international garde une fin cohérente : si le premier jour
+            // dépasse la fin déjà saisie, on la décale au lieu de la laisser
+            // avant le début.
+            endDate:
+              f.type === "concours" && f.competitionLevel === "international" && (!f.endDate || f.endDate <= date)
+                ? defaultInternationalEnd(date)
+                : f.endDate,
+          }))
+        }
+      />
+      {isConcours ? (
+        <>
+          <Field label="Niveau du concours">
+            <ChipSelect
+              options={[
+                { value: "national" as CompetitionLevel, label: "National", icon: { name: "flag-outline", color: colors.textMuted } },
+                { value: "international" as CompetitionLevel, label: "International", icon: { name: "earth", color: colors.textMuted } },
+              ]}
+              value={form.competitionLevel}
+              onChange={(competitionLevel) =>
+                setForm((f) => ({
+                  ...f,
+                  competitionLevel,
+                  // Un international dure souvent 4 à 5 jours : on propose 4
+                  // jours d'emblée, modifiables. Repasser en national efface la fin.
+                  endDate:
+                    competitionLevel === "international"
+                      ? (f.endDate ?? (f.date ? defaultInternationalEnd(f.date) : null))
+                      : null,
+                }))
+              }
+            />
+          </Field>
+          {isInternational ? (
+            <DatePickerField
+              label="Dernier jour du concours"
+              value={form.endDate}
+              onChange={(endDate) => setForm((f) => ({ ...f, endDate }))}
+            />
+          ) : null}
+          {isInternational && form.date && form.endDate && form.endDate <= form.date ? (
+            <Text className="text-xs text-danger">
+              Le dernier jour doit être après le premier : sinon le concours sera enregistré sur un seul jour.
+            </Text>
+          ) : null}
+        </>
+      ) : null}
       <TimePickerField label="Heure" value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
       <Field label="Lieu (optionnel)">
         <TextInput
@@ -159,10 +200,15 @@ export function AppointmentForm({
               keyboardType="decimal-pad"
             />
           </Field>
+          {/* `createCount` et non `targetHorseCount` : la répartition porte sur
+              toutes les entrées créées, répétitions comprises (cf.
+              handleSubmitAppointment). Avec 3 chevaux répétés 4 fois, l'aperçu
+              annonçait sinon « 3 rendez-vous … soit 180 € au total » alors que
+              12 rendez-vous étaient créés. */}
           <AmountModeField
             mode={form.costMode}
             onChange={(costMode) => setForm((f) => ({ ...f, costMode }))}
-            horseCount={targetHorseCount}
+            horseCount={createCount}
             amount={Number(form.cost.replace(",", "."))}
             noun="rendez-vous"
           />
@@ -191,15 +237,21 @@ export function AppointmentForm({
       ) : null}
       {form.type === "concours" ? (
         <>
-          <Field label="Dossard (optionnel)">
-            <TextInput
-              className={INPUT}
-              placeholder="Ex : 142"
-              value={form.dossard}
-              onChangeText={(dossard) => setForm((f) => ({ ...f, dossard }))}
-              keyboardType="number-pad"
-            />
-          </Field>
+          {targetHorseCount > 1 ? (
+            <Text className="text-xs text-muted">
+              Le dossard est propre à chaque cheval : renseigne-le ensuite concours par concours (Modifier).
+            </Text>
+          ) : (
+            <Field label="Dossard (optionnel)">
+              <TextInput
+                className={INPUT}
+                placeholder="Ex : 142"
+                value={form.dossard}
+                onChangeText={(dossard) => setForm((f) => ({ ...f, dossard }))}
+                keyboardType="number-pad"
+              />
+            </Field>
+          )}
           <Locked message="Détail des épreuves réservé à l'abonnement Premium">
             <View className="gap-2">
               <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>

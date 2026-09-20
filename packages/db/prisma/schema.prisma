@@ -312,6 +312,13 @@ model Appointment {
   /// Numéro de dossard (concours uniquement) — un dossard par cheval par
   /// concours, pas par épreuve.
   dossard   String?
+  /// "national" | "international" (concours uniquement) — deux valeurs fixes,
+  /// pas besoin d'un enum dédié (même choix que `reminder`).
+  competitionLevel String?
+  /// Dernier jour d'un concours sur plusieurs jours (concours uniquement,
+  /// surtout les internationaux : 4 à 5 jours) ; `date` reste le premier jour.
+  /// Null = un seul jour.
+  endDate          DateTime?
 
   /// Praticien/professionnel intervenu (ex: nom du vétérinaire) — pertinent
   /// surtout pour les types de soin (veto/osteo/marechal/dentiste/

@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { EMPTY_HORSE_DRAFT, HorseForm } from "@/components/HorseForm";
@@ -45,6 +45,16 @@ export default function AddHorseModal() {
   const ownedCount = horses.filter((h) => !h.sharedRole).length;
 
   if (ownedCount >= limit) {
+    // Tant que l'abonnement n'est pas chargé, l'état vaut « gratuit » par
+    // défaut (limite 1) : un abonné Premium voyait donc « Limite atteinte »
+    // clignoter une seconde avant que le formulaire ne prenne la place.
+    if (subscription.loading) {
+      return (
+        <SafeAreaView className="flex-1 items-center justify-center bg-background" edges={["top", "bottom"]}>
+          <ActivityIndicator color={colors.primary} />
+        </SafeAreaView>
+      );
+    }
     return <HorseLimitReached limit={limit} />;
   }
 

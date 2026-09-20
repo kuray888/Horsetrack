@@ -5,7 +5,7 @@ import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Locked } from "@/components/Locked";
 import { ChipSelect } from "@/components/FormChips";
-import { daysFromNow, type Appointment, type CompetitionEntry } from "@/agenda/store";
+import type { Appointment, CompetitionEntry } from "@/agenda/store";
 import { APPT_META, REMINDER_META, DISCIPLINE_META, formatAmount, daysUntilLabel } from "@/agenda/meta";
 import type { Discipline } from "@/onboarding/store";
 
@@ -44,7 +44,6 @@ export function AppointmentCard({
   const [draftResult, setDraftResult] = useState(appt.result ?? "");
   const [newItemLabel, setNewItemLabel] = useState("");
   const isConcours = appt.type === "concours";
-  const isPastConcours = isConcours && appt.date < daysFromNow(0);
 
   function handleSaveResult() {
     if (!draftResult.trim()) return;
@@ -69,7 +68,10 @@ export function AppointmentCard({
           <Text className="text-base font-bold text-text">{appt.title}</Text>
           <View className="flex-row items-center gap-1">
             <Text className="text-sm text-muted">
-              {formatDate(appt.date)} · {appt.time}
+              {appt.endDate && appt.endDate > appt.date
+                ? `${formatDate(appt.date)} → ${formatDate(appt.endDate)}`
+                : formatDate(appt.date)}{" "}
+              · {appt.time}
             </Text>
             {appt.reminder !== "none" ? (
               <MaterialCommunityIcons name="bell-outline" size={13} color={colors.textMuted} />
@@ -85,6 +87,18 @@ export function AppointmentCard({
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="map-marker-outline" size={15} color={colors.textMuted} />
               <Text className="text-sm text-text">{appt.location}</Text>
+            </View>
+          ) : null}
+          {isConcours && appt.competitionLevel ? (
+            <View className="flex-row items-center gap-1.5">
+              <MaterialCommunityIcons
+                name={appt.competitionLevel === "international" ? "earth" : "flag-outline"}
+                size={15}
+                color={colors.textMuted}
+              />
+              <Text className="text-sm text-text">
+                Concours {appt.competitionLevel === "international" ? "international" : "national"}
+              </Text>
             </View>
           ) : null}
           {appt.professional ? (
@@ -191,7 +205,6 @@ export function AppointmentCard({
                     <CompetitionEntryRow
                       key={entry.id}
                       entry={entry}
-                      isPast={isPastConcours}
                       onSaveResult={(result) => onUpdateCompetitionEntryResult(entry.id, result)}
                       onDelete={() => onDeleteCompetitionEntry(entry.id)}
                     />
@@ -206,7 +219,7 @@ export function AppointmentCard({
             </View>
           ) : null}
 
-          {isPastConcours ? (
+          {isConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
               {editingResult ? (
                 <>
@@ -238,8 +251,9 @@ export function AppointmentCard({
                   <Text className="text-xs font-semibold text-accent">Modifier</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7}>
-                  <Text className="text-sm font-semibold text-accent">+ Ajouter le résultat</Text>
+                <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-1">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">Résultat</Text>
+                  <Text className="text-sm font-semibold text-accent">+ Noter le résultat du concours</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -261,12 +275,10 @@ export function AppointmentCard({
 
 function CompetitionEntryRow({
   entry,
-  isPast,
   onSaveResult,
   onDelete,
 }: {
   entry: CompetitionEntry;
-  isPast: boolean;
   onSaveResult: (result: string) => void;
   onDelete: () => void;
 }) {
@@ -297,39 +309,37 @@ function CompetitionEntryRow({
         </TouchableOpacity>
       </View>
 
-      {isPast ? (
-        editingResult ? (
-          <View className="gap-2">
-            <TextInput
-              className={INPUT}
-              placeholder="Ex : 3ème, parcours sans faute"
-              value={draftResult}
-              onChangeText={setDraftResult}
-              multiline
-            />
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={!draftResult.trim()}
-              activeOpacity={0.85}
-              className={`items-center rounded-full p-2.5 ${draftResult.trim() ? "bg-primary" : "border border-border"}`}
-            >
-              <Text className={`text-sm font-bold ${draftResult.trim() ? "text-on-primary" : "text-muted"}`}>
-                Enregistrer
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : entry.result ? (
-          <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-0.5">
-            <Text className="text-xs font-bold uppercase tracking-wide text-accent">Résultat</Text>
-            <Text className="text-sm text-text">{entry.result}</Text>
-            <Text className="text-xs font-semibold text-accent">Modifier</Text>
+      {editingResult ? (
+        <View className="gap-2">
+          <TextInput
+            className={INPUT}
+            placeholder="Ex : 3ème, parcours sans faute"
+            value={draftResult}
+            onChangeText={setDraftResult}
+            multiline
+          />
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={!draftResult.trim()}
+            activeOpacity={0.85}
+            className={`items-center rounded-full p-2.5 ${draftResult.trim() ? "bg-primary" : "border border-border"}`}
+          >
+            <Text className={`text-sm font-bold ${draftResult.trim() ? "text-on-primary" : "text-muted"}`}>
+              Enregistrer
+            </Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7}>
-            <Text className="text-sm font-semibold text-accent">+ Ajouter le résultat</Text>
-          </TouchableOpacity>
-        )
-      ) : null}
+        </View>
+      ) : entry.result ? (
+        <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-0.5">
+          <Text className="text-xs font-bold uppercase tracking-wide text-accent">Résultat</Text>
+          <Text className="text-sm text-text">{entry.result}</Text>
+          <Text className="text-xs font-semibold text-accent">Modifier</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity onPress={() => setEditingResult(true)} activeOpacity={0.7}>
+          <Text className="text-sm font-semibold text-accent">+ Ajouter le résultat</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

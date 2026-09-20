@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
+import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { translateAuthError } from "@/lib/authErrors";
@@ -35,6 +36,13 @@ export default function OnboardingAccount() {
   // n'est pas confirmé). Si la confirmation n'est pas requise pour ce projet
   // (data.session déjà présent après signUp), cet écran n'est jamais montré.
   const [step, setStep] = useState<"form" | "confirmEmail">("form");
+  // Vrai tant qu'on ignore s'il existe déjà une session (cf. l'effet plus bas).
+  // Le Keychain survit à la désinstallation de l'app sur iOS : après une
+  // réinstallation (TestFlight surtout), une session reste souvent en place
+  // alors que l'onboarding n'est pas terminé. Sans ce garde, le formulaire
+  // e-mail / mot de passe / confirmation s'affichait un instant avant d'être
+  // remplacé par l'étape suivante.
+  const [checkingSession, setCheckingSession] = useState(true);
   const [checkingConfirmation, setCheckingConfirmation] = useState(false);
   const [notConfirmedYet, setNotConfirmedYet] = useState(false);
   const [resending, setResending] = useState(false);
@@ -57,10 +65,17 @@ export default function OnboardingAccount() {
   // vides et le bouton "Créer mon compte" resterait désactivé sans porte
   // de sortie : on poursuit directement dès que l'écran s'affiche.
   useEffect(() => {
+    // Filet : si la poursuite automatique traîne (réseau lent pendant
+    // pullPendingInvites), on finit par montrer le formulaire plutôt que de
+    // laisser un écran de chargement sans issue.
+    const safetyTimer = setTimeout(() => setCheckingSession(false), 5000);
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
-        if (!data.session) return;
+        if (!data.session) {
+          setCheckingSession(false);
+          return;
+        }
         // Seul des 5 endroits de ce fichier qui poursuit après authentification
         // sans passer par afterAccountObtained() d'abord — les 4 autres
         // réconcilient toujours local_data_owner en premier. Rien n'a permis de
@@ -69,9 +84,12 @@ export default function OnboardingAccount() {
         // qu'un futur changement le fasse.
         const userId = data.session.user.id;
         await afterAccountObtained(userId);
-        continueAfterAuth();
+        // Le chargement reste affiché pendant la navigation : on ne le retire
+        // qu'en cas d'échec, pour révéler le formulaire.
+        await continueAfterAuth();
       })
-      .catch(() => {});
+      .catch(() => setCheckingSession(false));
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   /** Compte créé ou retrouvé : direction le parcours normal (profil cavalier
@@ -243,6 +261,14 @@ export default function OnboardingAccount() {
     setNotConfirmedYet(false);
     setResendResult(null);
     setResendCooldown(0);
+  }
+
+  if (checkingSession) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-background" edges={["top", "bottom"]}>
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
   }
 
   if (step === "confirmEmail") {

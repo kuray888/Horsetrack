@@ -392,7 +392,6 @@ export default function AgendaScreen() {
               submitting={submittingAppt}
               selectableHorses={selectableHorses}
               fallbackHorseIds={horse ? [horse.id] : []}
-              singleTargetName={horse?.name ?? null}
               onOpen={() => setShowApptForm(true)}
               onCancel={cancelApptForm}
               onSubmit={handleSubmitAppointment}

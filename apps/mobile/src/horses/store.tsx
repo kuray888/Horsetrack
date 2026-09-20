@@ -12,6 +12,7 @@ import * as SecureStore from "expo-secure-store";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { deleteHorsePhotoRemote, pushHorses } from "@/lib/cloudSync";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
+import { useSubscription } from "@/subscription/store";
 import type {
   Discipline,
   HorseDraft,
@@ -238,6 +239,13 @@ type HorsesContextValue = {
 
 const HorsesContext = createContext<HorsesContextValue | null>(null);
 
+/** Nouvelles tentatives quand le serveur refuse un cheval que l'app croit
+ * autorisé (Premium pas encore reconnu côté serveur) : au bout de 10 s, 20 s
+ * puis 30 s. Au-delà, le bandeau « non synchronisé » de l'onglet Chevaux
+ * (« Réessayer ») prend le relais. */
+const QUOTA_RETRY_DELAY_MS = 10_000;
+const QUOTA_RETRY_MAX_ATTEMPTS = 3;
+
 export function HorsesProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [horses, setHorses] = useState<Horse[]>(DEFAULT_HORSES);
@@ -252,6 +260,26 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   // Ref et non state : lu au moment exact du push suivant (pas de closure
   // périmée) et ne doit déclencher aucun rendu — cf. son usage dans persist().
   const needsFullSyncRef = useRef(false);
+  // Le compte est-il Premium d'après l'app (RevenueCat / essai promo) ? Lu au
+  // moment où le serveur refuse un cheval, cf. persist() : le serveur applique
+  // SON quota (rider_profiles.subscriptionStatus, tenu à jour par le webhook
+  // RevenueCat), qui peut retarder de quelques secondes sur l'état local.
+  const { isActiveOrTrialing } = useSubscription();
+  const premiumRef = useRef(isActiveOrTrialing);
+  const horsesRef = useRef<Horse[]>(horses);
+  const persistRef = useRef<((next: Horse[]) => Promise<void>) | null>(null);
+  const quotaRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quotaRetryAttemptsRef = useRef(0);
+  useEffect(() => {
+    premiumRef.current = isActiveOrTrialing;
+    horsesRef.current = horses;
+  }, [isActiveOrTrialing, horses]);
+  useEffect(
+    () => () => {
+      if (quotaRetryTimerRef.current) clearTimeout(quotaRetryTimerRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)])
@@ -299,9 +327,26 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
           // était déjà faux suffit donc à affirmer que plus rien n'est en
           // attente. `skipped` n'est pas une erreur à afficher (cas normal
           // pendant l'onboarding) mais laisse bien l'écurie à resynchroniser.
-          needsFullSyncRef.current = hadUnexpectedError || skipped;
-          setSyncFailed(hadUnexpectedError);
-          if (photoUpdates.length === 0 && rejectedIds.length === 0) return;
+          // Cheval refusé par le quota serveur alors que l'app se sait Premium :
+          // l'abonnement n'est simplement pas encore reconnu côté serveur
+          // (webhook RevenueCat en retard). Supprimer le cheval localement lui
+          // faisait « apparaître une seconde puis disparaître » juste après
+          // l'achat du Premium — on le garde et on retente (cf. plus bas).
+          const keepRejected = rejectedIds.length > 0 && premiumRef.current;
+          needsFullSyncRef.current = hadUnexpectedError || skipped || keepRejected;
+          setSyncFailed(hadUnexpectedError || keepRejected);
+          if (keepRejected) {
+            if (quotaRetryAttemptsRef.current < QUOTA_RETRY_MAX_ATTEMPTS && !quotaRetryTimerRef.current) {
+              quotaRetryAttemptsRef.current += 1;
+              quotaRetryTimerRef.current = setTimeout(() => {
+                quotaRetryTimerRef.current = null;
+                persistRef.current?.(horsesRef.current);
+              }, QUOTA_RETRY_DELAY_MS * quotaRetryAttemptsRef.current);
+            }
+          } else if (rejectedIds.length === 0 && !hadUnexpectedError) {
+            quotaRetryAttemptsRef.current = 0;
+          }
+          if (photoUpdates.length === 0 && (rejectedIds.length === 0 || keepRejected)) return;
           setHorses((prev) => {
             // Reporte le photoPath résultant d'un upload/suppression de photo
             // (cf. cloudSync.ts pushHorses) dans l'état local — sans ça, une photo
@@ -311,7 +356,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
               const update = photoUpdates.find((u) => u.id === h.id);
               return update ? { ...h, photoPath: update.photoPath } : h;
             });
-            if (rejectedIds.length > 0) {
+            if (rejectedIds.length > 0 && !keepRejected) {
               // Cheval refusé par le trigger enforce_horse_quota (palier
               // gratuit déjà à sa limite, cf. cloudSync.ts pushHorses) : il
               // n'a jamais existé côté serveur et n'existera jamais tant que
@@ -343,6 +388,9 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     },
     [selectedHorseId]
   );
+  useEffect(() => {
+    persistRef.current = persist;
+  }, [persist]);
 
   const addHorse = useCallback(
     (horse: NewHorse) => {

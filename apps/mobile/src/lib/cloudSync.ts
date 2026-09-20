@@ -599,7 +599,7 @@ function appointmentTypeFromDb(type: string): Appointment["type"] {
  * qu'aucun horseId n'est connu. */
 export async function pushAppointment(appt: Appointment): Promise<void> {
   if (!appt.horseId) return;
-  const { error } = await supabase.from("appointments").upsert({
+  const row = {
     id: appt.id,
     horseId: appt.horseId,
     type: appointmentTypeToDb(appt.type),
@@ -616,8 +616,29 @@ export async function pushAppointment(appt: Appointment): Promise<void> {
     cost: appt.cost,
     nextDueDate: appt.nextDueDate?.toISOString() ?? null,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushAppointment échoué", error);
+  };
+  const { error } = await supabase
+    .from("appointments")
+    .upsert({ ...row, competitionLevel: appt.competitionLevel, endDate: appt.endDate?.toISOString() ?? null });
+  if (!error) return;
+  // Colonnes `competitionLevel`/`endDate` ajoutées après coup : tant que la base
+  // n'a pas reçu la migration (`pnpm db:push`), l'upsert entier serait refusé et
+  // AUCUN rendez-vous ne se synchroniserait plus. On retente sans elles : le
+  // reste du rendez-vous est sauvegardé, seuls niveau et date de fin attendent.
+  if (isMissingAppointmentColumnError(error)) {
+    const { error: retryError } = await supabase.from("appointments").upsert(row);
+    if (!retryError) return;
+    console.warn("[cloudSync] pushAppointment échoué", retryError);
+    return;
+  }
+  console.warn("[cloudSync] pushAppointment échoué", error);
+}
+
+/** Vrai si l'erreur PostgREST/Postgres vient de l'absence de `competitionLevel`
+ * ou `endDate` dans la table (schéma pas encore migré). */
+function isMissingAppointmentColumnError(error: { message?: string }): boolean {
+  const message = (error.message ?? "").toLowerCase();
+  return message.includes("competitionlevel") || message.includes("enddate");
 }
 
 export async function deleteAppointmentRemote(apptId: string): Promise<void> {
@@ -631,11 +652,15 @@ export async function deleteAppointmentRemote(apptId: string): Promise<void> {
  * technique que `pullCloudData` pour horse_traits/horse_injuries), pas un
  * appel séparé. */
 export async function pullAppointments(): Promise<Appointment[] | null> {
-  const { data, error } = await supabase
-    .from("appointments")
-    .select(
-      "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, professional, cost, nextDueDate, competition_entries(id, name, discipline, time, result)"
-    );
+  const baseColumns =
+    "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, professional, cost, nextDueDate";
+  const entries = "competition_entries(id, name, discipline, time, result)";
+  let { data, error } = await supabase.from("appointments").select(`${baseColumns}, competitionLevel, endDate, ${entries}`);
+  // Base pas encore migrée (cf. pushAppointment) : sans ce repli, sélectionner
+  // une colonne inconnue ferait échouer TOUTE la restauration des rendez-vous.
+  if (error && isMissingAppointmentColumnError(error)) {
+    ({ data, error } = await supabase.from("appointments").select(`${baseColumns}, ${entries}`));
+  }
   if (error || !data) return null;
   return data.map((row) => ({
     id: row.id,
@@ -658,6 +683,8 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
     professional: row.professional ?? null,
     cost: row.cost === null || row.cost === undefined ? null : Number(row.cost),
     nextDueDate: row.nextDueDate ? new Date(row.nextDueDate) : null,
+    competitionLevel: normalizeCompetitionLevel((row as { competitionLevel?: unknown }).competitionLevel),
+    endDate: (row as { endDate?: string | null }).endDate ? new Date((row as { endDate: string }).endDate) : null,
     competitionEntries: ((row.competition_entries ?? []) as RemoteCompetitionEntry[]).map((e) => ({
       id: e.id,
       name: e.name,
@@ -666,6 +693,10 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
       result: e.result ?? null,
     })),
   }));
+}
+
+function normalizeCompetitionLevel(value: unknown): Appointment["competitionLevel"] {
+  return value === "national" || value === "international" ? value : null;
 }
 
 type RemoteCompetitionEntry = { id: string; name: string; discipline: string; time: string; result: string | null };

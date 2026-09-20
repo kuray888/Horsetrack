@@ -2,6 +2,7 @@ import { HEALTH_APPT_TYPES } from "@/agenda/meta";
 import type { Appointment } from "@/agenda/store";
 import type { TrainingSession } from "@/sessions/store";
 import type { PlanningFilterValue } from "@/planning/planningDestination";
+import { daysCovered, lastDayOf } from "@/planning/eventSpan";
 
 /**
  * Un "planning unifié" est d'abord une unification d'affichage (cf. plan
@@ -72,7 +73,16 @@ export function eventTime(event: UnifiedEvent): string {
  * Agenda (upcomingAppts/pastAppts). */
 export function isEventUpcoming(event: UnifiedEvent, todayStart: Date): boolean {
   if (event.kind === "session") return !event.session.completed && event.date >= todayStart;
-  return event.date >= todayStart;
+  // Un concours de plusieurs jours reste « à venir » jusqu'à son dernier jour :
+  // passé dans « Passées » dès le lendemain du premier jour, il disparaîtrait
+  // de la liste en plein milieu de l'événement.
+  return lastDayOf(event.date, event.appointment.endDate) >= todayStart;
+}
+
+/** Jours de la grille du mois où l'événement doit apparaître : tous ses jours
+ * pour un concours de plusieurs jours, sinon son seul jour. */
+export function eventDays(event: UnifiedEvent): Date[] {
+  return event.kind === "appointment" ? daysCovered(event.date, event.appointment.endDate) : [event.date];
 }
 
 /** Événements à venir triés chronologiquement (croissant) — utilisé par

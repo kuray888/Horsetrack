@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -25,6 +26,12 @@ import {
   deleteExpenseRemote,
 } from "@/lib/cloudSync";
 import { safeJsonParse } from "@/lib/safeJsonParse";
+import {
+  DEFAULT_CHECKLIST_LABELS,
+  applyChecklistTemplate,
+  buildChecklist,
+  normalizeChecklistLabels,
+} from "@/agenda/checklistTemplate";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
 import type { Discipline } from "@/onboarding/store";
@@ -63,6 +70,10 @@ export type ExpenseCategory =
   | "autre";
 
 export type ChecklistItem = { id: string; label: string; checked: boolean };
+
+/** Niveau d'un concours — un international dure souvent 4 à 5 jours (cf.
+ * Appointment.endDate). */
+export type CompetitionLevel = "national" | "international";
 
 /** Épreuve d'un concours — N par rendez-vous de type "concours" (cf.
  * CompetitionEntry côté schema.prisma). Table dédiée côté serveur plutôt
@@ -128,6 +139,12 @@ export type Appointment = {
   dossard: string | null;
   /** Épreuves du concours (concours uniquement). Vide pour les autres types. */
   competitionEntries: CompetitionEntry[];
+  /** National ou international (concours uniquement). Null pour les autres
+   * types et pour les concours saisis avant l'introduction de ce champ. */
+  competitionLevel: CompetitionLevel | null;
+  /** Dernier jour d'un concours sur plusieurs jours (concours uniquement) ;
+   * `date` reste le premier jour. Null = un seul jour. */
+  endDate: Date | null;
   /** Praticien/professionnel intervenu (surtout pertinent pour les types de
    * soin) — texte libre, null si non renseigné. */
   professional: string | null;
@@ -148,10 +165,12 @@ export type Appointment = {
  * (cf. AgendaProvider, même mécanisme optionnel que `addJournalEntry`). */
 export type NewAppointment = Omit<
   Appointment,
-  "id" | "horseId" | "result" | "checklist" | "competitionEntries"
+  "id" | "horseId" | "result" | "checklist" | "competitionEntries" | "competitionLevel" | "endDate"
 > & {
   checklist?: ChecklistItem[];
   competitionEntries?: CompetitionEntry[];
+  competitionLevel?: CompetitionLevel | null;
+  endDate?: Date | null;
 };
 
 export type Doc = {
@@ -243,6 +262,7 @@ export type Expense = {
 export type NewExpense = Omit<Expense, "id" | "horseId">;
 
 const APPOINTMENTS_KEY = "agenda_appointments_v1";
+const CHECKLIST_TEMPLATE_KEY = "agenda_checklist_template_v1";
 const DOCUMENTS_KEY = "agenda_documents_v1";
 const JOURNAL_KEY = "agenda_journal_v1";
 const EXPENSES_KEY = "agenda_expenses_v1";
@@ -262,20 +282,8 @@ export function daysFromNow(offset: number): Date {
   return d;
 }
 
-const CHECKLIST_LABELS = [
-  "Papiers d'identité du cheval (passeport)",
-  "Carnet de vaccination à jour",
-  "Licence FFE / engagement",
-  "Matériel de pansage",
-  "Tapis de selle + couvertures",
-  "Protections (guêtres, cloches)",
-  "Casque",
-  "Gilet de protection",
-  "Eau et nourriture pour la journée",
-];
-
 export function defaultChecklist(): ChecklistItem[] {
-  return CHECKLIST_LABELS.map((label, i) => ({ id: `c${i}`, label, checked: false }));
+  return DEFAULT_CHECKLIST_LABELS.map((label, i) => ({ id: `c${i}`, label, checked: false }));
 }
 
 /** Aucune donnée de démonstration : un compte neuf doit voir un agenda
@@ -304,6 +312,13 @@ type AgendaContextValue = {
     patch: Partial<Omit<Appointment, "id" | "horseId" | "checklist" | "competitionEntries">>
   ) => void;
   deleteAppointment: (appt: Appointment) => void;
+  /** Checklist type des concours (libellés) — modèle recopié dans chaque
+   * nouveau concours et, à l'enregistrement, dans tous les concours à venir. */
+  checklistTemplate: string[];
+  /** Enregistre la checklist type ET l'applique à tous les concours À VENIR
+   * des chevaux possédés (jamais ceux d'un cheval partagé, cf.
+   * horses/selectableHorses.ts). Renvoie le nombre de concours mis à jour. */
+  saveChecklistTemplate: (labels: string[]) => number;
   saveResult: (apptId: string, result: string) => void;
   toggleChecklistItem: (apptId: string, itemId: string) => void;
   addChecklistItem: (apptId: string, label: string) => void;
@@ -360,18 +375,37 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useState<Doc[]>(DEFAULT_DOCUMENTS);
   const [journal, setJournal] = useState<JournalEntry[]>(DEFAULT_JOURNAL);
   const [expenses, setExpenses] = useState<Expense[]>(DEFAULT_EXPENSES);
+  // Checklist type des concours (libellés). Propre à l'appareil — chaque
+  // concours en porte une COPIE (Appointment.checklist), seule celle-là est
+  // synchronisée.
+  const [checklistTemplate, setChecklistTemplate] = useState<string[]>([...DEFAULT_CHECKLIST_LABELS]);
+  // Lus par addAppointment/saveChecklistTemplate sans les mettre en dépendance :
+  // une identité stable évite de recréer tous les mutateurs à chaque édition.
+  const checklistTemplateRef = useRef(checklistTemplate);
+  const appointmentsRef = useRef(appointments);
+  const horsesRef = useRef(horses);
+  useEffect(() => {
+    checklistTemplateRef.current = checklistTemplate;
+    appointmentsRef.current = appointments;
+    horsesRef.current = horses;
+  }, [checklistTemplate, appointments, horses]);
   const [loaded, setLoaded] = useState(false);
 
   // Charge les données persistées une fois au montage (sinon on garde les mocks par défaut).
   useEffect(() => {
     (async () => {
       try {
-        const [apptRaw, docRaw, journalRaw, expenseRaw] = await Promise.all([
+        const [apptRaw, docRaw, journalRaw, expenseRaw, templateRaw] = await Promise.all([
           SecureStore.getItemAsync(APPOINTMENTS_KEY),
           SecureStore.getItemAsync(DOCUMENTS_KEY),
           SecureStore.getItemAsync(JOURNAL_KEY),
           SecureStore.getItemAsync(EXPENSES_KEY),
+          SecureStore.getItemAsync(CHECKLIST_TEMPLATE_KEY),
         ]);
+        const parsedTemplate = safeJsonParse<string[] | null>(templateRaw, null);
+        if (Array.isArray(parsedTemplate)) {
+          setChecklistTemplate(normalizeChecklistLabels(parsedTemplate.filter((l) => typeof l === "string")));
+        }
         const parsedAppts = safeJsonParse<Appointment[] | null>(apptRaw, null);
         if (parsedAppts) {
           setAppointments(
@@ -384,6 +418,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
               checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
               dossard: a.dossard ?? null,
               competitionEntries: a.competitionEntries ?? [],
+              competitionLevel: a.competitionLevel ?? null,
+              endDate: a.endDate ? new Date(a.endDate) : null,
               professional: a.professional ?? null,
               cost: a.cost ?? null,
               nextDueDate: a.nextDueDate ? new Date(a.nextDueDate) : null,
@@ -489,6 +525,11 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(expenses)).catch(() => {});
   }, [expenses, loaded]);
 
+  useEffect(() => {
+    if (!loaded) return;
+    SecureStore.setItemAsync(CHECKLIST_TEMPLATE_KEY, JSON.stringify(checklistTemplate)).catch(() => {});
+  }, [checklistTemplate, loaded]);
+
   const addAppointment = useCallback(
     // `horseId` optionnel : par défaut le cheval globalement sélectionné,
     // comme avant — un appelant peut l'imposer explicitement (cf. création
@@ -503,8 +544,19 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         id: generateId("a"),
         horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
         result: null,
-        checklist: appt.checklist ?? [],
-        competitionEntries: appt.competitionEntries ?? [],
+        // Un concours neuf part de la checklist type ; les autres types n'en ont pas.
+        checklist:
+          appt.checklist ??
+          (appt.type === "concours" ? buildChecklist(checklistTemplateRef.current, () => generateId("c")) : []),
+        // Identifiants FRAIS pour chaque épreuve : une épreuve est une ligne
+        // à clé primaire propre côté serveur (cf. pushCompetitionEntry, upsert
+        // sur `id`). Un même concours créé pour plusieurs chevaux recopie le
+        // même sous-formulaire N fois ; sans nouveaux ids, les N copies
+        // partageaient les mêmes clés et les épreuves finissaient toutes
+        // rattachées au dernier rendez-vous.
+        competitionEntries: (appt.competitionEntries ?? []).map((e) => ({ ...e, id: generateId("ce") })),
+        competitionLevel: appt.competitionLevel ?? null,
+        endDate: appt.endDate ?? null,
       };
       setAppointments((list) => [...list, next]);
       pushAppointment(next).catch(() => {});
@@ -555,6 +607,38 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // — sans ça, un résultat de concours ou une checklist cochée ne survivrait
   // ni à une restauration cloud (cf. login.tsx, qui écraserait silencieusement
   // ces changements jamais envoyés au serveur) ni au partage DP/coach.
+
+  const saveChecklistTemplate = useCallback((labels: string[]): number => {
+    const previous = checklistTemplateRef.current;
+    const next = normalizeChecklistLabels(labels);
+    setChecklistTemplate(next);
+    // Ref mise à jour tout de suite : un concours créé dans la foulée doit déjà
+    // partir de la nouvelle liste, sans attendre le prochain rendu.
+    checklistTemplateRef.current = next;
+
+    const ownedHorseIds = new Set(horsesRef.current.filter((h) => !h.sharedRole).map((h) => h.id));
+    const todayStart = daysFromNow(0);
+    const isUpcomingConcours = (a: Appointment) =>
+      a.type === "concours" &&
+      a.horseId !== null &&
+      ownedHorseIds.has(a.horseId) &&
+      (a.endDate && a.endDate > a.date ? a.endDate : a.date) >= todayStart;
+
+    const changed: Appointment[] = [];
+    const updatedList = appointmentsRef.current.map((a) => {
+      if (!isUpcomingConcours(a)) return a;
+      const updated = { ...a, checklist: applyChecklistTemplate(a.checklist, previous, next, () => generateId("c")) };
+      changed.push(updated);
+      return updated;
+    });
+    if (changed.length > 0) {
+      appointmentsRef.current = updatedList;
+      setAppointments(updatedList);
+      // Un push par concours, comme les autres mutateurs de checklist.
+      for (const a of changed) pushAppointment(a).catch(() => {});
+    }
+    return changed.length;
+  }, []);
 
   const saveResult = useCallback((apptId: string, result: string) => {
     setAppointments((list) => {
@@ -857,7 +941,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       SecureStore.deleteItemAsync(DOCUMENTS_KEY).catch(() => {}),
       SecureStore.deleteItemAsync(JOURNAL_KEY).catch(() => {}),
       SecureStore.deleteItemAsync(EXPENSES_KEY).catch(() => {}),
+      SecureStore.deleteItemAsync(CHECKLIST_TEMPLATE_KEY).catch(() => {}),
     ]);
+    setChecklistTemplate([...DEFAULT_CHECKLIST_LABELS]);
     setAppointments(DEFAULT_APPOINTMENTS);
     setDocuments(DEFAULT_DOCUMENTS);
     setJournal(DEFAULT_JOURNAL);
@@ -873,6 +959,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addAppointment,
       updateAppointment,
       deleteAppointment,
+      checklistTemplate,
+      saveChecklistTemplate,
       saveResult,
       toggleChecklistItem,
       addChecklistItem,
@@ -906,6 +994,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addAppointment,
       updateAppointment,
       deleteAppointment,
+      checklistTemplate,
+      saveChecklistTemplate,
       saveResult,
       toggleChecklistItem,
       addChecklistItem,

@@ -107,12 +107,19 @@ const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
 export type DocumentSource = "photos" | "file";
 
+/** Extensions qu'on accepte de déduire d'un nom de fichier. Liste blanche
+ * plutôt qu'un motif générique : `Compte rendu 12.03.2026` (sans extension)
+ * donnait sinon l'extension "2026", que ni `documentContentType`
+ * (cf. cloudSync.ts) ni `isPdfDoc` (cf. DocumentCard) ne savent interpréter —
+ * le fichier partait avec un Content-Type d'image et s'affichait vide. */
+const DOCUMENT_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "heic", "heif", "webp"];
+
 function documentExtension(uri: string, mimeType?: string | null): string {
   if (mimeType === "application/pdf") return "pdf";
   if (mimeType === "image/png") return "png";
   if (mimeType === "image/jpeg") return "jpg";
   const fromUri = uri.split("?")[0].split(".").pop()?.toLowerCase();
-  return fromUri && /^[a-z0-9]{2,5}$/.test(fromUri) ? fromUri : "jpg";
+  return fromUri && DOCUMENT_EXTENSIONS.includes(fromUri) ? fromUri : "jpg";
 }
 
 function persistDocumentCopy(sourceUri: string, ext: string): string | null {
@@ -174,8 +181,21 @@ async function pickDocumentPhotos(): Promise<string | null> {
     return null;
   }
 
+  // Même plafond que pour un fichier joint (cf. MAX_DOCUMENT_BYTES) : les
+  // photos ne sont pas réencodées, 20 pages d'iPhone dépassent facilement les
+  // 25 Mo, et l'envoi vers le stockage échouerait alors en silence — le
+  // document resterait local, invisible depuis les autres appareils.
+  const pdf = buildPdf(pages);
+  if (pdf.length > MAX_DOCUMENT_BYTES) {
+    Alert.alert(
+      "Document trop volumineux",
+      `Ces ${pages.length} pages dépassent 25 Mo une fois regroupées. Sélectionne moins de pages, quitte à créer un second document.`
+    );
+    return null;
+  }
+
   const dest = new File(Paths.document, `document-${Date.now()}.pdf`);
-  dest.write(buildPdf(pages));
+  dest.write(pdf);
   return dest.uri;
 }
 

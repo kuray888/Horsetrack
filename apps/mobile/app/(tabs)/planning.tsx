@@ -22,6 +22,7 @@ import { HorseFilterChips } from "@/horses/components/HorseFilterChips";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import {
   hiddenTargetsMessage,
+  MAX_ENTRIES_PER_SUBMIT,
   resolveTargetHorseIds,
   shouldOfferHorseChoice,
   targetsOutsideView,
@@ -42,6 +43,7 @@ import {
   buildUnifiedEvents,
   filterUnifiedEvents,
   eventTime,
+  eventDays,
   eventHorseId,
   isEventUpcoming,
   isNewPlanningDestination,
@@ -55,6 +57,7 @@ import { UnifiedEventCard } from "@/planning/components/UnifiedEventCard";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
+import { ChecklistTemplateCard } from "@/agenda/components/ChecklistTemplateCard";
 import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
 import { ExpenseForm } from "@/agenda/components/ExpenseForm";
 import { useJournalForm } from "@/agenda/hooks/useJournalForm";
@@ -317,6 +320,8 @@ export default function PlanningScreen() {
     addAppointment,
     updateAppointment,
     deleteAppointment,
+    checklistTemplate,
+    saveChecklistTemplate,
     saveResult,
     toggleChecklistItem,
     addChecklistItem,
@@ -487,8 +492,11 @@ export default function PlanningScreen() {
     if (viewMode !== "month") return new Map<string, UnifiedEvent[]>();
     const map = new Map<string, UnifiedEvent[]>();
     for (const e of filteredEvents) {
-      const key = e.date.toDateString();
-      map.set(key, [...(map.get(key) ?? []), e]);
+      // Un concours de plusieurs jours apparaît sur chacun de ses jours.
+      for (const day of eventDays(e)) {
+        const key = day.toDateString();
+        map.set(key, [...(map.get(key) ?? []), e]);
+      }
     }
     return map;
   }, [filteredEvents, viewMode]);
@@ -716,11 +724,27 @@ export default function PlanningScreen() {
       const sessionHorseIds = shouldOfferHorseChoice(selectableHorses, defaultHorseIds)
         ? resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds)
         : defaultHorseIds;
+      const sessionTargets = sessionHorseIds.length > 0 ? sessionHorseIds : [targetHorse?.id ?? null];
+      const occurrenceDates = computeRecurrenceDates(form.date, form.recurrence);
+      // Même garde-fou que pour les rendez-vous (cf. MAX_ENTRIES_PER_SUBMIT).
+      // La récurrence plafonne à 52 occurrences PAR cheval (cf.
+      // lib/recurrence.ts) : sans cette borne, 5 chevaux en vue « Tous »
+      // faisaient 260 séances en un seul appui — autant d'écritures locales et
+      // de push cloud simultanés, best-effort et sans reprise (cf.
+      // sessions/store.tsx). Le bouton est déjà désactivé au-delà, ceci n'est
+      // qu'une ceinture.
+      if (sessionTargets.length * occurrenceDates.length > MAX_ENTRIES_PER_SUBMIT) {
+        Alert.alert(
+          "Trop de séances d'un coup",
+          `Une création est limitée à ${MAX_ENTRIES_PER_SUBMIT} séances (chevaux × répétitions). Réduis la répétition ou le nombre de chevaux.`
+        );
+        return;
+      }
       hiddenNames = targetsOutsideView(sessionHorseIds, defaultHorseIds).map(
         (id) => selectableHorses.find((h) => h.id === id)?.name ?? "un autre cheval"
       );
-      for (const sessionHorseId of sessionHorseIds.length > 0 ? sessionHorseIds : [targetHorse?.id ?? null]) {
-        for (const date of computeRecurrenceDates(form.date, form.recurrence)) {
+      for (const sessionHorseId of sessionTargets) {
+        for (const date of occurrenceDates) {
           addSession({
             horseId: sessionHorseId,
             activityType: form.activityType,
@@ -784,6 +808,10 @@ export default function PlanningScreen() {
       ? 1
       : Math.max(1, resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds).length);
   const sessionCreateCount = sessionOccurrenceCount * sessionHorseCount;
+  // Cf. handleSubmit : au-delà, la soumission refuse. Le bouton le dit avant,
+  // plutôt que de laisser l'utilisateur buter sur une alerte (même traitement
+  // que le formulaire de rendez-vous, cf. AppointmentForm `overLimit`).
+  const sessionOverLimit = !editingId && sessionCreateCount > MAX_ENTRIES_PER_SUBMIT;
 
   return (
     <>
@@ -1056,6 +1084,11 @@ export default function PlanningScreen() {
                 multiline
               />
             </Field>
+            {sessionOverLimit ? (
+              <Text className="text-xs text-danger">
+                {`${sessionCreateCount} séances d'un coup, c'est trop (maximum ${MAX_ENTRIES_PER_SUBMIT}). Réduis la répétition ou le nombre de chevaux.`}
+              </Text>
+            ) : null}
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => {
@@ -1072,7 +1105,7 @@ export default function PlanningScreen() {
                   label={
                     editingId ? "Enregistrer" : sessionCreateCount > 1 ? `Ajouter (×${sessionCreateCount})` : "Ajouter"
                   }
-                  disabled={!form.date}
+                  disabled={!form.date || sessionOverLimit}
                   onPress={handleSubmit}
                 />
               </View>
@@ -1087,7 +1120,6 @@ export default function PlanningScreen() {
             submitting={submittingAppt}
             selectableHorses={selectableHorses}
             fallbackHorseIds={defaultHorseIds}
-            singleTargetName={targetHorse?.name ?? null}
             onOpen={() => setShowApptForm(true)}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}
@@ -1129,6 +1161,14 @@ export default function PlanningScreen() {
       {!showForm && !showApptForm && !showExpenseForm && !showJournalForm && unifiedEvents.length > 0 ? (
         <FadeInView delay={90}>
           <PlanningFilter value={filter} onChange={setFilter} />
+        </FadeInView>
+      ) : null}
+
+      {/* Onglet « Concours » : la checklist type, à régler une fois pour tous
+          les concours à venir (cf. ChecklistTemplateCard). */}
+      {filter === "concours" && !showForm && !showApptForm && !showExpenseForm && !showJournalForm && unifiedEvents.length > 0 ? (
+        <FadeInView delay={100}>
+          <ChecklistTemplateCard template={checklistTemplate} onSave={saveChecklistTemplate} />
         </FadeInView>
       ) : null}
 

@@ -19,11 +19,11 @@ import {
 } from "@/horses/selectableHorses";
 import { amountsForHorses, type AmountMode } from "@/agenda/splitAmount";
 import {
-  defaultChecklist,
   useAgenda,
   type Appointment,
   type AppointmentType,
   type CompetitionEntry,
+  type CompetitionLevel,
 } from "@/agenda/store";
 import { APPT_META, newDraftEntryId } from "@/agenda/meta";
 
@@ -36,6 +36,11 @@ const emptyApptForm = {
   reminder: "1d" as ReminderOption,
   dossard: "",
   competitionEntries: [] as CompetitionEntry[],
+  /** Concours uniquement : national (défaut) ou international. */
+  competitionLevel: "national" as CompetitionLevel,
+  /** Concours international uniquement : dernier jour (souvent 4 à 5 jours
+   * de concours). Null = un seul jour. Ignoré hors international. */
+  endDate: null as Date | null,
   professional: "",
   cost: "",
   nextDueDate: null as Date | null,
@@ -123,6 +128,8 @@ export function useAppointmentForm({
       reminder: appt.reminder,
       dossard: appt.dossard ?? "",
       competitionEntries: appt.competitionEntries,
+      competitionLevel: appt.competitionLevel ?? "national",
+      endDate: appt.endDate,
       professional: appt.professional ?? "",
       cost: appt.cost !== null ? String(appt.cost).replace(".", ",") : "",
       nextDueDate: appt.nextDueDate,
@@ -231,6 +238,13 @@ export function useAppointmentForm({
     const parsedCost = Number(apptForm.cost.replace(",", "."));
     const cost = apptForm.cost.trim() && Number.isFinite(parsedCost) && parsedCost > 0 ? parsedCost : null;
     const nextDueDate = apptForm.nextDueDate;
+    // Niveau et date de fin ne concernent que les concours ; une fin antérieure
+    // (ou égale) au premier jour n'a pas de sens et vaut « un seul jour ».
+    const competitionLevel: CompetitionLevel | null = isConcours ? apptForm.competitionLevel : null;
+    const endDate =
+      isConcours && apptForm.competitionLevel === "international" && apptForm.endDate && apptForm.endDate > date
+        ? apptForm.endDate
+        : null;
     let hiddenNames: string[] = [];
 
     try {
@@ -265,6 +279,8 @@ export function useAppointmentForm({
           reminderNotificationId,
           emailReminderId,
           dossard: isConcours ? apptForm.dossard.trim() || null : null,
+          competitionLevel,
+          endDate,
           professional,
           cost,
           nextDueDate,
@@ -286,17 +302,17 @@ export function useAppointmentForm({
         // touche qu'elle, l'utilisateur désignant le cheval voulu via la
         // pastille de nom du Planning (cf. vue « Tous les chevaux »).
         const fallbackIds = defaultHorseIds ?? [horse.id];
-        // Un concours reste cadré sur UN cheval, quoi qu'affiche le sélecteur
-        // (masqué pour ce type, cf. AppointmentForm) : le dossard et les
-        // épreuves sont propres à chaque cheval, et les épreuves vivent dans
-        // leur propre table serveur, clé = leur id — les recopier sur N
-        // rendez-vous les laisserait toutes rattachées au dernier seulement.
-        // En vue « Tous », c'est `horse` (le cheval actif ou filtré).
-        const targetHorseIds = isConcours
-          ? [horse.id]
-          : shouldOfferHorseChoice(selectableHorses, fallbackIds)
-            ? resolveTargetHorseIds(apptForm.horseIds, selectableHorses, fallbackIds)
-            : fallbackIds;
+        // Un concours se crée pour plusieurs chevaux comme les autres types
+        // (une écurie s'engage souvent en bloc). Les épreuves sont recopiées
+        // avec de NOUVEAUX identifiants à chaque copie (cf. addAppointment) :
+        // elles vivent dans leur propre table serveur, clé = leur id.
+        const targetHorseIds = shouldOfferHorseChoice(selectableHorses, fallbackIds)
+          ? resolveTargetHorseIds(apptForm.horseIds, selectableHorses, fallbackIds)
+          : fallbackIds;
+        // Le dossard est propre à chaque cheval : le recopier sur toutes les
+        // copies attribuerait le même numéro à tous. Il n'est donc gardé que
+        // pour un seul cheval ; sinon chacun le renseigne via « Modifier ».
+        const dossard = isConcours && targetHorseIds.length === 1 ? apptForm.dossard.trim() || null : null;
         // Garde-fou du plafond (le formulaire désactive déjà le bouton, cf.
         // AppointmentForm) : une notification locale ET un e-mail par entrée.
         if (targetHorseIds.length * occurrenceDates.length > MAX_ENTRIES_PER_SUBMIT) {
@@ -306,15 +322,21 @@ export function useAppointmentForm({
           );
           return;
         }
-        // Coût : par cheval (chacun le même montant) ou à répartir entre eux,
-        // au centime (cf. splitAmount) — même choix que pour une dépense.
-        const costs = cost === null ? [] : amountsForHorses(cost, targetHorseIds.length, apptForm.costMode);
+        // Coût : le même montant pour chaque entrée créée, ou un montant global
+        // à répartir entre elles au centime près (cf. splitAmount) — même choix
+        // que pour une dépense. La répartition porte sur TOUTES les entrées
+        // (chevaux × occurrences), pas sur les seuls chevaux : « 180 € à
+        // répartir » sur 3 chevaux répétés 4 fois doit rester 180 € au total,
+        // pas 720 €. En mode « par cheval », chaque entrée garde le montant
+        // saisi, comme avant. Doit rester le MÊME calcul que l'aperçu du
+        // formulaire (cf. AmountModeField dans AppointmentForm.tsx).
+        const costs = cost === null ? [] : amountsForHorses(cost, targetHorseIds.length * occurrenceDates.length, apptForm.costMode);
         for (let horseIndex = 0; horseIndex < targetHorseIds.length; horseIndex++) {
           const targetHorseId = targetHorseIds[horseIndex];
           const targetHorseName = horseNameFor(targetHorseId);
-          const horseCost = cost === null ? null : (costs[horseIndex] ?? cost);
           for (let i = 0; i < occurrenceDates.length; i++) {
             const occurrenceDate = occurrenceDates[i];
+            const horseCost = cost === null ? null : (costs[horseIndex * occurrenceDates.length + i] ?? cost);
             const { reminderNotificationId, emailReminderId } = await scheduleApptReminder(
               title,
               occurrenceDate,
@@ -347,8 +369,11 @@ export function useAppointmentForm({
               cost: horseCost,
               nextDueDate: occurrenceNextDueDate,
               nextDueNotificationId,
-              checklist: isConcours ? defaultChecklist() : [],
-              dossard: isConcours ? apptForm.dossard.trim() || null : null,
+              // Checklist : laissée au store, qui recopie la checklist type des
+              // concours (cf. addAppointment) — chaque copie a la sienne.
+              dossard,
+              competitionLevel,
+              endDate,
               // Plusieurs épreuves par concours est Premium (cf. section "Épreuves"
               // verrouillée dans le formulaire, et competition_entries_insert_shared
               // côté rls.sql) — sans ce clamp, un compte gratuit créerait des
