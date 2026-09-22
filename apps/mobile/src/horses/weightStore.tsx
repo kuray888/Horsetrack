@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import * as SecureStore from "expo-secure-store";
-import { safeJsonParse } from "@/lib/safeJsonParse";
+import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { pushWeightMeasurement, deleteWeightMeasurementRemote } from "@/lib/cloudSync";
 import { useHorses } from "@/horses/store";
 
@@ -51,13 +50,13 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await SecureStore.getItemAsync(WEIGHT_KEY);
-        const parsed = safeJsonParse<WeightMeasurement[] | null>(raw, null);
+        // Cf. lib/localStore.ts (fichier JSON + migration SecureStore).
+        const parsed = await readJson<WeightMeasurement[] | null>(WEIGHT_KEY, null);
         if (parsed) {
           setMeasurements(parsed.map((m) => ({ ...m, date: new Date(m.date) })));
         }
       } catch (e) {
-        console.warn("[weight] lecture SecureStore échouée", e);
+        console.warn("[weight] lecture du stockage local échouée", e);
       } finally {
         setLoaded(true);
       }
@@ -66,7 +65,7 @@ export function WeightProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(measurements)).catch(() => {});
+    writeJson(WEIGHT_KEY, measurements);
   }, [measurements, loaded]);
 
   const addMeasurement = useCallback(
@@ -126,14 +125,14 @@ export function WeightProvider({ children }: { children: ReactNode }) {
 
   const hydrateFromCloud = useCallback((remote: WeightMeasurement[]) => {
     setMeasurements(remote);
-    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(remote)).catch(() => {});
+    writeJson(WEIGHT_KEY, remote);
   }, []);
 
   const clearAll = useCallback(async () => {
-    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ce delete tourne dans le Promise.all de (auth)/login.tsx.afterSuccessfulAuth,
     // un rejet non catché ici plantait tout le groupe.
-    await SecureStore.deleteItemAsync(WEIGHT_KEY).catch(() => {});
+    await removeJson(WEIGHT_KEY);
     setMeasurements([]);
   }, []);
 

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import * as SecureStore from "expo-secure-store";
+import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import type { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
 import { cancelReminder, type ReminderOption } from "@/lib/notifications";
@@ -25,7 +25,6 @@ import {
   pushExpense,
   deleteExpenseRemote,
 } from "@/lib/cloudSync";
-import { safeJsonParse } from "@/lib/safeJsonParse";
 import {
   DEFAULT_CHECKLIST_LABELS,
   applyChecklistTemplate,
@@ -334,8 +333,9 @@ type AgendaContextValue = {
   updateDocument: (docId: string, patch: Partial<Omit<Doc, "id" | "filePath">>) => void;
   deleteDocument: (docId: string) => void;
   /** Remplace les documents locaux par ceux restaurés depuis le cloud (cf.
-   * (auth)/login.tsx) — n'écrit que l'état + SecureStore, ne relance jamais
-   * de synchro (on viendrait de recevoir exactement ces données du serveur). */
+   * (auth)/login.tsx) — n'écrit que l'état + le stockage local, ne relance
+   * jamais de synchro (on viendrait de recevoir exactement ces données du
+   * serveur). */
   hydrateDocumentsFromCloud: (docs: Doc[]) => void;
   hydrateAppointmentsFromCloud: (appts: Appointment[]) => void;
   hydrateJournalFromCloud: (entries: JournalEntry[]) => void;
@@ -355,6 +355,11 @@ type AgendaContextValue = {
   linkExpenseDocument: (expenseId: string, documentId: string | null) => void;
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
   /** Efface rendez-vous + documents + journal + dépenses locaux (cf. suppression de compte dans Profil). */
+  /** Vrai quand la dernière sauvegarde locale a échoué (cf. lib/localStore.ts).
+   * Permet à un écran de le dire en continu, là où l'alerte ne passe qu'une
+   * fois par session — une perte de données silencieuse était exactement ce
+   * que les anciens `.catch(() => {})` produisaient. */
+  saveFailed: boolean;
   clearAll: () => Promise<void>;
   /** Purge locale des rendez-vous/journal/dépenses d'UN cheval supprimé (cf.
    * edit-horse-modal.tsx) — le cascade Postgres (onDelete: Cascade) fait déjà
@@ -390,23 +395,33 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     horsesRef.current = horses;
   }, [checklistTemplate, appointments, horses]);
   const [loaded, setLoaded] = useState(false);
+  /** Vrai quand la dernière écriture locale a échoué (disque plein, fichier
+   * inaccessible). L'utilisateur est déjà prévenu une fois par session par
+   * lib/localStore.ts ; cet état permet en plus à l'écran de le montrer en
+   * continu, tant que la situation dure (cf. la bannière d'Agenda). */
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Déclaré ici pour que TOUTES les écritures ci-dessous passent par le même
+  // chemin : une seule ligne à écrire par effet de persistance, et aucun
+  // moyen d'oublier de traiter l'échec — c'est exactement ce qui manquait aux
+  // anciens `.catch(() => {})`.
+  const noteSaveResult = useCallback((ok: boolean) => setSaveFailed(!ok), []);
 
   // Charge les données persistées une fois au montage (sinon on garde les mocks par défaut).
   useEffect(() => {
     (async () => {
       try {
-        const [apptRaw, docRaw, journalRaw, expenseRaw, templateRaw] = await Promise.all([
-          SecureStore.getItemAsync(APPOINTMENTS_KEY),
-          SecureStore.getItemAsync(DOCUMENTS_KEY),
-          SecureStore.getItemAsync(JOURNAL_KEY),
-          SecureStore.getItemAsync(EXPENSES_KEY),
-          SecureStore.getItemAsync(CHECKLIST_TEMPLATE_KEY),
+        // readJson lit le fichier JSON et, la première fois, recopie
+        // l'ancienne valeur SecureStore au passage (cf. lib/localStore.ts).
+        const [parsedAppts, parsedDocs, parsedJournal, parsedExpenses, parsedTemplate] = await Promise.all([
+          readJson<Appointment[] | null>(APPOINTMENTS_KEY, null),
+          readJson<Doc[] | null>(DOCUMENTS_KEY, null),
+          readJson<JournalEntry[] | null>(JOURNAL_KEY, null),
+          readJson<Expense[] | null>(EXPENSES_KEY, null),
+          readJson<string[] | null>(CHECKLIST_TEMPLATE_KEY, null),
         ]);
-        const parsedTemplate = safeJsonParse<string[] | null>(templateRaw, null);
         if (Array.isArray(parsedTemplate)) {
           setChecklistTemplate(normalizeChecklistLabels(parsedTemplate.filter((l) => typeof l === "string")));
         }
-        const parsedAppts = safeJsonParse<Appointment[] | null>(apptRaw, null);
         if (parsedAppts) {
           setAppointments(
             parsedAppts.map((a) => ({
@@ -427,7 +442,6 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             }))
           );
         }
-        const parsedDocs = safeJsonParse<Doc[] | null>(docRaw, null);
         if (parsedDocs) {
           // fileUri/filePath n'existent pas sur les documents sauvegardés avant
           // leur ajout — les compléter plutôt que de laisser `undefined` (cf. le
@@ -445,7 +459,6 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             }))
           );
         }
-        const parsedJournal = safeJsonParse<JournalEntry[] | null>(journalRaw, null);
         if (parsedJournal) {
           // photoUri/photoPath n'existent pas sur les entrées sauvegardées
           // avant leur ajout — même souci déjà rencontré sur Doc.fileUri/filePath.
@@ -463,7 +476,6 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             }))
           );
         }
-        const parsedExpenses = safeJsonParse<Expense[] | null>(expenseRaw, null);
         if (parsedExpenses) {
           setExpenses(
             parsedExpenses.map((e) => ({
@@ -477,7 +489,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
           );
         }
       } catch (e) {
-        console.warn("[agenda] lecture SecureStore échouée, agenda par défaut", e);
+        console.warn("[agenda] lecture du stockage local échouée, agenda par défaut", e);
       } finally {
         setLoaded(true);
       }
@@ -507,28 +519,28 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // (sinon on écraserait les données sauvegardées avec les mocks par défaut).
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appointments)).catch(() => {});
-  }, [appointments, loaded]);
+    writeJson(APPOINTMENTS_KEY, appointments).then(noteSaveResult);
+  }, [appointments, loaded, noteSaveResult]);
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(documents)).catch(() => {});
-  }, [documents, loaded]);
+    writeJson(DOCUMENTS_KEY, documents).then(noteSaveResult);
+  }, [documents, loaded, noteSaveResult]);
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(journal)).catch(() => {});
-  }, [journal, loaded]);
+    writeJson(JOURNAL_KEY, journal).then(noteSaveResult);
+  }, [journal, loaded, noteSaveResult]);
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(expenses)).catch(() => {});
-  }, [expenses, loaded]);
+    writeJson(EXPENSES_KEY, expenses).then(noteSaveResult);
+  }, [expenses, loaded, noteSaveResult]);
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(CHECKLIST_TEMPLATE_KEY, JSON.stringify(checklistTemplate)).catch(() => {});
-  }, [checklistTemplate, loaded]);
+    writeJson(CHECKLIST_TEMPLATE_KEY, checklistTemplate).then(noteSaveResult);
+  }, [checklistTemplate, loaded, noteSaveResult]);
 
   const addAppointment = useCallback(
     // `horseId` optionnel : par défaut le cheval globalement sélectionné,
@@ -792,18 +804,18 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   const hydrateDocumentsFromCloud = useCallback((docs: Doc[]) => {
     setDocuments(docs);
-    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(docs)).catch(() => {});
-  }, []);
+    writeJson(DOCUMENTS_KEY, docs).then(noteSaveResult);
+  }, [noteSaveResult]);
 
   const hydrateAppointmentsFromCloud = useCallback((appts: Appointment[]) => {
     setAppointments(appts);
-    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appts)).catch(() => {});
-  }, []);
+    writeJson(APPOINTMENTS_KEY, appts).then(noteSaveResult);
+  }, [noteSaveResult]);
 
   const hydrateJournalFromCloud = useCallback((entries: JournalEntry[]) => {
     setJournal(entries);
-    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(entries)).catch(() => {});
-  }, []);
+    writeJson(JOURNAL_KEY, entries).then(noteSaveResult);
+  }, [noteSaveResult]);
 
   const addJournalEntry = useCallback(
     // `horseId` optionnel : par défaut le cheval globalement sélectionné,
@@ -932,20 +944,20 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   const hydrateExpensesFromCloud = useCallback((next: Expense[]) => {
     setExpenses(next);
-    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(next)).catch(() => {});
-  }, []);
+    writeJson(EXPENSES_KEY, next).then(noteSaveResult);
+  }, [noteSaveResult]);
 
   const clearAll = useCallback(async () => {
-    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ces deletes tournent dans le Promise.all de
     // (auth)/login.tsx.afterSuccessfulAuth, un rejet non catché ici plantait
     // tout le groupe.
     await Promise.all([
-      SecureStore.deleteItemAsync(APPOINTMENTS_KEY).catch(() => {}),
-      SecureStore.deleteItemAsync(DOCUMENTS_KEY).catch(() => {}),
-      SecureStore.deleteItemAsync(JOURNAL_KEY).catch(() => {}),
-      SecureStore.deleteItemAsync(EXPENSES_KEY).catch(() => {}),
-      SecureStore.deleteItemAsync(CHECKLIST_TEMPLATE_KEY).catch(() => {}),
+      removeJson(APPOINTMENTS_KEY),
+      removeJson(DOCUMENTS_KEY),
+      removeJson(JOURNAL_KEY),
+      removeJson(EXPENSES_KEY),
+      removeJson(CHECKLIST_TEMPLATE_KEY),
     ]);
     setChecklistTemplate([...DEFAULT_CHECKLIST_LABELS]);
     setAppointments(DEFAULT_APPOINTMENTS);
@@ -987,6 +999,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
+      saveFailed,
       clearAll,
       removeHorseData,
     }),
@@ -1023,6 +1036,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
+      saveFailed,
       clearAll,
     ]
   );

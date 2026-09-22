@@ -361,8 +361,11 @@ export default function PlanningScreen() {
    * les deux appuis (un setState ne serait lu qu'au rendu suivant).
    *
    * Il n'est PAS relâché après une soumission réussie — le formulaire est
-   * alors fermé — mais à chaque (ré)ouverture, ainsi qu'à l'annulation (cf.
-   * openCreateForm/openEditForm) et si la soumission a été refusée. */
+   * alors fermé — mais à chaque (ré)ouverture du formulaire et si la
+   * soumission a été refusée. La réouverture est détectée par un effet (cf.
+   * plus bas) et non dans `openCreateForm` : celle-ci est aussi appelée
+   * PENDANT le rendu (arrivée de ?openForm=session), où écrire dans une ref
+   * est interdit. */
   const sessionSubmitLock = useRef(false);
   // Détails facultatifs (heure, intensité, répétition, notes) repliés par
   // défaut : la saisie courante tient dans type + date + durée, et déplier
@@ -432,6 +435,14 @@ export default function PlanningScreen() {
       openCreateForm();
     }
   }
+  // Une nouvelle soumission redevient légitime dès que le formulaire
+  // s'ouvre — quel que soit le chemin d'ouverture (appui, ou arrivée de
+  // ?openForm=session traitée pendant le rendu). Un effet est le seul endroit
+  // où toucher la ref sans enfreindre les règles de React.
+  useEffect(() => {
+    if (showForm) sessionSubmitLock.current = false;
+  }, [showForm]);
+
   // Efface la confirmation après quelques secondes. L'objet `savedNotice` est
   // recréé à chaque enregistrement (même texte compris), donc deux séances
   // ajoutées à la suite relancent bien le compte à rebours.
@@ -679,7 +690,11 @@ export default function PlanningScreen() {
   if (filterParam !== formsResetForFilterParam) {
     setFormsResetForFilterParam(filterParam);
     if (isNewPlanningDestination(formsResetForFilterParam, filterParam)) {
-      sessionSubmitLock.current = false;
+      // Le verrou de soumission n'est PAS touché ici : ce bloc s'exécute
+      // pendant le rendu, où lire ou écrire une ref est interdit (React ne
+      // garantit alors rien). Inutile de toute façon — ce reset ferme le
+      // formulaire, et openCreateForm/openEditForm relâchent le verrou à la
+      // prochaine ouverture.
       setShowForm(false);
       setEditingId(null);
       setForm(emptyForm());
@@ -732,7 +747,6 @@ export default function PlanningScreen() {
   }
 
   function openCreateForm(date?: Date) {
-    sessionSubmitLock.current = false;
     setEditingId(null);
     setForm(date ? { ...emptyForm(), date } : emptyForm());
     setShowSessionDetails(false);
@@ -740,7 +754,6 @@ export default function PlanningScreen() {
   }
 
   function openEditForm(session: TrainingSession) {
-    sessionSubmitLock.current = false;
     setEditingId(session.id);
     setForm(formFromSession(session));
     setExpandedId(null);
@@ -1295,7 +1308,6 @@ export default function PlanningScreen() {
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => {
-                  sessionSubmitLock.current = false;
                   setShowForm(false);
                   setEditingId(null);
                   setForm(emptyForm());

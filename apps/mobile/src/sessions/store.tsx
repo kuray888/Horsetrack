@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
-import * as SecureStore from "expo-secure-store";
-import { safeJsonParse } from "@/lib/safeJsonParse";
+import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { pushTrainingSession, deleteTrainingSessionRemote } from "@/lib/cloudSync";
 import type { ActivityType } from "@/agenda/store";
 import { useHorses } from "@/horses/store";
@@ -68,6 +67,8 @@ type SessionsContextValue = {
   /** Efface les séances locales (changement/déconnexion de compte sur cet
    * appareil, cf. (auth)/login.tsx, (onboarding)/account.tsx). */
   clearAll: () => Promise<void>;
+  /** Cf. `saveFailed` d'agenda/store.tsx. */
+  saveFailed: boolean;
   /** Purge locale des séances d'UN cheval supprimé (cf. agenda/store.tsx
    * removeHorseData, même besoin — cascade Postgres déjà fait côté serveur). */
   removeHorseData: (horseId: string) => void;
@@ -80,19 +81,22 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const { horses, selectedHorse, loading: horsesLoading } = useHorses();
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** Cf. `saveFailed` d'agenda/store.tsx : même rôle, même raison. */
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const raw = await SecureStore.getItemAsync(SESSIONS_KEY);
-        const parsed = safeJsonParse<TrainingSession[] | null>(raw, null);
+        // Fichier JSON, avec recopie de l'ancienne valeur SecureStore à la
+        // première lecture (cf. lib/localStore.ts).
+        const parsed = await readJson<TrainingSession[] | null>(SESSIONS_KEY, null);
         if (parsed) {
           setSessions(
             parsed.map((s) => ({ ...s, date: new Date(s.date), customActivityLabel: s.customActivityLabel ?? null }))
           );
         }
       } catch (e) {
-        console.warn("[sessions] lecture SecureStore échouée", e);
+        console.warn("[sessions] lecture du stockage local échouée", e);
       } finally {
         setLoaded(true);
       }
@@ -116,7 +120,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loaded) return;
-    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
+    writeJson(SESSIONS_KEY, sessions).then((ok) => setSaveFailed(!ok));
   }, [sessions, loaded]);
 
   const addSession = useCallback(
@@ -157,7 +161,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   const hydrateFromCloud = useCallback((remote: TrainingSession[]) => {
     setSessions(remote);
-    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(remote)).catch(() => {});
+    writeJson(SESSIONS_KEY, remote).then((ok) => setSaveFailed(!ok));
   }, []);
 
   const removeHorseData = useCallback((horseId: string) => {
@@ -165,10 +169,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
-    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ce delete tourne dans le Promise.all de (auth)/login.tsx.afterSuccessfulAuth,
     // un rejet non catché ici plantait tout le groupe.
-    await SecureStore.deleteItemAsync(SESSIONS_KEY).catch(() => {});
+    await removeJson(SESSIONS_KEY);
     setSessions([]);
   }, []);
 
@@ -192,6 +196,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       hydrateFromCloud,
       clearAll,
       removeHorseData,
+      saveFailed,
       loading: !loaded,
     }),
     [
@@ -204,6 +209,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       hydrateFromCloud,
       clearAll,
       removeHorseData,
+      saveFailed,
       loaded,
     ]
   );

@@ -7,8 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import * as SecureStore from "expo-secure-store";
-import { safeJsonParse } from "@/lib/safeJsonParse";
+import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { supabase } from "@/lib/supabase";
 import type { RiderGoal } from "@/onboarding/store";
 
@@ -139,7 +138,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const persist = useCallback((next: Goal[]) => {
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+    writeJson(STORAGE_KEY, next);
   }, []);
 
   // Charge le cache local — la restauration cloud n'est plus déclenchée ici :
@@ -150,9 +149,9 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   // concurrentes de la même donnée à chaque connexion pour rien (cf. audit du
   // 2026-09-09), le seul store à le faire.
   useEffect(() => {
-    SecureStore.getItemAsync(STORAGE_KEY)
-      .then((raw) => setGoals(reviveGoals(safeJsonParse<Goal[]>(raw, []))))
-      .catch((e) => console.warn("[goals] lecture SecureStore échouée, objectifs par défaut", e))
+    readJson<Goal[]>(STORAGE_KEY, [])
+      .then((raw) => setGoals(reviveGoals(raw)))
+      .catch((e) => console.warn("[goals] lecture du stockage local échouée, objectifs par défaut", e))
       .finally(() => setLoading(false));
   }, []);
 
@@ -195,11 +194,11 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   );
 
   const clearAll = useCallback(async () => {
-    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ce delete tourne dans le Promise.all de
     // (auth)/login.tsx.afterSuccessfulAuth, un rejet non catché ici plantait
     // tout le groupe.
-    await SecureStore.deleteItemAsync(STORAGE_KEY).catch(() => {});
+    await removeJson(STORAGE_KEY);
     setGoals([]);
   }, []);
 

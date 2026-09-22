@@ -116,6 +116,7 @@ export default function TodayScreen() {
   const { sessions, toggleCompleted } = useSessions();
   const {
     appointments,
+    saveFailed,
     addAppointment,
     updateAppointment,
     addExpense,
@@ -344,6 +345,23 @@ export default function TodayScreen() {
       {horses.length > 1 ? (
         <FadeInView delay={40}>
           <HorseSwitcher />
+        </FadeInView>
+      ) : null}
+
+      {/* Sauvegarde locale en échec (disque plein, fichier inaccessible) —
+          au-dessus de tout le reste : tant que ça dure, rien de ce qui est
+          saisi ne survivra à la fermeture de l'app. L'alerte de
+          lib/localStore.ts ne passe qu'une fois par session ; cette bannière,
+          elle, reste tant que le problème dure. */}
+      {saveFailed ? (
+        <FadeInView delay={50}>
+          <View className="flex-row items-center gap-2.5 rounded-card bg-danger/15 p-3.5">
+            <MaterialCommunityIcons name="content-save-off-outline" size={18} color={colors.danger} />
+            <Text className="flex-1 text-sm text-text">
+              Tes dernières modifications n&apos;ont pas pu être enregistrées sur cet appareil. Vérifie l&apos;espace de
+              stockage disponible.
+            </Text>
+          </View>
         </FadeInView>
       ) : null}
 

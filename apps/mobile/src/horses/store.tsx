@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import * as SecureStore from "expo-secure-store";
-import { safeJsonParse } from "@/lib/safeJsonParse";
+import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { deleteHorsePhotoRemote, pushHorses } from "@/lib/cloudSync";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
 import { useSubscription } from "@/subscription/store";
@@ -283,13 +283,17 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)])
+    // L'écurie part dans un fichier JSON (cf. lib/localStore.ts, qui migre
+    // l'ancienne valeur SecureStore à la première lecture) ; l'identifiant du
+    // cheval actif reste dans SecureStore — court, et lu au tout premier
+    // rendu de chaque écran.
+    Promise.all([readJson<Horse[]>(STORAGE_KEY, DEFAULT_HORSES), SecureStore.getItemAsync(SELECTED_KEY)])
       .then(([rawHorses, rawSelected]) => {
-        const loaded: Horse[] = reviveHorses(safeJsonParse(rawHorses, DEFAULT_HORSES));
+        const loaded: Horse[] = reviveHorses(rawHorses);
         setHorses(loaded);
         setSelectedHorseId(rawSelected ?? loaded.find((h) => h.isPrimary)?.id ?? loaded[0]?.id ?? null);
       })
-      .catch((e) => console.warn("[horses] lecture SecureStore échouée, écurie par défaut", e))
+      .catch((e) => console.warn("[horses] lecture du stockage local échouée, écurie par défaut", e))
       .finally(() => setLoading(false));
   }, []);
 
@@ -308,7 +312,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     // le nettoyage des chevaux obsolètes côté serveur ne tourne alors plus
     // (cf. pushHorses), il faut le push global pour rester correct.
     (next: Horse[], changedIds?: string[]) => {
-      SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      writeJson(STORAGE_KEY, next);
       // Rattrapage : tant qu'un push précédent n'a pas abouti (erreur réseau,
       // ou profil serveur pas encore créé), on ignore `changedIds` et on
       // republie TOUT. Sans ça, le cheval resté non synchronisé ne serait
@@ -387,7 +391,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
                 if (fallbackId) SecureStore.setItemAsync(SELECTED_KEY, fallbackId).catch(() => {});
               }
             }
-            SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
+            writeJson(STORAGE_KEY, merged);
             return merged;
           });
         })
@@ -505,7 +509,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   // un aller-retour inutile.
   const hydrateFromCloud = useCallback((next: Horse[]) => {
     setHorses(next);
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+    writeJson(STORAGE_KEY, next);
     const primaryId = next.find((h) => h.isPrimary)?.id ?? next[0]?.id ?? null;
     setSelectedHorseId(primaryId);
     if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId).catch(() => {});
@@ -522,7 +526,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     // (auth)/login.tsx.afterSuccessfulAuth (compte jamais onboardé), un rejet
     // non catché ici plantait tout le groupe.
     await Promise.all([
-      SecureStore.deleteItemAsync(STORAGE_KEY).catch(() => {}),
+      removeJson(STORAGE_KEY),
       SecureStore.deleteItemAsync(SELECTED_KEY).catch(() => {}),
     ]);
     setHorses(DEFAULT_HORSES);

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { formatDate } from "@/lib/dateFormat";
 import { chooseAndPickDocument } from "@/lib/imagePicker";
@@ -82,21 +82,18 @@ export function useExpenseForm({
    * rendu suivant et créent deux dépenses identiques, qui gonflent le budget
    * du mois sans qu'on voie pourquoi. Une ref, pas un state : un setState ne
    * serait lu qu'au rendu suivant, trop tard. Relâché à l'OUVERTURE du
-   * formulaire (cf. openExpenseForm/startEditExpense) et quand la soumission
-   * a été refusée — surtout pas à sa fermeture : `cancelExpenseForm` est
-   * justement ce qui termine un enregistrement réussi, et le relâcher là
-   * rouvrirait la fenêtre qu'on ferme. */
+   * formulaire et quand la soumission a été refusée — surtout pas à sa
+   * fermeture : `cancelExpenseForm` est justement ce qui termine un
+   * enregistrement réussi, et le relâcher là rouvrirait la fenêtre qu'on
+   * ferme. Le relâchement passe par un effet, seul endroit où toucher une ref
+   * est permis quel que soit le chemin d'ouverture (cf. planning.tsx, même
+   * mécanisme pour le formulaire de séance). */
   const submitLock = useRef(false);
-
-  /** Setter exposé à la place de `setShowExpenseForm` : ouvrir le formulaire
-   * est le seul moment où une nouvelle soumission redevient légitime. */
-  function openExpenseForm(next: boolean) {
-    if (next) submitLock.current = false;
-    setShowExpenseForm(next);
-  }
+  useEffect(() => {
+    if (showExpenseForm) submitLock.current = false;
+  }, [showExpenseForm]);
 
   function startEditExpense(expense: Expense) {
-    submitLock.current = false;
     setEditingExpenseId(expense.id);
     setExpenseForm({
       category: expense.category,
@@ -233,7 +230,7 @@ export function useExpenseForm({
 
   return {
     showExpenseForm,
-    setShowExpenseForm: openExpenseForm,
+    setShowExpenseForm,
     expenseForm,
     setExpenseForm,
     editingExpenseId,
