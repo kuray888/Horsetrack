@@ -1,6 +1,7 @@
 import { Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { useHorses } from "@/horses/store";
 
 /** « Pour <cheval> » — rappelle en tête d'un formulaire à QUI l'entrée va
  * être rattachée. Les formulaires sont partagés entre des écrans qui n'ont
@@ -12,11 +13,16 @@ import { useThemeColors } from "@/theme/ThemeProvider";
  *
  * Volontairement muet quand HorseMultiSelect est affiché (l'appelant ne passe
  * alors pas de nom) : les cases cochées disent déjà la même chose, en mieux.
+ * Muet aussi tant que l'écurie ne compte qu'un cheval — même seuil que
+ * HorseSwitcher : il n'y a alors aucune ambiguïté à lever, et le rappeler
+ * dans chaque formulaire n'ajouterait que du bruit.
+ *
  * Purement informatif — changer de cheval se fait via HorseSwitcher ou le
  * sélecteur, pas ici. */
 export function HorseTargetNotice({ horseName }: { horseName: string | null | undefined }) {
   const colors = useThemeColors();
-  if (!horseName) return null;
+  const { horses } = useHorses();
+  if (!horseName || horses.length <= 1) return null;
   return (
     <View
       className="flex-row items-center gap-1.5 rounded-card bg-highlight px-3 py-2"

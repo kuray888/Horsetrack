@@ -130,8 +130,8 @@ export default function HorseHubScreen() {
     addDocument,
     linkExpenseDocument,
     isActiveOrTrialing,
-    // Cf. openTab plus haut : cette fiche ne change pas le cheval actif, donc
-    // elle doit dire elle-même sur quel cheval elle écrit.
+    // Cette fiche ne change pas le cheval actif (cf. le commentaire en tête
+    // de l'écran) : elle doit donc dire elle-même sur quel cheval elle écrit.
     horse: horse ?? null,
   });
 
@@ -231,10 +231,11 @@ export default function HorseHubScreen() {
         // ?openForm=session ouvre directement le formulaire de création dans
         // Planning. `focusThisHorse` d'abord (même raison que les cartes de
         // modules) : Planning cadre son formulaire sur le cheval actif, et ce
-        // Hub ne le sélectionne plus à l'ouverture. `ts` rend chaque appui unique (cf. son commentaire dans
-        // planning.tsx) : sans lui, rouvrir le formulaire une deuxième fois
-        // depuis ce Hub ne faisait rien si Planning était resté monté avec la
-        // même valeur "session" depuis la visite précédente.
+        // Hub ne le sélectionne plus à l'ouverture. `ts` rend chaque appui
+        // unique (cf. son commentaire dans planning.tsx) : sans lui, rouvrir
+        // le formulaire une deuxième fois depuis ce Hub ne faisait rien si
+        // Planning était resté monté avec la même valeur "session" depuis la
+        // visite précédente.
         focusThisHorse();
         router.dismissTo({ pathname: "/(tabs)/planning", params: { openForm: "session", ts: String(Date.now()) } });
         return;
@@ -351,9 +352,9 @@ export default function HorseHubScreen() {
           // retrouve l'instance "(tabs)" existante par nom dans toute la
           // pile et revient dessus au lieu d'en empiler une nouvelle — c'est
           // le seul des trois qui ne duplique jamais le navigateur (cf. aussi
-          // journal/agenda plus bas, même correctif). Le cheval actif est
-          // déjà synchronisé par l'effet du Horse Hub ci-dessus, donc rien à
-          // refaire ici.
+          // journal/agenda plus bas, même correctif). Planning étant cadré
+          // sur le cheval actif, `focusThisHorse` le pose juste avant : cette
+          // fiche ne le sélectionne plus à l'ouverture.
           onPress={() => {
             focusThisHorse();
             router.dismissTo("/(tabs)/planning?filter=session");
