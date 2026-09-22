@@ -10,6 +10,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses, type Horse } from "@/horses/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
 import { useSessions } from "@/sessions/store";
+import { HorseHub } from "@/horses/components/HorseHub";
 import { useAgenda, ACTIVITY_META } from "@/agenda/store";
 import { APPT_META, daysUntilLabel } from "@/agenda/meta";
 import { findNextSession, findNextDue } from "@/agenda/upcoming";
@@ -132,6 +133,21 @@ export default function ChevauxScreen() {
         onPress={() => openHorse(horse)}
       />
     );
+  }
+
+  // Une écurie d'un seul cheval n'a pas de liste à parcourir : cet onglet
+  // affichait une ligne unique, qu'il fallait toucher pour atteindre la fiche
+  // — deux appuis pour l'écran le plus utilisé de l'app, et un écran
+  // intermédiaire qui n'apprenait rien. On rend la fiche directement.
+  //
+  // Rendu du composant, PAS une redirection : un écran qui redirige à son
+  // montage (même via <Redirect>) plantait en TestFlight — cf.
+  // horses/horseHubNavigation.test.ts et l'ancien horse/[id]/entrainement.tsx.
+  //
+  // Dès deux chevaux (partagé compris), la liste reprend sa place : c'est là
+  // qu'elle sert, et elle reste le sélecteur de cheval actif de l'app.
+  if (horses.length === 1) {
+    return <HorseHub horseId={horses[0].id} inTab />;
   }
 
   return (
