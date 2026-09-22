@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { StartupTrace, formatTrace } from "@/lib/startupTrace";
+import { StartupTrace, formatTrace, summarizeTrace } from "@/lib/startupTrace";
 
 /** Horloge pilotée à la main : les durées testées ici doivent être exactes,
  * jamais dépendantes de la vitesse de la machine qui fait tourner les tests. */
@@ -101,5 +101,38 @@ describe("formatTrace", () => {
 
   it("le dit quand il n'y a rien à montrer", () => {
     expect(formatTrace([])).toBe("Aucune mesure.");
+  });
+});
+
+describe("summarizeTrace", () => {
+  const lectures = [
+    { name: "montage du layout racine", startedAt: 5, durationMs: null },
+    { name: "lecture horses_v1", startedAt: 10, durationMs: 40 },
+    { name: "lecture training_sessions_v1", startedAt: 12, durationMs: 25 },
+  ];
+
+  it("ne compte que les lectures, pas les repères ponctuels", () => {
+    expect(summarizeTrace(lectures)[0]).toBe("2 lecture(s), 65ms cumulés");
+  });
+
+  it("déduit la fin du chargement de la dernière lecture terminée", () => {
+    // 10 + 40 = 50, contre 12 + 25 = 37 : c'est la plus tardive qui compte,
+    // pas la dernière démarrée.
+    expect(summarizeTrace(lectures)[1]).toBe("dernière lecture terminée à 50ms");
+  });
+
+  it("désigne la lecture la plus lente — c'est elle qu'on irait regarder", () => {
+    expect(summarizeTrace(lectures)[2]).toBe("plus lente : lecture horses_v1 (40ms)");
+  });
+
+  it("signale les lectures jamais terminées plutôt que de les passer sous silence", () => {
+    const summary = summarizeTrace([...lectures, { name: "lecture bloquée", startedAt: 1, durationMs: null }]);
+    expect(summary[3]).toBe("1 lecture(s) jamais terminée(s)");
+  });
+
+  it("le dit quand aucune lecture n'a été mesurée", () => {
+    expect(summarizeTrace([{ name: "police chargée", startedAt: 3, durationMs: null }])).toEqual([
+      "Aucune lecture mesurée.",
+    ]);
   });
 });

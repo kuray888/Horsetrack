@@ -135,6 +135,37 @@ export function formatTrace(entries: TraceEntry[]): string {
     .join("\n");
 }
 
+/**
+ * Résumé chiffré d'un rapport, en une ligne par constat.
+ *
+ * Les stores ne disent pas eux-mêmes « j'ai fini » : leur état de chargement
+ * est interne (cf. `loaded` dans agenda/store.tsx). Plutôt que d'aller modifier
+ * neuf providers pour le faire remonter — neuf occasions de régression pour une
+ * simple mesure — on le déduit des lectures elles-mêmes : toutes les données
+ * des stores passent par `readJson`, donc la fin de la dernière lecture est le
+ * moment où l'app a tout ce qu'elle doit afficher.
+ *
+ * Le total cumulé est délibérément la SOMME des lectures, pas leur durée réelle
+ * à l'écran : les lectures se recouvrent. Un cumul très supérieur à l'instant de
+ * fin signifie qu'elles se sont bien recouvertes ; un cumul proche de l'instant
+ * de fin signifie qu'elles se sont enchaînées en file, et c'est CE cas-là qui
+ * mériterait qu'on regarde de plus près.
+ */
+export function summarizeTrace(entries: TraceEntry[], prefix = "lecture "): string[] {
+  const reads = entries.filter((e) => e.name.startsWith(prefix));
+  const finished = reads.filter((e) => e.durationMs !== null);
+  if (finished.length === 0) return ["Aucune lecture mesurée."];
+  const cumulative = finished.reduce((total, e) => total + (e.durationMs ?? 0), 0);
+  const lastEnd = Math.max(...finished.map((e) => e.startedAt + (e.durationMs ?? 0)));
+  const slowest = finished.reduce((a, b) => ((b.durationMs ?? 0) > (a.durationMs ?? 0) ? b : a));
+  return [
+    `${finished.length} lecture(s), ${Math.round(cumulative)}ms cumulés`,
+    `dernière lecture terminée à ${Math.round(lastEnd)}ms`,
+    `plus lente : ${slowest.name} (${Math.round(slowest.durationMs ?? 0)}ms)`,
+    ...(reads.length > finished.length ? [`${reads.length - finished.length} lecture(s) jamais terminée(s)`] : []),
+  ];
+}
+
 /** Trace du processus courant. Créée à l'évaluation du module, c'est-à-dire au
  * plus tôt dans la vie du JS — d'où l'import volontairement placé en tête de
  * app/_layout.tsx. */

@@ -2,6 +2,7 @@ import { Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { File, Paths } from "expo-file-system";
 import { safeJsonParse } from "@/lib/safeJsonParse";
+import { startupTrace } from "@/lib/startupTrace";
 
 /**
  * Stockage local des LISTES de l'app (rendez-vous, journal, dépenses,
@@ -80,6 +81,15 @@ export function resetWriteFailureNotice() {
  * « absent » de « null » coûterait plus cher que ce que ce cas rapporte.
  */
 export async function readJson<T>(key: string, fallback: T): Promise<T> {
+  // Chronométré ici plutôt que dans chaque provider : tout ce que les neuf
+  // stores chargent au démarrage passe par cette fonction, donc un seul point
+  // d'instrumentation les couvre tous, sans toucher à leur code (cf.
+  // lib/startupTrace.ts). `measure` ne change ni le résultat ni les erreurs :
+  // les chemins de repli ci-dessous restent strictement identiques.
+  return startupTrace.measure(`lecture ${key}`, () => readJsonUncounted(key, fallback));
+}
+
+async function readJsonUncounted<T>(key: string, fallback: T): Promise<T> {
   try {
     const file = fileFor(key);
     if (file.exists) {
