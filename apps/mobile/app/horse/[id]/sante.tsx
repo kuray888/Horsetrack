@@ -7,6 +7,8 @@ import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
+import { useWeight } from "@/horses/weightStore";
+import { exportHealthRecord } from "@/horses/exportHealthRecord";
 import { useSubscription } from "@/subscription/store";
 import { useAgenda, daysFromNow, type Appointment } from "@/agenda/store";
 import { APPT_META, HEALTH_APPT_TYPES, daysUntilLabel } from "@/agenda/meta";
@@ -34,6 +36,7 @@ export default function HorseSanteScreen() {
   const { horses } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
   const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAgenda();
+  const { measurements } = useWeight();
 
   const horse = horses.find((h) => h.id === id);
 
@@ -83,6 +86,47 @@ export default function HorseSanteScreen() {
   const history = appointments
     .filter((a) => a.horseId === horse.id && (HEALTH_APPT_TYPES as readonly string[]).includes(a.type))
     .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  /** Carnet de santé en PDF — à envoyer au vétérinaire, emmener en concours
+   * ou remettre à l'acheteur. Tout ce qu'il contient était déjà dans l'app,
+   * mais ne sortait que sous forme de texte partagé, inutile face à un véto.
+   * Les données sont préparées ici (l'écran les a déjà), la mise en forme
+   * vit dans horses/healthRecord.ts. */
+  function handleExportRecord() {
+    if (!horse) return;
+    exportHealthRecord(
+      {
+        name: horse.name,
+        birthYear: horse.birthYear,
+        sex: horse.sex,
+        breed: horse.breed,
+        coat: horse.coat,
+        heightCm: horse.heightCm,
+        weightKg: horse.weightKg,
+        healthConditions: horse.healthConditions,
+        injuries: horse.injuries.map((i) => ({
+          type: i.type,
+          occurredAt: i.occurredAt,
+          // Le modèle porte un statut, pas une date de rétablissement (cf.
+          // horses/injuries.ts) : le carnet dit donc « rétabli », sans quand.
+          recovered: i.recoveryStatus === "RECOVERED",
+          note: i.note,
+        })),
+      },
+      // `history` est déjà filtré sur les types de santé : un concours n'a
+      // rien à faire dans un carnet de santé.
+      history.map((a) => ({
+        type: a.type,
+        typeLabel: APPT_META[a.type].label,
+        title: a.title,
+        date: a.date,
+        professional: a.professional,
+        nextDueDate: a.nextDueDate,
+        notes: a.notes,
+      })),
+      measurements.filter((m) => m.horseId === horse.id).map((m) => ({ date: m.date, weightKg: m.weightKg }))
+    );
+  }
 
   function statusFor(appt: Appointment): { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; color: string } {
     if (appt.date <= today) return { label: "Effectué", icon: "check-circle-outline", color: colors.success };
@@ -139,6 +183,22 @@ export default function HorseSanteScreen() {
             onRemoveEntry={removeApptFormEntry}
           />
         </FadeInView>
+
+        {/* Export du carnet — masqué pendant la saisie, comme le reste : on
+            n'exporte pas un carnet au milieu d'un ajout. */}
+        {!showApptForm ? (
+          <FadeInView delay={45}>
+            <TouchableOpacity
+              onPress={handleExportRecord}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              className="flex-row items-center justify-center gap-2 rounded-card border border-border p-3.5"
+            >
+              <MaterialCommunityIcons name="file-pdf-box" size={18} color={colors.primary} />
+              <Text className="text-sm font-semibold text-primary">Exporter le carnet de santé (PDF)</Text>
+            </TouchableOpacity>
+          </FadeInView>
+        ) : null}
 
         {/* Antécédents (problèmes de santé + blessures), cf. HealthHistory : masqués
             pendant la saisie d'un rendez-vous, comme la liste des soins. */}
