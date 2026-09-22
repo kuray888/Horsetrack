@@ -99,6 +99,14 @@ describe("readJson", () => {
     files.set(FILE, "{ pas du json");
     expect(await readJson("journal_v1", ["defaut"])).toEqual(["defaut"]);
   });
+
+  it("préfère l'ancienne copie à un fichier tronqué plutôt qu'un compte vide", async () => {
+    // Écriture interrompue : le fichier existe mais ne se relit pas. La copie
+    // SecureStore est périmée, mais elle est vraie.
+    files.set(FILE, '[{"id": "tron');
+    keychain.set("journal_v1", JSON.stringify([{ id: "ancien" }]));
+    expect(await readJson("journal_v1", [])).toEqual([{ id: "ancien" }]);
+  });
 });
 
 describe("writeJson", () => {

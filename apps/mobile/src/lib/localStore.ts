@@ -17,7 +17,7 @@ import { safeJsonParse } from "@/lib/safeJsonParse";
  *
  * Ici : un fichier JSON par clé dans le répertoire Documents (persistant, non
  * purgé par l'OS contrairement au cache, et déjà utilisé pour les photos — cf.
- * lib/imagePicker.ts), et un échec d'écriture qui se DIT (cf. `onWriteFailure`).
+ * lib/imagePicker.ts), et un échec d'écriture qui se DIT (cf. reportWriteFailure).
  *
  * Ce qui reste volontairement dans SecureStore : ce qui est court ET sensible
  * ou critique au démarrage — état d'abonnement, propriétaire de l'appareil,
@@ -72,18 +72,29 @@ export function resetWriteFailureNotice() {
  * lieu d'un compte vide. Elle se fige au moment de la migration et pourra
  * être purgée par une version ultérieure, une fois l'ancienne hors d'usage.
  *
- * Ne lève jamais : un fichier illisible ou corrompu renvoie `fallback`, comme
- * le faisait `safeJsonParse` sur SecureStore.
+ * Ne lève jamais : faute de valeur exploitable des deux côtés, renvoie
+ * `fallback` — comme le faisait `safeJsonParse` sur SecureStore.
+ *
+ * Une valeur littéralement `null` est traitée comme illisible. Aucun store
+ * n'en persiste (tous écrivent un tableau ou un objet), et distinguer
+ * « absent » de « null » coûterait plus cher que ce que ce cas rapporte.
  */
 export async function readJson<T>(key: string, fallback: T): Promise<T> {
   try {
     const file = fileFor(key);
-    if (file.exists) return safeJsonParse<T>(await file.text(), fallback);
+    if (file.exists) {
+      const parsed = safeJsonParse<T | null>(await file.text(), null);
+      if (parsed !== null) return parsed;
+      // Fichier présent mais inexploitable (écriture interrompue, contenu
+      // tronqué) : on ne rend PAS un compte vide tant que l'ancienne copie
+      // existe encore. Elle est périmée, mais elle est vraie.
+      console.warn(`[localStore] fichier ${key} illisible, repli sur l'ancienne copie`);
+    }
   } catch (e) {
     console.warn(`[localStore] lecture ${key} échouée`, e);
-    return fallback;
+    // Même raison : on tente l'ancienne copie avant d'abandonner.
   }
-  // Migration depuis SecureStore.
+  // Migration depuis SecureStore — et filet de secours du cas ci-dessus.
   try {
     const legacy = await SecureStore.getItemAsync(key);
     if (!legacy) return fallback;
