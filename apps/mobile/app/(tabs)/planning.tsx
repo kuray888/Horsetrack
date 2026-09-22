@@ -10,6 +10,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { RecurrenceField } from "@/components/RecurrenceField";
+import { FormDetails } from "@/components/FormDetails";
 import { NEVER_RECURRENCE, computeRecurrenceDates, type Recurrence } from "@/lib/recurrence";
 import { PrimaryButton } from "@/components/onboarding";
 import { colors as staticColors } from "@/theme/colors";
@@ -1244,26 +1245,13 @@ export default function PlanningScreen() {
                 </Text>
               </TouchableOpacity>
             ) : null}
-            {/* Détails facultatifs repliés (cf. showSessionDetails) : heure,
-                intensité, répétition et notes ne sont saisis qu'une fois sur
-                quelques-unes, mais restent à un appui. */}
-            <TouchableOpacity
-              onPress={() => setShowSessionDetails((v) => !v)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showSessionDetails }}
-              className="flex-row items-center gap-1.5 py-1"
+            {/* Détails facultatifs repliés — même composant que le formulaire
+                de rendez-vous (cf. components/FormDetails.tsx). */}
+            <FormDetails
+              open={showSessionDetails}
+              onToggle={() => setShowSessionDetails((v) => !v)}
+              summary={sessionDetailsSummary}
             >
-              <MaterialCommunityIcons
-                name={showSessionDetails ? "chevron-down" : "chevron-right"}
-                size={18}
-                color={colors.textMuted}
-              />
-              <Text className="flex-1 text-sm font-semibold text-muted" numberOfLines={1}>
-                {showSessionDetails ? "Masquer les détails" : sessionDetailsSummary}
-              </Text>
-            </TouchableOpacity>
-            {showSessionDetails ? (
               <>
                 <TimePickerField
                   label="Heure (optionnel)"
@@ -1299,7 +1287,7 @@ export default function PlanningScreen() {
                   />
                 </Field>
               </>
-            ) : null}
+            </FormDetails>
             {sessionOverLimit ? (
               <Text className="text-xs text-danger">
                 {`${sessionCreateCount} séances d'un coup, c'est trop (maximum ${MAX_ENTRIES_PER_SUBMIT}). Réduis la répétition ou le nombre de chevaux.`}

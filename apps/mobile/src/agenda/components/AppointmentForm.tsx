@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
@@ -7,6 +8,7 @@ import { PrimaryButton } from "@/components/onboarding";
 import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
 import { RecurrenceField } from "@/components/RecurrenceField";
+import { FormDetails } from "@/components/FormDetails";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
 import { AmountModeField } from "@/agenda/components/AmountModeField";
@@ -72,6 +74,23 @@ export function AppointmentForm({
   onUpdateEntry: (id: string, patch: Partial<CompetitionEntry>) => void;
   onRemoveEntry: (id: string) => void;
 }) {
+  // Détails dépliés d'office en édition : replier des champs déjà renseignés
+  // les ferait passer pour perdus. À la création, ce qui suffit à enregistrer
+  // tient au-dessus (type, cheval, titre, date).
+  //
+  // Déclaré avant le garde `!show` : ce composant reste monté entre deux
+  // ouvertures (il rend juste son bouton « Ajouter »), donc un hook placé
+  // après ce `return` ne serait pas appelé à tous les rendus. Et comme il
+  // reste monté, l'état initial ne suffit pas : on le réaligne quand on passe
+  // de la création à l'édition et retour (même pattern « ajuster l'état
+  // pendant le rendu » que planning.tsx).
+  const [showDetails, setShowDetails] = useState(!!editingApptId);
+  const [syncedEditingId, setSyncedEditingId] = useState(editingApptId);
+  if (editingApptId !== syncedEditingId) {
+    setSyncedEditingId(editingApptId);
+    setShowDetails(!!editingApptId);
+  }
+
   if (!show) {
     return <AddToggle label="Ajouter un rendez-vous" onPress={onOpen} color={colors.primary} />;
   }
@@ -100,6 +119,18 @@ export function AppointmentForm({
   // (cf. needsExplicitHorseChoice). Le bouton le dit avant l'appui plutôt que
   // de laisser buter sur l'alerte de handleSubmitAppointment.
   const missingHorseChoice = !editingApptId && needsExplicitHorseChoice(form.horseIds, selectableHorses, fallbackHorseIds);
+  /** Résumé des champs repliés — ils ont des valeurs préremplies (une heure,
+   * un rappel) qui partiraient sinon sans avoir été montrées (cf.
+   * components/FormDetails.tsx). */
+  const detailsSummary = [
+    form.time.trim() || "sans heure",
+    `rappel ${REMINDER_META[form.reminder].label.toLowerCase()}`,
+    form.location.trim() ? "lieu renseigné" : null,
+    form.cost.trim() ? `${form.cost.trim()} €` : null,
+    !editingApptId && form.type !== "concours" && form.recurrence.mode === "custom" ? "répété" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <View className={`${CARD} gap-3`}>
@@ -188,6 +219,7 @@ export function AppointmentForm({
           ) : null}
         </>
       ) : null}
+      <FormDetails open={showDetails} onToggle={() => setShowDetails((v) => !v)} summary={detailsSummary}>
       <TimePickerField label="Heure" value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
       <Field label="Lieu (optionnel)">
         <TextInput
@@ -320,6 +352,7 @@ export function AppointmentForm({
           )}
         </>
       ) : null}
+      </FormDetails>
       {overLimit ? (
         <Text className="text-xs text-danger">
           {`${createCount} rendez-vous d'un coup, c'est trop (maximum ${MAX_ENTRIES_PER_SUBMIT}) : chacun programme un rappel. Réduis la répétition ou le nombre de chevaux.`}

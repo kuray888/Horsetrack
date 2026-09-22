@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
@@ -10,6 +11,7 @@ import { Locked } from "@/components/Locked";
 import { AttachmentPreview } from "@/agenda/components/AttachmentPreview";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
+import { FormDetails } from "@/components/FormDetails";
 import { needsExplicitHorseChoice, resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import type { Appointment, ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
@@ -56,6 +58,15 @@ export function ExpenseForm({
   onSubmit: () => void;
   onPickPhoto: () => void;
 }) {
+  // Cf. AppointmentForm : hook avant le garde `!show` (le composant reste
+  // monté), et réaligné au passage création ↔ édition.
+  const [showDetails, setShowDetails] = useState(!!editingExpenseId);
+  const [syncedEditingId, setSyncedEditingId] = useState(editingExpenseId);
+  if (editingExpenseId !== syncedEditingId) {
+    setSyncedEditingId(editingExpenseId);
+    setShowDetails(!!editingExpenseId);
+  }
+
   if (!show) {
     return <AddToggle label="Ajouter une dépense" onPress={onOpen} color={colors.primary} />;
   }
@@ -72,6 +83,15 @@ export function ExpenseForm({
   const missingHorseChoice =
     !editingExpenseId && needsExplicitHorseChoice(form.horseIds, selectableHorses, fallbackHorseIds);
   const parsedAmount = Number(form.amount.replace(",", "."));
+  /** Cf. components/FormDetails.tsx : ce qui est replié doit rester lisible
+   * d'un coup d'œil. */
+  const detailsSummary = [
+    form.notes.trim() ? "avec note" : "sans note",
+    form.fileUri ? "facture jointe" : null,
+    form.appointmentId ? "lié à un rendez-vous" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <View className={`${CARD} gap-3`}>
@@ -117,6 +137,7 @@ export function ExpenseForm({
         noun="dépenses"
       />
       <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
+      <FormDetails open={showDetails} onToggle={() => setShowDetails((v) => !v)} summary={detailsSummary}>
       <View className="gap-1.5">
         <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Notes (optionnel)</Text>
         <TextInput
@@ -177,6 +198,7 @@ export function ExpenseForm({
           )}
         </Locked>
       )}
+      </FormDetails>
       <View className="flex-row gap-2">
         <TouchableOpacity onPress={onCancel} className="flex-1 items-center rounded-card border border-border p-4">
           <Text className="text-base font-semibold text-muted">Annuler</Text>
