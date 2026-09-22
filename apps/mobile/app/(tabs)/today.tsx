@@ -7,6 +7,8 @@ import { pushWidgetData } from "@/lib/widgetKit";
 import { ensureNotificationPermission, getNotificationStatus, scheduleWeeklySummary } from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
 import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
+import { useWeather } from "@/weather/store";
+import { sessionWeatherWarning } from "@/weather/sessionWeather";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
@@ -215,6 +217,16 @@ export default function TodayScreen() {
   // seulement le cheval actif — une alerte peut concerner un autre cheval.
   const alerts = useMemo(() => buildHorseAlerts(horses, appointments, todayStart), [horses, appointments, todayStart]);
 
+  // Météo de la prochaine séance : les prévisions étaient déjà là (bandeau
+  // plus bas) et les séances aussi, mais il fallait faire le rapprochement
+  // soi-même. Toutes les séances du cheval affiché, pas seulement celles du
+  // jour — l'intérêt est justement d'anticiper (cf. weather/sessionWeather.ts).
+  const { forecast } = useWeather();
+  const weatherWarning = useMemo(
+    () => sessionWeatherWarning(horseSessions, forecast, today),
+    [horseSessions, forecast, today]
+  );
+
   // Synchronise le widget iOS dès que les données de la journée changent —
   // best-effort, silencieux hors iOS/EAS build (actuellement no-op, cf.
   // lib/widgetKit.ts).
@@ -417,6 +429,26 @@ export default function TodayScreen() {
       <FadeInView delay={52}>
         <SessionDonePrompt session={prompted} onDismiss={dismissPrompt} />
       </FadeInView>
+
+      {/* Météo de la prochaine séance — juste sous « à surveiller » : c'est
+          une information qui peut faire déplacer une séance, donc elle a sa
+          place en haut, contrairement au bandeau de prévisions générales qui
+          reste en bas. */}
+      {weatherWarning ? (
+        <FadeInView delay={54}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/(tabs)/planning")}
+            className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5"
+          >
+            <Text className="text-base">{weatherWarning.icon}</Text>
+            <Text className="flex-1 text-sm text-text">
+              Séance {formatWhen(weatherWarning.date).toLowerCase()} — {weatherWarning.message}.
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </FadeInView>
+      ) : null}
 
       {notifPermission === false ? (
         <FadeInView delay={58}>
