@@ -235,7 +235,17 @@ export default function TodayScreen() {
     cancelExpenseForm,
     handleSubmitExpense,
     handlePickExpensePhoto,
-  } = useExpenseForm({ addExpense, updateExpense, addDocument, linkExpenseDocument, isActiveOrTrialing });
+  } = useExpenseForm({
+    addExpense,
+    updateExpense,
+    addDocument,
+    linkExpenseDocument,
+    isActiveOrTrialing,
+    // Explicitement le cheval affiché par cet écran, plutôt que de laisser le
+    // store retomber sur le cheval actif : c'est le même ici, mais le dire
+    // garde le rattachement lisible depuis l'écran (cf. HorseTargetNotice).
+    horse: horse ?? null,
+  });
 
   const {
     showJournalForm,
@@ -247,7 +257,7 @@ export default function TodayScreen() {
     cancelJournalForm,
     handleSubmitJournalEntry,
     handlePickJournalPhoto,
-  } = useJournalForm({ addJournalEntry, updateJournalEntry, onEditStart: () => {} });
+  } = useJournalForm({ addJournalEntry, updateJournalEntry, horse: horse ?? null, onEditStart: () => {} });
 
   // Suggestion de rapprochement pour le formulaire de dépense (cf.
   // agenda/meta.ts suggestedAppointmentFor, partagé avec planning.tsx/Horse Hub).
@@ -483,6 +493,7 @@ export default function TodayScreen() {
             setForm={setApptForm}
             editingApptId={editingApptId}
             submitting={submittingAppt}
+            targetHorseName={horse?.name ?? null}
             onOpen={() => setShowApptForm(true)}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}
@@ -497,6 +508,7 @@ export default function TodayScreen() {
             setForm={setExpenseForm}
             editingExpenseId={editingExpenseId}
             suggestedAppointmentFor={suggestedAppointmentFor}
+            targetHorseName={horse?.name ?? null}
             onOpen={() => setShowExpenseForm(true)}
             onCancel={cancelExpenseForm}
             onSubmit={handleSubmitExpense}
@@ -509,6 +521,7 @@ export default function TodayScreen() {
             setForm={setJournalForm}
             editingJournalId={editingJournalId}
             saving={savingJournal}
+            targetHorseName={horse?.name ?? null}
             onOpen={() => setShowJournalForm(true)}
             onCancel={cancelJournalForm}
             onSubmit={handleSubmitJournalEntry}

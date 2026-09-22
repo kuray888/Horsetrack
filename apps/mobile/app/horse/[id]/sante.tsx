@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -31,18 +31,16 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 export default function HorseSanteScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { horses, selectedHorse, selectHorse } = useHorses();
+  const { horses } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
   const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAgenda();
 
   const horse = horses.find((h) => h.id === id);
 
-  // Même garantie que le Horse Hub : consulter cet écran rend ce cheval actif,
-  // pas de double sélection si l'utilisateur veut ensuite agir dessus
-  // (Quick Add, formulaire ci-dessous...).
-  useEffect(() => {
-    if (horse && selectedHorse?.id !== horse.id) selectHorse(horse.id);
-  }, [horse, selectedHorse?.id, selectHorse]);
+  // Consulter cet écran ne change pas le cheval actif global (même règle que
+  // le Horse Hub, cf. app/horse/[id]/index.tsx) : le formulaire de soin vise
+  // déjà `horse` explicitement (cf. useAppointmentForm ci-dessous), donc rien
+  // ici n'a besoin du cheval globalement sélectionné.
 
   const [, setNotifPermission] = useState<boolean | null>(null);
   const {
@@ -132,6 +130,7 @@ export default function HorseSanteScreen() {
             setForm={setApptForm}
             editingApptId={editingApptId}
             submitting={submittingAppt}
+            targetHorseName={horse.name}
             onOpen={startAddAppt}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}

@@ -9,6 +9,7 @@ import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
 import { AttachmentPreview } from "@/agenda/components/AttachmentPreview";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
+import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
 import { resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import type { Appointment, ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
@@ -30,6 +31,7 @@ export function ExpenseForm({
   suggestedAppointmentFor,
   selectableHorses = [],
   fallbackHorseIds = [],
+  targetHorseName = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -47,6 +49,8 @@ export function ExpenseForm({
   /** Cf. AppointmentForm, même rôle et même provenance (useSelectableHorses). */
   selectableHorses?: { id: string; name: string }[];
   fallbackHorseIds?: string[];
+  /** Cf. AppointmentForm : cheval rappelé en tête du formulaire. */
+  targetHorseName?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -70,6 +74,7 @@ export function ExpenseForm({
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
         {editingExpenseId ? "Modifier la dépense" : "Nouvelle dépense"}
       </Text>
+      {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
       <Field label="Catégorie">
         <ChipSelect
           options={Object.entries(EXPENSE_META).map(([value, meta]) => ({

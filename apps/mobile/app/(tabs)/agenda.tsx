@@ -392,6 +392,7 @@ export default function AgendaScreen() {
               submitting={submittingAppt}
               selectableHorses={selectableHorses}
               fallbackHorseIds={horse ? [horse.id] : []}
+              targetHorseName={horse?.name ?? null}
               onOpen={() => setShowApptForm(true)}
               onCancel={cancelApptForm}
               onSubmit={handleSubmitAppointment}
@@ -605,6 +606,7 @@ export default function AgendaScreen() {
               suggestedAppointmentFor={suggestedAppointmentFor}
               selectableHorses={selectableHorses}
               fallbackHorseIds={horse ? [horse.id] : []}
+              targetHorseName={horse?.name ?? null}
               onOpen={() => setShowExpenseForm(true)}
               onCancel={cancelExpenseForm}
               onSubmit={handleSubmitExpense}

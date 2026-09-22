@@ -1120,6 +1120,7 @@ export default function PlanningScreen() {
             submitting={submittingAppt}
             selectableHorses={selectableHorses}
             fallbackHorseIds={defaultHorseIds}
+            targetHorseName={targetHorse?.name ?? null}
             onOpen={() => setShowApptForm(true)}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}
@@ -1136,6 +1137,7 @@ export default function PlanningScreen() {
             suggestedAppointmentFor={suggestedAppointmentFor}
             selectableHorses={selectableHorses}
             fallbackHorseIds={defaultHorseIds}
+            targetHorseName={targetHorse?.name ?? null}
             onOpen={() => setShowExpenseForm(true)}
             onCancel={cancelExpenseForm}
             onSubmit={handleSubmitExpense}
@@ -1148,6 +1150,7 @@ export default function PlanningScreen() {
             setForm={setJournalForm}
             editingJournalId={editingJournalId}
             saving={savingJournal}
+            targetHorseName={targetHorse?.name ?? null}
             onOpen={() => setShowJournalForm(true)}
             onCancel={cancelJournalForm}
             onSubmit={handleSubmitJournalEntry}

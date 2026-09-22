@@ -3,6 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
+import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
 import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
 import { PrimaryButton } from "@/components/onboarding";
@@ -23,6 +24,7 @@ export function JournalForm({
   setForm,
   editingJournalId,
   saving,
+  targetHorseName = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -33,6 +35,8 @@ export function JournalForm({
   setForm: (updater: (f: JournalFormValue) => JournalFormValue) => void;
   editingJournalId: string | null;
   saving: boolean;
+  /** Cf. AppointmentForm : cheval rappelé en tête du formulaire. */
+  targetHorseName?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -47,6 +51,7 @@ export function JournalForm({
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
         {editingJournalId ? "Modifier l'entrée de journal" : "Nouvelle entrée de journal"}
       </Text>
+      <HorseTargetNotice horseName={targetHorseName} />
       <Field label="Activité">
         <ChipSelect
           options={Object.entries(ACTIVITY_META).map(([value, meta]) => ({

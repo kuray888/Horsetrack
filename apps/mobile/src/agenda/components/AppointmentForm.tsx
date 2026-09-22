@@ -8,6 +8,7 @@ import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
 import { RecurrenceField } from "@/components/RecurrenceField";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
+import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
 import { AmountModeField } from "@/agenda/components/AmountModeField";
 import { MAX_ENTRIES_PER_SUBMIT, resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import { computeRecurrenceDates } from "@/lib/recurrence";
@@ -33,6 +34,7 @@ export function AppointmentForm({
   submitting,
   selectableHorses = [],
   fallbackHorseIds = [],
+  targetHorseName = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -54,6 +56,10 @@ export function AppointmentForm({
   /** Chevaux visés tant que rien n'est coché : le cheval actif, ou tous les
    * chevaux proposables en vue « Tous » du Planning. */
   fallbackHorseIds?: string[];
+  /** Cheval auquel l'entrée sera rattachée, à rappeler en tête du formulaire
+   * (cf. HorseTargetNotice). Omis quand le sélecteur multi-chevaux s'affiche :
+   * les cases cochées le disent déjà. */
+  targetHorseName?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -91,6 +97,7 @@ export function AppointmentForm({
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
         {editingApptId ? "Modifier le rendez-vous" : "Nouveau rendez-vous"}
       </Text>
+      {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
       <Field label="Type de rendez-vous">
         <ChipSelect
           options={Object.entries(APPT_META).map(([value, meta]) => ({

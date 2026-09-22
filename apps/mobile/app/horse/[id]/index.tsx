@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Share, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -50,7 +50,7 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 export default function HorseHubScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { horses, selectedHorse, selectHorse } = useHorses();
+  const { horses, selectHorse } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
   const { sessions } = useSessions();
   const { measurements } = useWeight();
@@ -73,14 +73,19 @@ export default function HorseHubScreen() {
   const horse = horses.find((h) => h.id === id);
   const isOwner = !!horse && !horse.sharedRole;
 
-  // Le cheval consulté ici devient le cheval actif global — même mécanisme
-  // partout ailleurs (Chevaux, today.tsx…), pas de deuxième logique de
-  // sélection. Nécessaire aussi pour la cohérence : addAppointment/
-  // addExpense/addJournalEntry (cf. agenda/store.tsx) rattachent toujours au
-  // cheval globalement sélectionné, jamais à un paramètre d'écran.
-  useEffect(() => {
-    if (horse && selectedHorse?.id !== horse.id) selectHorse(horse.id);
-  }, [horse, selectedHorse?.id, selectHorse]);
+  /** Consulter une fiche ne change PLUS le cheval actif global : ouvrir la
+   * fiche de B depuis une alerte de l'Accueil recadrait silencieusement
+   * Accueil/Planning/Agenda sur B, et il fallait s'en apercevoir en revenant
+   * sur l'onglet. Deux conséquences, traitées dans cet écran :
+   *
+   * 1. Les créations de cette fiche visent `horse` EXPLICITEMENT (cf. les
+   *    trois hooks plus bas, qui le reçoivent en paramètre) au lieu de
+   *    compter sur le cheval globalement sélectionné.
+   * 2. Les cartes qui renvoient vers un onglet cadré sur le cheval actif
+   *    (cf. `focusThisHorse`, après le garde `!horse`) le sélectionnent AVANT de
+   *    naviguer : le changement de contexte devient le résultat visible d'un
+   *    appui, sur un écran qui affiche HorseSwitcher et le nom du cheval —
+   *    plus un effet de bord du simple fait d'avoir regardé une fiche. */
 
   // notifPermission n'est utile qu'à scheduleApptReminder (cf.
   // useAppointmentForm) — cet écran n'affiche pas de bannière dessus,
@@ -119,7 +124,16 @@ export default function HorseHubScreen() {
     cancelExpenseForm,
     handleSubmitExpense,
     handlePickExpensePhoto,
-  } = useExpenseForm({ addExpense, updateExpense, addDocument, linkExpenseDocument, isActiveOrTrialing });
+  } = useExpenseForm({
+    addExpense,
+    updateExpense,
+    addDocument,
+    linkExpenseDocument,
+    isActiveOrTrialing,
+    // Cf. openTab plus haut : cette fiche ne change pas le cheval actif, donc
+    // elle doit dire elle-même sur quel cheval elle écrit.
+    horse: horse ?? null,
+  });
 
   const {
     showJournalForm,
@@ -131,7 +145,7 @@ export default function HorseHubScreen() {
     cancelJournalForm,
     handleSubmitJournalEntry,
     handlePickJournalPhoto,
-  } = useJournalForm({ addJournalEntry, updateJournalEntry, onEditStart: () => {} });
+  } = useJournalForm({ addJournalEntry, updateJournalEntry, horse: horse ?? null, onEditStart: () => {} });
 
   if (!horse) {
     return (
@@ -160,6 +174,14 @@ export default function HorseHubScreen() {
     .filter((g) => g.horseId === horse.id)
     .sort((a, b) => (a.targetDate?.getTime() ?? Infinity) - (b.targetDate?.getTime() ?? Infinity))[0] ?? null;
   const horseSessions = sessions.filter((s) => s.horseId === horse.id);
+
+  /** Rend ce cheval actif — appelé AVANT de partir vers un onglet cadré sur
+   * le cheval actif (cf. le commentaire en tête de l'écran), jamais au simple
+   * montage. Les `router.dismissTo` restent écrits sur place : seul
+   * `dismissTo` retrouve l'instance "(tabs)" déjà montée au lieu d'en empiler
+   * une seconde (cf. horseHubNavigation.test.ts), et l'inliner garde le
+   * chemin littéral typé par expo-router. */
+  const focusThisHorse = () => selectHorse(horse.id);
 
   // Suggestion de rapprochement pour le formulaire de dépense (cf.
   // agenda/meta.ts suggestedAppointmentFor, partagé avec today.tsx/planning.tsx).
@@ -207,12 +229,13 @@ export default function HorseHubScreen() {
     switch (option) {
       case "seance":
         // ?openForm=session ouvre directement le formulaire de création dans
-        // Planning ; le cheval actif (selectedHorse) est déjà celui de ce Hub
-        // (cf. l'effet ci-dessus qui synchronise selectHorse au montage). `ts`
-        // rend chaque appui unique (cf. son commentaire dans planning.tsx) :
-        // sans lui, rouvrir le formulaire une deuxième fois depuis ce Hub ne
-        // faisait rien si Planning était resté monté avec la même valeur
-        // "session" depuis la visite précédente.
+        // Planning. `focusThisHorse` d'abord (même raison que les cartes de
+        // modules) : Planning cadre son formulaire sur le cheval actif, et ce
+        // Hub ne le sélectionne plus à l'ouverture. `ts` rend chaque appui unique (cf. son commentaire dans
+        // planning.tsx) : sans lui, rouvrir le formulaire une deuxième fois
+        // depuis ce Hub ne faisait rien si Planning était resté monté avec la
+        // même valeur "session" depuis la visite précédente.
+        focusThisHorse();
         router.dismissTo({ pathname: "/(tabs)/planning", params: { openForm: "session", ts: String(Date.now()) } });
         return;
       case "soin":
@@ -331,7 +354,10 @@ export default function HorseHubScreen() {
           // journal/agenda plus bas, même correctif). Le cheval actif est
           // déjà synchronisé par l'effet du Horse Hub ci-dessus, donc rien à
           // refaire ici.
-          onPress={() => router.dismissTo("/(tabs)/planning?filter=session")}
+          onPress={() => {
+            focusThisHorse();
+            router.dismissTo("/(tabs)/planning?filter=session");
+          }}
         />
       </FadeInView>
       <FadeInView delay={120}>
@@ -340,7 +366,10 @@ export default function HorseHubScreen() {
           iconColor={colors.accent}
           title="Concours"
           value={concoursValue}
-          onPress={() => router.dismissTo("/(tabs)/planning?filter=concours")}
+          onPress={() => {
+            focusThisHorse();
+            router.dismissTo("/(tabs)/planning?filter=concours");
+          }}
         />
       </FadeInView>
       <FadeInView delay={140}>
@@ -349,7 +378,10 @@ export default function HorseHubScreen() {
           iconColor={colors.primary}
           title="Journal"
           value={journalValue}
-          onPress={() => router.dismissTo(`/(tabs)/journal?horse=${horse.id}`)}
+          onPress={() => {
+            focusThisHorse();
+            router.dismissTo(`/(tabs)/journal?horse=${horse.id}`);
+          }}
         />
       </FadeInView>
       <FadeInView delay={160}>
@@ -358,7 +390,10 @@ export default function HorseHubScreen() {
           iconColor={colors.success}
           title="Budget"
           value={budgetValue}
-          onPress={() => router.dismissTo("/(tabs)/agenda?section=finances")}
+          onPress={() => {
+            focusThisHorse();
+            router.dismissTo("/(tabs)/agenda?section=finances");
+          }}
         />
       </FadeInView>
       <FadeInView delay={180}>
@@ -367,7 +402,10 @@ export default function HorseHubScreen() {
           iconColor={colors.primary}
           title="Documents"
           value={documentsValue}
-          onPress={() => router.dismissTo("/(tabs)/agenda?section=documents")}
+          onPress={() => {
+            focusThisHorse();
+            router.dismissTo("/(tabs)/agenda?section=documents");
+          }}
         />
       </FadeInView>
       <FadeInView delay={195}>
@@ -388,6 +426,7 @@ export default function HorseHubScreen() {
             setForm={setApptForm}
             editingApptId={editingApptId}
             submitting={submittingAppt}
+            targetHorseName={horse.name}
             onOpen={() => setShowApptForm(true)}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}
@@ -405,6 +444,7 @@ export default function HorseHubScreen() {
             setForm={setExpenseForm}
             editingExpenseId={editingExpenseId}
             suggestedAppointmentFor={suggestedAppointmentFor}
+            targetHorseName={horse.name}
             onOpen={() => setShowExpenseForm(true)}
             onCancel={cancelExpenseForm}
             onSubmit={handleSubmitExpense}
@@ -420,6 +460,7 @@ export default function HorseHubScreen() {
             setForm={setJournalForm}
             editingJournalId={editingJournalId}
             saving={savingJournal}
+            targetHorseName={horse.name}
             onOpen={() => setShowJournalForm(true)}
             onCancel={cancelJournalForm}
             onSubmit={handleSubmitJournalEntry}
