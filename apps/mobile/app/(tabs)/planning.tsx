@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -353,11 +353,17 @@ export default function PlanningScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm());
-  // Verrou de soumission : handleSubmit est synchrone et ferme le formulaire,
-  // mais deux appuis rapprochés passent tous les deux avant le rendu suivant
-  // — soit deux séances identiques, impossibles à distinguer ensuite. Même
-  // rôle que `submittingAppt` côté rendez-vous.
-  const [savingSession, setSavingSession] = useState(false);
+  /** Verrou de soumission. handleSubmit est synchrone : deux appuis
+   * rapprochés sur « Ajouter » sont deux événements distincts qui lisent tous
+   * deux l'état d'avant le rendu suivant, et créent deux séances identiques
+   * — indiscernables ensuite, et à supprimer une par une. Une ref, et non un
+   * state : seule une écriture immédiatement visible protège la fenêtre entre
+   * les deux appuis (un setState ne serait lu qu'au rendu suivant).
+   *
+   * Il n'est PAS relâché après une soumission réussie — le formulaire est
+   * alors fermé — mais à chaque (ré)ouverture, ainsi qu'à l'annulation (cf.
+   * openCreateForm/openEditForm) et si la soumission a été refusée. */
+  const sessionSubmitLock = useRef(false);
   // Détails facultatifs (heure, intensité, répétition, notes) repliés par
   // défaut : la saisie courante tient dans type + date + durée, et déplier
   // reste à un appui. L'état vit ici et non dans `form` : il ne décrit pas la
@@ -673,6 +679,7 @@ export default function PlanningScreen() {
   if (filterParam !== formsResetForFilterParam) {
     setFormsResetForFilterParam(filterParam);
     if (isNewPlanningDestination(formsResetForFilterParam, filterParam)) {
+      sessionSubmitLock.current = false;
       setShowForm(false);
       setEditingId(null);
       setForm(emptyForm());
@@ -725,6 +732,7 @@ export default function PlanningScreen() {
   }
 
   function openCreateForm(date?: Date) {
+    sessionSubmitLock.current = false;
     setEditingId(null);
     setForm(date ? { ...emptyForm(), date } : emptyForm());
     setShowSessionDetails(false);
@@ -732,6 +740,7 @@ export default function PlanningScreen() {
   }
 
   function openEditForm(session: TrainingSession) {
+    sessionSubmitLock.current = false;
     setEditingId(session.id);
     setForm(formFromSession(session));
     setExpandedId(null);
@@ -742,20 +751,18 @@ export default function PlanningScreen() {
   }
 
   function handleSubmit() {
-    if (!form.date || savingSession) return;
-    setSavingSession(true);
-    try {
-      submitSession();
-    } finally {
-      setSavingSession(false);
-    }
+    if (sessionSubmitLock.current) return;
+    sessionSubmitLock.current = true;
+    // Refusée (date manquante, aucun cheval visé, plafond dépassé) : rien n'a
+    // été écrit et le formulaire reste ouvert, donc le bouton doit redevenir
+    // utilisable une fois la saisie corrigée.
+    if (!submitSession()) sessionSubmitLock.current = false;
   }
 
-  /** Corps de handleSubmit, séparé pour que le verrou `savingSession` couvre
-   * TOUS les chemins de sortie (retours anticipés compris) sans avoir à le
-   * relâcher à la main devant chaque `return`. */
-  function submitSession() {
-    if (!form.date) return;
+  /** Corps de handleSubmit. Retourne `false` sur chacun de ses refus, pour
+   * que le verrou ci-dessus sache s'il doit être relâché. */
+  function submitSession(): boolean {
+    if (!form.date) return false;
     // `activityType` reste la valeur technique déjà choisie (jamais "Autre") ;
     // `customActivityLabel` ne porte le texte que si "Autre" est réellement
     // sélectionné — même règle que Goal.type/customType.
@@ -763,7 +770,7 @@ export default function PlanningScreen() {
     let hiddenNames: string[] = [];
     if (editingId) {
       const existing = horseSessions.find((s) => s.id === editingId);
-      if (!existing) return;
+      if (!existing) return false;
       updateSession({
         ...existing,
         activityType: form.activityType,
@@ -792,7 +799,7 @@ export default function PlanningScreen() {
       // « Tous », aucun cheval n'est visé tant que rien n'est coché.
       if (missingHorseChoice) {
         Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer cette séance.");
-        return;
+        return false;
       }
       const sessionTargets = sessionHorseIds.length > 0 ? sessionHorseIds : [targetHorse?.id ?? null];
       // Une séance déjà faite décrit un fait passé : la répéter dans le futur
@@ -811,7 +818,7 @@ export default function PlanningScreen() {
           "Trop de séances d'un coup",
           `Une création est limitée à ${MAX_ENTRIES_PER_SUBMIT} séances (chevaux × répétitions). Réduis la répétition ou le nombre de chevaux.`
         );
-        return;
+        return false;
       }
       // Chevaux AFFICHÉS, et non cible par défaut : en vue « Tous » celle-ci
       // est vide alors que la vue montre toute l'écurie (cf. targetsOutsideView).
@@ -852,6 +859,7 @@ export default function PlanningScreen() {
     // perdue : on le dit (cf. hiddenTargetsMessage). L'alerte prime sur la
     // confirmation discrète ci-dessus, elle demande un accusé de réception.
     if (hiddenNames.length > 0) Alert.alert("Séance enregistrée", hiddenTargetsMessage(hiddenNames));
+    return true;
   }
 
   function handleDuplicate(session: TrainingSession) {
@@ -896,6 +904,18 @@ export default function PlanningScreen() {
       ? 1
       : Math.max(1, resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds).length);
   const sessionCreateCount = sessionOccurrenceCount * sessionHorseCount;
+  /** Ce que contiennent les détails repliés, résumé sur la ligne qui les
+   * déplie. Les replier ne doit pas rendre invisible ce qui sera enregistré :
+   * l'intensité est préremplie (« Modérée »), et une séance partirait avec
+   * cette valeur sans que rien à l'écran ne l'ait montrée. */
+  const sessionDetailsSummary = [
+    form.time.trim() ? form.time.trim() : "sans heure",
+    `intensité ${INTENSITY_META[form.intensity].label.toLowerCase()}`,
+    form.notes.trim() ? "avec note" : "sans note",
+    !editingId && !form.completed && form.recurrence.mode === "custom" ? "répétée" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   // Vue « Tous » sans aucune case cochée : rien n'est visé, le bouton reste
   // désactivé (même règle que les formulaires rendez-vous/dépense).
   const missingHorseChoice = !editingId && needsExplicitHorseChoice(form.horseIds, selectableHorses, defaultHorseIds);
@@ -1226,8 +1246,8 @@ export default function PlanningScreen() {
                 size={18}
                 color={colors.textMuted}
               />
-              <Text className="text-sm font-semibold text-muted">
-                {showSessionDetails ? "Masquer les détails" : "Heure, intensité, notes…"}
+              <Text className="flex-1 text-sm font-semibold text-muted" numberOfLines={1}>
+                {showSessionDetails ? "Masquer les détails" : sessionDetailsSummary}
               </Text>
             </TouchableOpacity>
             {showSessionDetails ? (
@@ -1275,6 +1295,7 @@ export default function PlanningScreen() {
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => {
+                  sessionSubmitLock.current = false;
                   setShowForm(false);
                   setEditingId(null);
                   setForm(emptyForm());
@@ -1287,17 +1308,15 @@ export default function PlanningScreen() {
               <View className="flex-1">
                 <PrimaryButton
                   label={
-                    savingSession
-                      ? "Un instant…"
-                      : editingId
-                        ? "Enregistrer"
-                        : sessionCreateCount > 1
-                          ? `Ajouter (×${sessionCreateCount})`
-                          : form.completed
-                            ? "Enregistrer la séance"
-                            : "Planifier"
+                    editingId
+                      ? "Enregistrer"
+                      : sessionCreateCount > 1
+                        ? `Ajouter (×${sessionCreateCount})`
+                        : form.completed
+                          ? "Enregistrer la séance"
+                          : "Planifier"
                   }
-                  disabled={!form.date || sessionOverLimit || missingHorseChoice || savingSession}
+                  disabled={!form.date || sessionOverLimit || missingHorseChoice}
                   onPress={handleSubmit}
                 />
               </View>

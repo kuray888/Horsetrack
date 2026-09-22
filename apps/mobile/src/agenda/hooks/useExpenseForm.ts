@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert } from "react-native";
 import { formatDate } from "@/lib/dateFormat";
 import { chooseAndPickDocument } from "@/lib/imagePicker";
@@ -77,8 +77,26 @@ export function useExpenseForm({
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  /** Verrou de soumission — handleSubmitExpense est entièrement synchrone :
+   * deux appuis rapprochés sur « Ajouter » lisent tous deux l'état d'avant le
+   * rendu suivant et créent deux dépenses identiques, qui gonflent le budget
+   * du mois sans qu'on voie pourquoi. Une ref, pas un state : un setState ne
+   * serait lu qu'au rendu suivant, trop tard. Relâché à l'OUVERTURE du
+   * formulaire (cf. openExpenseForm/startEditExpense) et quand la soumission
+   * a été refusée — surtout pas à sa fermeture : `cancelExpenseForm` est
+   * justement ce qui termine un enregistrement réussi, et le relâcher là
+   * rouvrirait la fenêtre qu'on ferme. */
+  const submitLock = useRef(false);
+
+  /** Setter exposé à la place de `setShowExpenseForm` : ouvrir le formulaire
+   * est le seul moment où une nouvelle soumission redevient légitime. */
+  function openExpenseForm(next: boolean) {
+    if (next) submitLock.current = false;
+    setShowExpenseForm(next);
+  }
 
   function startEditExpense(expense: Expense) {
+    submitLock.current = false;
     setEditingExpenseId(expense.id);
     setExpenseForm({
       category: expense.category,
@@ -105,9 +123,11 @@ export function useExpenseForm({
   }
 
   function handleSubmitExpense() {
+    if (submitLock.current) return;
     const date = expenseForm.date;
     const amount = Number(expenseForm.amount.replace(",", "."));
     if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    submitLock.current = true;
 
     let hiddenNames: string[] = [];
     if (editingExpenseId) {
@@ -131,6 +151,9 @@ export function useExpenseForm({
       // les rendez-vous : la vue « Tous » ne désigne aucun cheval par défaut.
       if (needsExplicitHorseChoice(expenseForm.horseIds, selectableHorses, fallbackIds)) {
         Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer cette dépense.");
+        // Rien n'a été écrit et le formulaire reste ouvert : le bouton doit
+        // redevenir utilisable une fois un cheval coché.
+        submitLock.current = false;
         return;
       }
       // La facture jointe devient un document du coffre-fort (catégorie
@@ -210,7 +233,7 @@ export function useExpenseForm({
 
   return {
     showExpenseForm,
-    setShowExpenseForm,
+    setShowExpenseForm: openExpenseForm,
     expenseForm,
     setExpenseForm,
     editingExpenseId,
