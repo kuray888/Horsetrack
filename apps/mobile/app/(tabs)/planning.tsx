@@ -23,6 +23,7 @@ import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import {
   hiddenTargetsMessage,
   MAX_ENTRIES_PER_SUBMIT,
+  needsExplicitHorseChoice,
   resolveTargetHorseIds,
   shouldOfferHorseChoice,
   targetsOutsideView,
@@ -303,15 +304,16 @@ export default function PlanningScreen() {
   const targetHorse = filterHorse ?? selectedHorse;
   const showingAllHorses = activeFilterId === null;
   // Cible par défaut d'une création tant que rien n'est coché dans le
-  // formulaire : TOUS les chevaux proposables quand la puce « Tous » est
-  // posée, sinon le cheval ciblé (filtre, ou cheval actif). Sélectionner
-  // « Tous » puis enregistrer une séance doit la créer pour tous — pas pour
-  // le seul cheval actif (bug du 2026-09-20). Le sélecteur du formulaire
-  // permet ensuite d'en décocher.
+  // formulaire : le cheval ciblé (filtre, ou cheval actif), et AUCUN en vue
+  // « Tous ». Cette vue mêle l'écurie entière sans désigner personne : y
+  // créer sans rien cocher voudrait dire soit le seul cheval actif (bug du
+  // 2026-09-20), soit tous — une poignée d'entrées créées d'un appui, que la
+  // suppression ne reprend qu'une par une. On demande donc de cocher (le
+  // sélecteur est de toute façon affiché, cf. shouldOfferHorseChoice, et la
+  // soumission refuse tant que rien ne l'est).
   const defaultHorseIds = useMemo(
-    () =>
-      showingAllHorses ? selectableHorses.map((h) => h.id) : targetHorse ? [targetHorse.id] : [],
-    [showingAllHorses, selectableHorses, targetHorse]
+    () => (showingAllHorses ? [] : targetHorse ? [targetHorse.id] : []),
+    [showingAllHorses, targetHorse]
   );
   const { isActiveOrTrialing } = useSubscription();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
@@ -416,6 +418,14 @@ export default function PlanningScreen() {
   // horses/selectableHorses.ts), et pas la liste brute : une entrée d'un
   // cheval verrouillé par le palier gratuit n'a pas à réapparaître ici.
   const selectableHorseIds = useMemo(() => selectableHorses.map((h) => h.id), [selectableHorses]);
+  // Chevaux dont la liste ci-dessous affiche les événements — l'écurie
+  // proposable en vue « Tous », le cheval ciblé sinon. Distinct de
+  // `defaultHorseIds` (vide en vue « Tous ») : sert à savoir si une entrée
+  // créée sera visible ici ou semblera perdue (cf. targetsOutsideView).
+  const visibleHorseIds = useMemo(
+    () => (activeFilterId ? [activeFilterId] : selectableHorseIds),
+    [activeFilterId, selectableHorseIds]
+  );
   const horseSessions = useMemo(
     () =>
       sessions.filter((s) =>
@@ -560,6 +570,7 @@ export default function PlanningScreen() {
     horse: targetHorse ?? null,
     selectableHorses,
     defaultHorseIds,
+    visibleHorseIds,
     appointments,
     addAppointment,
     updateAppointment,
@@ -586,6 +597,7 @@ export default function PlanningScreen() {
     horse: targetHorse ?? null,
     selectableHorses,
     defaultHorseIds,
+    visibleHorseIds,
   });
 
   const {
@@ -724,6 +736,12 @@ export default function PlanningScreen() {
       const sessionHorseIds = shouldOfferHorseChoice(selectableHorses, defaultHorseIds)
         ? resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds)
         : defaultHorseIds;
+      // Ceinture du bouton désactivé (cf. missingHorseChoice) : en vue
+      // « Tous », aucun cheval n'est visé tant que rien n'est coché.
+      if (missingHorseChoice) {
+        Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer cette séance.");
+        return;
+      }
       const sessionTargets = sessionHorseIds.length > 0 ? sessionHorseIds : [targetHorse?.id ?? null];
       const occurrenceDates = computeRecurrenceDates(form.date, form.recurrence);
       // Même garde-fou que pour les rendez-vous (cf. MAX_ENTRIES_PER_SUBMIT).
@@ -740,7 +758,9 @@ export default function PlanningScreen() {
         );
         return;
       }
-      hiddenNames = targetsOutsideView(sessionHorseIds, defaultHorseIds).map(
+      // Chevaux AFFICHÉS, et non cible par défaut : en vue « Tous » celle-ci
+      // est vide alors que la vue montre toute l'écurie (cf. targetsOutsideView).
+      hiddenNames = targetsOutsideView(sessionHorseIds, visibleHorseIds).map(
         (id) => selectableHorses.find((h) => h.id === id)?.name ?? "un autre cheval"
       );
       for (const sessionHorseId of sessionTargets) {
@@ -808,6 +828,9 @@ export default function PlanningScreen() {
       ? 1
       : Math.max(1, resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds).length);
   const sessionCreateCount = sessionOccurrenceCount * sessionHorseCount;
+  // Vue « Tous » sans aucune case cochée : rien n'est visé, le bouton reste
+  // désactivé (même règle que les formulaires rendez-vous/dépense).
+  const missingHorseChoice = !editingId && needsExplicitHorseChoice(form.horseIds, selectableHorses, defaultHorseIds);
   // Cf. handleSubmit : au-delà, la soumission refuse. Le bouton le dit avant,
   // plutôt que de laisser l'utilisateur buter sur une alerte (même traitement
   // que le formulaire de rendez-vous, cf. AppointmentForm `overLimit`).
@@ -1105,7 +1128,7 @@ export default function PlanningScreen() {
                   label={
                     editingId ? "Enregistrer" : sessionCreateCount > 1 ? `Ajouter (×${sessionCreateCount})` : "Ajouter"
                   }
-                  disabled={!form.date || sessionOverLimit}
+                  disabled={!form.date || sessionOverLimit || missingHorseChoice}
                   onPress={handleSubmit}
                 />
               </View>

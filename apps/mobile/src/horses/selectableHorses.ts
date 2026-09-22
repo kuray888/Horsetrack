@@ -65,13 +65,18 @@ export const MAX_ENTRIES_PER_SUBMIT = 52;
  * explicite de l'utilisateur s'il en a fait un, sinon `fallbackIds`.
  *
  * `fallbackIds` est la cible PAR DÉFAUT de l'écran appelant, et c'est lui qui
- * porte la différence entre les deux vues du Planning : le cheval actif seul
- * quand un cheval est ciblé, TOUS les chevaux proposables quand la puce
- * « Tous » est posée (« je sélectionne Tous pour enregistrer une séance »
- * doit vouloir dire tous, pas le cheval actif — cf. bug du 2026-09-20). Il
- * n'est volontairement PAS filtré sur `selectable` : le cheval actif peut être
- * un cheval partagé, absent de la liste proposable, et doit garder le
- * comportement d'origine.
+ * porte la différence entre les deux vues du Planning : le cheval ciblé quand
+ * une puce de cheval est posée, AUCUNE cible par défaut (tableau vide) quand
+ * la puce « Tous » l'est. Écrire d'un coup sur toute l'écurie reste possible,
+ * mais se coche : une vue qui mêle plusieurs chevaux ne dit pas lequel on
+ * vise, et prendre « Tous » pour une cible créait en un appui autant
+ * d'entrées que de chevaux — irréversible en bloc, chaque entrée devant
+ * ensuite être supprimée une par une. Le formulaire exige donc une sélection
+ * (cf. `needsExplicitHorseChoice`, qui bloque la soumission).
+ *
+ * `fallbackIds` n'est volontairement PAS filtré sur `selectable` : le cheval
+ * actif peut être un cheval partagé, absent de la liste proposable, et doit
+ * garder le comportement d'origine.
  *
  * Un tableau `explicitIds` vide signifie « aucun choix explicite » et non
  * « aucun cheval », ce qui permet à tous les écrans qui n'affichent pas le
@@ -89,6 +94,27 @@ export function resolveTargetHorseIds(
   return allowed.length > 0 ? allowed : fallbackIds;
 }
 
+/** La soumission doit-elle être refusée faute de cheval visé ? Vrai
+ * uniquement quand le sélecteur est proposé ET que rien n'est coché — c'est
+ * le cas de la vue « Tous » du Planning, dont la cible par défaut est vide
+ * depuis qu'une création y exige un choix explicite (cf.
+ * resolveTargetHorseIds). Partout ailleurs `fallbackIds` porte au moins un
+ * cheval, donc faux : les écrans cadrés sur un cheval ne changent pas.
+ *
+ * Une seule fonction pour les deux usages, sinon le bouton et la soumission
+ * dériveraient : le formulaire désactive son bouton dessus, et la soumission
+ * s'en sert de ceinture (cf. useAppointmentForm/useExpenseForm/planning.tsx). */
+export function needsExplicitHorseChoice(
+  explicitIds: string[],
+  selectable: ChosenHorse[],
+  fallbackIds: string[]
+): boolean {
+  return (
+    shouldOfferHorseChoice(selectable, fallbackIds) &&
+    resolveTargetHorseIds(explicitIds, selectable, fallbackIds).length === 0
+  );
+}
+
 /** Applique un clic sur la puce d'un cheval. Refuse de tout décocher : un
  * formulaire sans aucun cheval ne pourrait rien créer, et laisser
  * l'utilisateur y arriver pour lui refuser ensuite la soumission serait une
@@ -104,7 +130,10 @@ export function toggleHorseId(current: string[], horseId: string, fallbackIds: s
 
 /** Chevaux visés qui n'apparaîtront PAS dans la vue de l'écran qui les crée —
  * `visibleIds` étant ce que la liste affiche (le cheval actif dans Agenda, tous
- * ou le cheval filtré dans Planning). Sert à prévenir l'utilisateur : une
+ * les proposables ou le cheval filtré dans Planning). Distinct de
+ * `fallbackIds`, qui est vide en vue « Tous » alors que cette vue affiche
+ * justement tout : les confondre ferait annoncer « créé pour un cheval absent
+ * de cette vue » pour une entrée parfaitement visible. Sert à prévenir l'utilisateur : une
  * entrée créée pour un autre cheval que celui affiché disparaît sinon
  * silencieusement, comme si l'enregistrement avait échoué. */
 export function targetsOutsideView(targetIds: string[], visibleIds: string[]): string[] {

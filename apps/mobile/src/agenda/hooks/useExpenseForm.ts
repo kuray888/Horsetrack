@@ -7,6 +7,7 @@ import { EXPENSE_META } from "@/agenda/meta";
 import { amountsForHorses, type AmountMode } from "@/agenda/splitAmount";
 import {
   hiddenTargetsMessage,
+  needsExplicitHorseChoice,
   resolveTargetHorseIds,
   shouldOfferHorseChoice,
   targetsOutsideView,
@@ -54,6 +55,7 @@ export function useExpenseForm({
   horse = null,
   selectableHorses = [],
   defaultHorseIds,
+  visibleHorseIds,
 }: {
   addExpense: AgendaActions["addExpense"];
   updateExpense: AgendaActions["updateExpense"];
@@ -66,8 +68,11 @@ export function useExpenseForm({
   /** Chevaux proposables pour créer la même dépense d'un coup (cf.
    * useSelectableHorses). Vide = pas de sélecteur, rien ne change. */
   selectableHorses?: Horse[];
-  /** Cf. useAppointmentForm : cible par défaut, sinon `horse`. */
+  /** Cf. useAppointmentForm : cible par défaut, sinon `horse`. Vide en vue
+   * « Tous » du Planning, où la sélection doit être explicite. */
   defaultHorseIds?: string[];
+  /** Cf. useAppointmentForm : chevaux affichés par l'écran. */
+  visibleHorseIds?: string[];
 }) {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
@@ -122,6 +127,12 @@ export function useExpenseForm({
       const targetHorseIds = shouldOfferHorseChoice(selectableHorses, fallbackIds)
         ? resolveTargetHorseIds(expenseForm.horseIds, selectableHorses, fallbackIds)
         : fallbackIds;
+      // Ceinture du bouton désactivé (cf. ExpenseForm) — même règle que pour
+      // les rendez-vous : la vue « Tous » ne désigne aucun cheval par défaut.
+      if (needsExplicitHorseChoice(expenseForm.horseIds, selectableHorses, fallbackIds)) {
+        Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer cette dépense.");
+        return;
+      }
       // La facture jointe devient un document du coffre-fort (catégorie
       // "facture"), lié à la dépense — seulement si Premium (coffre-fort
       // gaté, cf. Locked sur le bouton "Joindre une facture" plus bas) et si
@@ -167,7 +178,7 @@ export function useExpenseForm({
       });
       // Une dépense créée pour un cheval que la liste de cet écran n'affiche
       // pas semblerait perdue : on le dit (cf. hiddenTargetsMessage).
-      hiddenNames = targetsOutsideView(targetHorseIds, fallbackIds).map(
+      hiddenNames = targetsOutsideView(targetHorseIds, visibleHorseIds ?? fallbackIds).map(
         (id) => selectableHorses.find((h) => h.id === id)?.name ?? "un autre cheval"
       );
     }

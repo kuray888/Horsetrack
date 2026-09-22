@@ -16,9 +16,11 @@ import { resolveTargetHorseIds, toggleHorseId } from "@/horses/selectableHorses"
  * créée est une copie indépendante, on ne réaffecte pas après coup.
  *
  * `value` vide signifie « aucun choix explicite », donc `fallbackIds` (cf.
- * resolveTargetHorseIds) : le cheval actif seul, ou tous les chevaux quand
- * l'écran est en vue « Tous ». L'affichage matérialise ce défaut en cochant
- * les chevaux concernés, sans avoir à écrire cet état au montage.
+ * resolveTargetHorseIds) : le cheval ciblé par l'écran, ou AUCUN quand
+ * l'écran est en vue « Tous » — cette vue ne désigne personne, on ne crée
+ * donc pas d'entrées pour toute l'écurie sans les avoir cochées. L'affichage
+ * matérialise ce défaut en cochant les chevaux concernés (aucun en vue
+ * « Tous »), sans avoir à écrire cet état au montage.
  *
  * Distinct de HorseSwitcher, qui change le cheval ACTIF de toute l'app : ici
  * on ne choisit que les destinataires de l'entrée en cours de saisie, rien
@@ -68,6 +70,11 @@ export function HorseMultiSelect({
           );
         })}
       </View>
+      {selectedIds.length === 0 ? (
+        <Text className="text-xs text-muted">
+          Cette vue affiche toute l&apos;écurie : choisis le ou les chevaux concernés.
+        </Text>
+      ) : null}
       {selectedIds.length > 1 ? (
         <Text className="text-xs text-muted">
           {selectedIds.length} entrées distinctes seront créées, une par cheval — les modifier ou les supprimer ensuite

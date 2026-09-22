@@ -10,7 +10,12 @@ import { RecurrenceField } from "@/components/RecurrenceField";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
 import { AmountModeField } from "@/agenda/components/AmountModeField";
-import { MAX_ENTRIES_PER_SUBMIT, resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
+import {
+  MAX_ENTRIES_PER_SUBMIT,
+  needsExplicitHorseChoice,
+  resolveTargetHorseIds,
+  shouldOfferHorseChoice,
+} from "@/horses/selectableHorses";
 import { computeRecurrenceDates } from "@/lib/recurrence";
 import type { ReminderOption } from "@/lib/notifications";
 import type { AppointmentType, CompetitionEntry, CompetitionLevel } from "@/agenda/store";
@@ -91,6 +96,10 @@ export function AppointmentForm({
         );
   const createCount = occurrenceCount * targetHorseCount;
   const overLimit = !editingApptId && createCount > MAX_ENTRIES_PER_SUBMIT;
+  // Vue « Tous » du Planning : aucun cheval visé tant que rien n'est coché
+  // (cf. needsExplicitHorseChoice). Le bouton le dit avant l'appui plutôt que
+  // de laisser buter sur l'alerte de handleSubmitAppointment.
+  const missingHorseChoice = !editingApptId && needsExplicitHorseChoice(form.horseIds, selectableHorses, fallbackHorseIds);
 
   return (
     <View className={`${CARD} gap-3`}>
@@ -331,7 +340,7 @@ export function AppointmentForm({
                     ? `Ajouter (×${createCount})`
                     : "Ajouter"
             }
-            disabled={!form.title.trim() || !form.date || submitting || overLimit}
+            disabled={!form.title.trim() || !form.date || submitting || overLimit || missingHorseChoice}
             onPress={onSubmit}
           />
         </View>

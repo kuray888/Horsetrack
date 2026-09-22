@@ -10,7 +10,7 @@ import { Locked } from "@/components/Locked";
 import { AttachmentPreview } from "@/agenda/components/AttachmentPreview";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
-import { resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
+import { needsExplicitHorseChoice, resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import type { Appointment, ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
 import { AmountModeField } from "@/agenda/components/AmountModeField";
@@ -67,6 +67,10 @@ export function ExpenseForm({
   // Modifier une dépense n'en crée qu'une : jamais de choix de chevaux ni de
   // répartition, même si la cible par défaut de l'écran couvre plusieurs chevaux.
   const targetCount = editingExpenseId ? 1 : Math.max(1, targetIds.length);
+  // Cf. AppointmentForm : en vue « Tous », rien n'est visé tant que rien
+  // n'est coché.
+  const missingHorseChoice =
+    !editingExpenseId && needsExplicitHorseChoice(form.horseIds, selectableHorses, fallbackHorseIds);
   const parsedAmount = Number(form.amount.replace(",", "."));
 
   return (
@@ -180,7 +184,9 @@ export function ExpenseForm({
         <View className="flex-1">
           <PrimaryButton
             label={editingExpenseId ? "Enregistrer" : targetCount > 1 ? `Ajouter (×${targetCount})` : "Ajouter"}
-            disabled={!form.amount.trim() || !form.date || !(Number(form.amount.replace(",", ".")) > 0)}
+            disabled={
+              !form.amount.trim() || !form.date || !(Number(form.amount.replace(",", ".")) > 0) || missingHorseChoice
+            }
             onPress={onSubmit}
           />
         </View>

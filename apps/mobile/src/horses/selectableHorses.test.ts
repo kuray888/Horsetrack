@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hiddenTargetsMessage,
   MAX_ENTRIES_PER_SUBMIT,
+  needsExplicitHorseChoice,
   resolveTargetHorseIds,
   selectableHorses,
   shouldOfferHorseChoice,
@@ -72,13 +73,13 @@ describe("resolveTargetHorseIds", () => {
     expect(resolveTargetHorseIds([], selectable, ["a"])).toEqual(["a"]);
   });
 
-  it("vise tous les chevaux quand la cible par défaut les couvre tous (vue « Tous »)", () => {
-    // Le bug du 2026-09-20 : « Tous » sélectionné, séance enregistrée sur le
-    // seul cheval actif. Le défaut de la vue « Tous » est la liste entière.
+  it("vise tous les chevaux quand la cible par défaut les couvre tous", () => {
     expect(resolveTargetHorseIds([], selectable, ["a", "b", "c"])).toEqual(["a", "b", "c"]);
   });
 
-  it("ne cible rien quand il n'y a ni choix ni cible par défaut", () => {
+  it("ne cible rien quand il n'y a ni choix ni cible par défaut (vue « Tous »)", () => {
+    // La vue « Tous » du Planning ne passe AUCUNE cible par défaut : elle
+    // mêle l'écurie sans désigner personne, la sélection doit être cochée.
     expect(resolveTargetHorseIds([], selectable, [])).toEqual([]);
   });
 
@@ -115,5 +116,45 @@ describe("toggleHorseId", () => {
   it("refuse de tout décocher", () => {
     expect(toggleHorseId(["a"], "a", ["a"])).toEqual(["a"]);
     expect(toggleHorseId([], "a", ["a"])).toEqual(["a"]);
+  });
+});
+
+describe("needsExplicitHorseChoice", () => {
+  const selectable = [owned("a"), owned("b"), owned("c")];
+
+  it("bloque une création en vue « Tous » tant qu'aucun cheval n'est coché", () => {
+    expect(needsExplicitHorseChoice([], selectable, [])).toBe(true);
+  });
+
+  it("laisse passer dès qu'un cheval est coché", () => {
+    expect(needsExplicitHorseChoice(["b"], selectable, [])).toBe(false);
+  });
+
+  it("laisse passer un écran cadré sur un cheval, qui n'a rien à cocher", () => {
+    expect(needsExplicitHorseChoice([], selectable, ["a"])).toBe(false);
+  });
+
+  it("ne bloque jamais quand le sélecteur n'est pas proposé", () => {
+    // Un seul cheval utilisable : aucune case à l'écran, donc rien à exiger.
+    expect(needsExplicitHorseChoice([], [owned("a")], [])).toBe(false);
+    // Écran cadré sur un cheval partagé : sélecteur masqué (cf.
+    // shouldOfferHorseChoice), la création part sur ce cheval comme avant.
+    expect(needsExplicitHorseChoice([], selectable, ["shared-1"])).toBe(false);
+  });
+
+  it("bloque encore si le seul cheval coché n'est plus utilisable", () => {
+    // Fin d'essai Premium ou cheval supprimé ailleurs : la case survit dans
+    // le formulaire, la cible non — on redemande plutôt que de créer ailleurs.
+    expect(needsExplicitHorseChoice(["zzz"], selectable, [])).toBe(true);
+  });
+});
+
+describe("toggleHorseId depuis une vue sans cible par défaut", () => {
+  it("coche le premier cheval choisi en vue « Tous »", () => {
+    expect(toggleHorseId([], "b", [])).toEqual(["b"]);
+  });
+
+  it("refuse toujours de tout décocher une fois un cheval coché", () => {
+    expect(toggleHorseId(["b"], "b", [])).toEqual(["b"]);
   });
 });

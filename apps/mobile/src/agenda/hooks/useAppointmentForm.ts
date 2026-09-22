@@ -13,6 +13,7 @@ import type { Horse } from "@/horses/store";
 import {
   hiddenTargetsMessage,
   MAX_ENTRIES_PER_SUBMIT,
+  needsExplicitHorseChoice,
   resolveTargetHorseIds,
   shouldOfferHorseChoice,
   targetsOutsideView,
@@ -76,6 +77,7 @@ export function useAppointmentForm({
   horse,
   selectableHorses = [],
   defaultHorseIds,
+  visibleHorseIds,
   appointments,
   addAppointment,
   updateAppointment,
@@ -90,9 +92,14 @@ export function useAppointmentForm({
    * cheval — où proposer d'en viser un autre n'aurait aucun sens. */
   selectableHorses?: Horse[];
   /** Chevaux visés tant que l'utilisateur n'a rien coché. Omis : le cheval
-   * `horse`, comme avant. Le Planning y passe tous les chevaux proposables
-   * quand sa puce « Tous » est posée. */
+   * `horse`, comme avant. Le Planning y passe un tableau VIDE quand sa puce
+   * « Tous » est posée — cette vue ne désigne aucun cheval, la sélection y
+   * est donc explicite (cf. resolveTargetHorseIds). */
   defaultHorseIds?: string[];
+  /** Chevaux que la liste de l'écran AFFICHE. Sert uniquement à savoir si une
+   * entrée créée sera visible (cf. targetsOutsideView) ; omis, vaut la cible
+   * par défaut, ce qui reste exact pour tout écran cadré sur un cheval. */
+  visibleHorseIds?: string[];
   appointments: Appointment[];
   addAppointment: AgendaActions["addAppointment"];
   updateAppointment: AgendaActions["updateAppointment"];
@@ -309,6 +316,13 @@ export function useAppointmentForm({
         const targetHorseIds = shouldOfferHorseChoice(selectableHorses, fallbackIds)
           ? resolveTargetHorseIds(apptForm.horseIds, selectableHorses, fallbackIds)
           : fallbackIds;
+        // Ceinture du bouton désactivé (cf. AppointmentForm) : en vue « Tous »,
+        // aucun cheval n'est visé tant que rien n'est coché, et créer sur le
+        // seul cheval actif serait précisément le raccourci qu'on refuse.
+        if (needsExplicitHorseChoice(apptForm.horseIds, selectableHorses, fallbackIds)) {
+          Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer ce rendez-vous.");
+          return;
+        }
         // Le dossard est propre à chaque cheval : le recopier sur toutes les
         // copies attribuerait le même numéro à tous. Il n'est donc gardé que
         // pour un seul cheval ; sinon chacun le renseigne via « Modifier ».
@@ -388,7 +402,7 @@ export function useAppointmentForm({
         }
         // Un rendez-vous créé pour un cheval que la liste de cet écran
         // n'affiche pas semblerait perdu : on le dit (cf. hiddenTargetsMessage).
-        hiddenNames = targetsOutsideView(targetHorseIds, fallbackIds).map(
+        hiddenNames = targetsOutsideView(targetHorseIds, visibleHorseIds ?? fallbackIds).map(
           (id) => horseNameFor(id) ?? "un autre cheval"
         );
       }
