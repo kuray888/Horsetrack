@@ -51,8 +51,13 @@ type SessionsContextValue = {
   /** `horseId` optionnel : sinon, rattaché au cheval globalement sélectionné
    * — même mécanisme que `addAppointment`/`addJournalEntry` (cf.
    * agenda/store.tsx), pour qu'un écran filtré sur un cheval précis (vue
-   * « Tous les chevaux » du Planning) puisse créer là où il affiche. */
-  addSession: (session: NewTrainingSession & { horseId?: string | null }) => void;
+   * « Tous les chevaux » du Planning) puisse créer là où il affiche.
+   *
+   * `completed` optionnel, faux par défaut (comportement d'origine) : une
+   * séance saisie après coup est déjà faite, la cocher ensuite serait un
+   * deuxième geste pour rien (cf. le choix « Déjà faite » du formulaire de
+   * Planning). Même champ que `toggleCompleted`, aucun nouveau modèle. */
+  addSession: (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => void;
   updateSession: (session: TrainingSession) => void;
   deleteSession: (sessionId: string) => void;
   toggleCompleted: (sessionId: string) => void;
@@ -115,13 +120,13 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, [sessions, loaded]);
 
   const addSession = useCallback(
-    (session: NewTrainingSession & { horseId?: string | null }) => {
-      const { horseId: explicitHorseId, ...rest } = session;
+    (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => {
+      const { horseId: explicitHorseId, completed, ...rest } = session;
       const next: TrainingSession = {
         ...rest,
         id: generateId(),
         horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
-        completed: false,
+        completed: completed ?? false,
       };
       setSessions((list) => [...list, next]);
       pushTrainingSession(next).catch(() => {});

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -33,6 +33,7 @@ import { OTHER_OPTION } from "@/onboarding/options";
 import { useAgenda, ACTIVITY_META, type ActivityType, type Appointment, type CompetitionEntry, type ExpenseCategory } from "@/agenda/store";
 import { suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { useSessions, type SessionIntensity, type TrainingSession } from "@/sessions/store";
+import { findPlannedSessionToComplete } from "@/sessions/plannedDuplicate";
 import {
   computeSessionStats,
   startOfMonth as statsMonthStart,
@@ -136,9 +137,17 @@ type SessionForm = {
   notes: string;
   recurrence: Recurrence;
   /** Chevaux visés à la création — vide = « aucun choix explicite », donc la
-   * cible par défaut de la vue (cf. defaultHorseIds : tous en vue « Tous »,
+   * cible par défaut de la vue (cf. defaultHorseIds : aucun en vue « Tous »,
    * sinon le cheval ciblé). Ignoré en édition, comme pour les rendez-vous. */
   horseIds: string[];
+  /** « Planifier » (faux, défaut) ou « Enregistrer une séance faite » (vrai).
+   * Les deux gestes produisent la même TrainingSession — seul `completed`
+   * change (cf. addSession) —, mais ce ne sont pas la même intention : noter
+   * après coup la séance du matin obligeait sinon à créer la séance puis à
+   * la cocher, et rien dans le formulaire ne disait laquelle des deux choses
+   * on était en train de faire. Ignoré en édition : la carte de la séance
+   * garde son propre « Marquer faite » (cf. SessionCard). */
+  completed: boolean;
 };
 
 function emptyForm(): SessionForm {
@@ -153,6 +162,7 @@ function emptyForm(): SessionForm {
     notes: "",
     recurrence: NEVER_RECURRENCE,
     horseIds: [],
+    completed: false,
   };
 }
 
@@ -168,6 +178,7 @@ function formFromSession(session: TrainingSession): SessionForm {
     notes: session.notes,
     recurrence: NEVER_RECURRENCE,
     horseIds: [],
+    completed: session.completed,
   };
 }
 
@@ -342,6 +353,20 @@ export default function PlanningScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm());
+  // Verrou de soumission : handleSubmit est synchrone et ferme le formulaire,
+  // mais deux appuis rapprochés passent tous les deux avant le rendu suivant
+  // — soit deux séances identiques, impossibles à distinguer ensuite. Même
+  // rôle que `submittingAppt` côté rendez-vous.
+  const [savingSession, setSavingSession] = useState(false);
+  // Détails facultatifs (heure, intensité, répétition, notes) repliés par
+  // défaut : la saisie courante tient dans type + date + durée, et déplier
+  // reste à un appui. L'état vit ici et non dans `form` : il ne décrit pas la
+  // séance, et `emptyForm()` le remettrait à zéro entre deux créations.
+  const [showSessionDetails, setShowSessionDetails] = useState(false);
+  // Confirmation d'enregistrement affichée en haut de l'écran quelques
+  // secondes (cf. son rendu plus bas) : le formulaire se contentait de
+  // disparaître, sans dire ce qui avait été créé ni où le retrouver.
+  const [savedNotice, setSavedNotice] = useState<{ text: string } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Filtre initial optionnel (cf. app/horse/[id]/index.tsx, dont les cartes
   // Entraînement/Concours poussent directement ici avec ?filter=... — cf.
@@ -401,6 +426,15 @@ export default function PlanningScreen() {
       openCreateForm();
     }
   }
+  // Efface la confirmation après quelques secondes. L'objet `savedNotice` est
+  // recréé à chaque enregistrement (même texte compris), donc deux séances
+  // ajoutées à la suite relancent bien le compte à rebours.
+  useEffect(() => {
+    if (!savedNotice) return;
+    const timer = setTimeout(() => setSavedNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [savedNotice]);
+
   const [viewMode, setViewMode] = useState<"list" | "month">("list");
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
   const [selectedDay, setSelectedDay] = useState(() => new Date());
@@ -642,6 +676,7 @@ export default function PlanningScreen() {
       setShowForm(false);
       setEditingId(null);
       setForm(emptyForm());
+      setShowSessionDetails(false);
       cancelApptForm();
       cancelExpenseForm();
       cancelJournalForm();
@@ -692,6 +727,7 @@ export default function PlanningScreen() {
   function openCreateForm(date?: Date) {
     setEditingId(null);
     setForm(date ? { ...emptyForm(), date } : emptyForm());
+    setShowSessionDetails(false);
     setShowForm(true);
   }
 
@@ -699,10 +735,26 @@ export default function PlanningScreen() {
     setEditingId(session.id);
     setForm(formFromSession(session));
     setExpandedId(null);
+    // En édition, tout ce qui a été saisi doit rester visible : replier des
+    // champs déjà renseignés les ferait passer pour perdus.
+    setShowSessionDetails(true);
     setShowForm(true);
   }
 
   function handleSubmit() {
+    if (!form.date || savingSession) return;
+    setSavingSession(true);
+    try {
+      submitSession();
+    } finally {
+      setSavingSession(false);
+    }
+  }
+
+  /** Corps de handleSubmit, séparé pour que le verrou `savingSession` couvre
+   * TOUS les chemins de sortie (retours anticipés compris) sans avoir à le
+   * relâcher à la main devant chaque `return`. */
+  function submitSession() {
     if (!form.date) return;
     // `activityType` reste la valeur technique déjà choisie (jamais "Autre") ;
     // `customActivityLabel` ne porte le texte que si "Autre" est réellement
@@ -743,7 +795,10 @@ export default function PlanningScreen() {
         return;
       }
       const sessionTargets = sessionHorseIds.length > 0 ? sessionHorseIds : [targetHorse?.id ?? null];
-      const occurrenceDates = computeRecurrenceDates(form.date, form.recurrence);
+      // Une séance déjà faite décrit un fait passé : la répéter dans le futur
+      // n'a pas de sens, et le champ est masqué dans ce cas (cf. le JSX) —
+      // ignoré ici aussi, au cas où une valeur resterait d'avant la bascule.
+      const occurrenceDates = computeRecurrenceDates(form.date, form.completed ? NEVER_RECURRENCE : form.recurrence);
       // Même garde-fou que pour les rendez-vous (cf. MAX_ENTRIES_PER_SUBMIT).
       // La récurrence plafonne à 52 occurrences PAR cheval (cf.
       // lib/recurrence.ts) : sans cette borne, 5 chevaux en vue « Tous »
@@ -774,15 +829,28 @@ export default function PlanningScreen() {
             durationMinutes: form.durationMinutes,
             intensity: form.intensity,
             notes: form.notes,
+            completed: form.completed,
           });
         }
       }
     }
+    const createdCount = editingId ? 0 : sessionCreateCount;
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm());
+    setShowSessionDetails(false);
+    setSavedNotice({
+      text: editingId
+        ? "Séance modifiée."
+        : createdCount > 1
+          ? `${createdCount} séances enregistrées.`
+          : form.completed
+            ? "Séance enregistrée comme faite."
+            : "Séance planifiée.",
+    });
     // Une séance créée pour un cheval que la vue n'affiche pas semblerait
-    // perdue : on le dit (cf. hiddenTargetsMessage).
+    // perdue : on le dit (cf. hiddenTargetsMessage). L'alerte prime sur la
+    // confirmation discrète ci-dessus, elle demande un accusé de réception.
     if (hiddenNames.length > 0) Alert.alert("Séance enregistrée", hiddenTargetsMessage(hiddenNames));
   }
 
@@ -831,6 +899,17 @@ export default function PlanningScreen() {
   // Vue « Tous » sans aucune case cochée : rien n'est visé, le bouton reste
   // désactivé (même règle que les formulaires rendez-vous/dépense).
   const missingHorseChoice = !editingId && needsExplicitHorseChoice(form.horseIds, selectableHorses, defaultHorseIds);
+  /** Séance déjà planifiée que cette saisie ferait doublonner (cf.
+   * findPlannedSessionToComplete pour la règle et ses garde-fous) — cherchée
+   * dans TOUTES les séances et pas seulement celles de la vue : la séance
+   * prévue existe indépendamment du filtre affiché. Jamais en édition. */
+  const plannedSessionToComplete = useMemo(() => {
+    if (editingId) return null;
+    const targetIds = shouldOfferHorseChoice(selectableHorses, defaultHorseIds)
+      ? resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds)
+      : defaultHorseIds;
+    return findPlannedSessionToComplete(sessions, targetIds, form.date, form.completed);
+  }, [editingId, form.completed, form.date, form.horseIds, selectableHorses, defaultHorseIds, sessions]);
   // Cf. handleSubmit : au-delà, la soumission refuse. Le bouton le dit avant,
   // plutôt que de laisser l'utilisateur buter sur une alerte (même traitement
   // que le formulaire de rendez-vous, cf. AppointmentForm `overLimit`).
@@ -849,6 +928,17 @@ export default function PlanningScreen() {
           </Text>
         </View>
       </FadeInView>
+
+      {/* Confirmation d'enregistrement — discrète et éphémère (cf.
+          savedNotice) : dit ce qui vient d'être écrit sans exiger d'accusé de
+          réception, contrairement aux Alert réservées aux cas qui demandent
+          une décision. */}
+      {savedNotice ? (
+        <View className="flex-row items-center gap-2 rounded-card bg-success/15 px-4 py-3">
+          <MaterialCommunityIcons name="check-circle-outline" size={17} color={colors.success} />
+          <Text className="flex-1 text-sm font-semibold text-text">{savedNotice.text}</Text>
+        </View>
+      ) : null}
 
       {/* Sélecteur de cheval — même composant que sur Accueil/Agenda (cf.
           audit du 2026-09-16) : sans lui, ce sous-titre était le seul indice
@@ -1023,8 +1113,24 @@ export default function PlanningScreen() {
         {showForm ? (
           <View className={`${CARD} gap-3`}>
             <Text className="text-sm font-bold uppercase tracking-wide text-accent">
-              {editingId ? "Modifier la séance" : "Nouvelle séance"}
+              {editingId ? "Modifier la séance" : form.completed ? "Enregistrer une séance faite" : "Planifier une séance"}
             </Text>
+            {/* Planifier ou noter après coup : deux intentions distinctes pour
+                un même modèle (cf. SessionForm.completed). En tête du
+                formulaire, parce que le choix change ce que les champs
+                suivants veulent dire (une date à venir ou un fait passé). */}
+            {!editingId ? (
+              <Field label="Cette séance est…">
+                <ChipSelect
+                  options={[
+                    { value: "planned", label: "À planifier", icon: { name: "calendar-clock" as const, color: colors.primary } },
+                    { value: "done", label: "Déjà faite", icon: { name: "check-circle-outline" as const, color: colors.success } },
+                  ]}
+                  value={form.completed ? "done" : "planned"}
+                  onChange={(v) => setForm((f) => ({ ...f, completed: v === "done" }))}
+                />
+              </Field>
+            ) : null}
             <Field label="Type de séance">
               <ChipSelect
                 options={[
@@ -1061,7 +1167,6 @@ export default function PlanningScreen() {
               </Field>
             ) : null}
             <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
-            <TimePickerField label="Heure (optionnel)" value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
             <Field label="Durée">
               <ChipSelect
                 options={DURATION_OPTIONS.map((min) => ({
@@ -1073,17 +1178,6 @@ export default function PlanningScreen() {
                 onChange={(v) => setForm((f) => ({ ...f, durationMinutes: Number(v) }))}
               />
             </Field>
-            <Field label="Intensité">
-              <ChipSelect
-                options={Object.entries(INTENSITY_META).map(([value, meta]) => ({
-                  value: value as SessionIntensity,
-                  label: meta.label,
-                  icon: meta.icon,
-                }))}
-                value={form.intensity}
-                onChange={(intensity) => setForm((f) => ({ ...f, intensity }))}
-              />
-            </Field>
             {!editingId && shouldOfferHorseChoice(selectableHorses, defaultHorseIds) ? (
               <HorseMultiSelect
                 horses={selectableHorses}
@@ -1092,21 +1186,87 @@ export default function PlanningScreen() {
                 onChange={(horseIds) => setForm((f) => ({ ...f, horseIds }))}
               />
             ) : null}
-            {!editingId ? (
-              <RecurrenceField
-                value={form.recurrence}
-                onChange={(recurrence) => setForm((f) => ({ ...f, recurrence }))}
-              />
+            {/* Une séance déjà planifiée le même jour pour le même cheval :
+                la marquer faite plutôt qu'en créer une seconde, qui ferait
+                deux lignes pour une seule sortie (et fausserait les stats).
+                Le formulaire reste ouvert si l'utilisateur préfère créer. */}
+            {plannedSessionToComplete ? (
+              <TouchableOpacity
+                onPress={() => {
+                  toggleCompleted(plannedSessionToComplete.id);
+                  setShowForm(false);
+                  setEditingId(null);
+                  setForm(emptyForm());
+                  setShowSessionDetails(false);
+                  setSavedNotice({ text: "Séance planifiée marquée comme faite." });
+                }}
+                activeOpacity={0.8}
+                className="flex-row items-center gap-2 rounded-card border border-dashed border-primary p-3"
+              >
+                <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.primary} />
+                <Text className="flex-1 text-sm text-text">
+                  Une séance est déjà prévue ce jour-là —{" "}
+                  <Text className="font-semibold text-primary">la marquer comme faite</Text> plutôt que d&apos;en
+                  ajouter une deuxième.
+                </Text>
+              </TouchableOpacity>
             ) : null}
-            <Field label="Notes (optionnel)">
-              <TextInput
-                className={INPUT}
-                placeholder="Objectif de la séance, points à travailler…"
-                value={form.notes}
-                onChangeText={(notes) => setForm((f) => ({ ...f, notes }))}
-                multiline
+            {/* Détails facultatifs repliés (cf. showSessionDetails) : heure,
+                intensité, répétition et notes ne sont saisis qu'une fois sur
+                quelques-unes, mais restent à un appui. */}
+            <TouchableOpacity
+              onPress={() => setShowSessionDetails((v) => !v)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showSessionDetails }}
+              className="flex-row items-center gap-1.5 py-1"
+            >
+              <MaterialCommunityIcons
+                name={showSessionDetails ? "chevron-down" : "chevron-right"}
+                size={18}
+                color={colors.textMuted}
               />
-            </Field>
+              <Text className="text-sm font-semibold text-muted">
+                {showSessionDetails ? "Masquer les détails" : "Heure, intensité, notes…"}
+              </Text>
+            </TouchableOpacity>
+            {showSessionDetails ? (
+              <>
+                <TimePickerField
+                  label="Heure (optionnel)"
+                  value={form.time}
+                  onChange={(time) => setForm((f) => ({ ...f, time }))}
+                />
+                <Field label="Intensité">
+                  <ChipSelect
+                    options={Object.entries(INTENSITY_META).map(([value, meta]) => ({
+                      value: value as SessionIntensity,
+                      label: meta.label,
+                      icon: meta.icon,
+                    }))}
+                    value={form.intensity}
+                    onChange={(intensity) => setForm((f) => ({ ...f, intensity }))}
+                  />
+                </Field>
+                {/* Répéter n'a de sens que pour une séance à venir (cf.
+                    submitSession, qui l'ignore pour une séance déjà faite). */}
+                {!editingId && !form.completed ? (
+                  <RecurrenceField
+                    value={form.recurrence}
+                    onChange={(recurrence) => setForm((f) => ({ ...f, recurrence }))}
+                  />
+                ) : null}
+                <Field label="Notes (optionnel)">
+                  <TextInput
+                    className={INPUT}
+                    placeholder="Objectif de la séance, points à travailler…"
+                    value={form.notes}
+                    onChangeText={(notes) => setForm((f) => ({ ...f, notes }))}
+                    multiline
+                  />
+                </Field>
+              </>
+            ) : null}
             {sessionOverLimit ? (
               <Text className="text-xs text-danger">
                 {`${sessionCreateCount} séances d'un coup, c'est trop (maximum ${MAX_ENTRIES_PER_SUBMIT}). Réduis la répétition ou le nombre de chevaux.`}
@@ -1118,6 +1278,7 @@ export default function PlanningScreen() {
                   setShowForm(false);
                   setEditingId(null);
                   setForm(emptyForm());
+                  setShowSessionDetails(false);
                 }}
                 className="flex-1 items-center rounded-card border border-border p-4"
               >
@@ -1126,9 +1287,17 @@ export default function PlanningScreen() {
               <View className="flex-1">
                 <PrimaryButton
                   label={
-                    editingId ? "Enregistrer" : sessionCreateCount > 1 ? `Ajouter (×${sessionCreateCount})` : "Ajouter"
+                    savingSession
+                      ? "Un instant…"
+                      : editingId
+                        ? "Enregistrer"
+                        : sessionCreateCount > 1
+                          ? `Ajouter (×${sessionCreateCount})`
+                          : form.completed
+                            ? "Enregistrer la séance"
+                            : "Planifier"
                   }
-                  disabled={!form.date || sessionOverLimit || missingHorseChoice}
+                  disabled={!form.date || sessionOverLimit || missingHorseChoice || savingSession}
                   onPress={handleSubmit}
                 />
               </View>
