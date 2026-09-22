@@ -14,6 +14,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { MONTHS, isSameDate } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
 import { useSessions } from "@/sessions/store";
+import { SessionDonePrompt, useSessionDonePrompt } from "@/sessions/useSessionDonePrompt";
 import { useAgenda, ACTIVITY_META, type Appointment, type ExpenseCategory } from "@/agenda/store";
 import { APPT_META, suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { useSubscription } from "@/subscription/store";
@@ -115,7 +116,11 @@ function weeklyRecapMessage(done: number, total: number): string {
 export default function TodayScreen() {
   const colors = useThemeColors();
   const { horses, selectedHorse } = useHorses();
-  const { sessions, toggleCompleted } = useSessions();
+  const { sessions } = useSessions();
+  // Cocher une séance propose d'en dire un mot (cf. useSessionDonePrompt) —
+  // le journal se remplit là où la séance se termine, au lieu d'attendre
+  // qu'on pense à ouvrir un autre onglet.
+  const { toggleSessionDone, prompted, dismissPrompt } = useSessionDonePrompt();
   const {
     appointments,
     saveFailed,
@@ -409,6 +414,10 @@ export default function TodayScreen() {
         </FadeInView>
       ) : null}
 
+      <FadeInView delay={52}>
+        <SessionDonePrompt session={prompted} onDismiss={dismissPrompt} />
+      </FadeInView>
+
       {notifPermission === false ? (
         <FadeInView delay={58}>
           <View className={`${CARD} flex-row items-center gap-3`}>
@@ -533,7 +542,7 @@ export default function TodayScreen() {
                   </TouchableOpacity>
                   {session ? (
                     <TouchableOpacity
-                      onPress={() => toggleCompleted(session.id)}
+                      onPress={() => toggleSessionDone(session)}
                       activeOpacity={0.8}
                       accessibilityRole="button"
                       accessibilityLabel={session.completed ? "Marquer à faire" : "Marquer faite"}

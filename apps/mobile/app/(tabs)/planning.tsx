@@ -35,6 +35,7 @@ import { useAgenda, ACTIVITY_META, type ActivityType, type Appointment, type Com
 import { suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { useSessions, type SessionIntensity, type TrainingSession } from "@/sessions/store";
 import { findPlannedSessionToComplete } from "@/sessions/plannedDuplicate";
+import { SessionDonePrompt, useSessionDonePrompt } from "@/sessions/useSessionDonePrompt";
 import {
   computeSessionStats,
   startOfMonth as statsMonthStart,
@@ -329,6 +330,8 @@ export default function PlanningScreen() {
   );
   const { isActiveOrTrialing } = useSubscription();
   const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
+  // Cf. today.tsx : cocher une séance propose d'en dire un mot.
+  const { toggleSessionDone, prompted, dismissPrompt } = useSessionDonePrompt();
   const {
     appointments,
     addAppointment,
@@ -581,7 +584,7 @@ export default function PlanningScreen() {
   const doneGroups = useMemo(() => groupByDay(done.slice(0, 20)), [done]);
 
   const sessionHandlers = {
-    onToggleDone: (s: TrainingSession) => toggleCompleted(s.id),
+    onToggleDone: (s: TrainingSession) => toggleSessionDone(s),
     onEdit: (s: TrainingSession) => openEditForm(s),
     onDuplicate: (s: TrainingSession) => handleDuplicate(s),
     onDelete: (s: TrainingSession) => confirmDelete(s),
@@ -970,6 +973,8 @@ export default function PlanningScreen() {
           savedNotice) : dit ce qui vient d'être écrit sans exiger d'accusé de
           réception, contrairement aux Alert réservées aux cas qui demandent
           une décision. */}
+      <SessionDonePrompt session={prompted} onDismiss={dismissPrompt} />
+
       {savedNotice ? (
         <View className="flex-row items-center gap-2 rounded-card bg-success/15 px-4 py-3">
           <MaterialCommunityIcons name="check-circle-outline" size={17} color={colors.success} />
