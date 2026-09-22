@@ -99,6 +99,7 @@ function RootLayout() {
                       <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="session-note-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="search" options={{ presentation: "modal" }} />
                       <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="reset-password" />
                     </Stack>

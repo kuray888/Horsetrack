@@ -367,12 +367,26 @@ export default function TodayScreen() {
                 Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?
               </Text>
             </View>
-            <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-on-primary/15">
-              {horse?.photoUrl ? (
-                <Image source={{ uri: horse.photoUrl }} style={{ width: 56, height: 56 }} />
-              ) : (
-                <MaterialCommunityIcons name="horse-variant" size={26} color={colors.textOnPrimary} />
-              )}
+            <View className="flex-row items-center gap-2">
+              {/* Recherche transversale (cf. app/search.tsx) — dans l'en-tête
+                  plutôt que dans un onglet : elle traverse toutes les
+                  sections, elle n'appartient à aucune. */}
+              <TouchableOpacity
+                onPress={() => router.push("/search")}
+                accessibilityLabel="Rechercher"
+                accessibilityRole="button"
+                hitSlop={8}
+                className="h-10 w-10 items-center justify-center rounded-full bg-on-primary/15"
+              >
+                <MaterialCommunityIcons name="magnify" size={20} color={colors.textOnPrimary} />
+              </TouchableOpacity>
+              <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-on-primary/15">
+                {horse?.photoUrl ? (
+                  <Image source={{ uri: horse.photoUrl }} style={{ width: 56, height: 56 }} />
+                ) : (
+                  <MaterialCommunityIcons name="horse-variant" size={26} color={colors.textOnPrimary} />
+                )}
+              </View>
             </View>
           </View>
 
