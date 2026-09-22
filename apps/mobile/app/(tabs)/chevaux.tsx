@@ -110,10 +110,11 @@ export default function ChevauxScreen() {
   const sharedHorses = horses.filter((h) => h.sharedRole);
 
   function openHorse(horse: Horse) {
-    // Le Horse Hub (app/horse/[id]/index.tsx) re-sélectionne aussi ce cheval
-    // à son montage (même garantie), mais on le fait déjà ici pour que le
-    // contexte global soit cohérent dès la navigation, sans attendre un
-    // aller-retour de rendu.
+    // Seul endroit où ouvrir une fiche change encore le cheval actif, et
+    // volontairement : cet écran EST le sélecteur de cheval — il marque la
+    // ligne active (cf. `isActive`), et y toucher une ligne se lit comme
+    // « je passe sur ce cheval ». Ailleurs, consulter une fiche laisse le
+    // contexte global tel quel (cf. app/horse/[id]/index.tsx).
     selectHorse(horse.id);
     router.push(`/horse/${horse.id}`);
   }

@@ -112,7 +112,7 @@ function weeklyRecapMessage(done: number, total: number): string {
 
 export default function TodayScreen() {
   const colors = useThemeColors();
-  const { horses, selectedHorse, selectHorse } = useHorses();
+  const { horses, selectedHorse } = useHorses();
   const { sessions, toggleCompleted } = useSessions();
   const {
     appointments,
@@ -360,12 +360,16 @@ export default function TodayScreen() {
             {alerts.map((alert) => (
               <TouchableOpacity
                 key={alert.horseId}
-                onPress={() => {
-                  selectHorse(alert.horseId);
+                onPress={() =>
+                  // Consulter l'alerte d'un autre cheval ne change pas le
+                  // cheval actif : c'était le cas le plus visible du recadrage
+                  // silencieux (on revenait sur un Accueil qui parlait d'un
+                  // autre cheval), et les écrans de destination se suffisent
+                  // désormais à eux-mêmes (cf. app/horse/[id]/index.tsx).
                   // Une blessure en cours se suit dans Santé (bouton "Marquer
                   // comme rétablie") plutôt que dans la fiche générale.
-                  router.push(alert.kind === "injury" ? `/horse/${alert.horseId}/sante` : `/horse/${alert.horseId}`);
-                }}
+                  router.push(alert.kind === "injury" ? `/horse/${alert.horseId}/sante` : `/horse/${alert.horseId}`)
+                }
                 activeOpacity={0.7}
                 className="flex-row items-center gap-2"
               >
