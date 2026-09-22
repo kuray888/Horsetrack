@@ -4,3 +4,9 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Dossiers natifs générés par `expo prebuild` / `expo run:ios` (workflow
+# managed : ils sont reconstruits à la demande et ne doivent pas être
+# versionnés — 1,2 Go, et leur contenu dépend de la machine).
+ios/
+android/

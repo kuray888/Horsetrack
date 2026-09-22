@@ -88,7 +88,7 @@ export type CompetitionEntry = {
 };
 
 /** Libellés/icônes d'affichage pour ActivityType — utilisé par le journal
- * (cf. (tabs)/agenda.tsx) et par la planification manuelle de séances (cf.
+ * (cf. les formulaires de rendez-vous) et par la planification manuelle de séances (cf.
  * sessions/store.tsx, (tabs)/today.tsx, (tabs)/planning.tsx), donc défini ici
  * plutôt que dupliqué dans chaque écran consommateur. */
 export const ACTIVITY_META: Record<
@@ -151,7 +151,7 @@ export type Appointment = {
    * Expense.appointmentId), qui reste le rattachement optionnel côté budget. */
   cost: number | null;
   /** Prochaine échéance du même soin (ex: prochain rappel de vaccin) — pilote
-   * un rappel local si renseignée (cf. (tabs)/agenda.tsx). Null si aucune
+   * un rappel local si renseignée (cf. useAppointmentForm). Null si aucune
    * échéance de suivi. */
   nextDueDate: Date | null;
   /** Id de la notification locale programmée pour nextDueDate, pour pouvoir
@@ -245,7 +245,7 @@ export type Expense = {
   date: Date;
   notes: string;
   /** Rattachement optionnel à un rendez-vous existant (suggéré, jamais créé
-   * automatiquement — cf. (tabs)/agenda.tsx). Null si non rattachée. */
+   * automatiquement — cf. useExpenseForm). Null si non rattachée. */
   appointmentId: string | null;
   /** Rattachement optionnel à un reçu du coffre-fort. Résolu localement
    * contre la liste `documents` déjà chargée (cf. cloudSync.ts pullExpenses)
@@ -253,7 +253,7 @@ export type Expense = {
    * au propriétaire, RLS documents n'étant jamais partagée. */
   documentId: string | null;
   /** Statut payé/à régler — fonctionnalité Premium (cf. <Locked> dans
-   * (tabs)/agenda.tsx) ; reste toujours `false` sur un compte gratuit,
+   * app/horse/[id]/budget.tsx) ; reste toujours `false` sur un compte gratuit,
    * faute de pouvoir basculer le statut. */
   isPaid: boolean;
 };
@@ -593,7 +593,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
    * formulaire d'ajout permet déjà de saisir, pour permettre une vraie
    * édition sans passer par supprimer + recréer. Le rappel programmé
    * (reminderNotificationId/emailReminderId) n'est PAS recalculé ici : cf.
-   * (tabs)/agenda.tsx handleUpdateAppointment, qui annule l'ancien et
+   * useAppointmentForm handleSubmitAppointment, qui annule l'ancien et
    * reprogramme le nouveau avant d'appeler ce mutateur, exactement comme à la
    * création (cf. handleAddAppointment) — cette fonction reste un simple
    * "patch + push", sans effet de bord sur les notifications. */
@@ -766,7 +766,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         .catch(() => {});
       // Retourné pour permettre de lier immédiatement le document tout juste
       // créé (ex : reçu joint depuis le formulaire de dépense, cf.
-      // (tabs)/agenda.tsx handleAddExpense) sans attendre un aller-retour cloud.
+      // useExpenseForm handleSubmitExpense) sans attendre un aller-retour cloud.
       return id;
     },
     [selectedHorse]
@@ -846,7 +846,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   /** Édition d'une entrée de journal existante (activité/ressenti/date/heure/
    * notes) — la météo capturée à la création n'est jamais recalculée ici,
-   * cf. (tabs)/agenda.tsx : corriger une entrée passée ne doit pas réécrire
+   * cf. useJournalForm : corriger une entrée passée ne doit pas réécrire
    * un relevé météo qui n'a plus de sens rétroactivement. */
   const updateJournalEntry = useCallback(
     (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath">>) => {

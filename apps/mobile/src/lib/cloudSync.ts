@@ -1024,7 +1024,7 @@ export async function deleteExpenseRemote(expenseId: string): Promise<void> {
  * un collaborateur consultant une dépense partagée dont le reçu appartient
  * au propriétaire (RLS `documents` = owns_rider_profile, jamais partagée) ne
  * l'aura de toute façon jamais dans son propre `pullDocuments()` — l'écran
- * (cf. agenda.tsx) affiche "reçu non disponible" en croisant localement
+ * (cf. app/horse/[id]/budget.tsx) affiche "reçu non disponible" en croisant localement
  * `documentId` avec la liste de documents déjà chargée par l'utilisateur
  * courant, sans appel réseau supplémentaire ni fuite. */
 export async function pullExpenses(): Promise<Expense[] | null> {

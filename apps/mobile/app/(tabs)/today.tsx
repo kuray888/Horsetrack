@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
 import { pushWidgetData } from "@/lib/widgetKit";
-import { scheduleWeeklySummary } from "@/lib/notifications";
+import { ensureNotificationPermission, getNotificationStatus, scheduleWeeklySummary } from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
 import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
 import { CircularProgress } from "@/components/CircularProgress";
@@ -132,6 +132,22 @@ export default function TodayScreen() {
   const { isActiveOrTrialing } = subscription;
   // Écritures cloud en attente d'un retour du réseau (cf. lib/syncQueue.ts).
   const pendingSync = usePendingSyncCount();
+  /** Permission de notification refusée : les rappels sont enregistrés mais
+   * ne s'afficheront jamais. Cette bannière vivait dans l'écran Agenda,
+   * supprimé — sans elle, plus rien ne signalait que des rappels programmés
+   * ne sonneraient pas.
+   *
+   * `getNotificationStatus` LIT l'état sans le demander, contrairement à
+   * l'ancien écran qui appelait `ensureNotificationPermission` au montage :
+   * l'Accueil étant le premier écran de l'app, cela aurait déclenché la
+   * demande système dès le lancement. La demande ne part que sur appui du
+   * bouton « Activer ». */
+  const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
+  useEffect(() => {
+    getNotificationStatus()
+      .then(setNotifPermission)
+      .catch(() => setNotifPermission(null));
+  }, []);
   const horse = selectedHorse;
 
   // Une seule fois par montage, pas à chaque render (cf. audit perf du
@@ -220,7 +236,9 @@ export default function TodayScreen() {
   // Planning et le Horse Hub, rattachement automatique au cheval actif via
   // le mécanisme global existant (aucune deuxième logique de sélection).
   const [quickAddVisible, setQuickAddVisible] = useState(false);
-  const [, setNotifPermission] = useState<boolean | null>(null);
+  // `setNotifPermission` est celui déclaré plus haut avec la bannière : quand
+  // la programmation d'un rappel échoue (permission révoquée entre-temps),
+  // useAppointmentForm le passe à `false` et la bannière apparaît aussitôt.
 
   const {
     showApptForm,
@@ -386,6 +404,29 @@ export default function TodayScreen() {
             </Text>
             <TouchableOpacity onPress={() => retryPendingWrites().catch(() => {})} hitSlop={8}>
               <Text className="text-sm font-bold text-warning">Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        </FadeInView>
+      ) : null}
+
+      {notifPermission === false ? (
+        <FadeInView delay={58}>
+          <View className={`${CARD} flex-row items-center gap-3`}>
+            <MaterialCommunityIcons name="bell-off-outline" size={20} color={colors.textMuted} />
+            <Text className="flex-1 text-sm text-muted">
+              Notifications désactivées : tes rappels seront enregistrés mais ne s&apos;afficheront pas sur ton
+              téléphone.
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                ensureNotificationPermission()
+                  .then(setNotifPermission)
+                  .catch(() => {})
+              }
+              activeOpacity={0.7}
+              hitSlop={8}
+            >
+              <Text className="text-sm font-bold text-accent">Activer</Text>
             </TouchableOpacity>
           </View>
         </FadeInView>

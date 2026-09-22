@@ -82,15 +82,11 @@ export default function TabsLayout() {
         name="profile"
         options={{ title: "Profil", tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} /> }}
       />
-      {/* Ancien écran Agenda (rendez-vous/documents/budget) — retiré de la
-          barre d'onglets (remplacé à terme par le Horse Hub, cf. plan Phase 3
-          Étape 2) mais PAS supprimé : reste une route valide, atteignable
-          via router.push("/(tabs)/agenda") le temps que son remplacement
-          soit fonctionnel et validé (cf. consigne explicite). */}
-      <Tabs.Screen
-        name="agenda"
-        options={{ title: "Agenda", href: null, tabBarIcon: ({ focused }) => <TabIcon name="agenda" focused={focused} /> }}
-      />
+      {/* L'écran Agenda a été supprimé : ses trois sections ont rejoint la
+          fiche cheval (app/horse/[id]/documents.tsx et budget.tsx) et le
+          Planning (rendez-vous, création comme édition). C'était le
+          remplacement annoncé par son propre commentaire — il restait une
+          route sans entrée dans la barre, qui dupliquait le Planning. */}
     </Tabs>
   );
 }

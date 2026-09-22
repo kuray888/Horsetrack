@@ -90,7 +90,7 @@ export default function HorseSanteScreen() {
   }
 
   // Même confirmation que Planning/Agenda pour un rendez-vous (cf.
-  // agenda.tsx confirmDelete) — cet écran n'exposait jusqu'ici aucune
+  // même formulation que partout ailleurs) — cet écran n'exposait aucune
   // suppression : la liste ne faisait que rouvrir l'édition (startEditAppt),
   // et AppointmentForm n'a pas de bouton "Supprimer" (contrairement aux
   // cartes d'Agenda/Planning). deleteAppointment existe déjà et gère tout

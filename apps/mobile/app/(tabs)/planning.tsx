@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FadeInView } from "@/components/FadeInView";
 import { CircularProgress } from "@/components/CircularProgress";
@@ -492,7 +492,7 @@ export default function PlanningScreen() {
       ),
     [appointments, activeFilterId, selectableHorseIds]
   );
-  // Une seule fois par montage (cf. today.tsx/agenda.tsx, même correctif,
+  // Une seule fois par montage (cf. today.tsx, même correctif,
   // audit perf du 2026-09-09).
   const today = useMemo(() => new Date(), []);
   const todayStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()), [today]);
@@ -587,14 +587,15 @@ export default function PlanningScreen() {
     onDelete: (s: TrainingSession) => confirmDelete(s),
   };
 
-  // "Modifier" un rendez-vous depuis Planning renvoie vers Agenda plutôt que
-  // d'ouvrir un formulaire d'édition ici — pas de deuxième formulaire
-  // d'édition de rendez-vous à maintenir (cf. brief §8 : rester cohérent avec
-  // les redirections déjà en place depuis le Horse Hub). Les autres actions
-  // (checklist, résultat, épreuves, suppression) restent de simples appels
-  // aux mutateurs déjà existants d'agenda/store.tsx, sans nouvelle logique.
+  // « Modifier » un rendez-vous ouvre le formulaire de CET écran, qui est le
+  // même composant partout (AppointmentForm + useAppointmentForm, déjà monté
+  // ici pour la création). Avant, l'action renvoyait vers l'écran Agenda :
+  // il fallait changer d'onglet pour corriger une heure, et c'est ce renvoi
+  // qui justifiait de garder Agenda en vie. Les autres actions (checklist,
+  // résultat, épreuves, suppression) restent de simples appels aux mutateurs
+  // d'agenda/store.tsx, sans nouvelle logique.
   const appointmentHandlers = {
-    onEdit: () => router.push("/(tabs)/agenda?section=appointments"),
+    onEdit: (a: Appointment) => startEditAppt(a),
     onDelete: (a: Appointment) => deleteAppointment(a),
     onSaveResult: (a: Appointment, result: string) => saveResult(a.id, result),
     onToggleChecklistItem: (a: Appointment, itemId: string) => toggleChecklistItem(a.id, itemId),
@@ -613,6 +614,7 @@ export default function PlanningScreen() {
     setApptForm,
     submittingAppt,
     editingApptId,
+    startEditAppt,
     cancelApptForm,
     handleSubmitAppointment,
     addApptFormEntry,
@@ -706,7 +708,8 @@ export default function PlanningScreen() {
     }
   }
 
-  // Même logique de rapprochement que agenda.tsx/le Horse Hub — dupliquée
+  // Même logique de rapprochement que le Horse Hub et le budget d'un
+  // cheval (cf. app/horse/[id]/budget.tsx) — dupliquée
   // Suggestion de rapprochement pour le formulaire de dépense (cf.
   // agenda/meta.ts suggestedAppointmentFor, partagé avec today.tsx/Horse Hub).
   function suggestedAppointmentFor(category: ExpenseCategory, horseId: string | null): Appointment | null {

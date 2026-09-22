@@ -89,7 +89,7 @@ export default function HorseHubScreen() {
 
   // notifPermission n'est utile qu'à scheduleApptReminder (cf.
   // useAppointmentForm) — cet écran n'affiche pas de bannière dessus,
-  // contrairement à agenda.tsx, donc seul le setter est nécessaire.
+  // contrairement à l'Accueil, donc seul le setter est nécessaire.
   const [, setNotifPermission] = useState<boolean | null>(null);
   const [quickAddVisible, setQuickAddVisible] = useState(false);
 
@@ -391,10 +391,10 @@ export default function HorseHubScreen() {
           iconColor={colors.success}
           title="Budget"
           value={budgetValue}
-          onPress={() => {
-            focusThisHorse();
-            router.dismissTo("/(tabs)/agenda?section=finances");
-          }}
+          // Sous-écran de CETTE fiche, comme Santé et Poids : plus besoin
+          // de passer par l'ancien onglet Agenda, ni de changer le cheval
+          // actif pour que la destination affiche le bon cheval.
+          onPress={() => router.push(`/horse/${horse.id}/budget`)}
         />
       </FadeInView>
       <FadeInView delay={180}>
@@ -403,10 +403,7 @@ export default function HorseHubScreen() {
           iconColor={colors.primary}
           title="Documents"
           value={documentsValue}
-          onPress={() => {
-            focusThisHorse();
-            router.dismissTo("/(tabs)/agenda?section=documents");
-          }}
+          onPress={() => router.push(`/horse/${horse.id}/documents`)}
         />
       </FadeInView>
       <FadeInView delay={195}>
