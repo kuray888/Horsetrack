@@ -1,5 +1,6 @@
 import "../global.css";
 import { useEffect } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import { Stack } from "expo-router";
 import * as Sentry from "@sentry/react-native";
 import * as SplashScreen from "expo-splash-screen";
@@ -43,6 +44,7 @@ import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener"
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 import { CrashFallback } from "@/components/CrashFallback";
+import { retryPendingWrites } from "@/lib/cloudSync";
 
 function RootLayout() {
   const [fontsLoaded] = useFonts({ BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold });
@@ -50,6 +52,20 @@ function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  // Rejoue les écritures cloud restées en attente d'un retour du réseau (cf.
+  // lib/syncQueue.ts) : au démarrage, puis à chaque retour de l'app au premier
+  // plan — c'est le moment où le téléphone a le plus de chances d'avoir
+  // retrouvé du réseau (sortie du manège, du van, d'un sous-sol). Pas de
+  // détection de connectivité dédiée : elle demanderait une dépendance de
+  // plus pour, au mieux, déclencher les mêmes reprises un peu plus tôt.
+  useEffect(() => {
+    retryPendingWrites().catch(() => {});
+    const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
+      if (next === "active") retryPendingWrites().catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!fontsLoaded) return null;
 

@@ -1,4 +1,5 @@
 import { File } from "expo-file-system";
+import { enqueueFailedWrite, flushSyncQueue, type SyncOperation } from "@/lib/syncQueue";
 import { supabase } from "@/lib/supabase";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
@@ -31,6 +32,47 @@ const SIGNED_URL_TTL_SECONDS = 90 * 24 * 60 * 60;
 
 function generateId(): string {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Rejoue les écritures mises en attente par une panne réseau (cf.
+ * lib/syncQueue.ts). Appelée au démarrage, au retour de l'app au premier plan
+ * (cf. app/_layout.tsx), et après chaque écriture réussie — une réussite est
+ * le meilleur indice disponible que le réseau est revenu, et évite d'ajouter
+ * une dépendance de détection de connectivité pour l'apprendre.
+ */
+export async function retryPendingWrites(): Promise<void> {
+  await flushSyncQueue(async (operation: SyncOperation) => {
+    if (operation.op === "delete") {
+      const { error } = await supabase.from(operation.table).delete().eq("id", operation.id);
+      return { error };
+    }
+    const { error } = await supabase.from(operation.table).upsert(operation.row ?? {});
+    return { error };
+  });
+}
+
+/**
+ * Sort commune de toutes les écritures : trace l'échec, met l'opération en
+ * attente de reprise, et profite d'un succès pour vider ce qui attendait.
+ *
+ * `row` est la ligne déjà prête pour PostgREST (dates en ISO), donc rejouable
+ * telle quelle. Sans `row`, l'opération est une suppression.
+ */
+async function settleWrite(
+  label: string,
+  table: string,
+  id: string,
+  error: { code?: string; message?: string } | null,
+  row?: Record<string, unknown>
+): Promise<void> {
+  if (!error) {
+    // Le réseau répond : c'est le moment de rejouer ce qui attendait.
+    retryPendingWrites().catch(() => {});
+    return;
+  }
+  console.warn(`[cloudSync] ${label} échoué`, error);
+  await enqueueFailedWrite({ table, op: row ? "upsert" : "delete", id, row }, error);
 }
 
 async function getOwnerProfile(userId: string): Promise<{ id: string; onboardingCompletedAt: string | null } | null> {
@@ -626,21 +668,24 @@ export async function pushAppointment(appt: Appointment): Promise<void> {
     nextDueDate: appt.nextDueDate?.toISOString() ?? null,
     updatedAt: new Date().toISOString(),
   };
-  const { error } = await supabase
-    .from("appointments")
-    .upsert({ ...row, competitionLevel: appt.competitionLevel, endDate: appt.endDate?.toISOString() ?? null });
-  if (!error) return;
+  const fullRow = { ...row, competitionLevel: appt.competitionLevel, endDate: appt.endDate?.toISOString() ?? null };
+  const { error } = await supabase.from("appointments").upsert(fullRow);
+  if (!error) {
+    await settleWrite("pushAppointment", "appointments", appt.id, null, fullRow);
+    return;
+  }
   // Colonnes `competitionLevel`/`endDate` ajoutées après coup : tant que la base
   // n'a pas reçu la migration (`pnpm db:push`), l'upsert entier serait refusé et
   // AUCUN rendez-vous ne se synchroniserait plus. On retente sans elles : le
   // reste du rendez-vous est sauvegardé, seuls niveau et date de fin attendent.
   if (isMissingAppointmentColumnError(error)) {
     const { error: retryError } = await supabase.from("appointments").upsert(row);
-    if (!retryError) return;
-    console.warn("[cloudSync] pushAppointment échoué", retryError);
+    // En attente de reprise, c'est la ligne SANS ces colonnes qu'on garde :
+    // rejouer la version complète buterait sur le même schéma non migré.
+    await settleWrite("pushAppointment", "appointments", appt.id, retryError, row);
     return;
   }
-  console.warn("[cloudSync] pushAppointment échoué", error);
+  await settleWrite("pushAppointment", "appointments", appt.id, error, fullRow);
 }
 
 /** Vrai si l'erreur PostgREST/Postgres vient de l'absence de `competitionLevel`
@@ -652,7 +697,7 @@ function isMissingAppointmentColumnError(error: { message?: string }): boolean {
 
 export async function deleteAppointmentRemote(apptId: string): Promise<void> {
   const { error } = await supabase.from("appointments").delete().eq("id", apptId);
-  if (error) console.warn("[cloudSync] deleteAppointmentRemote échoué", error);
+  await settleWrite("deleteAppointmentRemote", "appointments", apptId, error);
 }
 
 /** Restaure les rendez-vous visibles par l'utilisateur courant — possédés ET
@@ -783,7 +828,7 @@ export async function pushJournalEntry(entry: JournalEntry): Promise<string | nu
     if (uploaded) photoPath = uploaded;
   }
 
-  const { error } = await supabase.from("journal_entries").upsert({
+  const row = {
     id: entry.id,
     horseId: entry.horseId,
     activityType: activityTypeToDb(entry.activityType),
@@ -794,12 +839,14 @@ export async function pushJournalEntry(entry: JournalEntry): Promise<string | nu
     weather: entry.weather,
     photoPath,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) {
-    console.warn("[cloudSync] pushJournalEntry échoué", error);
-    return null;
-  }
-  return photoPath;
+  };
+  const { error } = await supabase.from("journal_entries").upsert(row);
+  await settleWrite("pushJournalEntry", "journal_entries", entry.id, error, row);
+  // La photo, elle, n'est pas rejouable depuis la file (l'upload Storage a
+  // lieu plus haut, hors de la ligne) : on ne renvoie son chemin que si
+  // l'entrée est bien partie, pour ne pas l'enregistrer localement comme
+  // synchronisée alors qu'elle ne l'est pas.
+  return error ? null : photoPath;
 }
 
 /** `horseId` nécessaire pour supprimer aussi la photo distante (cf. ci-dessus,
@@ -809,7 +856,7 @@ export async function pushJournalEntry(entry: JournalEntry): Promise<string | nu
  * déjà supprimé, pas une fuite. */
 export async function deleteJournalEntryRemote(entryId: string, horseId: string | null): Promise<void> {
   const { error } = await supabase.from("journal_entries").delete().eq("id", entryId);
-  if (error) console.warn("[cloudSync] deleteJournalEntryRemote échoué", error);
+  await settleWrite("deleteJournalEntryRemote", "journal_entries", entryId, error);
   if (horseId) {
     await supabase.storage.from("horse-photos").remove([`${horseId}/journal/${entryId}.jpg`]);
   }
@@ -855,7 +902,7 @@ export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
 
 export async function pushTrainingSession(session: TrainingSession): Promise<void> {
   if (!session.horseId) return;
-  const { error } = await supabase.from("training_sessions").upsert({
+  const row = {
     id: session.id,
     horseId: session.horseId,
     activityType: session.activityType.toUpperCase(),
@@ -867,13 +914,14 @@ export async function pushTrainingSession(session: TrainingSession): Promise<voi
     notes: session.notes,
     completed: session.completed,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushTrainingSession échoué", error);
+  };
+  const { error } = await supabase.from("training_sessions").upsert(row);
+  await settleWrite("pushTrainingSession", "training_sessions", session.id, error, row);
 }
 
 export async function deleteTrainingSessionRemote(sessionId: string): Promise<void> {
   const { error } = await supabase.from("training_sessions").delete().eq("id", sessionId);
-  if (error) console.warn("[cloudSync] deleteTrainingSessionRemote échoué", error);
+  await settleWrite("deleteTrainingSessionRemote", "training_sessions", sessionId, error);
 }
 
 /** Restaure les séances visibles par l'utilisateur courant — possédées ET
@@ -904,19 +952,20 @@ export async function pullTrainingSessions(): Promise<TrainingSession[] | null> 
  */
 
 export async function pushWeightMeasurement(measurement: WeightMeasurement): Promise<void> {
-  const { error } = await supabase.from("horse_weight_measurements").upsert({
+  const row = {
     id: measurement.id,
     horseId: measurement.horseId,
     weightKg: measurement.weightKg,
     date: measurement.date.toISOString(),
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushWeightMeasurement échoué", error);
+  };
+  const { error } = await supabase.from("horse_weight_measurements").upsert(row);
+  await settleWrite("pushWeightMeasurement", "horse_weight_measurements", measurement.id, error, row);
 }
 
 export async function deleteWeightMeasurementRemote(id: string): Promise<void> {
   const { error } = await supabase.from("horse_weight_measurements").delete().eq("id", id);
-  if (error) console.warn("[cloudSync] deleteWeightMeasurementRemote échoué", error);
+  await settleWrite("deleteWeightMeasurementRemote", "horse_weight_measurements", id, error);
 }
 
 export async function pullWeightMeasurements(): Promise<WeightMeasurement[] | null> {
@@ -947,7 +996,7 @@ function expenseCategoryFromDb(category: string): Expense["category"] {
 
 export async function pushExpense(expense: Expense): Promise<void> {
   if (!expense.horseId) return;
-  const { error } = await supabase.from("expenses").upsert({
+  const row = {
     id: expense.id,
     horseId: expense.horseId,
     amount: expense.amount,
@@ -959,13 +1008,14 @@ export async function pushExpense(expense: Expense): Promise<void> {
     documentId: expense.documentId,
     isPaid: expense.isPaid,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushExpense échoué", error);
+  };
+  const { error } = await supabase.from("expenses").upsert(row);
+  await settleWrite("pushExpense", "expenses", expense.id, error, row);
 }
 
 export async function deleteExpenseRemote(expenseId: string): Promise<void> {
   const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
-  if (error) console.warn("[cloudSync] deleteExpenseRemote échoué", error);
+  await settleWrite("deleteExpenseRemote", "expenses", expenseId, error);
 }
 
 /** Restaure les dépenses visibles par l'utilisateur courant — possédées ET

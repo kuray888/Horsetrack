@@ -19,6 +19,7 @@ import {
   pullExpenses,
   pullWeightMeasurements,
 } from "@/lib/cloudSync";
+import { clearSyncQueue } from "@/lib/syncQueue";
 import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
 import { withTimeout } from "@/lib/withTimeout";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
@@ -117,6 +118,11 @@ export default function LoginScreen() {
           clearGoals(),
           clearWeight(),
           clearSubscription(),
+          // Les écritures restées en attente appartiennent au compte
+          // précédent : les rejouer sous l'identité du nouveau les enverrait
+          // au mauvais endroit — quand la RLS ne les refuserait pas
+          // simplement (cf. lib/syncQueue.ts).
+          clearSyncQueue(),
         ]);
 
         try {

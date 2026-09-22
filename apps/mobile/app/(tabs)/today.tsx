@@ -25,6 +25,8 @@ import {
   type UnifiedEvent,
 } from "@/planning/unifiedEvents";
 import { buildHorseAlerts } from "@/horses/alerts";
+import { usePendingSyncCount } from "@/lib/useSyncQueue";
+import { retryPendingWrites } from "@/lib/cloudSync";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
@@ -128,6 +130,8 @@ export default function TodayScreen() {
   } = useAgenda();
   const subscription = useSubscription();
   const { isActiveOrTrialing } = subscription;
+  // Écritures cloud en attente d'un retour du réseau (cf. lib/syncQueue.ts).
+  const pendingSync = usePendingSyncCount();
   const horse = selectedHorse;
 
   // Une seule fois par montage, pas à chaque render (cf. audit perf du
@@ -361,6 +365,28 @@ export default function TodayScreen() {
               Tes dernières modifications n&apos;ont pas pu être enregistrées sur cet appareil. Vérifie l&apos;espace de
               stockage disponible.
             </Text>
+          </View>
+        </FadeInView>
+      ) : null}
+
+      {/* Sauvegarde cloud en retard — dit ce qui n'est PAS encore parti,
+          plutôt que de laisser croire que tout est à l'abri. Les données sont
+          bien enregistrées sur l'appareil : c'est une information, pas une
+          alerte, d'où le ton et la couleur plus calmes que la bannière
+          ci-dessus. La reprise est automatique (démarrage, retour au premier
+          plan) ; le bouton permet juste de ne pas attendre. */}
+      {pendingSync > 0 ? (
+        <FadeInView delay={55}>
+          <View className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5">
+            <MaterialCommunityIcons name="cloud-sync-outline" size={18} color={colors.warning} />
+            <Text className="flex-1 text-sm text-text">
+              {pendingSync === 1
+                ? "1 modification enregistrée sur cet appareil attend la sauvegarde en ligne."
+                : `${pendingSync} modifications enregistrées sur cet appareil attendent la sauvegarde en ligne.`}
+            </Text>
+            <TouchableOpacity onPress={() => retryPendingWrites().catch(() => {})} hitSlop={8}>
+              <Text className="text-sm font-bold text-warning">Réessayer</Text>
+            </TouchableOpacity>
           </View>
         </FadeInView>
       ) : null}
