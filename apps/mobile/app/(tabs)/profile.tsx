@@ -22,6 +22,7 @@ import { deleteAccount } from "@/lib/account";
 import { clearLocalDataOwner } from "@/lib/deviceOwner";
 import { resetOnboardingCompleted } from "@/onboarding/completion";
 import { formatDate } from "@/lib/dateFormat";
+import { startupTrace, formatTrace, summarizeTrace } from "@/lib/startupTrace";
 import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
@@ -408,6 +409,36 @@ export default function ProfileScreen() {
           />
         </View>
       </FadeInView>
+
+      {/* Mesures de démarrage — développement uniquement.
+          Les chiffres se lisent normalement dans le terminal Metro, mais le
+          démarrage à mesurer est celui d'un VRAI iPhone avec de VRAIES données :
+          il fallait pouvoir les relire sur l'appareil, sans terminal sous la
+          main. `__DEV__` est remplacé par une constante à la compilation, donc
+          ce bloc n'existe tout simplement pas dans une build de production. */}
+      {__DEV__ ? (
+        <FadeInView delay={490}>
+          <TouchableOpacity
+            className={`${CARD} flex-row items-center gap-3`}
+            activeOpacity={0.7}
+            onPress={() => {
+              const report = startupTrace.report();
+              const texte = [formatTrace(report), "", ...summarizeTrace(report)].join("\n");
+              // Journalisé en plus de l'alerte : le texte complet reste
+              // copiable depuis le terminal, là où une alerte iOS finirait par
+              // tronquer un rapport devenu long.
+              console.log(`[démarrage] mesures (origine : premier module JS)\n${texte}`);
+              Alert.alert("Mesures de démarrage", texte);
+            }}
+          >
+            <MaterialCommunityIcons name="timer-outline" size={22} color={colors.textMuted} />
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-text">Mesures de démarrage</Text>
+              <Text className="text-xs text-muted">Visible en développement seulement</Text>
+            </View>
+          </TouchableOpacity>
+        </FadeInView>
+      ) : null}
 
       {/* Compte */}
       <FadeInView delay={500}>
