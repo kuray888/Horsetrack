@@ -23,7 +23,7 @@ type StackActionType = "PUSH" | "NAVIGATE" | "POP_TO";
  * Régression du crash Horse Hub → Entraînement/Concours/Journal/Budget/
  * Documents (cf. audit crash 2026-09-05, round 3).
  *
- * Horse Hub (`app/horse/[id]/index.tsx`) est empilé AU-DESSUS de `(tabs)` sur
+ * Horse Hub (`src/horses/components/HorseHub.tsx`, rendu par `app/horse/[id]/index.tsx`) est empilé AU-DESSUS de `(tabs)` sur
  * le Stack racine (cf. `app/_layout.tsx` : "(tabs)" et "horse/[id]/index" sont
  * frères). Ce test reconstruit exactement cet état de pile et rejoue, avec le
  * VRAI réducteur `StackRouter` (pas un mock), les trois actions que
@@ -31,7 +31,7 @@ type StackActionType = "PUSH" | "NAVIGATE" | "POP_TO";
  * `router.<method>("/(tabs)/planning?filter=session")` — et vérifie combien
  * d'instances de "(tabs)" se retrouvent dans la pile résultante.
  *
- * Preuve (voir aussi le commentaire dans index.tsx) : sans `getId`/`singular`
+ * Preuve (voir aussi le commentaire dans HorseHub.tsx) : sans `getId`/`singular`
  * configuré sur l'écran "(tabs)" du root Stack (ce n'est pas le cas ici),
  * PUSH et NAVIGATE ne retrouvent QUE la route actuellement focus (Horse Hub)
  * — pas "(tabs)" plus bas dans la pile — donc les deux empilent une SECONDE
@@ -39,7 +39,7 @@ type StackActionType = "PUSH" | "NAVIGATE" | "POP_TO";
  * route existante par nom dans TOUTE la pile et y revient sans la dupliquer.
  * C'est ce qui causait le crash natif (deux instances du navigateur de tabs
  * coexistant) et pourquoi `router.dismissTo` doit rester la méthode utilisée
- * dans `index.tsx` pour toute navigation vers `(tabs)`.
+ * dans `HorseHub.tsx` pour toute navigation vers `(tabs)`.
  *
  * Ce test vit sous `src/` (et non `app/`) volontairement : un premier essai
  * placé dans `app/horse/[id]/index.test.ts` a fait échouer le build EAS —
@@ -113,13 +113,29 @@ describe("Horse Hub → (tabs) navigation (vrai StackRouter, pas un mock)", () =
 });
 
 // Garde statique complémentaire (rapide, mais volontairement pas la seule
-// preuve) : aucune navigation de ce fichier vers (tabs) ne doit utiliser
-// router.push ou router.navigate — seul router.dismissTo est prouvé sûr
-// ci-dessus.
+// preuve). Le Hub vit depuis dans src/horses/components/HorseHub.tsx — il est
+// rendu à deux endroits (empilé au-dessus des onglets, ou DANS l'onglet
+// « Chevaux » d'une écurie d'un seul cheval), et c'est `goToTab` qui décide :
+// `dismissTo` quand il est empilé (seul prouvé sûr ci-dessus), `navigate`
+// depuis un onglet, où il n'y a précisément rien à dépiler.
+//
+// La règle devient donc : aucune navigation vers (tabs) n'est écrite en dur
+// ailleurs que dans ce helper. Sans ça, il suffirait d'un `router.push` ajouté
+// plus tard dans une carte de module pour réintroduire le crash.
+const hubSource = readFileSync(path.resolve(__dirname, "./components/HorseHub.tsx"), "utf8");
+
 describe("Horse Hub navigation source", () => {
-  it("never uses router.push/router.navigate to jump into (tabs) from this screen", () => {
-    const source = readFileSync(path.resolve(__dirname, "../../app/horse/[id]/index.tsx"), "utf8");
-    const unsafeJump = source.match(/router\.(push|navigate)\([\s\S]{0,80}?\(tabs\)/g);
-    expect(unsafeJump).toBeNull();
+  it("ne saute jamais vers (tabs) par un router.* écrit en dur", () => {
+    const hardCodedJump = hubSource.match(/router\.(push|navigate|dismissTo)\([\s\S]{0,80}?\(tabs\)/g);
+    expect(hardCodedJump).toBeNull();
+  });
+
+  it("garde dismissTo pour le cas empilé, où lui seul évite d'empiler un second (tabs)", () => {
+    expect(hubSource).toContain("router.dismissTo(href)");
+  });
+
+  it("passe bien par le helper pour chaque destination d'onglet", () => {
+    // Entraînement, Concours, Journal et l'ajout rapide « Séance ».
+    expect(hubSource.match(/goToTab\(/g)?.length).toBeGreaterThanOrEqual(4);
   });
 });
