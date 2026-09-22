@@ -4,9 +4,11 @@ import { formatDate } from "@/lib/dateFormat";
 import {
   cancelReminder,
   computeReminderTrigger,
+  pendingReminderCount,
   scheduleReminder,
   type ReminderOption,
 } from "@/lib/notifications";
+import { reminderBudgetWarning } from "@/lib/notificationBudget";
 import { cancelEmailReminder, scheduleEmailReminder } from "@/lib/emailReminders";
 import { NEVER_RECURRENCE, computeRecurrenceDates, type Recurrence } from "@/lib/recurrence";
 import type { Horse } from "@/horses/store";
@@ -218,7 +220,20 @@ export function useAppointmentForm({
     }
   }
 
-  /** Nom à afficher dans un rappel pour un cheval donné. Cherche d'abord
+  /** `Alert.alert` en version attendue : résout `true` si l'utilisateur
+ * confirme, `false` s'il annule ou ferme. Sans ça, impossible de demander un
+ * arbitrage au milieu d'une soumission asynchrone sans découper le flux en
+ * deux fonctions qui se rappellent l'une l'autre. */
+function confirmAsync(title: string, message: string, confirmLabel: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: "Annuler", style: "cancel", onPress: () => resolve(false) },
+      { text: confirmLabel, onPress: () => resolve(true) },
+    ]);
+  });
+}
+
+/** Nom à afficher dans un rappel pour un cheval donné. Cherche d'abord
    * parmi les chevaux proposables (cas multi-chevaux), puis le cheval actif.
    * `null` si introuvable — le corps du rappel repart alors sans nom, comme
    * avant l'ajout de ce champ, plutôt que d'afficher un identifiant. */
@@ -335,6 +350,22 @@ export function useAppointmentForm({
             `Une création est limitée à ${MAX_ENTRIES_PER_SUBMIT} rendez-vous (chevaux × répétitions). Réduis la répétition ou le nombre de chevaux.`
           );
           return;
+        }
+        // iOS ne garde que 64 rappels locaux en attente et jette les autres
+        // sans rien dire (cf. lib/notificationBudget.ts) : on le dit AVANT de
+        // créer, seul moment où l'utilisateur peut encore réduire la
+        // répétition. Demande confirmation plutôt que de refuser : le
+        // rendez-vous lui-même sera bien enregistré, seuls des rappels
+        // risquent de manquer, et c'est son arbitrage — pas le nôtre.
+        if (reminder !== "none") {
+          // Une notification par entrée, plus une par prochaine échéance de
+          // soin (programmée sur la première occurrence de chaque cheval).
+          const remindersToSchedule =
+            targetHorseIds.length * occurrenceDates.length + (nextDueDate ? targetHorseIds.length : 0);
+          const warning = reminderBudgetWarning(await pendingReminderCount(), remindersToSchedule);
+          if (warning && !(await confirmAsync("Beaucoup de rappels programmés", warning, "Créer quand même"))) {
+            return;
+          }
         }
         // Coût : le même montant pour chaque entrée créée, ou un montant global
         // à répartir entre elles au centime près (cf. splitAmount) — même choix

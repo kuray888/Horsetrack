@@ -53,6 +53,22 @@ async function ensureAndroidChannel() {
   });
 }
 
+/** Nombre de rappels locaux déjà programmés et pas encore déclenchés.
+ *
+ * Sert à prévenir avant d'en créer une fournée de plus (cf.
+ * lib/notificationBudget.ts) : iOS n'en garde que 64 et jette le reste sans
+ * rien dire. Retourne 0 si la liste est illisible — mieux vaut ne pas
+ * avertir que bloquer une création sur une lecture ratée. */
+export async function pendingReminderCount(): Promise<number> {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    return scheduled.length;
+  } catch (e) {
+    console.warn("[notifications] lecture des rappels programmés échouée", e);
+    return 0;
+  }
+}
+
 /** Programme un rappel local ; retourne l'id (à conserver pour pouvoir l'annuler), ou null si non programmé. */
 export async function scheduleReminder(title: string, body: string, trigger: Date): Promise<string | null> {
   const granted = await ensureNotificationPermission();
