@@ -427,7 +427,19 @@ export default function AgendaScreen() {
                 <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
                   <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
                 </View>
-                <Text className="text-sm text-muted">Aucun rendez-vous à venir.</Text>
+                {/* « Aucun à venir » n'est pas « rien à suivre » : les soins
+                    déjà enregistrés restent dans l'historique juste en
+                    dessous, et le dire évite de croire la fiche vide. */}
+                <Text className="text-center text-sm text-muted">
+                  {pastAppts.length > 0
+                    ? `Aucun rendez-vous à venir — ${pastAppts.length} déjà passé${pastAppts.length > 1 ? "s" : ""} dans l'historique plus bas.`
+                    : "Aucun rendez-vous à venir. Vaccins, maréchal et visites véto se programment ici."}
+                </Text>
+                {!showApptForm ? (
+                  <TouchableOpacity onPress={() => setShowApptForm(true)} activeOpacity={0.7}>
+                    <Text className="text-sm font-semibold text-accent">Ajouter un rendez-vous</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </FadeInView>
           ) : (
@@ -504,7 +516,15 @@ export default function AgendaScreen() {
                 <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
                   <MaterialCommunityIcons name="folder-outline" size={22} color={colors.textMuted} />
                 </View>
-                <Text className="text-sm text-muted">Aucun document pour l&apos;instant.</Text>
+                <Text className="text-center text-sm text-muted">
+                  Aucun document pour l&apos;instant. Carnet de vaccination, licence, factures : rangés ici, ils
+                  restent consultables même sans réseau.
+                </Text>
+                {!showDocForm ? (
+                  <TouchableOpacity onPress={() => setShowDocForm(true)} activeOpacity={0.7}>
+                    <Text className="text-sm font-semibold text-accent">Ajouter un document</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </FadeInView>
           ) : (
@@ -620,7 +640,15 @@ export default function AgendaScreen() {
                 <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
                   <MaterialCommunityIcons name="wallet-outline" size={22} color={colors.textMuted} />
                 </View>
-                <Text className="text-sm text-muted">Aucune dépense pour l&apos;instant.</Text>
+                <Text className="text-center text-sm text-muted">
+                  Aucune dépense pour l&apos;instant. Pension, maréchal, véto : les noter ici permet de voir ce que
+                  coûte vraiment un mois.
+                </Text>
+                {!showExpenseForm ? (
+                  <TouchableOpacity onPress={() => setShowExpenseForm(true)} activeOpacity={0.7}>
+                    <Text className="text-sm font-semibold text-accent">Ajouter une dépense</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </FadeInView>
           ) : (

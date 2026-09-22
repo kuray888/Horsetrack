@@ -1433,13 +1433,25 @@ export default function PlanningScreen() {
 
           {upcoming.length === 0 ? (
             <FadeInView delay={160}>
+              {/* « Rien de planifié » ne veut pas dire « rien à faire » : on
+                  dit ce qui existe quand même (le passé déjà enregistré, ou
+                  le filtre qui masque le reste) et ce qu'on peut faire d'ici. */}
               <View className={`${CARD} items-center gap-2`}>
                 <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
                   <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
                 </View>
-                <Text className="text-sm text-muted">
-                  {filter === "all" ? "Rien de planifié." : "Rien de ce type à venir."}
+                <Text className="text-center text-sm text-muted">
+                  {filter === "all"
+                    ? done.length > 0
+                      ? `Rien de planifié à venir — ${done.length} événement${done.length > 1 ? "s" : ""} déjà passé${done.length > 1 ? "s" : ""} plus bas.`
+                      : "Rien de planifié à venir, et rien d'enregistré pour le passé."
+                    : "Rien de ce type à venir — les autres types sont peut-être masqués par le filtre."}
                 </Text>
+                {!showForm && !showApptForm ? (
+                  <TouchableOpacity onPress={() => openCreateForm()} activeOpacity={0.7}>
+                    <Text className="text-sm font-semibold text-accent">Planifier une séance</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </FadeInView>
           ) : (

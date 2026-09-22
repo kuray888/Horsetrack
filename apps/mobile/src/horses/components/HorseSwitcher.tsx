@@ -81,11 +81,19 @@ export function HorseSwitcher({
                 </View>
               ) : null}
             </View>
+            {/* Deux lignes plutôt qu'une coupée net : « Quinoa du Chêne »
+                s'affichait « Quinoa du Ch… » pour toute une écurie aux noms
+                longs, jusqu'à rendre deux chevaux indiscernables. La largeur
+                reste bornée pour que la rangée garde son rythme, et
+                `adjustsFontSizeToFit` rattrape les noms qui débordent encore
+                sur iOS plutôt que de les tronquer. */}
             <Text
-              className={`max-w-[64px] text-center text-xs font-semibold ${
+              className={`w-[68px] text-center text-xs font-semibold leading-[14px] ${
                 isSelected ? "text-primary" : "text-muted"
               }`}
-              numberOfLines={1}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
             >
               {h.name}
             </Text>
