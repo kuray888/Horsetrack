@@ -87,10 +87,16 @@ function RootLayout() {
   useEffect(() => {
     if (!__DEV__) return;
     const timer = setTimeout(() => {
+      const report = startupTrace.report();
       console.log(
-        ["[démarrage] mesures (origine : premier module JS)", formatTrace(startupTrace.report()), ...summarizeTrace(startupTrace.report())].join(
-          "\n"
-        )
+        [
+          "[démarrage] mesures (origine : premier module JS)",
+          formatTrace(report),
+          ...summarizeTrace(report),
+          // Les écritures sont synchrones (cf. lib/localStore.ts) : ce sont
+          // elles, pas les lectures, qui bloquent le thread JS.
+          ...summarizeTrace(report, "écriture "),
+        ].join("\n")
       );
     }, 3000);
     return () => clearTimeout(timer);

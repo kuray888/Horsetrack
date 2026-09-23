@@ -437,7 +437,12 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
             onPress={() => {
               const report = startupTrace.report();
-              const texte = [formatTrace(report), "", ...summarizeTrace(report)].join("\n");
+              const texte = [
+                formatTrace(report),
+                "",
+                ...summarizeTrace(report),
+                ...summarizeTrace(report, "écriture "),
+              ].join("\n");
               // Journalisé en plus de l'alerte : le texte complet reste
               // copiable depuis le terminal, là où une alerte iOS finirait par
               // tronquer un rapport devenu long.

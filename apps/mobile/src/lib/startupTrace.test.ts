@@ -135,4 +135,25 @@ describe("summarizeTrace", () => {
       "Aucune lecture mesurée.",
     ]);
   });
+
+  it("résume les écritures avec le même calcul et le bon libellé", () => {
+    // Les écritures sont synchrones (cf. lib/localStore.ts) : ce sont elles qui
+    // bloquent le thread JS, donc elles méritent leur propre résumé.
+    const entries = [
+      { name: "lecture horses_v1", startedAt: 10, durationMs: 40 },
+      { name: "écriture horses_v1", startedAt: 60, durationMs: 4 },
+      { name: "écriture training_sessions_v1", startedAt: 70, durationMs: 9 },
+    ];
+    expect(summarizeTrace(entries, "écriture ")).toEqual([
+      "2 écriture(s), 13ms cumulés",
+      "dernière écriture terminée à 79ms",
+      "plus lente : écriture training_sessions_v1 (9ms)",
+    ]);
+  });
+
+  it("le dit quand aucune écriture n'a été mesurée", () => {
+    expect(summarizeTrace([{ name: "lecture horses_v1", startedAt: 1, durationMs: 2 }], "écriture ")).toEqual([
+      "Aucune écriture mesurée.",
+    ]);
+  });
 });

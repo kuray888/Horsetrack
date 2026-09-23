@@ -152,17 +152,23 @@ export function formatTrace(entries: TraceEntry[]): string {
  * mériterait qu'on regarde de plus près.
  */
 export function summarizeTrace(entries: TraceEntry[], prefix = "lecture "): string[] {
-  const reads = entries.filter((e) => e.name.startsWith(prefix));
-  const finished = reads.filter((e) => e.durationMs !== null);
-  if (finished.length === 0) return ["Aucune lecture mesurée."];
+  // Le libellé se déduit du préfixe (« lecture », « écriture ») : une seule
+  // source pour le filtre et pour le texte, sinon les deux finissent par se
+  // contredire au premier ajout.
+  const label = prefix.trim();
+  const matching = entries.filter((e) => e.name.startsWith(prefix));
+  const finished = matching.filter((e) => e.durationMs !== null);
+  if (finished.length === 0) return [`Aucune ${label} mesurée.`];
   const cumulative = finished.reduce((total, e) => total + (e.durationMs ?? 0), 0);
   const lastEnd = Math.max(...finished.map((e) => e.startedAt + (e.durationMs ?? 0)));
   const slowest = finished.reduce((a, b) => ((b.durationMs ?? 0) > (a.durationMs ?? 0) ? b : a));
   return [
-    `${finished.length} lecture(s), ${Math.round(cumulative)}ms cumulés`,
-    `dernière lecture terminée à ${Math.round(lastEnd)}ms`,
+    `${finished.length} ${label}(s), ${Math.round(cumulative)}ms cumulés`,
+    `dernière ${label} terminée à ${Math.round(lastEnd)}ms`,
     `plus lente : ${slowest.name} (${Math.round(slowest.durationMs ?? 0)}ms)`,
-    ...(reads.length > finished.length ? [`${reads.length - finished.length} lecture(s) jamais terminée(s)`] : []),
+    ...(matching.length > finished.length
+      ? [`${matching.length - finished.length} ${label}(s) jamais terminée(s)`]
+      : []),
   ];
 }
 

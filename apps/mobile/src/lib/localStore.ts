@@ -135,13 +135,26 @@ async function readJsonUncounted<T>(key: string, fallback: T): Promise<T> {
  * exception non rattrapée casserait l'écran.
  */
 export async function writeJson(key: string, value: unknown): Promise<boolean> {
-  try {
-    fileFor(key).write(JSON.stringify(value));
-    return true;
-  } catch (e) {
-    reportWriteFailure(key, e);
-    return false;
-  }
+  // Chronométré comme les lectures, mais pour une raison différente : cette
+  // fonction est `async` alors que `File.write` est SYNCHRONE (sa signature
+  // rend `void`, pas une promesse). La sérialisation ET l'écriture disque
+  // bloquent donc le thread JS, ce que la signature laisse croire le contraire.
+  //
+  // Mesuré hors appareil, `JSON.stringify` coûte ~0,06 ms pour un an
+  // d'historique et 0,8 ms pour un volume extrême — négligeable, et c'est
+  // pourquoi cette écriture n'a PAS été réécrite en asynchrone : on ajouterait
+  // des écritures concurrentes sur la même clé pour économiser une fraction de
+  // milliseconde. Reste la part native, inconnue tant qu'elle n'a pas été
+  // mesurée sur un vrai iPhone : d'où ce repère (cf. audit du 2026-09-23).
+  return startupTrace.measure(`écriture ${key}`, async () => {
+    try {
+      fileFor(key).write(JSON.stringify(value));
+      return true;
+    } catch (e) {
+      reportWriteFailure(key, e);
+      return false;
+    }
+  });
 }
 
 /** Efface une clé — des deux stockages : après une déconnexion, laisser
