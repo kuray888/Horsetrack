@@ -28,6 +28,8 @@ import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
+import { useSessions } from "@/sessions/store";
+import { clearSyncQueue } from "@/lib/syncQueue";
 import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -109,6 +111,7 @@ export default function ProfileScreen() {
   const { clearAll: clearAgenda } = useAgenda();
   const { goals, clearAll: clearGoals } = useGoals();
   const { clearAll: clearWeight } = useWeight();
+  const { clearAll: clearSessions } = useSessions();
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
@@ -191,7 +194,18 @@ export default function ProfileScreen() {
         clearAgenda(),
         clearGoals(),
         clearWeight(),
+        // Les séances manquaient à cet appel — alors que la confirmation
+        // ci-dessus les nomme explicitement parmi ce qui « sera définitivement
+        // supprimé ». Elles survivaient donc à la suppression du compte et
+        // étaient héritées par le compte suivant créé sur cet appareil, qui les
+        // repoussait ensuite dans SON cloud (cf. audit du 2026-09-23).
+        clearSessions(),
         clearSubscription(),
+        // Idem pour les écritures restées en attente : elles visent des lignes
+        // d'un compte qui n'existe plus, et n'ont aucune raison de partir sous
+        // l'identité du prochain. Même geste qu'au changement de compte (cf.
+        // (auth)/login.tsx).
+        clearSyncQueue(),
         clearLocalDataOwner(),
       ]);
       router.replace("/(onboarding)/welcome");
