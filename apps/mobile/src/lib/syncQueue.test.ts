@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// Import de TYPE seulement : effacé à la compilation, il ne déclenche donc pas
+// le chargement du module avant que `vi.mock` plus bas n'ait posé son double.
+import type { SyncOperation } from "@/lib/syncQueue";
 
 /**
  * File d'attente des écritures cloud échouées (cf. lib/syncQueue.ts).
@@ -168,5 +171,84 @@ describe("clearSyncQueue", () => {
     await enqueueFailedWrite({ table: "sessions", id: "s1", op: "upsert", row: { id: "s1" } });
     await clearSyncQueue();
     expect(pendingSyncCount()).toBe(0);
+  });
+});
+
+/**
+ * Course entre la saisie de l'utilisateur et le vidage de la file.
+ *
+ * Cas réel : mode avion, l'utilisateur continue de saisir, l'app revient au
+ * premier plan (ce qui déclenche un vidage), et une écriture échoue pendant
+ * que le vidage est en cours. C'est exactement la situation que ce module
+ * existe pour couvrir — elle perdait des données jusqu'à l'audit du
+ * 2026-09-23.
+ */
+describe("saisie pendant le vidage", () => {
+  it("garde la modification la plus récente, pas le contenu périmé déjà en file", async () => {
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "s1", row: { id: "s1", notes: "ancien" } });
+
+    await flushSyncQueue(async () => {
+      // L'utilisateur modifie la même séance pendant l'envoi ; ça échoue aussi.
+      await enqueueFailedWrite({
+        table: "training_sessions",
+        op: "upsert",
+        id: "s1",
+        row: { id: "s1", notes: "nouveau" },
+      });
+      return { error: { code: "503" } };
+    });
+
+    const queue = store.get("sync_queue_v1") as SyncOperation[];
+    expect(queue).toHaveLength(1);
+    expect(queue[0].row).toEqual({ id: "s1", notes: "nouveau" });
+    // Repart de zéro : c'est une saisie neuve, pas une énième reprise.
+    expect(queue[0].attempts).toBe(0);
+  });
+
+  it("ne laisse pas un upsert réussi annuler la suppression saisie entre-temps", async () => {
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "s2", row: { id: "s2" } });
+
+    await flushSyncQueue(async () => {
+      // L'utilisateur supprime la séance pendant l'envoi.
+      await enqueueFailedWrite({ table: "training_sessions", op: "delete", id: "s2" });
+      return { error: null }; // l'upsert, lui, part avec succès
+    });
+
+    // Sans ça, la séance supprimée ressuscite dans le cloud au prochain pull.
+    const queue = store.get("sync_queue_v1") as SyncOperation[];
+    expect(queue).toHaveLength(1);
+    expect(queue[0].op).toBe("delete");
+  });
+
+  it("n'écrase pas une autre ligne saisie pendant l'envoi", async () => {
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "s3", row: { id: "s3" } });
+
+    await flushSyncQueue(async () => {
+      await enqueueFailedWrite({ table: "appointments", op: "upsert", id: "a1", row: { id: "a1" } });
+      return { error: { code: "503" } };
+    });
+
+    const queue = store.get("sync_queue_v1") as SyncOperation[];
+    expect(queue.map((o) => o.id).sort()).toEqual(["a1", "s3"]);
+  });
+
+  it("abandonne l'envoi et ne réinstalle rien si le compte change en cours de route", async () => {
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "s4", row: { id: "s4" } });
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "s5", row: { id: "s5" } });
+
+    let envois = 0;
+    await flushSyncQueue(async () => {
+      envois++;
+      // Déconnexion/changement de compte pendant l'envoi (cf. login.tsx).
+      await clearSyncQueue();
+      return { error: { code: "503" } };
+    });
+
+    // On s'arrête au premier envoi au lieu de continuer sous la nouvelle
+    // identité, et la file reste vide : ces écritures sont celles du compte
+    // précédent.
+    expect(envois).toBe(1);
+    expect(pendingSyncCount()).toBe(0);
+    expect(store.get("sync_queue_v1")).toEqual([]);
   });
 });

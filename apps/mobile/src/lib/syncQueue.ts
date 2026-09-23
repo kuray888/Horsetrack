@@ -50,6 +50,15 @@ export const MAX_ATTEMPTS = 5;
  * les récentes sont celles que l'utilisateur vient de saisir. */
 export const MAX_QUEUE_LENGTH = 200;
 
+/** Identité d'une ligne dans la file : c'est le couple table + id qui désigne
+ * « la même donnée », et donc ce qu'une nouvelle saisie remplace. Extrait en
+ * fonction pour que `mergeOperation` et `flushSyncQueue` ne puissent pas
+ * diverger sur cette définition — c'est précisément leur désaccord qui faisait
+ * perdre des saisies. */
+function rowKey(operation: Pick<SyncOperation, "table" | "id">): string {
+  return `${operation.table}\u0000${operation.id}`;
+}
+
 /**
  * Ajoute une opération à la file, en remplaçant celle qui visait déjà la même
  * ligne.
@@ -63,7 +72,7 @@ export const MAX_QUEUE_LENGTH = 200;
  * l'utilisateur, pas une énième reprise de la précédente.
  */
 export function mergeOperation(queue: SyncOperation[], operation: SyncOperation): SyncOperation[] {
-  const without = queue.filter((o) => !(o.table === operation.table && o.id === operation.id));
+  const without = queue.filter((o) => rowKey(o) !== rowKey(operation));
   const next = [...without, operation];
   return next.length > MAX_QUEUE_LENGTH ? next.slice(next.length - MAX_QUEUE_LENGTH) : next;
 }
@@ -93,6 +102,11 @@ let loaded = false;
 /** Empêche deux vidages concurrents (démarrage + retour au premier plan, par
  * exemple) de rejouer deux fois les mêmes opérations. */
 let flushing = false;
+/** Incrémenté par `clearSyncQueue`. Un vidage en vol compare ce compteur au
+ * sien : s'il a changé, c'est qu'on a changé de compte pendant l'envoi, et le
+ * vidage doit se taire au lieu de réinstaller la file qu'on venait d'effacer
+ * — ces opérations appartiennent au compte précédent. */
+let generation = 0;
 const listeners = new Set<(pending: number) => void>();
 
 function notify() {
@@ -156,8 +170,14 @@ export async function flushSyncQueue(
     // (l'utilisateur continue de saisir), et elles ne doivent pas être
     // écrasées par le résultat de cette passe.
     const attempted = [...queue];
+    const startedGeneration = generation;
     const failed: SyncOperation[] = [];
     for (const operation of attempted) {
+      // Changement de compte en cours de route : on arrête d'envoyer
+      // immédiatement. Continuer enverrait les écritures du compte précédent
+      // sous l'identité du suivant, et ne compter que sur la RLS pour les
+      // refuser reviendrait à faire du serveur le seul garde-fou.
+      if (generation !== startedGeneration) return;
       try {
         const { error } = await send(operation);
         if (!error) continue;
@@ -169,11 +189,27 @@ export async function flushSyncQueue(
         if (retry) failed.push(retry);
       }
     }
-    // Ne garde que ce qui a échoué, PLUS ce qui est arrivé entre-temps.
-    const arrivedDuringFlush = queue.filter(
-      (o) => !attempted.some((a) => a.table === o.table && a.id === o.id)
-    );
-    queue = [...failed, ...arrivedDuringFlush];
+    // La file a été vidée volontairement pendant l'envoi (déconnexion,
+    // changement de compte) : ne RIEN réécrire. `clearSyncQueue` a déjà
+    // persisté une file vide, et réinstaller `failed` ressusciterait des
+    // opérations qui appartiennent au compte précédent.
+    if (generation !== startedGeneration) return;
+
+    // Ce qui est arrivé pendant l'envoi se reconnaît à l'identité de l'objet,
+    // pas au couple table+id : une nouvelle saisie sur la MÊME ligne produit un
+    // objet différent, qu'on doit garder. L'ancienne comparaison par table+id
+    // la confondait avec l'opération déjà tentée et la jetait — la modification
+    // de l'utilisateur était alors perdue, et remplacée par le contenu périmé.
+    const arrivedDuringFlush = queue.filter((o) => !attempted.includes(o));
+
+    // Une opération retentée est abandonnée si l'utilisateur a saisi quelque
+    // chose de plus récent sur la même ligne entre-temps : cette saisie-là fait
+    // autorité. C'est ce qui empêche une suppression faite pendant l'envoi
+    // d'être écrasée par l'upsert qu'elle annulait.
+    const superseded = new Set(arrivedDuringFlush.map(rowKey));
+    const stillPending = failed.filter((o) => !superseded.has(rowKey(o)));
+
+    queue = [...stillPending, ...arrivedDuringFlush];
     await persist();
   } finally {
     flushing = false;
@@ -184,6 +220,9 @@ export async function flushSyncQueue(
  * opérations appartiennent au compte précédent et ne doivent surtout pas
  * partir sous l'identité du suivant. */
 export async function clearSyncQueue(): Promise<void> {
+  // Marque une nouvelle génération : un vidage déjà en vol s'arrêtera au lieu
+  // de réinstaller ce qu'on efface ici (cf. `generation`).
+  generation++;
   queue = [];
   loaded = true;
   await persist();
