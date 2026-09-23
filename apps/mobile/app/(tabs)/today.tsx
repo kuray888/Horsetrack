@@ -444,6 +444,26 @@ export default function TodayScreen() {
         <SessionDonePrompt session={prompted} onDismiss={dismissPrompt} />
       </FadeInView>
 
+      {/* Météo et conseil du jour, remontés en tête à la demande de
+          l'utilisateur (2026-09-23). Ils restent SOUS les deux bannières de
+          sauvegarde : celles-ci signalent une perte de données possible, et
+          rien ne doit passer devant. Le bilan hebdomadaire, lui, reste en bas. */}
+      <FadeInView delay={53}>
+        <WeatherForecastStrip />
+      </FadeInView>
+
+      <FadeInView delay={53}>
+        <View className="flex-row gap-3 rounded-card bg-highlight p-5">
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-surface">
+            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.primary} />
+          </View>
+          <View className="flex-1 gap-0.5">
+            <Text className="text-sm font-bold uppercase tracking-wide text-primary">Conseil du jour</Text>
+            <Text className="text-[15px] leading-5 text-text">{dailyTip()}</Text>
+          </View>
+        </View>
+      </FadeInView>
+
       {/* Météo de la prochaine séance — juste sous « à surveiller » : c'est
           une information qui peut faire déplacer une séance, donc elle a sa
           place en haut, contrairement au bandeau de prévisions générales qui
@@ -723,14 +743,8 @@ export default function TodayScreen() {
         )}
       </FadeInView>
 
-      {/* Second plan : météo, bilan de la semaine et conseil du jour. Rien ici
-          ne demande d'action ni ne se périme dans la journée — c'est ce qu'on
-          lit APRÈS avoir vu ce qu'il y a à faire, alors que la météo et
-          l'anneau hebdomadaire occupaient jusqu'ici le haut de l'écran. */}
-      <FadeInView delay={280}>
-        <WeatherForecastStrip />
-      </FadeInView>
-
+      {/* Bilan de la semaine — reste en second plan : il ne demande aucune
+          action et ne se périme pas dans la journée. */}
       <FadeInView delay={300}>
         <View className={`${CARD} flex-row items-center gap-3`}>
           <CircularProgress
@@ -753,17 +767,6 @@ export default function TodayScreen() {
         </View>
       </FadeInView>
 
-      <FadeInView delay={320}>
-        <View className="flex-row gap-3 rounded-card bg-highlight p-5">
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-surface">
-            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.primary} />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-bold uppercase tracking-wide text-primary">Conseil du jour</Text>
-            <Text className="text-[15px] leading-5 text-text">{dailyTip()}</Text>
-          </View>
-        </View>
-      </FadeInView>
     </Screen>
     <QuickAddSheet visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} onSelect={handleQuickAdd} />
     <PickerOverlaySlot />
