@@ -80,36 +80,63 @@ export function resetWriteFailureNotice() {
  * n'en persiste (tous écrivent un tableau ou un objet), et distinguer
  * « absent » de « null » coûterait plus cher que ce que ce cas rapporte.
  */
-export async function readJson<T>(key: string, fallback: T): Promise<T> {
-  // Chronométré ici plutôt que dans chaque provider : tout ce que les neuf
-  // stores chargent au démarrage passe par cette fonction, donc un seul point
-  // d'instrumentation les couvre tous, sans toucher à leur code (cf.
-  // lib/startupTrace.ts). `measure` ne change ni le résultat ni les erreurs :
-  // les chemins de repli ci-dessous restent strictement identiques.
+/**
+ * Résultat d'une lecture, avec la distinction que `readJson` seul ne peut pas
+ * exprimer : `ok: false` signifie « il y avait quelque chose ici et je n'ai pas
+ * su le lire », tandis qu'une absence franche (installation neuve) reste
+ * `ok: true` avec la valeur de repli.
+ *
+ * Pourquoi cette distinction existe : les stores réécrivent leur état sur
+ * disque dès que le chargement est terminé. Tant qu'ils ne savaient pas
+ * distinguer les deux cas, une lecture ratée les faisait démarrer sur un
+ * tableau vide, puis ÉCRASER le vrai fichier avec ce vide — un an d'historique
+ * effacé par un incident de lecture passager (constaté le 2026-09-23 : des
+ * lectures de fichiers locaux renvoyaient « Operation timed out »).
+ */
+export type ReadResult<T> = { ok: boolean; value: T };
+
+/** Comme `readJson`, mais dit en plus si la valeur rendue est une vraie lecture
+ * ou un repli subi. Les appelants qui persistent leur état DOIVENT passer par
+ * là et refuser d'écrire quand `ok` est faux. */
+export async function readJsonChecked<T>(key: string, fallback: T): Promise<ReadResult<T>> {
   return startupTrace.measure(`lecture ${key}`, () => readJsonUncounted(key, fallback));
 }
 
-async function readJsonUncounted<T>(key: string, fallback: T): Promise<T> {
+export async function readJson<T>(key: string, fallback: T): Promise<T> {
+  // Façade historique : ne garde que la valeur. À réserver aux lectures qui ne
+  // sont PAS réécrites ensuite (cf. readJsonChecked pour les autres).
+  return (await readJsonChecked(key, fallback)).value;
+}
+
+async function readJsonUncounted<T>(key: string, fallback: T): Promise<ReadResult<T>> {
+  // Passe à faux dès qu'on constate qu'il Y AVAIT quelque chose à lire sans
+  // y parvenir. Une absence franche laisse ce drapeau à vrai : rendre le
+  // repli est alors la bonne réponse, pas un échec.
+  let ok = true;
   try {
     const file = fileFor(key);
     if (file.exists) {
       const parsed = safeJsonParse<T | null>(await file.text(), null);
-      if (parsed !== null) return parsed;
+      if (parsed !== null) return { ok: true, value: parsed };
       // Fichier présent mais inexploitable (écriture interrompue, contenu
       // tronqué) : on ne rend PAS un compte vide tant que l'ancienne copie
       // existe encore. Elle est périmée, mais elle est vraie.
       console.warn(`[localStore] fichier ${key} illisible, repli sur l'ancienne copie`);
+      ok = false;
     }
   } catch (e) {
     console.warn(`[localStore] lecture ${key} échouée`, e);
+    ok = false;
     // Même raison : on tente l'ancienne copie avant d'abandonner.
   }
   // Migration depuis SecureStore — et filet de secours du cas ci-dessus.
   try {
     const legacy = await SecureStore.getItemAsync(key);
-    if (!legacy) return fallback;
+    // Aucune ancienne copie : le repli est la vraie réponse si le fichier
+    // était simplement absent, une perte constatée s'il était illisible.
+    if (!legacy) return { ok, value: fallback };
     const parsed = safeJsonParse<T | null>(legacy, null);
-    if (parsed === null) return fallback;
+    if (parsed === null) return { ok: false, value: fallback };
     // Best-effort : si la recopie échoue, on rend quand même la valeur lue.
     // Pas d'alerte ici — rien n'est perdu, l'ancienne entrée est intacte et
     // la migration sera retentée au prochain démarrage.
@@ -118,10 +145,10 @@ async function readJsonUncounted<T>(key: string, fallback: T): Promise<T> {
     } catch (e) {
       console.warn(`[localStore] migration ${key} échouée`, e);
     }
-    return parsed;
+    return { ok: true, value: parsed };
   } catch (e) {
     console.warn(`[localStore] lecture SecureStore ${key} échouée`, e);
-    return fallback;
+    return { ok: false, value: fallback };
   }
 }
 

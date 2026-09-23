@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
-import { readJson, removeJson, writeJson } from "@/lib/localStore";
+import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { pushTrainingSession, deleteTrainingSessionRemote } from "@/lib/cloudSync";
 import type { ActivityType } from "@/agenda/store";
 import { useHorses } from "@/horses/store";
@@ -81,6 +81,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const { horses, selectedHorse, loading: horsesLoading } = useHorses();
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** Cf. `loadFailed` d'agenda/store.tsx : une lecture ratée coupe les
+   * écritures, sans quoi l'état vide écraserait le fichier illisible. */
+  const [loadFailed, setLoadFailed] = useState(false);
   /** Cf. `saveFailed` d'agenda/store.tsx : même rôle, même raison. */
   const [saveFailed, setSaveFailed] = useState(false);
 
@@ -89,7 +92,11 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       try {
         // Fichier JSON, avec recopie de l'ancienne valeur SecureStore à la
         // première lecture (cf. lib/localStore.ts).
-        const parsed = await readJson<TrainingSession[] | null>(SESSIONS_KEY, null);
+        const { ok, value: parsed } = await readJsonChecked<TrainingSession[] | null>(SESSIONS_KEY, null);
+        if (!ok) {
+          setLoadFailed(true);
+          console.warn("[sessions] lecture ratée : écritures désactivées pour protéger le fichier existant");
+        }
         if (parsed) {
           setSessions(
             parsed.map((s) => ({ ...s, date: new Date(s.date), customActivityLabel: s.customActivityLabel ?? null }))
@@ -97,6 +104,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         }
       } catch (e) {
         console.warn("[sessions] lecture du stockage local échouée", e);
+        setLoadFailed(true);
       } finally {
         setLoaded(true);
       }
@@ -119,9 +127,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, [loaded, horsesLoading, horses, selectedHorse]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadFailed) return;
     writeJson(SESSIONS_KEY, sessions).then((ok) => setSaveFailed(!ok));
-  }, [sessions, loaded]);
+  }, [sessions, loaded, loadFailed]);
 
   const addSession = useCallback(
     (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => {

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { readJson, removeJson, writeJson } from "@/lib/localStore";
+import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import type { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
 import { cancelReminder, type ReminderOption } from "@/lib/notifications";
@@ -395,6 +395,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     horsesRef.current = horses;
   }, [checklistTemplate, appointments, horses]);
   const [loaded, setLoaded] = useState(false);
+  /** Vrai quand au moins une des lectures n'a PAS abouti. Les écritures sont
+   * alors désactivées : réécrire l'état courant (vide, faute d'avoir pu lire)
+   * effacerait le fichier qu'on vient justement de ne pas savoir lire. */
+  const [loadFailed, setLoadFailed] = useState(false);
   /** Vrai quand la dernière écriture locale a échoué (disque plein, fichier
    * inaccessible). L'utilisateur est déjà prévenu une fois par session par
    * lib/localStore.ts ; cet état permet en plus à l'écran de le montrer en
@@ -412,13 +416,27 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       try {
         // readJson lit le fichier JSON et, la première fois, recopie
         // l'ancienne valeur SecureStore au passage (cf. lib/localStore.ts).
-        const [parsedAppts, parsedDocs, parsedJournal, parsedExpenses, parsedTemplate] = await Promise.all([
-          readJson<Appointment[] | null>(APPOINTMENTS_KEY, null),
-          readJson<Doc[] | null>(DOCUMENTS_KEY, null),
-          readJson<JournalEntry[] | null>(JOURNAL_KEY, null),
-          readJson<Expense[] | null>(EXPENSES_KEY, null),
-          readJson<string[] | null>(CHECKLIST_TEMPLATE_KEY, null),
+        const results = await Promise.all([
+          readJsonChecked<Appointment[] | null>(APPOINTMENTS_KEY, null),
+          readJsonChecked<Doc[] | null>(DOCUMENTS_KEY, null),
+          readJsonChecked<JournalEntry[] | null>(JOURNAL_KEY, null),
+          readJsonChecked<Expense[] | null>(EXPENSES_KEY, null),
+          readJsonChecked<string[] | null>(CHECKLIST_TEMPLATE_KEY, null),
         ]);
+        // Une seule lecture ratée suffit à couper TOUTES les écritures de ce
+        // store : les cinq clés sont réécrites par des effets distincts, et
+        // rien ne garantit que celle qui a échoué soit la seule touchée.
+        if (results.some((r) => !r.ok)) {
+          setLoadFailed(true);
+          console.warn("[agenda] lecture partielle : écritures désactivées pour protéger les fichiers existants");
+        }
+        const [parsedAppts, parsedDocs, parsedJournal, parsedExpenses, parsedTemplate] = results.map((r) => r.value) as [
+          Appointment[] | null,
+          Doc[] | null,
+          JournalEntry[] | null,
+          Expense[] | null,
+          string[] | null,
+        ];
         if (Array.isArray(parsedTemplate)) {
           setChecklistTemplate(normalizeChecklistLabels(parsedTemplate.filter((l) => typeof l === "string")));
         }
@@ -490,6 +508,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         }
       } catch (e) {
         console.warn("[agenda] lecture du stockage local échouée, agenda par défaut", e);
+        setLoadFailed(true);
       } finally {
         setLoaded(true);
       }
@@ -518,29 +537,29 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // Persiste à chaque changement, une fois le chargement initial terminé
   // (sinon on écraserait les données sauvegardées avec les mocks par défaut).
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadFailed) return;
     writeJson(APPOINTMENTS_KEY, appointments).then(noteSaveResult);
-  }, [appointments, loaded, noteSaveResult]);
+  }, [appointments, loaded, loadFailed, noteSaveResult]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadFailed) return;
     writeJson(DOCUMENTS_KEY, documents).then(noteSaveResult);
-  }, [documents, loaded, noteSaveResult]);
+  }, [documents, loaded, loadFailed, noteSaveResult]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadFailed) return;
     writeJson(JOURNAL_KEY, journal).then(noteSaveResult);
-  }, [journal, loaded, noteSaveResult]);
+  }, [journal, loaded, loadFailed, noteSaveResult]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadFailed) return;
     writeJson(EXPENSES_KEY, expenses).then(noteSaveResult);
-  }, [expenses, loaded, noteSaveResult]);
+  }, [expenses, loaded, loadFailed, noteSaveResult]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadFailed) return;
     writeJson(CHECKLIST_TEMPLATE_KEY, checklistTemplate).then(noteSaveResult);
-  }, [checklistTemplate, loaded, noteSaveResult]);
+  }, [checklistTemplate, loaded, loadFailed, noteSaveResult]);
 
   const addAppointment = useCallback(
     // `horseId` optionnel : par défaut le cheval globalement sélectionné,

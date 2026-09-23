@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { readJson, removeJson, writeJson } from "@/lib/localStore";
+import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { pushWeightMeasurement, deleteWeightMeasurementRemote } from "@/lib/cloudSync";
 import { useHorses } from "@/horses/store";
 
@@ -46,12 +46,18 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   const { horses, selectedHorse, updateHorse } = useHorses();
   const [measurements, setMeasurements] = useState<WeightMeasurement[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** Cf. `loadFailed` d'agenda/store.tsx : même protection, même raison. */
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         // Cf. lib/localStore.ts (fichier JSON + migration SecureStore).
-        const parsed = await readJson<WeightMeasurement[] | null>(WEIGHT_KEY, null);
+        const { ok, value: parsed } = await readJsonChecked<WeightMeasurement[] | null>(WEIGHT_KEY, null);
+        if (!ok) {
+          setLoadFailed(true);
+          console.warn("[poids] lecture ratée : écritures désactivées pour protéger le fichier existant");
+        }
         if (parsed) {
           setMeasurements(parsed.map((m) => ({ ...m, date: new Date(m.date) })));
         }
@@ -64,9 +70,9 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadFailed) return;
     writeJson(WEIGHT_KEY, measurements);
-  }, [measurements, loaded]);
+  }, [measurements, loaded, loadFailed]);
 
   const addMeasurement = useCallback(
     (weightKg: number, date: Date) => {

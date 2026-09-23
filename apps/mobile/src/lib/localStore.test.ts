@@ -15,6 +15,8 @@ const files = new Map<string, string>();
 const keychain = new Map<string, string>();
 /** Noms de fichiers dont l'écriture doit échouer (disque plein…). */
 const failingWrites = new Set<string>();
+/** Noms de fichiers dont la LECTURE doit échouer (disque saturé…). */
+const failingReads = new Set<string>();
 
 vi.mock("expo-file-system", () => ({
   Paths: { document: "doc" },
@@ -27,6 +29,7 @@ vi.mock("expo-file-system", () => ({
       return files.has(this.name);
     }
     async text() {
+      if (failingReads.has(this.name)) throw new Error("Operation timed out");
       const value = files.get(this.name);
       if (value === undefined) throw new Error("ENOENT");
       return value;
@@ -51,7 +54,9 @@ vi.mock("react-native", () => ({
   Alert: { alert: (title: string) => void alerts.push(title) },
 }));
 
-const { readJson, writeJson, removeJson, resetWriteFailureNotice } = await import("@/lib/localStore");
+const { readJson, readJsonChecked, writeJson, removeJson, resetWriteFailureNotice } = await import(
+  "@/lib/localStore"
+);
 
 const FILE = "store-journal_v1.json";
 
@@ -59,6 +64,7 @@ beforeEach(() => {
   files.clear();
   keychain.clear();
   failingWrites.clear();
+  failingReads.clear();
   alerts.length = 0;
   resetWriteFailureNotice();
 });
@@ -138,5 +144,53 @@ describe("removeJson", () => {
     await removeJson("journal_v1");
     expect(files.has(FILE)).toBe(false);
     expect(keychain.has("journal_v1")).toBe(false);
+  });
+});
+
+/**
+ * Distinction « absent » / « illisible » (cf. readJsonChecked).
+ *
+ * Ce qui se joue ici : les stores réécrivent leur état sur disque une fois
+ * chargés. Sans ce drapeau, une lecture ratée les faisait démarrer à vide puis
+ * ÉCRASER le fichier qu'ils venaient de ne pas savoir lire — un an
+ * d'historique effacé par un incident passager. Bug trouvé le 2026-09-23
+ * grâce aux mesures de démarrage relevées sur un vrai iPhone.
+ */
+describe("readJsonChecked", () => {
+  it("ok quand la lecture réussit", async () => {
+    files.set(FILE, JSON.stringify([{ id: "a" }]));
+    expect(await readJsonChecked("journal_v1", [])).toEqual({ ok: true, value: [{ id: "a" }] });
+  });
+
+  it("ok sur une absence franche — installation neuve, il n'y a rien à perdre", async () => {
+    expect(await readJsonChecked("journal_v1", [])).toEqual({ ok: true, value: [] });
+  });
+
+  it("PAS ok quand le fichier existe mais est illisible", async () => {
+    // Écriture interrompue, contenu tronqué : il Y AVAIT des données.
+    files.set(FILE, "{ceci n'est pas du JSON");
+    expect(await readJsonChecked("journal_v1", [])).toEqual({ ok: false, value: [] });
+  });
+
+  it("PAS ok quand la lecture du fichier lève — le cas « Operation timed out »", async () => {
+    files.set(FILE, JSON.stringify([{ id: "a" }]));
+    // `exists` répond vrai mais `text()` échoue : exactement ce qu'on a
+    // observé sur un disque saturé le 2026-09-23.
+    const original = files.get(FILE);
+    files.set(FILE, original!);
+    failingReads.add(FILE);
+    expect(await readJsonChecked("journal_v1", [])).toEqual({ ok: false, value: [] });
+    failingReads.delete(FILE);
+  });
+
+  it("redevient ok si l'ancienne copie du keychain sauve la lecture", async () => {
+    files.set(FILE, "tronqué");
+    keychain.set("journal_v1", JSON.stringify([{ id: "sauvé" }]));
+    expect(await readJsonChecked("journal_v1", [])).toEqual({ ok: true, value: [{ id: "sauvé" }] });
+  });
+
+  it("readJson reste une façade qui ne rend que la valeur", async () => {
+    files.set(FILE, JSON.stringify([{ id: "a" }]));
+    expect(await readJson("journal_v1", [])).toEqual([{ id: "a" }]);
   });
 });
