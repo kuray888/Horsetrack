@@ -13,6 +13,7 @@ import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import { pullPendingInvites } from "@/lib/sharing";
 import { withTimeout } from "@/lib/withTimeout";
 import { useSessions } from "@/sessions/store";
+import { clearSyncQueue } from "@/lib/syncQueue";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
@@ -117,8 +118,27 @@ export default function OnboardingAccount() {
 
   async function afterAccountObtained(userId: string) {
     const owner = await getLocalDataOwner();
-    if (owner && owner !== userId) {
-      await Promise.all([clearSessions(), clearAgenda(), clearGoals(), clearWeight(), clearSubscription()]);
+    // Pas de garde `owner &&` : un propriétaire ABSENT ne veut pas dire « rien
+    // à nettoyer ». C'est précisément l'état que laisse une suppression de
+    // compte (clearLocalDataOwner), et la garde faisait alors hériter le
+    // nouveau compte des données de l'ancien, qu'il repoussait ensuite dans SON
+    // cloud (cf. audit du 2026-09-23). Sur une installation neuve, ces purges
+    // ne trouvent rien : elles ne coûtent qu'un fichier vide écrit.
+    //
+    // Purger ici ne risque pas d'effacer une saisie en cours : le compte est
+    // obtenu AVANT les écrans qui collectent quoi que ce soit (cf.
+    // continueAfterAuth, qui enchaîne seulement ensuite sur rider-level).
+    if (owner !== userId) {
+      await Promise.all([
+        clearSessions(),
+        clearAgenda(),
+        clearGoals(),
+        clearWeight(),
+        clearSubscription(),
+        // Écritures en attente d'un autre compte : elles ne doivent pas partir
+        // sous cette identité-ci (cf. lib/syncQueue.ts).
+        clearSyncQueue(),
+      ]);
     }
     await setLocalDataOwner(userId);
   }
