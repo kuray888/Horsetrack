@@ -3,10 +3,9 @@
 -- Supabase (prod), après relecture. Idempotent, sans effet sur les données
 -- existantes (colonnes nullables).
 --
--- Tant que ce SQL n'est pas passé, l'app garde ces deux champs sur le
--- téléphone uniquement (cloudSync.ts ne les envoie pas). Une fois passé, il
--- faudra les ajouter à la synchro (cloudSync.ts), dans une nouvelle version
--- de l'app.
+-- Le code de synchro (cloudSync.ts) gère déjà ces colonnes : tant qu'elles
+-- manquent, il retombe sur l'ancien format ; une fois créées, niveau et
+-- dernier jour se synchronisent sans nouvelle version de l'app.
 
 alter table public.appointments
   add column if not exists "competitionLevel" text,
