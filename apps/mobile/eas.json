@@ -19,6 +19,7 @@
         "EXPO_PUBLIC_API_URL": "https://api-mu-tan-94.vercel.app",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR",
+        "EXPO_PUBLIC_APP_STORE_ID": "6786889092",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -30,6 +31,7 @@
         "EXPO_PUBLIC_API_URL": "https://api-mu-tan-94.vercel.app",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR",
+        "EXPO_PUBLIC_APP_STORE_ID": "6786889092",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -41,6 +43,7 @@
         "EXPO_PUBLIC_API_URL": "https://api-mu-tan-94.vercel.app",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR",
+        "EXPO_PUBLIC_APP_STORE_ID": "6786889092",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
