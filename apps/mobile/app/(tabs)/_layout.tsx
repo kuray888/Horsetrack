@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
-import { Animated } from "react-native";
+import { Animated, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
@@ -59,7 +59,21 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarShowLabel: true,
-        tabBarStyle: { borderTopWidth: 1, borderTopColor: colors.border, height: 62, paddingTop: 6 },
+        // Hauteur imposée sur iOS seulement. La barre d'onglets ajoute
+        // TOUJOURS la marge système du bas à l'intérieur de cette hauteur
+        // (cf. BottomTabBar : `paddingBottom: insets.bottom`). Sur Android,
+        // cette marge vaut la hauteur de la barre de navigation — environ
+        // 48 dp avec les trois boutons — et il ne restait donc qu'une
+        // douzaine de points pour l'icône et le libellé, tronqués. En la
+        // laissant indéfinie, la barre se dimensionne elle-même à partir de
+        // son contenu et de la marge réelle de l'appareil. iOS garde la
+        // valeur d'origine, donc le rendu iPhone est strictement inchangé.
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          height: Platform.OS === "ios" ? 62 : undefined,
+          paddingTop: 6,
+        },
       }}
     >
       <Tabs.Screen
