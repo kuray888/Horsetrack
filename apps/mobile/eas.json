@@ -20,6 +20,7 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR",
         "EXPO_PUBLIC_APP_STORE_ID": "6786889092",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_kn7jNyodCfpLTT43RD47Mi4Th9TwCKCXTPWcGsnpz5Pe",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -32,6 +33,7 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR",
         "EXPO_PUBLIC_APP_STORE_ID": "6786889092",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_kn7jNyodCfpLTT43RD47Mi4Th9TwCKCXTPWcGsnpz5Pe",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -44,6 +46,7 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gAgrlQOnHqeSeNEgVQZcWidTZtb",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_QBnUmxxOutbDIVQpesZSiJsmJvR",
         "EXPO_PUBLIC_APP_STORE_ID": "6786889092",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_kn7jNyodCfpLTT43RD47Mi4Th9TwCKCXTPWcGsnpz5Pe",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
