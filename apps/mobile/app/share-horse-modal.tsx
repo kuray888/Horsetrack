@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -7,6 +7,11 @@ import { Field } from "@/components/Field";
 import { PrimaryButton } from "@/components/onboarding";
 import { useHorses } from "@/horses/store";
 import { useSubscription } from "@/subscription/store";
+import { openPaywall } from "@/subscription/paywall";
+import { markPremiumActivated } from "@/subscription/trialLifecycle";
+import { track } from "@/lib/analytics";
+import { DOWNLOAD_URL } from "@/lib/links";
+import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { colors } from "@/theme/colors";
 import {
   inviteCollaborator,
@@ -41,21 +46,23 @@ const STATUS_META: Record<Collaborator["status"], string> = {
 /** Réservé aux comptes Premium, et 1 collaborateur par cheval (cf. grille
  * tarifaire) — même pattern d'upsell que add-horse-modal.tsx pour la limite
  * de chevaux. */
-function ShareLocked({ message }: { message: string }) {
+function ShareLocked({ horseId, horseName }: { horseId?: string; horseName?: string }) {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 items-center justify-center gap-4 px-6">
         <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
           <MaterialCommunityIcons name="lock-outline" size={28} color={colors.primary} />
         </View>
-        <Text className="text-center text-xl font-bold text-text">Partage du cheval</Text>
-        <Text className="text-center text-sm text-muted">{message}</Text>
+        <Text className="text-center text-xl font-bold text-text">Partage {horseName ?? "ton cheval"} avec ta demi-pension</Text>
+        <Text className="text-center text-sm text-muted">
+          Ta DP, ton coach ou ton groom retrouvent son planning, ses soins et ses rendez-vous. Disponible avec Premium.
+        </Text>
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => router.push("/paywall")}
+          onPress={() => openPaywall("sharing", { feature: "share_horse", horseId })}
           className="rounded-full bg-primary px-6 py-3"
         >
-          <Text className="text-sm font-bold text-on-primary">Voir les offres</Text>
+          <Text className="text-sm font-bold text-on-primary">Découvrir Premium</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Text className="text-sm font-semibold text-muted">Retour</Text>
@@ -102,7 +109,7 @@ export default function ShareHorseModal() {
   }, [refresh]);
 
   if (!isActiveOrTrialing) {
-    return <ShareLocked message="Le partage avec une demi-pension ou un coach est réservé aux comptes abonnés." />;
+    return <ShareLocked horseId={horseId} horseName={horse?.name} />;
   }
   if (!horse) {
     return (
@@ -121,10 +128,32 @@ export default function ShareHorseModal() {
     try {
       const result = await inviteCollaborator(horseId, trimmed, role);
       if (result === "ok") {
+        track("share_invite_sent", { role });
+        markPremiumActivated();
+        recordPositiveMoment("invite_sent");
         setEmail("");
+        // L'email part toujours (c'est lui qui rattache l'invitation au
+        // compte), mais dans les écuries on se parle surtout par WhatsApp/SMS :
+        // on propose d'y prévenir la personne, avec le lien et l'adresse à
+        // utiliser — un email d'invitation se perd facilement.
+        const message = [
+          `Je t'ai invité·e à suivre ${horse?.name ?? "mon cheval"} sur Horsetrack 🐴`,
+          DOWNLOAD_URL ? `Installe l'app : ${DOWNLOAD_URL}` : "Installe l'app Horsetrack",
+          `puis crée ton compte avec ${trimmed} : l'invitation s'affichera toute seule.`,
+        ].join("\n");
         Alert.alert(
           "Invitation envoyée",
-          "Si cette personne n'a pas encore de compte Horsetrack, elle recevra un email pour en créer un et rejoindre ce cheval."
+          `${trimmed} a reçu un email pour rejoindre ${horse?.name ?? "ce cheval"}. Tu peux aussi la prévenir par message.`,
+          [
+            { text: "OK", style: "cancel" },
+            {
+              text: "Envoyer un message",
+              onPress: () => {
+                track("share_invite_message_opened", { role });
+                Share.share({ message }).catch(() => {});
+              },
+            },
+          ]
         );
         refresh();
       } else if (result === "duplicate") {
@@ -160,8 +189,9 @@ export default function ShareHorseModal() {
 
   async function handleRevoke(collaborator: Collaborator) {
     try {
-      await revokeCollaborator(horseId, collaborator);
+      const revoked = await revokeCollaborator(horseId, collaborator);
       refresh();
+      if (!revoked) Alert.alert("Oups", "Impossible de retirer cette personne pour l'instant. Réessaie.");
     } catch {
       Alert.alert("Oups", "Impossible de retirer cette personne pour l'instant. Réessaie.");
     }

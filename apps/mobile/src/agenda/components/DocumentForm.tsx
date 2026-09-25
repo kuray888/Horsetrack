@@ -39,7 +39,7 @@ export function DocumentForm({
 }) {
   if (!show) {
     return (
-      <Locked message="Abonne-toi pour ajouter un document">
+      <Locked message="Range ordonnances, factures et carnet de santé au même endroit" placement="vault" feature="document_add">
         <AddToggle label="Ajouter un document" onPress={onOpen} color={colors.primary} />
       </Locked>
     );

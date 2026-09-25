@@ -7,7 +7,7 @@ import { LegalPage } from "@/components/LegalPage";
  * cf. /legal/politique-confidentialite.md). */
 export default function ConfidentialitePage() {
   return (
-    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="3 septembre 2026">
+    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="25 septembre 2026">
       <h2>1. Qui sommes-nous</h2>
       <p>
         Léa Lilou VERCASSON, Entrepreneur individuel (micro-entreprise), 14 Rue Robert Esnault-Pelterie, 78117
@@ -67,12 +67,30 @@ export default function ConfidentialitePage() {
             <td>Jeton de session, identifiant utilisateur, date de dernière mise à jour</td>
             <td>Utilisation normale de l&apos;app</td>
           </tr>
+          <tr>
+            <td>Mesure d&apos;usage</td>
+            <td>
+              Écrans consultés et actions effectuées dans l&apos;app (ex. « formule annuelle choisie », « rappel créé »),
+              version de l&apos;app, système du téléphone, rattachés à votre identifiant utilisateur —{" "}
+              <strong>jamais</strong> le contenu de vos fiches (noms, notes, documents)
+            </td>
+            <td>Utilisation normale de l&apos;app</td>
+          </tr>
+          <tr>
+            <td>Photos prises avec l&apos;appareil</td>
+            <td>
+              Photo d&apos;un cheval, d&apos;une ordonnance ou d&apos;une facture, uniquement quand vous choisissez « Prendre
+              une photo »
+            </td>
+            <td>Ajout d&apos;une photo ou d&apos;un document</td>
+          </tr>
         </tbody>
       </table>
       <p>
         <strong>Nous ne collectons pas</strong> : votre localisation précise, vos contacts, des données de navigation
         publicitaire, ni aucun identifiant à des fins de tracking publicitaire — l&apos;Application n&apos;intègre aucun
-        SDK publicitaire ni outil d&apos;analyse comportementale tiers.
+        SDK publicitaire. La mesure d&apos;usage ci-dessus sert uniquement à améliorer l&apos;Application ; elle
+        n&apos;est ni revendue, ni croisée avec des données d&apos;autres applications ou sites.
       </p>
       <p>
         <strong>Précision sur les données de santé</strong> : les informations relatives à l&apos;état de santé saisies
@@ -88,6 +106,10 @@ export default function ConfidentialitePage() {
         <li>Permettre le partage d&apos;un cheval avec une demi-pension ou un coach que vous invitez.</li>
         <li>Gérer votre abonnement et votre période d&apos;essai.</li>
         <li>Assurer la sécurité du service (authentification, limitation d&apos;usage abusif).</li>
+        <li>
+          Comprendre comment l&apos;Application est utilisée (écrans qui posent problème, fonctions utiles ou ignorées)
+          pour l&apos;améliorer.
+        </li>
       </ul>
       <p>Nous ne revendons aucune de vos données et ne les utilisons à aucune fin publicitaire.</p>
 
@@ -95,7 +117,9 @@ export default function ConfidentialitePage() {
       <p>
         Le traitement de vos données repose sur l&apos;exécution du contrat qui nous lie (fourniture du service que
         vous avez demandé en créant un compte), et, pour les notes libres et données optionnelles, sur votre
-        consentement explicite lors de leur saisie.
+        consentement explicite lors de leur saisie. La mesure d&apos;usage repose sur notre intérêt légitime à
+        améliorer l&apos;Application ; vous pouvez vous y opposer en nous écrivant à l&apos;adresse de contact
+        ci-dessus.
       </p>
 
       <h2>5. À qui transmettons-nous vos données</h2>
@@ -128,6 +152,11 @@ export default function ConfidentialitePage() {
             <td><strong>Apple (App Store) / Google (Play Store)</strong></td>
             <td>Traitement des paiements d&apos;abonnement</td>
             <td>Moyens de paiement (nous n&apos;y avons jamais accès)</td>
+          </tr>
+          <tr>
+            <td><strong>PostHog</strong></td>
+            <td>Mesure d&apos;usage de l&apos;Application (serveurs situés en Union Européenne)</td>
+            <td>Mesure d&apos;usage décrite en section 2, identifiant utilisateur</td>
           </tr>
         </tbody>
       </table>

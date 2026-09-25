@@ -29,6 +29,7 @@ import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals, pullAllGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
+import { markAllKnown } from "@/lib/remoteIndex";
 import { useSubscription } from "@/subscription/store";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -162,6 +163,17 @@ export default function LoginScreen() {
             if (expenses) hydrateExpensesFromCloud(expenses);
             if (goals) hydrateGoalsFromCloud(goals);
             if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
+            // Tout ce qui vient d'être restauré existe côté serveur : une
+            // suppression faite ailleurs avant la première relecture doit
+            // pouvoir se propager (cf. lib/remoteIndex.ts, lib/cloudRefresh.tsx).
+            markAllKnown("horses", [...cloudData.horses, ...(sharedHorses ?? [])].map((h) => h.id));
+            if (documents) markAllKnown("documents", documents.map((d) => d.id));
+            if (appointments) markAllKnown("appointments", appointments.map((a) => a.id));
+            if (journalEntries) markAllKnown("journal_entries", journalEntries.map((j) => j.id));
+            if (trainingSessions) markAllKnown("training_sessions", trainingSessions.map((t) => t.id));
+            if (expenses) markAllKnown("expenses", expenses.map((e) => e.id));
+            if (goals) markAllKnown("goals", goals.map((g) => g.id));
+            if (weightMeasurements) markAllKnown("horse_weight_measurements", weightMeasurements.map((w) => w.id));
 
             await markOnboardingCompleted();
             await setLocalDataOwner(userId);

@@ -189,7 +189,7 @@ export default function HorseBudgetScreen() {
         {sortedExpenses.length > 0 ? (
           <>
             <FadeInView delay={40}>
-              <Locked message="Détail payé/à régler réservé à l'abonnement Premium">
+              <Locked message="Vois d'un coup d'œil ce qui est payé et ce qui reste à régler" placement="budget" feature="budget_paid_status">
                 <View className={`${CARD} flex-row items-center justify-between`}>
                   <View className="items-center gap-0.5">
                     <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Total</Text>
@@ -208,7 +208,7 @@ export default function HorseBudgetScreen() {
             </FadeInView>
 
             <FadeInView delay={60}>
-              <Locked message="Répartition du budget réservée à l'abonnement Premium">
+              <Locked message="Vois où part ton budget, poste par poste" placement="budget" feature="budget_breakdown">
                 <View className={`${CARD} gap-4`}>
                   <View className="flex-row items-center justify-between">
                     <View className="gap-0.5">

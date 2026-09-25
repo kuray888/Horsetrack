@@ -24,8 +24,10 @@
       "permissions": [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
@@ -47,11 +49,19 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#274c77"
+        }
+      ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Horsetrack a besoin d'accéder à tes photos pour ajouter une photo de cheval."
+          "photosPermission": "Horsetrack a besoin d'accéder à tes photos pour ajouter une photo de ton cheval ou d'un document.",
+          "cameraPermission": "Horsetrack utilise l'appareil photo pour photographier ton cheval, une ordonnance ou une facture.",
+          "microphonePermission": false
         }
       ],
       [

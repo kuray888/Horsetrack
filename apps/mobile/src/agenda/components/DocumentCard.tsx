@@ -6,6 +6,7 @@ import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Locked } from "@/components/Locked";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
 import type { Doc } from "@/agenda/store";
 import { DOC_META } from "@/agenda/meta";
 
@@ -29,15 +30,18 @@ function isPdfDoc(doc: Doc): boolean {
  * Les PHOTOS n'utilisent plus cette fonction : elles ont leur visionneur
  * plein écran (cf. app/document-viewer.tsx, `openPhoto` ci-dessous). */
 async function openDocument(fileUri: string, mimeType: string) {
+  // `runNativeInteraction` : feuille de partage et navigateur sont des
+  // activités Android distinctes, qui rejoueraient sinon le verrou biométrique
+  // au retour (cf. lib/nativeInteraction.ts). Sans effet sur iOS.
   if (fileUri.startsWith("file://")) {
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(fileUri, { mimeType });
+      await runNativeInteraction(() => Sharing.shareAsync(fileUri, { mimeType }));
     } else {
       Alert.alert("Impossible d'ouvrir", "Aucune application disponible pour afficher ce document.");
     }
     return;
   }
-  await Linking.openURL(fileUri);
+  await runNativeInteraction(() => Linking.openURL(fileUri));
 }
 
 /** Ouvre une photo de document en grand dans la visionneuse intégrée. */
@@ -110,7 +114,7 @@ export function DocumentCard({
               voyait son "Modifier"/"Supprimer" mettre à jour l'affichage local
               en silence pendant que le serveur rejetait l'écriture, cf. audit
               pré-publication. */}
-          <Locked message="Modifier ou supprimer un document réservé à l'abonnement Premium">
+          <Locked message="Tes documents restent consultables. Pour les modifier ou les supprimer, Premium doit être actif." placement="vault" feature="document_manage">
             <View className="mt-1 flex-row items-center gap-4">
               <TouchableOpacity onPress={onEdit} activeOpacity={0.7}>
                 <Text className="text-sm font-semibold text-accent">Modifier</Text>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db, Prisma, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
+import { analyticsEventForRevenueCat, captureServerEvent } from "@/lib/analytics";
 
 /**
  * Entitlement RevenueCat du palier payant unique — doit correspondre
@@ -36,6 +37,10 @@ const eventSchema = z.object({
   period_type: z.enum(["TRIAL", "INTRO", "NORMAL", "PROMOTIONAL"]).optional(),
   product_id: z.string().optional(),
   expiration_at_ms: z.number().nullable().optional(),
+  // Analytics uniquement (cf. lib/analytics.ts) : RENEWAL qui clôt un essai.
+  is_trial_conversion: z.boolean().optional(),
+  cancel_reason: z.string().optional(),
+  store: z.string().optional(),
 });
 
 type RevenueCatEvent = z.infer<typeof eventSchema>;
@@ -110,6 +115,20 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = event.app_user_id;
+
+  // Après la déduplication ci-dessus : chaque événement n'est compté qu'une
+  // fois. N'influence en rien le traitement qui suit.
+  const analyticsEvent = analyticsEventForRevenueCat(event);
+  if (analyticsEvent) {
+    await captureServerEvent(userId, analyticsEvent, {
+      product_id: event.product_id,
+      period_type: event.period_type,
+      billing_period: billingPeriodFromProductId(event.product_id),
+      cancel_reason: event.cancel_reason,
+      store: event.store,
+    });
+  }
+
   const tier: SubscriptionTier | null = hasEntitlement ? SubscriptionTier.GRAND_PRIX : null;
   // Anti-réordonnancement (cf. audit sécurité) : RevenueCat garantit une
   // livraison "at-least-once" mais pas l'ordre — sans cette garde, un retry
@@ -146,7 +165,20 @@ export async function POST(req: NextRequest) {
       break;
     }
     case "CANCELLATION": {
-      const tierFields = tier ? { subscriptionStatus: SubscriptionStatus.CANCELLED } : {};
+      // Une résiliation (renouvellement automatique désactivé, y compris
+      // pendant l'essai) NE coupe PAS l'accès : Apple/Google le laissent
+      // jusqu'à la fin de la période payée ou de l'essai, et l'app aussi (cf.
+      // entitlement RevenueCat toujours actif). Passer le statut à CANCELLED
+      // ici retirait Premium côté serveur (rls.sql rider_is_active_or_trialing
+      // ne reconnaît qu'ACTIVE/TRIALING) des mois avant la fin payée : l'app
+      // affichait Premium pendant que chaque écriture Premium était rejetée.
+      // La fin d'accès arrive avec l'événement EXPIRATION.
+      //
+      // Seule exception : un remboursement (expiration déjà passée, cf.
+      // RevenueCat « cancel_reason: CUSTOMER_SUPPORT ») retire l'accès tout
+      // de suite.
+      const accessAlreadyEnded = event.expiration_at_ms != null && event.expiration_at_ms <= Date.now();
+      const tierFields = tier && accessAlreadyEnded ? { subscriptionStatus: SubscriptionStatus.EXPIRED } : {};
       await db.riderProfile.updateMany({
         where: { userId, ...orderingWhere },
         data: { ...tierFields, lastWebhookEventAt: eventTimestamp ?? undefined },

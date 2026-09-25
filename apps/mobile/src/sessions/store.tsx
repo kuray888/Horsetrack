@@ -1,8 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
+import { mergeRemote } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushTrainingSession, deleteTrainingSessionRemote } from "@/lib/cloudSync";
 import type { ActivityType } from "@/agenda/store";
 import { useHorses } from "@/horses/store";
+import { recordPositiveMoment } from "@/lib/reviewPrompt";
 
 /**
  * Séances d'entraînement planifiées manuellement par le cavalier — remplace
@@ -64,6 +68,9 @@ type SessionsContextValue = {
    * date/heure — utilisé par Today pour la carte "prochaine séance". */
   upcomingForSelectedHorse: TrainingSession[];
   hydrateFromCloud: (sessions: TrainingSession[]) => void;
+  /** Fusionne une relecture du serveur sans écraser les saisies locales pas
+   * encore envoyées (cf. lib/mergeRemote.ts, lib/cloudRefresh.ts). */
+  mergeFromCloud: (sessions: TrainingSession[], pullStartedAt: number) => void;
   /** Efface les séances locales (changement/déconnexion de compte sur cet
    * appareil, cf. (auth)/login.tsx, (onboarding)/account.tsx). */
   clearAll: () => Promise<void>;
@@ -84,6 +91,12 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   /** Cf. `loadFailed` d'agenda/store.tsx : une lecture ratée coupe les
    * écritures, sans quoi l'état vide écraserait le fichier illisible. */
   const [loadFailed, setLoadFailed] = useState(false);
+  // Fusion d'une relecture du serveur seulement une fois la lecture locale
+  // terminée et réussie (cf. mergeFromCloud).
+  const syncReadyRef = useRef(false);
+  useEffect(() => {
+    syncReadyRef.current = loaded && !loadFailed;
+  }, [loaded, loadFailed]);
   /** Cf. `saveFailed` d'agenda/store.tsx : même rôle, même raison. */
   const [saveFailed, setSaveFailed] = useState(false);
 
@@ -163,6 +176,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       const next = { ...target, completed: !target.completed };
       setSessions((list) => list.map((s) => (s.id === sessionId ? next : s)));
       pushTrainingSession(next).catch(() => {});
+      // Séance cochée : le moment le plus satisfaisant de l'app (cf. demande
+      // d'avis, lib/reviewPrompt.ts).
+      if (next.completed) recordPositiveMoment("session_done");
     },
     [sessions]
   );
@@ -170,6 +186,14 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const hydrateFromCloud = useCallback((remote: TrainingSession[]) => {
     setSessions(remote);
     writeJson(SESSIONS_KEY, remote).then((ok) => setSaveFailed(!ok));
+  }, []);
+
+  const mergeFromCloud = useCallback((remote: TrainingSession[], pullStartedAt: number) => {
+    if (!syncReadyRef.current) return;
+    const guard = syncGuard("training_sessions", pullStartedAt, pendingIdsFor("training_sessions"));
+    // Persisté par l'effet d'écriture qui suit chaque changement de `sessions`.
+    setSessions((list) => mergeRemote(list, remote, guard).items);
+    noteRemoteSnapshot("training_sessions", remote.map((s) => s.id), pullStartedAt);
   }, []);
 
   const removeHorseData = useCallback((horseId: string) => {
@@ -202,6 +226,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       toggleCompleted,
       upcomingForSelectedHorse,
       hydrateFromCloud,
+      mergeFromCloud,
       clearAll,
       removeHorseData,
       saveFailed,
@@ -215,6 +240,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       toggleCompleted,
       upcomingForSelectedHorse,
       hydrateFromCloud,
+      mergeFromCloud,
       clearAll,
       removeHorseData,
       saveFailed,

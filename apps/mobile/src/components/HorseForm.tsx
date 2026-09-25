@@ -22,7 +22,7 @@ import {
   REST_DAY_ACTIVITIES,
 } from "@/onboarding/options";
 import type { Injury, NewHorse } from "@/horses/store";
-import { pickAndPersistImage } from "@/lib/imagePicker";
+import { chooseAndPersistImage } from "@/lib/imagePicker";
 import { toggleHealthCondition } from "@/horses/healthConditions";
 import { generateInjuryId } from "@/horses/injuries";
 import { CoatField } from "@/components/CoatField";
@@ -104,7 +104,7 @@ export function HorseForm({
   const [injuries, setInjuries] = useState<Injury[]>(initial.injuries);
 
   async function pickPhoto() {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPersistImage();
     if (uri) setPhotoUrl(uri);
   }
 

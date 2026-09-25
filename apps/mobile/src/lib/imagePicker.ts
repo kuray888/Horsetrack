@@ -1,8 +1,9 @@
-import { Alert, Linking } from "react-native";
+import { ActionSheetIOS, Alert, Linking, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import { buildPdf, parseImageForPdf, sniffImageKind, type PdfPageImage } from "@/lib/pdfBuilder";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
 
 /** Demande l'accès à la photothèque ; explique comment le rétablir si
  * l'utilisateur l'a refusé définitivement. Renvoie false si l'accès manque. */
@@ -25,6 +26,80 @@ async function ensurePhotoLibraryAccess(): Promise<boolean> {
     );
   }
   return false;
+}
+
+/** Demande l'accès à l'appareil photo ; même logique de refus définitif que
+ * ensurePhotoLibraryAccess ci-dessus. */
+async function ensureCameraAccess(): Promise<boolean> {
+  const { status, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
+  if (status === "granted") return true;
+  if (!canAskAgain) {
+    Alert.alert(
+      "Accès à l'appareil photo refusé",
+      "Autorise Horsetrack à utiliser l'appareil photo dans les réglages de ton téléphone.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Ouvrir les réglages", onPress: () => Linking.openSettings() },
+      ]
+    );
+  }
+  return false;
+}
+
+/** Copie une photo (galerie ou appareil) dans le stockage persistant de l'app. */
+function persistPhoto(uri: string, prefix: string): string | null {
+  const dest = new File(Paths.document, `${prefix}-${Date.now()}.jpg`);
+  try {
+    new File(uri).copy(dest);
+  } catch {
+    return null;
+  }
+  return dest.uri;
+}
+
+/** Prend une photo avec l'appareil — même recadrage que la galerie (carré
+ * pour un cheval/le journal, entier pour un document). */
+async function takePhoto(crop: boolean, prefix: string): Promise<string | null> {
+  if (!(await ensureCameraAccess())) return null;
+  const result = await ImagePicker.launchCameraAsync(
+    crop ? { allowsEditing: true, aspect: [1, 1], quality: 0.7 } : { allowsEditing: false, quality: 0.7 }
+  );
+  if (result.canceled || !result.assets[0]) return null;
+  return persistPhoto(result.assets[0].uri, prefix);
+}
+
+/** Feuille de choix native : ActionSheet sur iOS ; alerte sur Android, qui
+ * n'accepte que 3 boutons (l'annulation passe alors par un appui à côté).
+ * Renvoie l'index choisi, ou null si annulé. */
+function chooseAmong(title: string, options: string[]): Promise<number | null> {
+  return new Promise((resolve) => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { title, options: [...options, "Annuler"], cancelButtonIndex: options.length },
+        (index) => resolve(index === options.length ? null : index)
+      );
+      return;
+    }
+    const buttons = options.slice(0, 3).map((text, i) => ({ text, onPress: () => resolve(i) }));
+    if (buttons.length < 3) buttons.push({ text: "Annuler", onPress: () => resolve(null) });
+    Alert.alert(title, undefined, buttons, { cancelable: true, onDismiss: () => resolve(null) });
+  });
+}
+
+/**
+ * Photo de cheval ou du journal : propose « Prendre une photo » ou « Choisir
+ * dans Photos ». Même contrat que pickAndPersistImage (URI locale persistée,
+ * ou null si annulé/refusé).
+ */
+export async function chooseAndPersistImage(options: { crop?: boolean } = {}): Promise<string | null> {
+  const choice = await chooseAmong("Ajouter une photo", ["Prendre une photo", "Choisir dans Photos"]);
+  if (choice === null) return null;
+  if (choice === 1) return pickAndPersistImage(options);
+  try {
+    return await runNativeInteraction(() => takePhoto(options.crop ?? true, "horse"));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -52,17 +127,22 @@ async function ensurePhotoLibraryAccess(): Promise<boolean> {
 export async function pickAndPersistImage(options: { crop?: boolean } = {}): Promise<string | null> {
   const crop = options.crop ?? true;
   try {
-    if (!(await ensurePhotoLibraryAccess())) return null;
+    if (!(await runNativeInteraction(ensurePhotoLibraryAccess))) return null;
 
-    const result = await ImagePicker.launchImageLibraryAsync(
-      crop
-        ? { mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.7 }
-        : {
-            mediaTypes: ["images"],
-            allowsEditing: false,
-            quality: 0.7,
-            preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-          }
+    // `runNativeInteraction` : le sélecteur est une activité Android à part,
+    // qui ferait sinon passer l'app en arrière-plan et rejouerait le verrou
+    // biométrique au retour (cf. lib/nativeInteraction.ts). Sans effet sur iOS.
+    const result = await runNativeInteraction(() =>
+      ImagePicker.launchImageLibraryAsync(
+        crop
+          ? { mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.7 }
+          : {
+              mediaTypes: ["images"],
+              allowsEditing: false,
+              quality: 0.7,
+              preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+            }
+      )
     );
     if (result.canceled || !result.assets[0]) return null;
 
@@ -228,7 +308,12 @@ async function pickDocumentFile(): Promise<string | null> {
  */
 export async function pickAndPersistDocument(source: DocumentSource): Promise<string | null> {
   try {
-    return source === "photos" ? await pickDocumentPhotos() : await pickDocumentFile();
+    // `runNativeInteraction` : même raison que dans pickAndPersistImage —
+    // sélecteur de photos et sélecteur de fichiers sont des activités Android
+    // distinctes (cf. lib/nativeInteraction.ts).
+    return await runNativeInteraction(() =>
+      source === "photos" ? pickDocumentPhotos() : pickDocumentFile()
+    );
   } catch {
     Alert.alert("Impossible d'ajouter ce document", "Une erreur est survenue. Réessaie, ou choisis un autre fichier.");
     return null;
@@ -236,25 +321,28 @@ export async function pickAndPersistDocument(source: DocumentSource): Promise<st
 }
 
 /**
- * Demande à l'utilisateur d'où vient le document (Photos ou Fichier) puis le
- * récupère — point d'entrée unique pour tout ce qui rejoint le coffre-fort
- * (formulaire de document, facture d'une dépense). Renvoie null si
- * l'utilisateur annule, à n'importe quelle étape.
+ * Demande à l'utilisateur d'où vient le document (appareil photo, Photos ou
+ * Fichier) puis le récupère — point d'entrée unique pour tout ce qui rejoint
+ * le coffre-fort (formulaire de document, facture d'une dépense). Renvoie
+ * null si l'utilisateur annule, à n'importe quelle étape.
  *
- * Trois boutons exactement : c'est le maximum qu'Android accepte dans une
- * alerte native.
+ * « Prendre une photo » en premier : à l'écurie ou chez le véto, l'ordonnance
+ * est sur papier — la photographier directement évite l'aller-retour par
+ * l'app Photos.
  */
-export function chooseAndPickDocument(): Promise<string | null> {
-  return new Promise((resolve) => {
-    Alert.alert(
-      "Joindre un document",
-      "D'où vient-il ?",
-      [
-        { text: "Photos (plusieurs pages possibles)", onPress: () => pickAndPersistDocument("photos").then(resolve) },
-        { text: "Fichier PDF ou image", onPress: () => pickAndPersistDocument("file").then(resolve) },
-        { text: "Annuler", style: "cancel", onPress: () => resolve(null) },
-      ],
-      { cancelable: true, onDismiss: () => resolve(null) }
-    );
-  });
+export async function chooseAndPickDocument(): Promise<string | null> {
+  const choice = await chooseAmong("Joindre un document", [
+    "Prendre une photo",
+    "Photos (plusieurs pages possibles)",
+    "Fichier PDF ou image",
+  ]);
+  if (choice === null) return null;
+  if (choice === 1) return pickAndPersistDocument("photos");
+  if (choice === 2) return pickAndPersistDocument("file");
+  try {
+    return await runNativeInteraction(() => takePhoto(false, "document"));
+  } catch {
+    Alert.alert("Impossible d'ajouter ce document", "Une erreur est survenue. Réessaie, ou choisis une photo existante.");
+    return null;
+  }
 }

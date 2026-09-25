@@ -32,6 +32,9 @@ const {
   pendingSyncCount,
   MAX_ATTEMPTS,
   MAX_QUEUE_LENGTH,
+  discardSupersededWrites,
+  withoutSuperseded,
+  isNetworkError,
 } = await import("@/lib/syncQueue");
 
 const op = (table: string, id: string, attempts = 0) => ({ table, id, op: "upsert" as const, row: { id }, attempts });
@@ -250,5 +253,67 @@ describe("saisie pendant le vidage", () => {
     expect(envois).toBe(1);
     expect(pendingSyncCount()).toBe(0);
     expect(store.get("sync_queue_v1")).toEqual([]);
+  });
+});
+
+describe("écriture réussie après un échec sur la même ligne", () => {
+  it("retire l'ancienne version en file, garde les autres lignes", () => {
+    const list = [
+      { ...op("training_sessions", "s1"), enqueuedAt: 1000 },
+      { ...op("training_sessions", "s2"), enqueuedAt: 1000 },
+      { ...op("appointments", "s1"), enqueuedAt: 1000 },
+    ];
+    const next = withoutSuperseded(list, { table: "training_sessions", id: "s1" }, 2000);
+    expect(next.map((o) => `${o.table}/${o.id}`)).toEqual(["training_sessions/s2", "appointments/s1"]);
+  });
+
+  it("garde une version mise en file APRÈS le départ de l'écriture réussie", () => {
+    const list = [{ ...op("training_sessions", "s1"), enqueuedAt: 3000 }];
+    expect(withoutSuperseded(list, { table: "training_sessions", id: "s1" }, 2000)).toHaveLength(1);
+  });
+
+  it("traite une opération sans date (ancien format) comme périmée", () => {
+    const list = [op("training_sessions", "s1")];
+    expect(withoutSuperseded(list, { table: "training_sessions", id: "s1" }, 2000)).toHaveLength(0);
+  });
+
+  it("n'envoie pas une opération retirée pendant le vidage", async () => {
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "a", row: { id: "a" } });
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "b", row: { id: "b" } });
+    const sent: string[] = [];
+    await flushSyncQueue(async (o: SyncOperation) => {
+      sent.push(o.id);
+      // Pendant l'envoi de « a », une écriture directe réussit sur « b ».
+      if (o.id === "a") await discardSupersededWrites({ table: "training_sessions", id: "b" }, Date.now() + 1000);
+      return { error: null };
+    });
+    expect(sent).toEqual(["a"]);
+    expect(pendingSyncCount()).toBe(0);
+  });
+});
+
+describe("coupure réseau", () => {
+  it("distingue une coupure réseau d'un refus du serveur", () => {
+    expect(isNetworkError({ message: "TypeError: Network request failed" })).toBe(true);
+    expect(isNetworkError({ message: "" })).toBe(true);
+    expect(isNetworkError({ code: "42501", message: "permission denied" })).toBe(false);
+    expect(isNetworkError({ code: "PGRST116", message: "network" })).toBe(false);
+    expect(isNetworkError(null)).toBe(false);
+  });
+
+  it("ne consomme pas d'essai hors réseau : jamais abandonnée", async () => {
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "x", row: { id: "x" } });
+    for (let i = 0; i < MAX_ATTEMPTS + 3; i++) {
+      await flushSyncQueue(async () => ({ error: { message: "Network request failed" } }));
+    }
+    expect(pendingSyncCount()).toBe(1);
+  });
+
+  it("abandonne toujours après plusieurs refus du serveur", async () => {
+    await enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "y", row: { id: "y" } });
+    for (let i = 0; i < MAX_ATTEMPTS + 1; i++) {
+      await flushSyncQueue(async () => ({ error: { code: "57014", message: "canceling statement due to timeout" } }));
+    }
+    expect(pendingSyncCount()).toBe(0);
   });
 });

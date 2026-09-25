@@ -9,6 +9,10 @@ import {
 } from "react";
 import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { supabase } from "@/lib/supabase";
+import { settleRemoteWrite } from "@/lib/cloudSync";
+import { noteRemoteSnapshot, syncGuard, withWriteTracking } from "@/lib/remoteIndex";
+import { mergeRemote } from "@/lib/mergeRemote";
+import { pendingIdsFor } from "@/lib/syncQueue";
 import type { RiderGoal } from "@/onboarding/store";
 
 /**
@@ -69,10 +73,14 @@ async function getOwnerProfileId(): Promise<string | null> {
 /** Best-effort : silencieux en cas d'échec réseau OU si la RLS de la table
  * `goals` n'est pas (encore) alignée — l'objectif reste fonctionnel en local
  * dans les deux cas, seule la synchronisation cloud est concernée. */
-async function pushGoal(goal: Goal): Promise<void> {
+function pushGoal(goal: Goal): Promise<void> {
+  return withWriteTracking("goals", goal.id, () => pushGoalImpl(goal));
+}
+
+async function pushGoalImpl(goal: Goal): Promise<void> {
   const riderId = await getOwnerProfileId();
   if (!riderId) return;
-  const { error } = await supabase.from("goals").upsert({
+  const row = {
     id: goal.id,
     riderId,
     horseId: goal.horseId,
@@ -81,13 +89,20 @@ async function pushGoal(goal: Goal): Promise<void> {
     customType: goal.customType,
     targetDate: goal.targetDate?.toISOString() ?? null,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[goals] pushGoal échoué", error);
+  };
+  const { error } = await supabase.from("goals").upsert(row);
+  // File de reprise commune (cf. lib/cloudSync.ts) : un objectif créé hors
+  // ligne partait jusqu'ici pour de bon uniquement en local.
+  await settleRemoteWrite("pushGoal", "goals", goal.id, error, row);
 }
 
-async function deleteGoalRemote(id: string): Promise<void> {
+function deleteGoalRemote(id: string): Promise<void> {
+  return withWriteTracking("goals", id, () => deleteGoalRemoteImpl(id));
+}
+
+async function deleteGoalRemoteImpl(id: string): Promise<void> {
   const { error } = await supabase.from("goals").delete().eq("id", id);
-  if (error) console.warn("[goals] deleteGoalRemote échoué", error);
+  await settleRemoteWrite("deleteGoalRemote", "goals", id, error);
 }
 
 /** Exporté pour (auth)/login.tsx : un changement de compte sur cet appareil
@@ -129,6 +144,9 @@ type GoalsContextValue = {
   /** Restaure les objectifs depuis le cloud (cf. (auth)/login.tsx) — remplace
    * entièrement l'état local, jamais un merge (même logique que horses/store.tsx). */
   hydrateFromCloud: (goals: Goal[]) => void;
+  /** Fusionne une relecture du serveur sans écraser les saisies locales pas
+   * encore envoyées (cf. lib/mergeRemote.ts, lib/cloudRefresh.ts). */
+  mergeFromCloud: (goals: Goal[], pullStartedAt: number) => void;
 };
 
 const GoalsContext = createContext<GoalsContextValue | null>(null);
@@ -210,9 +228,23 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const mergeFromCloud = useCallback(
+    (remote: Goal[], pullStartedAt: number) => {
+      const guard = syncGuard("goals", pullStartedAt, pendingIdsFor("goals"));
+      setGoals((list) => {
+        const result = mergeRemote(list, remote, guard);
+        // Ce store persiste explicitement (pas d'effet d'écriture).
+        if (result.changed) persist(result.items);
+        return result.items;
+      });
+      noteRemoteSnapshot("goals", remote.map((g) => g.id), pullStartedAt);
+    },
+    [persist]
+  );
+
   const value = useMemo<GoalsContextValue>(
-    () => ({ loading, goals, addGoal, updateGoal, deleteGoal, clearAll, hydrateFromCloud }),
-    [loading, goals, addGoal, updateGoal, deleteGoal, clearAll, hydrateFromCloud]
+    () => ({ loading, goals, addGoal, updateGoal, deleteGoal, clearAll, hydrateFromCloud, mergeFromCloud }),
+    [loading, goals, addGoal, updateGoal, deleteGoal, clearAll, hydrateFromCloud, mergeFromCloud]
   );
 
   return <GoalsContext.Provider value={value}>{children}</GoalsContext.Provider>;

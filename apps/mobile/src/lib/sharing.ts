@@ -153,29 +153,31 @@ export async function listCollaborators(horseId: string): Promise<Collaborator[]
   return data;
 }
 
-/** Best-effort, symétrique de notifyInvitee ci-dessus : prévient l'ex-
- * collaborateur·rice que son accès vient d'être retiré, plutôt que de le
- * laisser le découvrir silencieusement à la prochaine synchro (cf. audit du
- * 2026-09-12). Appelé après une suppression déjà effective côté base — un
- * échec réseau/Resend ici ne doit jamais faire échouer la révocation. */
-async function notifyRevoked(horseId: string, invitedEmail: string): Promise<void> {
+/**
+ * Révoque un partage. La route API supprime la ligne ET prévient
+ * l'ex-collaborateur à l'adresse enregistrée pour ce partage (cf.
+ * apps/api/src/app/api/horse-invites/revoke) — jamais à une adresse fournie
+ * par l'app. Si l'API est injoignable, repli sur la suppression directe
+ * (RLS horse_collaborators_owner_delete), sans email : la révocation passe
+ * avant la notification. Renvoie false si rien n'a pu être supprimé.
+ */
+export async function revokeCollaborator(horseId: string, collaborator: Collaborator): Promise<boolean> {
   try {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
-    if (!token) return;
-    await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/horse-invites/revoke`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ horseId, invitedEmail }),
-    });
+    if (token) {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/horse-invites/revoke`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ horseId, collaboratorId: collaborator.id }),
+      });
+      if (res.ok) return true;
+    }
   } catch {
-    // best-effort, cf. commentaire ci-dessus.
+    // repli ci-dessous
   }
-}
-
-export async function revokeCollaborator(horseId: string, collaborator: Collaborator): Promise<void> {
-  await supabase.from("horse_collaborators").delete().eq("id", collaborator.id);
-  notifyRevoked(horseId, collaborator.invitedEmail);
+  const { error } = await supabase.from("horse_collaborators").delete().eq("id", collaborator.id);
+  return !error;
 }
 
 /** Invitations en attente pour l'email du compte courant — affichées via

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db, SubscriptionStatus } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
+import { safeBlock, safeLine } from "@/lib/emailSafety";
+
+/** Plafond de rappels en attente par compte : bien au-delà d'un usage réel
+ * (un rappel par rendez-vous à venir), mais borne l'envoi d'emails qu'un
+ * seul compte peut déclencher. */
+const MAX_PENDING_PER_USER = 300;
 
 const schema = z.object({
   sendAt: z.string().datetime(),
@@ -23,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
@@ -43,8 +49,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Les rappels automatiques sont réservés aux comptes abonnés." }, { status: 403 });
   }
 
+  const pending = await db.emailReminder.count({ where: { userId, sentAt: null } });
+  if (pending >= MAX_PENDING_PER_USER) {
+    return NextResponse.json({ error: "Trop de rappels programmés." }, { status: 429 });
+  }
+
+  // Contenu saisi par l'utilisateur, envoyé depuis notre domaine : liens
+  // neutralisés (cf. lib/emailSafety.ts).
   const reminder = await db.emailReminder.create({
-    data: { userId, sendAt: new Date(parsed.data.sendAt), subject: parsed.data.subject, body: parsed.data.body },
+    data: {
+      userId,
+      sendAt: new Date(parsed.data.sendAt),
+      subject: safeLine(parsed.data.subject, 150),
+      body: safeBlock(parsed.data.body, 1500),
+    },
     select: { id: true },
   });
 

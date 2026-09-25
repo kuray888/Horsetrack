@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, Platform, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import Constants from "expo-constants";
 import type { User } from "@supabase/supabase-js";
@@ -8,6 +8,11 @@ import { supabase } from "@/lib/supabase";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { useSubscription } from "@/subscription/store";
+import { openPaywall } from "@/subscription/paywall";
+import { formatFullDate } from "@/subscription/paywallLogic";
+import { openManageSubscriptions } from "@/lib/revenuecat";
+import { track } from "@/lib/analytics";
+import { DOWNLOAD_URL, SUPPORT_EMAIL, canOpenWriteReview, openSupportEmail, openWriteReview } from "@/lib/links";
 import { useThemeColors, useTheme } from "@/theme/ThemeProvider";
 import { THEME_ORDER, THEME_LABELS, PALETTES } from "@/theme/palettes";
 import {
@@ -93,6 +98,33 @@ function SettingRow({
   );
 }
 
+/** Ligne cliquable, même gabarit que SettingRow (icône, libellé, description). */
+function LinkRow({
+  icon,
+  label,
+  description,
+  onPress,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  description?: string;
+  onPress: () => void;
+}) {
+  const colors = useThemeColors();
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center gap-3 py-3" accessibilityRole="button">
+      <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
+        <MaterialCommunityIcons name={icon} size={18} color={colors.primary} />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text className="text-base font-semibold text-text">{label}</Text>
+        {description ? <Text className="text-xs text-muted">{description}</Text> : null}
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+    </TouchableOpacity>
+  );
+}
+
 export default function ProfileScreen() {
   const colors = useThemeColors();
   const { themeId, setThemeId } = useTheme();
@@ -134,6 +166,18 @@ export default function ProfileScreen() {
     try {
       const granted = await ensureNotificationPermission();
       setNotifEnabled(granted);
+      // Refus déjà enregistré : l'OS ne réaffiche plus sa demande, et
+      // l'interrupteur revenait sur « off » sans explication.
+      if (!granted) {
+        Alert.alert(
+          "Notifications désactivées",
+          "Active-les dans les réglages de ton téléphone pour recevoir tes rappels et ton bilan du dimanche.",
+          [
+            { text: "Plus tard", style: "cancel" },
+            { text: "Ouvrir les réglages", onPress: () => Linking.openSettings().catch(() => {}) },
+          ]
+        );
+      }
     } catch {
       // Best-effort : cf. audit crash SecureStore/modules natifs du 2026-09-08.
     }
@@ -165,12 +209,26 @@ export default function ProfileScreen() {
   }
 
   function handleDeleteAccount() {
+    // Supprimer le compte n'arrête PAS l'abonnement : il est facturé par
+    // Apple/Google, pas par nous. Sans ce rappel, un abonné qui supprime son
+    // compte continuait d'être prélevé sans plus avoir accès à rien.
+    const storeSubscription = storeManaged && status !== "trialing" ? "ton abonnement" : storeManaged ? "ton essai" : null;
     Alert.alert(
       "Supprimer ton compte ?",
-      "Toutes tes données (profil, chevaux, séances, rendez-vous, documents) seront définitivement supprimées. Cette action est irréversible.",
+      [
+        "Toutes tes données (profil, chevaux, séances, rendez-vous, documents) seront définitivement supprimées. Cette action est irréversible.",
+        storeSubscription
+          ? `\nImportant : supprimer ton compte n'arrête pas ${storeSubscription}. Pour ne plus être prélevé, résilie-le d'abord dans ${
+              Platform.OS === "ios" ? "Réglages > Abonnements" : "Google Play > Abonnements"
+            }.`
+          : "",
+      ].join(""),
       [
         { text: "Annuler", style: "cancel" },
-        { text: "Supprimer", style: "destructive", onPress: confirmDeleteAccount },
+        ...(storeSubscription
+          ? [{ text: "Gérer l'abonnement", onPress: () => void openManageSubscriptions() }]
+          : []),
+        { text: "Supprimer", style: "destructive" as const, onPress: confirmDeleteAccount },
       ]
     );
   }
@@ -216,6 +274,8 @@ export default function ProfileScreen() {
       setDeletingAccount(false);
     }
   }
+
+  const storeManaged = isActiveOrTrialing && (status === "active" || billingPeriod !== null);
 
   function subscriptionLabel(): string {
     if (subLoading) return "Chargement…";
@@ -264,14 +324,31 @@ export default function ProfileScreen() {
               {subscriptionLabel()}
             </Text>
             <Text className={`text-xs ${isActiveOrTrialing ? "text-on-primary/80" : "text-muted"}`}>
-              {isActiveOrTrialing
-                ? "Profite de toutes les fonctionnalités Premium"
-                : "1 cheval, planning et agenda gratuits — passe à Premium pour plus"}
+              {isActiveOrTrialing && status === "trialing" && trialEndsAt
+                ? `Fin de l'essai le ${formatFullDate(new Date(trialEndsAt))}`
+                : isActiveOrTrialing
+                  ? "Profite de toutes les fonctionnalités Premium"
+                  : "1 cheval, planning et agenda gratuits — passe à Premium pour plus"}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => router.push("/paywall")} activeOpacity={0.8}>
+          {/* Abonnement géré par le store (payant, ou essai Apple/Google) :
+              « Gérer » ouvre la gestion du store (changer de formule,
+              résilier) — jamais le paywall, qui proposerait de s'abonner à
+              quelqu'un qui l'est déjà. Essai par code promo (billingPeriod
+              null) : rien à gérer côté store, on propose de s'abonner. */}
+          <TouchableOpacity
+            onPress={() => {
+              if (storeManaged) {
+                track("manage_subscription_opened", { status });
+                void openManageSubscriptions();
+              } else {
+                openPaywall(isActiveOrTrialing && status === "trialing" ? "trial_ending" : "profile");
+              }
+            }}
+            activeOpacity={0.8}
+          >
             <Text className={`text-sm font-bold ${isActiveOrTrialing ? "text-on-primary" : "text-accent"}`}>
-              {isActiveOrTrialing ? "Gérer" : "Voir Premium"}
+              {storeManaged ? "Gérer" : isActiveOrTrialing ? "Garder Premium" : "Voir Premium"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -458,6 +535,53 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </FadeInView>
       ) : null}
+
+      {/* Aide et bouche-à-oreille — un utilisateur qui bloque écrit ici
+          plutôt que de laisser une note basse sur l'App Store ; un utilisateur
+          content a de quoi recommander l'app à son écurie. */}
+      <FadeInView delay={495}>
+        <SectionTitle>Horsetrack</SectionTitle>
+      </FadeInView>
+
+      <FadeInView delay={498}>
+        <View className={CARD}>
+          <LinkRow
+            icon="lifebuoy"
+            label="Contacter le support"
+            description="Une question, un souci, une idée ? On répond vite."
+            onPress={async () => {
+              track("support_contacted");
+              const opened = await openSupportEmail();
+              if (!opened) Alert.alert("Nous écrire", `Écris-nous à ${SUPPORT_EMAIL}`);
+            }}
+          />
+          <View className="border-t border-border" />
+          <LinkRow
+            icon="account-heart-outline"
+            label="Recommander Horsetrack"
+            description="À ta DP, ton coach, ton écurie"
+            onPress={() => {
+              track("app_recommended");
+              Share.share({
+                message: `J'utilise Horsetrack pour suivre mon cheval : planning, soins, concours et budget au même endroit.${
+                  DOWNLOAD_URL ? `\n${DOWNLOAD_URL}` : ""
+                }`,
+              }).catch(() => {});
+            }}
+          />
+          {canOpenWriteReview() ? (
+            <>
+              <View className="border-t border-border" />
+              <LinkRow
+                icon="star-outline"
+                label="Noter Horsetrack"
+                description="Ton avis aide d'autres cavaliers à nous trouver"
+                onPress={() => void openWriteReview()}
+              />
+            </>
+          ) : null}
+        </View>
+      </FadeInView>
 
       {/* Compte */}
       <FadeInView delay={500}>

@@ -8,7 +8,12 @@ import { AppState, type AppStateStatus } from "react-native";
 import { Stack } from "expo-router";
 import * as Sentry from "@sentry/react-native";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque";
+import { TrialLifecycleSync } from "@/subscription/TrialLifecycleSync";
+import { startAnalytics } from "@/lib/analytics";
+import { markFirstSeen } from "@/lib/reviewPrompt";
+import { CloudRefreshProvider } from "@/lib/cloudRefresh";
 
 // Garde le splash natif affiché tant que la police d'affichage n'est pas
 // chargée — sans ça, les titres (font-display) flasheraient un instant dans
@@ -49,6 +54,10 @@ import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 import { CrashFallback } from "@/components/CrashFallback";
 import { retryPendingWrites } from "@/lib/cloudSync";
+
+// Analytics produit (cf. lib/analytics.ts) : inactives sans clé PostHog.
+startAnalytics();
+markFirstSeen();
 
 function RootLayout() {
   const [fontsLoaded] = useFonts({ BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold });
@@ -127,6 +136,7 @@ function RootLayout() {
     <PickerOverlayProvider>
     <GlossaryProvider>
       <SubscriptionProvider>
+        <TrialLifecycleSync />
         <RiderProfileProvider>
           <HorsesProvider>
             <WeightProvider>
@@ -134,12 +144,14 @@ function RootLayout() {
               <AgendaProvider>
                 <SessionsProvider>
                   <GoalsProvider>
+                  <CloudRefreshProvider>
                     <Stack screenOptions={{ headerShown: false }}>
                       <Stack.Screen name="index" />
                       <Stack.Screen name="(auth)" />
                       <Stack.Screen name="(onboarding)" />
                       <Stack.Screen name="(tabs)" />
                       <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="premium-welcome" options={{ presentation: "modal" }} />
                       <Stack.Screen name="document-viewer" options={{ presentation: "fullScreenModal", animation: "fade" }} />
                       <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
@@ -152,9 +164,19 @@ function RootLayout() {
                       <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="reset-password" />
                     </Stack>
+                    {/* Icônes de la barre système en sombre, sur les deux
+                        plateformes. Toutes les palettes de l'app ont un fond
+                        clair (cf. theme/palettes.ts) : sans consigne
+                        explicite, la barre suit le mode du téléphone et
+                        passe en blanc sur blanc dès que l'appareil est en
+                        thème sombre — heure et batterie deviennent alors
+                        illisibles. Android est le cas le plus visible, le
+                        plein écran y étant imposé par la cible API 36. */}
+                    <StatusBar style="dark" />
                     <PasswordRecoveryListener />
                     <BiometricGate />
                     <LastCrashNotice />
+                  </CloudRefreshProvider>
                   </GoalsProvider>
                 </SessionsProvider>
               </AgendaProvider>

@@ -1,4 +1,5 @@
 import { readJson, writeJson } from "@/lib/localStore";
+import { clearRemoteIndex } from "@/lib/remoteIndex";
 
 /**
  * File d'attente des écritures cloud qui ont échoué.
@@ -32,6 +33,10 @@ export type SyncOperation = {
   row?: Record<string, unknown>;
   /** Nombre de tentatives déjà échouées. */
   attempts: number;
+  /** Moment (ms) où l'écriture a été mise en file — cf. discardSupersededWrites.
+   * Absent des opérations enregistrées avant son ajout (traitées comme très
+   * anciennes). */
+  enqueuedAt?: number;
 };
 
 const QUEUE_KEY = "sync_queue_v1";
@@ -48,7 +53,7 @@ export const MAX_ATTEMPTS = 5;
  * vidée en une fois, et grossir sans fin ferait de la persistance locale une
  * charge à chaque écriture. Les PLUS ANCIENNES sont abandonnées en premier :
  * les récentes sont celles que l'utilisateur vient de saisir. */
-export const MAX_QUEUE_LENGTH = 200;
+export const MAX_QUEUE_LENGTH = 1000;
 
 /** Identité d'une ligne dans la file : c'est le couple table + id qui désigne
  * « la même donnée », et donc ce qu'une nouvelle saisie remplace. Extrait en
@@ -88,6 +93,19 @@ export function isPermanentError(error: { code?: string } | null | undefined): b
   return !!error?.code && PERMANENT_ERROR_CODES.has(error.code);
 }
 
+/** Échec dû au réseau (pas de réponse du serveur) plutôt qu'à un refus : il
+ * ne dit rien de la validité de l'écriture et ne doit pas user ses essais —
+ * sans quoi quelques jours sans réseau (concours, écurie en zone blanche)
+ * suffisaient à abandonner des saisies, que la relecture suivante aurait
+ * ensuite remplacées par l'ancienne version du serveur. Un refus du serveur
+ * porte toujours un code (PostgREST/Postgres). */
+export function isNetworkError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code) return false;
+  const message = (error.message ?? "").toLowerCase();
+  return message === "" || message.includes("network") || message.includes("fetch") || message.includes("timeout") || message.includes("abort");
+}
+
 /** Opérations à garder après une tentative de vidage : celles qui ont échoué
  * et qui n'ont pas épuisé leurs essais. Pure, pour être testable sans réseau. */
 export function keepForRetry(operation: SyncOperation): SyncOperation | null {
@@ -125,6 +143,27 @@ export function pendingSyncCount(): number {
   return queue.length;
 }
 
+/** Charge la file si besoin (avant une fusion, cf. lib/cloudRefresh.ts). */
+export async function ensureSyncQueueLoaded(): Promise<void> {
+  await ensureLoaded();
+}
+
+/** Identifiants des lignes de `table` qui attendent un envoi (upsert ou
+ * suppression) : leur version locale fait autorité lors d'une fusion. Pour
+ * `appointments`, inclut aussi les rendez-vous dont une ÉPREUVE attend un
+ * envoi — les épreuves vivent dans le rendez-vous côté app. */
+export function pendingIdsFor(table: string): Set<string> {
+  const ids = new Set<string>();
+  for (const o of queue) {
+    if (o.table === table) ids.add(o.id);
+    if (table === "appointments" && o.table === "competition_entries") {
+      const appointmentId = o.row?.appointmentId;
+      if (typeof appointmentId === "string") ids.add(appointmentId);
+    }
+  }
+  return ids;
+}
+
 async function ensureLoaded(): Promise<void> {
   if (loaded) return;
   queue = await readJson<SyncOperation[]>(QUEUE_KEY, []);
@@ -146,7 +185,34 @@ export async function enqueueFailedWrite(
 ): Promise<void> {
   if (isPermanentError(error)) return;
   await ensureLoaded();
-  queue = mergeOperation(queue, { ...operation, attempts: 0 });
+  queue = mergeOperation(queue, { ...operation, attempts: 0, enqueuedAt: Date.now() });
+  await persist();
+}
+
+/** Opérations restantes une fois retirées celles que remplace une écriture
+ * réussie sur la même ligne, partie à `startedAt`. Pure, pour les tests. */
+export function withoutSuperseded(
+  list: SyncOperation[],
+  target: Pick<SyncOperation, "table" | "id">,
+  startedAt: number
+): SyncOperation[] {
+  const key = rowKey(target);
+  return list.filter((o) => rowKey(o) !== key || (o.enqueuedAt ?? 0) > startedAt);
+}
+
+/**
+ * Une écriture directe vient de RÉUSSIR sur cette ligne : toute opération
+ * plus ancienne encore en file pour la même ligne est périmée. Sans ce
+ * nettoyage, le vidage déclenché juste après ce succès rejouait l'ancienne
+ * version et écrasait la nouvelle côté serveur. Une opération mise en file
+ * APRÈS le départ de cette écriture (`startedAt`) est gardée : elle est plus
+ * récente qu'elle.
+ */
+export async function discardSupersededWrites(target: Pick<SyncOperation, "table" | "id">, startedAt: number): Promise<void> {
+  await ensureLoaded();
+  const next = withoutSuperseded(queue, target, startedAt);
+  if (next.length === queue.length) return;
+  queue = next;
   await persist();
 }
 
@@ -159,7 +225,7 @@ export async function enqueueFailedWrite(
  * ne pas dépendre de cloudSync.ts (et donc de rester testable sans Supabase).
  */
 export async function flushSyncQueue(
-  send: (operation: SyncOperation) => Promise<{ error: { code?: string } | null }>
+  send: (operation: SyncOperation) => Promise<{ error: { code?: string; message?: string } | null }>
 ): Promise<void> {
   if (flushing) return;
   flushing = true;
@@ -171,22 +237,26 @@ export async function flushSyncQueue(
     // écrasées par le résultat de cette passe.
     const attempted = [...queue];
     const startedGeneration = generation;
-    const failed: SyncOperation[] = [];
+    const failed: { original: SyncOperation; retry: SyncOperation }[] = [];
     for (const operation of attempted) {
       // Changement de compte en cours de route : on arrête d'envoyer
       // immédiatement. Continuer enverrait les écritures du compte précédent
       // sous l'identité du suivant, et ne compter que sur la RLS pour les
       // refuser reviendrait à faire du serveur le seul garde-fou.
       if (generation !== startedGeneration) return;
+      // Retirée ou remplacée pendant ce vidage (écriture plus récente réussie,
+      // nouvelle saisie) : ne surtout pas l'envoyer, elle est périmée.
+      if (!queue.includes(operation)) continue;
       try {
         const { error } = await send(operation);
         if (!error) continue;
         if (isPermanentError(error)) continue;
-        const retry = keepForRetry(operation);
-        if (retry) failed.push(retry);
+        // Réseau : on garde tel quel, sans consommer d'essai.
+        const retry = isNetworkError(error) ? operation : keepForRetry(operation);
+        if (retry) failed.push({ original: operation, retry });
       } catch {
-        const retry = keepForRetry(operation);
-        if (retry) failed.push(retry);
+        // Exception levée par l'envoi (fetch rejeté) = réseau : même règle.
+        failed.push({ original: operation, retry: operation });
       }
     }
     // La file a été vidée volontairement pendant l'envoi (déconnexion,
@@ -207,7 +277,12 @@ export async function flushSyncQueue(
     // autorité. C'est ce qui empêche une suppression faite pendant l'envoi
     // d'être écrasée par l'upsert qu'elle annulait.
     const superseded = new Set(arrivedDuringFlush.map(rowKey));
-    const stillPending = failed.filter((o) => !superseded.has(rowKey(o)));
+    const stillPending = failed
+      // Retirée de la file pendant l'envoi (cf. discardSupersededWrites) :
+      // ne pas la réinstaller.
+      .filter(({ original }) => queue.includes(original))
+      .map(({ retry }) => retry)
+      .filter((o) => !superseded.has(rowKey(o)));
 
     queue = [...stillPending, ...arrivedDuringFlush];
     await persist();
@@ -226,4 +301,7 @@ export async function clearSyncQueue(): Promise<void> {
   queue = [];
   loaded = true;
   await persist();
+  // L'état de synchronisation (lignes connues du serveur, suppressions
+  // récentes) appartient lui aussi au compte précédent.
+  await clearRemoteIndex();
 }

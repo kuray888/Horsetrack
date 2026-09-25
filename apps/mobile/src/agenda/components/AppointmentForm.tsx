@@ -267,7 +267,7 @@ export function AppointmentForm({
           />
         </>
       ) : null}
-      <Locked message="Rappels automatiques réservés à l'abonnement Premium">
+      <Locked message="Reçois une notification avant ce rendez-vous" placement="reminders" feature="appointment_reminder">
         <Field label="Rappel">
           <ChipSelect
             options={Object.entries(REMINDER_META).map(([value, meta]) => ({
@@ -306,7 +306,7 @@ export function AppointmentForm({
               ne les prend pas en compte — la modification disparaissait en silence. */}
           {editingApptId ? null : (
             <>
-              <Locked message="Détail des épreuves réservé à l'abonnement Premium">
+              <Locked message="Détaille chaque épreuve : horaires, résultats" placement="competitions" feature="competition_detail">
                 <View className="gap-2">
                   <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
                   {form.competitionEntries.map((entry) => (

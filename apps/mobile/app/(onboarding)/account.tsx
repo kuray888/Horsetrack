@@ -12,6 +12,7 @@ import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import { pullPendingInvites } from "@/lib/sharing";
 import { withTimeout } from "@/lib/withTimeout";
+import { track } from "@/lib/analytics";
 import { useSessions } from "@/sessions/store";
 import { clearSyncQueue } from "@/lib/syncQueue";
 import { useAgenda } from "@/agenda/store";
@@ -24,6 +25,10 @@ const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-t
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function OnboardingAccount() {
+  useEffect(() => {
+    track("onboarding_step_viewed", { step: "account" });
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

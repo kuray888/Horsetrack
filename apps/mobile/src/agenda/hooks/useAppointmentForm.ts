@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Alert } from "react-native";
-import { formatDate } from "@/lib/dateFormat";
 import {
   cancelReminder,
   computeReminderTrigger,
@@ -28,7 +27,10 @@ import {
   type CompetitionEntry,
   type CompetitionLevel,
 } from "@/agenda/store";
-import { APPT_META, newDraftEntryId } from "@/agenda/meta";
+import { newDraftEntryId } from "@/agenda/meta";
+import { appointmentReminderContent, nextDueReminderContent } from "@/agenda/reminderContent";
+import { track } from "@/lib/analytics";
+import { markPremiumActivated } from "@/subscription/trialLifecycle";
 
 const emptyApptForm = {
   type: "veto" as AppointmentType,
@@ -177,17 +179,17 @@ export function useAppointmentForm({
     horseName: string | null
   ): Promise<{ reminderNotificationId: string | null; emailReminderId: string | null }> {
     const trigger = computeReminderTrigger(date, time, reminder);
-    const notifBody = `${horseName ? `${horseName} · ` : ""}${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`;
+    const content = appointmentReminderContent(title, date, time, location, horseName);
     if (!trigger) return { reminderNotificationId: null, emailReminderId: null };
     // L'échec de programmation du rappel (permission révoquée, erreur OS) ne
     // doit jamais empêcher l'ajout/l'édition du rendez-vous lui-même. Push et
     // e-mail sont indépendants : lancés ensemble plutôt qu'à la suite, ce qui
     // divise à peu près par deux le temps d'une création pour plusieurs chevaux
     // (un appel réseau par entrée).
-    const pushPromise = scheduleReminder(`Rappel : ${title}`, notifBody, trigger).catch(() => null);
+    const pushPromise = scheduleReminder(content.title, content.body, trigger).catch(() => null);
     const [reminderNotificationId, emailReminderId] = await Promise.all([
       pushPromise,
-      scheduleEmailReminder(trigger, `Rappel : ${title}`, notifBody),
+      scheduleEmailReminder(trigger, content.title, content.body),
     ]);
     setNotifPermission((prev) => (!reminderNotificationId ? false : prev));
     return { reminderNotificationId, emailReminderId };
@@ -205,16 +207,10 @@ export function useAppointmentForm({
     horseName: string | null
   ): Promise<string | null> {
     if (!isActiveOrTrialing) return null;
-    const trigger = new Date(nextDueDate);
-    trigger.setDate(trigger.getDate() - 3);
-    trigger.setHours(9, 0, 0, 0);
-    if (trigger.getTime() <= Date.now()) return null;
+    const content = nextDueReminderContent(apptType, title, nextDueDate, horseName);
+    if (!content.trigger) return null;
     try {
-      return await scheduleReminder(
-        `Échéance à venir : ${title}`,
-        `${APPT_META[apptType].label} prévu(e) le ${formatDate(nextDueDate)} pour ${horseName ?? "ton cheval"}.`,
-        trigger
-      );
+      return await scheduleReminder(content.title, content.body, content.trigger);
     } catch {
       return null;
     }
@@ -436,6 +432,15 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
         hiddenNames = targetsOutsideView(targetHorseIds, visibleHorseIds ?? fallbackIds).map(
           (id) => horseNameFor(id) ?? "un autre cheval"
         );
+      }
+      // Activation Premium (cf. subscription/trialLifecycle.ts) + analytics.
+      if (reminder !== "none") {
+        track("reminder_created", { type: apptForm.type, reminder });
+        markPremiumActivated();
+      }
+      if (isConcours && isActiveOrTrialing && apptForm.competitionEntries.some((e) => e.name.trim())) {
+        track("competition_detailed", { entries: apptForm.competitionEntries.length });
+        markPremiumActivated();
       }
       cancelApptForm();
     } finally {

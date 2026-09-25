@@ -9,11 +9,13 @@ import { Locked } from "@/components/Locked";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses, type Horse } from "@/horses/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
+import { openPaywall } from "@/subscription/paywall";
 import { useSessions } from "@/sessions/store";
 import { HorseHub } from "@/horses/components/HorseHub";
 import { useAgenda, ACTIVITY_META } from "@/agenda/store";
 import { APPT_META, daysUntilLabel } from "@/agenda/meta";
 import { findNextSession, findNextDue } from "@/agenda/upcoming";
+import { useCloudRefresh } from "@/lib/cloudRefresh";
 import { DISCIPLINES, HORSE_LEVELS } from "@/onboarding/options";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -80,7 +82,7 @@ function HorseRow({
     </TouchableOpacity>
   );
   return locked ? (
-    <Locked message="Débloque ce cheval avec Horsetrack Premium">{card}</Locked>
+    <Locked message="Retrouve ce cheval avec Premium : ses données sont conservées" placement="horses" feature="locked_horse" horseId={horse.id}>{card}</Locked>
   ) : (
     card
   );
@@ -91,9 +93,13 @@ export default function ChevauxScreen() {
   const { horses, selectedHorse, selectHorse, syncFailed, retrySync } = useHorses();
   const [refreshing, setRefreshing] = useState(false);
 
+  const { refresh: refreshFromCloud } = useCloudRefresh();
+  // Tirer pour rafraîchir : envoie d'abord l'écurie locale, puis relit le
+  // serveur (nouveaux chevaux partagés, modifications faites ailleurs).
   async function onRefresh() {
     setRefreshing(true);
     await retrySync();
+    await refreshFromCloud();
     setRefreshing(false);
   }
   const subscription = useSubscription();
@@ -181,6 +187,24 @@ export default function ChevauxScreen() {
           <FadeInView delay={40}>
             <Text className="text-sm font-bold uppercase tracking-wide text-muted">Mes chevaux</Text>
           </FadeInView>
+          {/* Retour au palier gratuit (fin d'essai, résiliation) : les chevaux
+              au-delà du premier restent là, verrouillés. On dit explicitement
+              que rien n'est perdu — c'est vrai, et c'est ce qui inquiète. */}
+          {!subscription.loading && ownedHorses.length > horseLimit ? (
+            <FadeInView delay={60}>
+              <TouchableOpacity
+                onPress={() => openPaywall("horses", { feature: "locked_horses_banner" })}
+                activeOpacity={0.85}
+                className="flex-row items-center gap-3 rounded-card bg-highlight p-4"
+              >
+                <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.primary} />
+                <Text className="flex-1 text-sm text-text">
+                  Tes autres chevaux sont conservés, avec toutes leurs données. Premium te permet de les retrouver.
+                </Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </FadeInView>
+          ) : null}
           {ownedHorses.map((horse, i) => (
             <FadeInView key={horse.id} delay={80 + i * 60}>
               {rowFor(horse, i >= horseLimit)}

@@ -2,6 +2,8 @@ import { Alert } from "react-native";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
 import { buildTextPdf } from "@/lib/pdfText";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
+import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { buildHealthRecordLines, type RecordAppointment, type RecordHorse, type RecordWeight } from "@/horses/healthRecord";
 
 /**
@@ -36,7 +38,13 @@ export async function exportHealthRecord(
     if (file.exists) file.delete();
     file.create();
     file.write(pdf);
-    await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+    // `runNativeInteraction` : la feuille de partage est une activité Android
+    // distincte, qui rejouerait sinon le verrou biométrique au retour
+    // (cf. lib/nativeInteraction.ts). Sans effet sur iOS.
+    await runNativeInteraction(() =>
+      Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" })
+    );
+    recordPositiveMoment("pdf_exported");
   } catch (e) {
     console.warn("[healthRecord] export échoué", e);
     Alert.alert("Export impossible", "Le carnet n'a pas pu être créé. Réessaie dans un instant.");

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { sendEmail } from "@/lib/resend";
+import { safeLine } from "@/lib/emailSafety";
 
 const schema = z.object({
   horseId: z.string().min(1),
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
@@ -75,13 +76,23 @@ export async function POST(req: NextRequest) {
   }
 
   const inviter = await db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
-  const inviterName = inviter?.name || inviter?.email || "Un cavalier";
+  // Nom affiché et nom du cheval sont saisis librement : liens neutralisés
+  // avant de les insérer dans un email envoyé à un tiers (cf. emailSafety.ts).
+  const inviterName = safeLine(inviter?.name || inviter?.email?.split("@")[0], 60) || "Un cavalier";
+  const horseName = safeLine(horse.name, 60) || "un cheval";
 
-  const subject = `${inviterName} vous invite à suivre ${horse.name} sur Horsetrack`;
+  // Tutoiement partout (l'objet vouvoyait, le corps tutoyait), et un lien
+  // de téléchargement : sans lui, l'invité devait chercher l'app lui-même —
+  // la moitié de la boucle de partage se perdait là.
+  const downloadUrl = `${req.nextUrl.origin}/telecharger`;
+  const subject = `${inviterName} t'invite à suivre ${horseName} sur Horsetrack`;
   const bodyText = [
-    `${inviterName} vous invite à accéder au suivi de ${horse.name} sur Horsetrack, ${ROLE_LABEL[role]}.`,
+    `${inviterName} t'invite à suivre ${horseName} sur Horsetrack, ${ROLE_LABEL[role]} : planning, soins et rendez-vous.`,
     "",
-    "Pour accepter : installe Horsetrack et connecte-toi (ou crée un compte) avec cette adresse email — l'invitation apparaîtra automatiquement à l'ouverture de l'app.",
+    "Pour accepter :",
+    `1. Installe Horsetrack : ${downloadUrl}`,
+    `2. Crée ton compte (ou connecte-toi) avec cette adresse email : ${invitedEmail}`,
+    "3. L'invitation apparaît automatiquement à l'ouverture de l'app.",
     "",
     "Si tu ne t'attendais pas à ce message, tu peux l'ignorer sans risque.",
   ].join("\n");

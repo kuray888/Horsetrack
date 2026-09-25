@@ -8,7 +8,7 @@ import { Field } from "@/components/Field";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useOnboarding } from "@/onboarding/store";
 import { HORSE_SEXES, TOTAL_STEPS } from "@/onboarding/options";
-import { pickAndPersistImage } from "@/lib/imagePicker";
+import { chooseAndPersistImage } from "@/lib/imagePicker";
 import { colors } from "@/theme/colors";
 
 const INPUT =
@@ -19,7 +19,7 @@ export default function HorseBasics() {
   const currentYear = new Date().getFullYear();
 
   async function pickPhoto() {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPersistImage();
     if (uri) updateEditingHorse({ photoUrl: uri });
   }
 

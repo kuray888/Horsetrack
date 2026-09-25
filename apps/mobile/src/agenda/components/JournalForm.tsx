@@ -98,7 +98,7 @@ export function JournalForm({
       <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
       <FormDetails open={showDetails} onToggle={() => setShowDetails((v) => !v)} summary={detailsSummary}>
       <TimePickerField label="Heure" value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
-      <Locked message="Photo du jour réservée à l'abonnement Premium">
+      <Locked message="Ajoute la photo du jour pour revoir ses progrès" placement="journal_photo" feature="journal_photo">
         {form.photoUri ? (
           <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
             <Image

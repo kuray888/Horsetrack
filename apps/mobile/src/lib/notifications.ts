@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
 
 const WEEKLY_SUMMARY_KEY = "weekly_summary_notif_v1";
 
@@ -33,9 +34,20 @@ export function computeReminderTrigger(date: Date, time: string, reminder: Remin
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
+  // Le canal AVANT la demande de permission, et pas seulement avant l'envoi :
+  // sur Android 13+, la permission POST_NOTIFICATIONS se demande au nom des
+  // canaux déjà déclarés. Sans canal existant, la demande porte sur une app
+  // qui n'annonce aucune notification, et l'écran système des notifications
+  // de l'app s'ouvre vide. Créer le canal ici couvre tous les appelants —
+  // le réglage du Profil et l'invite de l'écran Accueil, pas seulement
+  // `scheduleReminder` plus bas.
+  await ensureAndroidChannel();
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
-  const requested = await Notifications.requestPermissionsAsync();
+  // `runNativeInteraction` : la boîte de dialogue de permission Android met
+  // notre activité en pause, ce qui rejouerait le verrou biométrique au retour
+  // (cf. lib/nativeInteraction.ts). Sans effet sur iOS.
+  const requested = await runNativeInteraction(() => Notifications.requestPermissionsAsync());
   return requested.granted;
 }
 
@@ -45,9 +57,31 @@ export async function getNotificationStatus(): Promise<boolean> {
   return current.granted;
 }
 
+/** État détaillé, sans rien demander :
+ * - "granted" : autorisées ;
+ * - "undetermined" : jamais demandé — la demande système peut encore
+ *   s'afficher, à déclencher sur une action de l'utilisateur, avec une raison ;
+ * - "denied" : refusées — l'OS ne réaffichera plus sa demande, seuls les
+ *   réglages du téléphone peuvent les réactiver. */
+export type NotificationPermissionState = "granted" | "undetermined" | "denied";
+
+export async function getNotificationPermissionState(): Promise<NotificationPermissionState> {
+  const current = await Notifications.getPermissionsAsync();
+  if (current.granted) return "granted";
+  return current.canAskAgain ? "undetermined" : "denied";
+}
+
+/** Identifiant du canal Android de tous les rappels de l'app. Doit être passé
+ * explicitement à chaque notification programmée (cf. `scheduleReminder`) :
+ * sans lui, expo-notifications range la notification dans son canal de
+ * repli « Miscellaneous » (cf. BaseNotificationBuilder.FALLBACK_CHANNEL_ID),
+ * et le canal « Rappels » créé ici ne sert jamais — l'utilisateur qui règle
+ * ses notifications depuis Android agit alors sur un canal vide. */
+const CHANNEL_ID = "default";
+
 async function ensureAndroidChannel() {
   if (Platform.OS !== "android") return;
-  await Notifications.setNotificationChannelAsync("default", {
+  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: "Rappels",
     importance: Notifications.AndroidImportance.HIGH,
   });
@@ -76,7 +110,9 @@ export async function scheduleReminder(title: string, body: string, trigger: Dat
   await ensureAndroidChannel();
   return Notifications.scheduleNotificationAsync({
     content: { title, body },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger },
+    // `channelId` est ignoré sur iOS (cf. les types d'expo-notifications) et
+    // décisif sur Android : cf. le commentaire de CHANNEL_ID plus haut.
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger, channelId: CHANNEL_ID },
   });
 }
 
@@ -118,9 +154,18 @@ function currentWeekStart(): string {
 
 /**
  * Programme le bilan hebdomadaire du dimanche soir.
- * Idempotent sur la semaine : un seul appel effectif par semaine même si
- * Today se remonte plusieurs fois — la notification existante est conservée
- * jusqu'au prochain changement de semaine.
+ *
+ * Reprogrammé dès que les chiffres de la semaine changent : le texte d'une
+ * notification locale est figé au moment où on la programme. L'ancienne
+ * version ne la programmait qu'une fois par semaine, avec les chiffres du
+ * premier affichage de l'Accueil — le dimanche, on lisait « 0/4 séances »
+ * même après une semaine complète.
+ *
+ * Ne DEMANDE jamais la permission : appelée au montage de l'Accueil, elle
+ * déclenchait la demande système dès la première ouverture de l'app, sans
+ * explication (un refus y est quasi définitif). La demande se fait désormais
+ * sur action de l'utilisateur, avec sa raison (carte de l'Accueil, écran de
+ * bienvenue Premium, création d'un rappel).
  */
 /** Best-effort de bout en bout (cf. cancelReminder ci-dessus et audit crash
  * SecureStore du 2026-09-08) : appelée en fire-and-forget sans catch depuis
@@ -132,15 +177,17 @@ export async function scheduleWeeklySummary(
   total: number
 ): Promise<void> {
   try {
-    if (!(await ensureNotificationPermission())) return;
+    if (!(await getNotificationStatus())) return;
 
     const weekStart = currentWeekStart();
 
-    // Vérifie si une notification est déjà prévue pour cette semaine.
+    // Déjà programmée pour cette semaine avec ces mêmes chiffres : rien à faire.
     const raw = await SecureStore.getItemAsync(WEEKLY_SUMMARY_KEY);
     if (raw) {
-      const saved = JSON.parse(raw) as { id: string; weekStart: string };
-      if (saved.weekStart === weekStart) return;
+      const saved = JSON.parse(raw) as { id: string; weekStart: string; done?: number; total?: number; horseName?: string };
+      if (saved.weekStart === weekStart && saved.done === done && saved.total === total && saved.horseName === horseName) {
+        return;
+      }
       await cancelReminder(saved.id);
     }
 
@@ -169,7 +216,7 @@ export async function scheduleWeeklySummary(
     );
 
     if (id) {
-      await SecureStore.setItemAsync(WEEKLY_SUMMARY_KEY, JSON.stringify({ id, weekStart }));
+      await SecureStore.setItemAsync(WEEKLY_SUMMARY_KEY, JSON.stringify({ id, weekStart, done, total, horseName }));
     }
   } catch {
     // Best-effort : voir commentaire ci-dessus.

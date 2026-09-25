@@ -10,7 +10,10 @@ import {
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import { readJson, removeJson, writeJson } from "@/lib/localStore";
-import { deleteHorsePhotoRemote, pushHorses } from "@/lib/cloudSync";
+import { deleteHorseRemote, pushHorses } from "@/lib/cloudSync";
+import { mergeRemote, pickFileUrl } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
 import { useSubscription } from "@/subscription/store";
 import { withKeyLock } from "@/lib/keyLock";
@@ -41,6 +44,37 @@ export type Injury = {
   recoveryStatus: HorseRecoveryStatus | null;
   note: string;
 };
+
+/** Ne garde que les champs de `Horse` : les lignes relues du serveur portent
+ * aussi des colonnes techniques (ownerId, dates, jointures), qui feraient
+ * paraître chaque cheval « modifié » à chaque relecture. */
+export function normalizeRemoteHorse(h: Horse): Horse {
+  return {
+    id: h.id,
+    name: h.name,
+    emoji: h.emoji,
+    photoUrl: h.photoUrl,
+    photoPath: h.photoPath,
+    birthYear: h.birthYear,
+    sex: h.sex,
+    breed: h.breed,
+    coat: h.coat,
+    heightCm: h.heightCm,
+    weightKg: h.weightKg,
+    discipline: h.discipline,
+    level: h.level,
+    fitnessLevel: h.fitnessLevel,
+    workload: h.workload,
+    isPrimary: h.isPrimary,
+    strengths: h.strengths,
+    weaknesses: h.weaknesses,
+    temperament: h.temperament,
+    healthConditions: h.healthConditions,
+    restDayActivities: h.restDayActivities,
+    injuries: h.injuries,
+    sharedRole: h.sharedRole,
+  };
+}
 
 export type Horse = {
   id: string;
@@ -214,6 +248,10 @@ type HorsesContextValue = {
    * distinct de replaceHorses : prend des Horse déjà complets, pas des
    * brouillons d'onboarding, et ne republie pas vers le cloud. */
   hydrateFromCloud: (horses: Horse[]) => void;
+  /** Fusionne une relecture du serveur (chevaux possédés + partagés) sans
+   * écraser les modifications locales pas encore envoyées. Renvoie false si
+   * la fusion a été reportée (écurie locale pas entièrement synchronisée). */
+  mergeFromCloud: (owned: Horse[], shared: Horse[], pullStartedAt: number) => boolean;
   updateHorsePhoto: (id: string, photoUrl: string) => void;
   /** Retire un cheval possédé de l'écurie (jamais un cheval partagé) — no-op
    * si c'est le dernier cheval possédé : Today/Horse Hub/etc. supposent
@@ -468,10 +506,10 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       if (!target || target.sharedRole) return;
       if (horses.filter((h) => !h.sharedRole).length <= 1) return;
 
-      // Best-effort : le storage n'a pas de cascade FK depuis `horses`
-      // (contrairement aux tables Postgres), donc pas nettoyé automatiquement
-      // par la suppression de la ligne côté serveur.
-      if (target.photoPath) deleteHorsePhotoRemote(id).catch(() => {});
+      // Suppression explicite et ciblée côté serveur (ligne + photos) — le
+      // push global qui suit ne supprime plus rien de lui-même (cf.
+      // cloudSync.pushHorses).
+      deleteHorseRemote(id).catch(() => {});
 
       let next = horses.filter((h) => h.id !== id);
       if (target.isPrimary) {
@@ -515,6 +553,31 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId).catch(() => {});
   }, []);
 
+  const mergeFromCloud = useCallback((owned: Horse[], shared: Horse[], pullStartedAt: number): boolean => {
+    // Écurie locale pas entièrement envoyée (dernier envoi en échec, cheval
+    // refusé…) : ses modifications n'existent qu'ici, on ne fusionne pas —
+    // le prochain envoi réussi rétablira l'invariant, la relecture suivante
+    // fusionnera.
+    if (needsFullSyncRef.current) return false;
+    const remote = [...owned, ...shared].map(normalizeRemoteHorse);
+    const guard = syncGuard("horses", pullStartedAt, pendingIdsFor("horses"));
+    // Champs propres à l'appareil : emoji, jours de repos (pas encore
+    // synchronisés), photo locale tant que la photo distante n'a pas changé.
+    const preserve = (l: Horse, r: Horse): Horse => ({
+      ...r,
+      emoji: l.emoji,
+      restDayActivities: l.restDayActivities,
+      photoUrl: pickFileUrl(l.photoUrl, l.photoPath, r.photoUrl, r.photoPath),
+    });
+    setHorses((list) => {
+      const result = mergeRemote(list, remote, guard, preserve);
+      if (result.changed) writeJson(STORAGE_KEY, result.items);
+      return result.items;
+    });
+    noteRemoteSnapshot("horses", remote.map((h) => h.id), pullStartedAt);
+    return true;
+  }, []);
+
   const selectHorse = useCallback((id: string) => {
     setSelectedHorseId(id);
     SecureStore.setItemAsync(SELECTED_KEY, id).catch(() => {});
@@ -549,6 +612,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       updateHorseHealth,
       replaceHorses,
       hydrateFromCloud,
+      mergeFromCloud,
       updateHorsePhoto,
       removeHorse,
       selectedHorse,
@@ -565,6 +629,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       updateHorseHealth,
       replaceHorses,
       hydrateFromCloud,
+      mergeFromCloud,
       updateHorsePhoto,
       removeHorse,
       selectedHorse,

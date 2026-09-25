@@ -180,7 +180,7 @@ export function ExpenseForm({
           Le reçu joint se gère depuis la fiche de la dépense, pas depuis ce formulaire.
         </Text>
       ) : (
-        <Locked message="Joindre une facture réservé à l'abonnement Premium (coffre-fort)">
+        <Locked message="Joins la facture à cette dépense pour la retrouver en deux secondes" placement="vault" feature="expense_invoice">
           {form.fileUri ? (
             <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
               <AttachmentPreview uri={form.fileUri} height={128} />

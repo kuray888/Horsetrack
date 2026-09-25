@@ -8,6 +8,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { colors } from "@/theme/colors";
 import type { Option } from "@/onboarding/options";
+import { track } from "@/lib/analytics";
 
 /** Barre de progression fine en haut de chaque étape — le remplissage est
  * animé (au lieu de sauter directement à la valeur cible) plutôt que statique,
@@ -56,6 +57,12 @@ export function OnboardingShell({
   onNext: () => void;
   canGoBack?: boolean;
 }) {
+  // Entonnoir d'onboarding : une vue par étape (cf. lib/analytics.ts).
+  useEffect(() => {
+    track("onboarding_step_viewed", { step, total, title });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center gap-3 px-5 pt-2">

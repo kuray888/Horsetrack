@@ -24,6 +24,7 @@ import {
   deleteCompetitionEntryRemote,
   pushExpense,
   deleteExpenseRemote,
+  retryPendingDocumentUploads,
 } from "@/lib/cloudSync";
 import {
   DEFAULT_CHECKLIST_LABELS,
@@ -34,6 +35,12 @@ import {
 import { resolveLocalFileUri } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
 import type { Discipline } from "@/onboarding/store";
+import { track } from "@/lib/analytics";
+import { markPremiumActivated } from "@/subscription/trialLifecycle";
+import { mergeRemote, pickFileUrl } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
+import { cancelRemindersOf, rescheduleReminders } from "@/agenda/remoteMergeEffects";
 
 /**
  * Rendez-vous et documents, persistés localement (en attendant Supabase) —
@@ -296,6 +303,13 @@ const DEFAULT_JOURNAL: JournalEntry[] = [];
 
 const DEFAULT_EXPENSES: Expense[] = [];
 
+export type AgendaRemoteSnapshot = {
+  appointments?: Appointment[];
+  documents?: Doc[];
+  journal?: JournalEntry[];
+  expenses?: Expense[];
+};
+
 type AgendaContextValue = {
   appointments: Appointment[];
   documents: Doc[];
@@ -354,12 +368,20 @@ type AgendaContextValue = {
   toggleExpensePaid: (expenseId: string) => void;
   linkExpenseDocument: (expenseId: string, documentId: string | null) => void;
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
+  /** Fusionne une relecture du serveur sans écraser les saisies locales
+   * pas encore envoyées (cf. lib/mergeRemote.ts, lib/cloudRefresh.ts).
+   * Un domaine absent (`undefined`) n'est pas touché. */
+  mergeFromCloud: (remote: AgendaRemoteSnapshot, pullStartedAt: number) => void;
   /** Efface rendez-vous + documents + journal + dépenses locaux (cf. suppression de compte dans Profil). */
   /** Vrai quand la dernière sauvegarde locale a échoué (cf. lib/localStore.ts).
    * Permet à un écran de le dire en continu, là où l'alerte ne passe qu'une
    * fois par session — une perte de données silencieuse était exactement ce
    * que les anciens `.catch(() => {})` produisaient. */
   saveFailed: boolean;
+  /** Lecture locale terminée ET réussie : condition pour fusionner une
+   * relecture du serveur (sinon la fusion partirait de l'état par défaut, ou
+   * d'un état qu'on ne peut pas réécrire). */
+  syncReady: boolean;
   clearAll: () => Promise<void>;
   /** Purge locale des rendez-vous/journal/dépenses d'UN cheval supprimé (cf.
    * edit-horse-modal.tsx) — le cascade Postgres (onDelete: Cascade) fait déjà
@@ -533,6 +555,22 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     setExpenses((list) => (list.every((e) => e.horseId) ? list : list.map((e) => (e.horseId ? e : { ...e, horseId: fallbackHorseId }))));
     setDocuments((list) => (list.every((d) => d.horseId) ? list : list.map((d) => (d.horseId ? d : { ...d, horseId: fallbackHorseId }))));
   }, [loaded, horsesLoading, horses, selectedHorse]);
+
+  // Reprise des fichiers de documents jamais envoyés (cf.
+  // cloudSync.retryPendingDocumentUploads) — une fois par lancement, après le
+  // chargement local.
+  const uploadRetryDone = useRef(false);
+  useEffect(() => {
+    if (!loaded || uploadRetryDone.current) return;
+    uploadRetryDone.current = true;
+    retryPendingDocumentUploads(documents)
+      .then((done) => {
+        if (done.length === 0) return;
+        const byId = new Map(done.map((d) => [d.id, d.filePath]));
+        setDocuments((list) => list.map((d) => (byId.has(d.id) ? { ...d, filePath: byId.get(d.id)! } : d)));
+      })
+      .catch(() => {});
+  }, [loaded, documents]);
 
   // Persiste à chaque changement, une fois le chargement initial terminé
   // (sinon on écraserait les données sauvegardées avec les mocks par défaut).
@@ -773,6 +811,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
       };
       setDocuments((list) => [...list, next]);
+      // Le coffre-fort est Premium : un ajout est une activation de l'essai
+      // (cf. subscription/trialLifecycle.ts).
+      track("document_added", { category: next.category });
+      markPremiumActivated();
       // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Le filePath
       // résultant est reporté localement pour ne pas re-uploader la même photo
       // à la prochaine synchro (cf. pushDocument).
@@ -966,6 +1008,62 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     writeJson(EXPENSES_KEY, next).then(noteSaveResult);
   }, [noteSaveResult]);
 
+  // `appointmentsRef`/`horsesRef` (déclarés plus haut) : derniers états rendus,
+  // pour calculer HORS des mises à jour d'état les effets d'une fusion (rappels
+  // à suivre). Les données, elles, sont fusionnées dans des mises à jour
+  // fonctionnelles, sur l'état le plus récent.
+  const mergeFromCloud = useCallback((remote: AgendaRemoteSnapshot, pullStartedAt: number) => {
+    if (remote.appointments) {
+      const remoteAppointments = remote.appointments;
+      const guard = syncGuard("appointments", pullStartedAt, pendingIdsFor("appointments"));
+      // Identifiants de rappels : propres à cet appareil, jamais synchronisés.
+      const preserve = (l: Appointment, r: Appointment): Appointment => ({
+        ...r,
+        reminderNotificationId: l.reminderNotificationId,
+        emailReminderId: l.emailReminderId,
+        nextDueNotificationId: l.nextDueNotificationId,
+      });
+      const preview = mergeRemote(appointmentsRef.current, remoteAppointments, guard, preserve);
+      if (preview.changed) {
+        setAppointments((list) => mergeRemote(list, remoteAppointments, guard, preserve).items);
+        for (const gone of preview.removed) cancelRemindersOf(gone);
+        for (const { before, after } of preview.updated) {
+          const horseName = horsesRef.current.find((h) => h.id === after.horseId)?.name ?? null;
+          rescheduleReminders(before, after, horseName)
+            .then((ids) => {
+              if (!ids) return;
+              setAppointments((list) => list.map((a) => (a.id === after.id ? { ...a, ...ids } : a)));
+            })
+            .catch(() => {});
+        }
+      }
+      noteRemoteSnapshot("appointments", remoteAppointments.map((a) => a.id), pullStartedAt);
+    }
+    if (remote.documents) {
+      const remoteDocs = remote.documents;
+      const guard = syncGuard("documents", pullStartedAt, pendingIdsFor("documents"));
+      const preserve = (l: Doc, r: Doc): Doc => ({ ...r, fileUri: pickFileUrl(l.fileUri, l.filePath, r.fileUri, r.filePath) });
+      setDocuments((list) => mergeRemote(list, remoteDocs, guard, preserve).items);
+      noteRemoteSnapshot("documents", remoteDocs.map((d) => d.id), pullStartedAt);
+    }
+    if (remote.journal) {
+      const remoteJournal = remote.journal;
+      const guard = syncGuard("journal_entries", pullStartedAt, pendingIdsFor("journal_entries"));
+      const preserve = (l: JournalEntry, r: JournalEntry): JournalEntry => ({
+        ...r,
+        photoUri: pickFileUrl(l.photoUri, l.photoPath, r.photoUri, r.photoPath),
+      });
+      setJournal((list) => mergeRemote(list, remoteJournal, guard, preserve).items);
+      noteRemoteSnapshot("journal_entries", remoteJournal.map((j) => j.id), pullStartedAt);
+    }
+    if (remote.expenses) {
+      const remoteExpenses = remote.expenses;
+      const guard = syncGuard("expenses", pullStartedAt, pendingIdsFor("expenses"));
+      setExpenses((list) => mergeRemote(list, remoteExpenses, guard).items);
+      noteRemoteSnapshot("expenses", remoteExpenses.map((e) => e.id), pullStartedAt);
+    }
+  }, []);
+
   const clearAll = useCallback(async () => {
     // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ces deletes tournent dans le Promise.all de
@@ -1018,7 +1116,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
+      mergeFromCloud,
       saveFailed,
+      syncReady: loaded && !loadFailed,
       clearAll,
       removeHorseData,
     }),
@@ -1055,7 +1155,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
+      mergeFromCloud,
       saveFailed,
+      loaded,
+      loadFailed,
       clearAll,
     ]
   );

@@ -11,6 +11,7 @@ import { useHorses } from "@/horses/store";
 import { useWeight } from "@/horses/weightStore";
 import { useGoals } from "@/goals/store";
 import { buildHorseShareText } from "@/horses/shareHorseText";
+import { DOWNLOAD_URL } from "@/lib/links";
 import { useSubscription } from "@/subscription/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda, daysFromNow, type Appointment, type ExpenseCategory } from "@/agenda/store";
@@ -331,7 +332,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               <Text className="text-sm font-semibold text-text">Partager</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => Share.share({ message: buildHorseShareText(horse) }).catch(() => {})}
+              onPress={() => Share.share({ message: buildHorseShareText(horse, DOWNLOAD_URL) }).catch(() => {})}
               activeOpacity={0.8}
               className="flex-1 items-center rounded-card border border-border p-3"
             >

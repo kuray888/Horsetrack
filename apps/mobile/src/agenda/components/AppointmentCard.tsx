@@ -213,7 +213,7 @@ export function AppointmentCard({
               ) : (
                 <Text className="text-sm text-muted">Aucune épreuve renseignée.</Text>
               )}
-              <Locked message="Détail des épreuves réservé à l'abonnement Premium">
+              <Locked message="Détaille chaque épreuve : horaires, résultats" placement="competitions" feature="competition_detail">
                 <AddCompetitionEntryForm onAdd={onAddCompetitionEntry} />
               </Locked>
             </View>

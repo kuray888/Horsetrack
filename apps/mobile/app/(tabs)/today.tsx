@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Linking, RefreshControl, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
 import { pushWidgetData } from "@/lib/widgetKit";
-import { ensureNotificationPermission, getNotificationStatus, scheduleWeeklySummary } from "@/lib/notifications";
+import {
+  ensureNotificationPermission,
+  getNotificationPermissionState,
+  scheduleWeeklySummary,
+  type NotificationPermissionState,
+} from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
 import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
 import { useWeather } from "@/weather/store";
@@ -31,6 +36,10 @@ import { buildHorseAlerts } from "@/horses/alerts";
 import { usePendingSyncCount } from "@/lib/useSyncQueue";
 import { retryPendingWrites } from "@/lib/cloudSync";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
+import { RemindersUpsellCard } from "@/subscription/RemindersUpsellCard";
+import { FirstStepsCard, MonthlyRecapCard } from "@/components/EngagementCards";
+import { HEALTH_APPOINTMENT_TYPES, weeklyStreak } from "@/lib/progress";
+import { useCloudRefresh } from "@/lib/cloudRefresh";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
 import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
@@ -150,11 +159,27 @@ export default function TodayScreen() {
    * demande système dès le lancement. La demande ne part que sur appui du
    * bouton « Activer ». */
   const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
+  // Distingue « jamais demandé » (on peut encore afficher la demande système,
+  // avec sa raison) de « refusé » (seuls les réglages du téléphone y peuvent
+  // quelque chose) — cf. la carte plus bas.
+  const [notifState, setNotifState] = useState<NotificationPermissionState | null>(null);
   useEffect(() => {
-    getNotificationStatus()
-      .then(setNotifPermission)
+    getNotificationPermissionState()
+      .then((state) => {
+        setNotifState(state);
+        setNotifPermission(state === "granted");
+      })
       .catch(() => setNotifPermission(null));
   }, []);
+  // Un rappel créé peut avoir déclenché (et essuyé) la demande système :
+  // relire l'état pour que la carte propose directement les réglages plutôt
+  // qu'un bouton « Activer » devenu sans effet.
+  useEffect(() => {
+    if (notifPermission !== false) return;
+    getNotificationPermissionState()
+      .then(setNotifState)
+      .catch(() => {});
+  }, [notifPermission]);
   const horse = selectedHorse;
 
   // Une seule fois par montage, pas à chaque render (cf. audit perf du
@@ -162,6 +187,16 @@ export default function TodayScreen() {
   // même session d'app, un `new Date()` frais à chaque render ne ferait que
   // casser toute mémoïsation en aval sans rien apporter.
   const today = useMemo(() => new Date(), []);
+
+  // Tirer pour rafraîchir : relit le serveur (rendez-vous ajoutés par la
+  // demi-pension, modifications faites sur un autre appareil).
+  const { refresh: refreshFromCloud } = useCloudRefresh();
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  async function onPullRefresh() {
+    setPullRefreshing(true);
+    await refreshFromCloud();
+    setPullRefreshing(false);
+  }
   const todayStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()), [today]);
   // 0 = lundi ... 6 = dimanche (même convention qu'ailleurs dans l'app).
   const todayDayOffset = useMemo(() => (today.getDay() + 6) % 7, [today]);
@@ -187,6 +222,12 @@ export default function TodayScreen() {
     [horseSessions, weekStart, weekEnd]
   );
   const weekDoneCount = useMemo(() => weekSessions.filter((s) => s.completed).length, [weekSessions]);
+  // Semaines consécutives avec au moins une séance faite (cf. lib/progress.ts).
+  const streak = useMemo(() => (horse ? weeklyStreak(sessions, horse.id, today) : 0), [sessions, horse, today]);
+  const hasHealthAppointment = useMemo(
+    () => !!horse && appointments.some((a) => a.horseId === horse.id && HEALTH_APPOINTMENT_TYPES.has(a.type)),
+    [appointments, horse]
+  );
 
   // "Prochains événements" : séances + rendez-vous du cheval actif fusionnés
   // par le même système que Planning (cf. plan Phase 3 Étape 3) — aucune
@@ -243,11 +284,13 @@ export default function TodayScreen() {
     });
   }, [horse?.id, todaySession, weekDoneCount, weekSessions.length]);
 
-  // Programme le bilan du dimanche soir une fois par semaine.
+  // Programme (ou met à jour) le bilan du dimanche soir — seulement si les
+  // notifications sont déjà autorisées, d'où `notifPermission` dans les
+  // dépendances : le bilan se programme dès l'autorisation donnée.
   useEffect(() => {
-    if (!horse) return;
+    if (!horse || !notifPermission) return;
     scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
-  }, [horse?.id, weekDoneCount, weekSessions.length]);
+  }, [horse?.id, horse?.name, weekDoneCount, weekSessions.length, notifPermission]);
 
   // Ajout rapide (cf. plan Phase 3 Étape 4 §9) — mêmes hooks/formulaires que
   // Planning et le Horse Hub, rattachement automatique au cheval actif via
@@ -356,7 +399,9 @@ export default function TodayScreen() {
 
   return (
     <>
-    <Screen>
+    <Screen
+      refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} tintColor={colors.primary} />}
+    >
       {/* En-tête */}
       <FadeInView>
         <View className="gap-4 rounded-card bg-primary p-5">
@@ -484,28 +529,52 @@ export default function TodayScreen() {
         </FadeInView>
       ) : null}
 
+      {/* Notifications : la demande système ne part que d'ici (ou d'un
+          rappel créé, ou de l'écran de bienvenue Premium), sur appui, avec sa
+          raison affichée juste avant — jamais au lancement (cf.
+          scheduleWeeklySummary). Une fois refusées, l'OS ne la réaffiche
+          plus : le bouton mène alors aux réglages du téléphone. */}
       {notifPermission === false ? (
         <FadeInView delay={58}>
-          <View className={`${CARD} flex-row items-center gap-3`}>
-            <MaterialCommunityIcons name="bell-off-outline" size={20} color={colors.textMuted} />
-            <Text className="flex-1 text-sm text-muted">
-              Notifications désactivées : tes rappels seront enregistrés mais ne s&apos;afficheront pas sur ton
-              téléphone.
-            </Text>
-            <TouchableOpacity
-              onPress={() =>
-                ensureNotificationPermission()
-                  .then(setNotifPermission)
-                  .catch(() => {})
-              }
-              activeOpacity={0.7}
-              hitSlop={8}
-            >
-              <Text className="text-sm font-bold text-accent">Activer</Text>
-            </TouchableOpacity>
-          </View>
+          {notifState === "denied" ? (
+            <View className={`${CARD} flex-row items-center gap-3`}>
+              <MaterialCommunityIcons name="bell-off-outline" size={20} color={colors.textMuted} />
+              <Text className="flex-1 text-sm text-muted">
+                Notifications désactivées : tes rappels et ton bilan du dimanche ne s&apos;afficheront pas sur ton
+                téléphone.
+              </Text>
+              <TouchableOpacity onPress={() => Linking.openSettings().catch(() => {})} activeOpacity={0.7} hitSlop={8}>
+                <Text className="text-sm font-bold text-accent">Réglages</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="flex-row items-center gap-3 rounded-card bg-highlight p-4">
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-surface">
+                <MaterialCommunityIcons name="bell-ring-outline" size={20} color={colors.primary} />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text className="text-[15px] font-bold text-text">Ne rate rien pour {horse?.name ?? "ton cheval"}</Text>
+                <Text className="text-sm text-muted">Ton bilan du dimanche et tes rappels avant chaque soin.</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() =>
+                  ensureNotificationPermission()
+                    .then((granted) => {
+                      setNotifPermission(granted);
+                      setNotifState(granted ? "granted" : "denied");
+                    })
+                    .catch(() => {})
+                }
+                activeOpacity={0.85}
+                className="rounded-full bg-primary px-4 py-2"
+              >
+                <Text className="text-sm font-bold text-on-primary">Activer</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </FadeInView>
       ) : null}
+
 
       {/* Alertes — échéance santé < 14j ou concours < 7j, tous chevaux
           confondus (cf. plan Phase 3 Étape 4 §6) ; rien affiché si aucune
@@ -547,6 +616,27 @@ export default function TodayScreen() {
           </View>
         </FadeInView>
       ) : null}
+
+      {/* Premiers pas, bilan du mois, offre rappels — APRÈS « À surveiller » :
+          une alerte santé passe avant tout message d'engagement. Chacun se
+          masque seul une fois sans objet, ou à la demande. Premiers pas :
+          propriétaire seulement (un cheval partagé n'est pas à configurer). */}
+      {horse && !horse.sharedRole ? (
+        <FirstStepsCard
+          horseName={horse.name}
+          hasPhoto={!!horse.photoUrl}
+          hasSession={horseSessions.length > 0}
+          hasHealthAppointment={hasHealthAppointment}
+          onAddPhoto={() => router.push(`/edit-horse-modal?id=${horse.id}`)}
+          onPlanSession={() => handleQuickAdd("seance")}
+          onAddHealthAppointment={() => handleQuickAdd("soin")}
+        />
+      ) : null}
+      {horse ? (
+        <MonthlyRecapCard horseId={horse.id} horseName={horse.name} sessions={sessions} appointments={appointments} />
+      ) : null}
+
+      <RemindersUpsellCard />
 
       {/* Aujourd'hui — ce qui tombe dans la journée, actionnable sur place
           (une séance se coche d'ici, cf. toggleCompleted) plutôt que renvoyé
@@ -763,6 +853,11 @@ export default function TodayScreen() {
             <Text className="text-[13px] leading-[17px] text-text">
               {weeklyRecapMessage(weekDoneCount, weekSessions.length)}
             </Text>
+            {streak >= 2 ? (
+              <Text className="text-[13px] font-semibold text-primary">
+                🔥 {streak} semaines d&apos;affilée avec {horse?.name ?? "ton cheval"}
+              </Text>
+            ) : null}
           </View>
         </View>
       </FadeInView>

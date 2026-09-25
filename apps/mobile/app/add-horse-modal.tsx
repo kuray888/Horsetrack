@@ -6,6 +6,9 @@ import { EMPTY_HORSE_DRAFT, HorseForm } from "@/components/HorseForm";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useHorses } from "@/horses/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
+import { openPaywall } from "@/subscription/paywall";
+import { markPremiumActivated } from "@/subscription/trialLifecycle";
+import { track } from "@/lib/analytics";
 import { colors } from "@/theme/colors";
 
 function HorseLimitReached({ limit }: { limit: number }) {
@@ -15,18 +18,17 @@ function HorseLimitReached({ limit }: { limit: number }) {
         <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
           <MaterialCommunityIcons name="lock-outline" size={28} color={colors.primary} />
         </View>
-        <Text className="text-center text-xl font-bold text-text">
-          Limite de {limit} {limit > 1 ? "chevaux" : "cheval"} atteinte
-        </Text>
+        <Text className="text-center text-xl font-bold text-text">Toute ton écurie, au même endroit</Text>
         <Text className="text-center text-sm text-muted">
-          Passe à Horsetrack Premium pour ajouter des chevaux sans limite.
+          La version gratuite suit {limit} {limit > 1 ? "chevaux" : "cheval"}. Avec Premium, ajoute autant de chevaux que tu
+          veux, chacun avec son planning, sa santé et son budget.
         </Text>
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => router.push("/paywall")}
+          onPress={() => openPaywall("horses", { feature: "add_horse_limit" })}
           className="rounded-full bg-primary px-6 py-3"
         >
-          <Text className="text-sm font-bold text-on-primary">Voir les offres</Text>
+          <Text className="text-sm font-bold text-on-primary">Découvrir Premium</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Text className="text-sm font-semibold text-muted">Retour</Text>
@@ -66,6 +68,9 @@ export default function AddHorseModal() {
       initial={EMPTY_HORSE_DRAFT}
       onSubmit={(horse) => {
         addHorse(horse);
+        track("horse_added", { owned_count: ownedCount + 1 });
+        // Un 2ᵉ cheval n'est possible qu'en Premium : c'est une activation.
+        if (ownedCount >= 1) markPremiumActivated();
         router.back();
       }}
     />

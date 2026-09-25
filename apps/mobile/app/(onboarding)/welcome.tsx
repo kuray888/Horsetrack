@@ -1,10 +1,16 @@
+import { useEffect } from "react";
 import { Image, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { FadeInView } from "@/components/FadeInView";
+import { track } from "@/lib/analytics";
 
 export default function Welcome() {
+  useEffect(() => {
+    track("onboarding_step_viewed", { step: "welcome" });
+  }, []);
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 justify-center px-6">

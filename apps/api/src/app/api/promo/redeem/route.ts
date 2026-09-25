@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { db, Prisma, SubscriptionStatus } from "@cheval/db";
+import { db, SubscriptionStatus } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 
 const schema = z.object({ code: z.string().min(1).max(64) });
@@ -45,13 +45,6 @@ export async function POST(req: NextRequest) {
   if (promo.expiresAt && promo.expiresAt < new Date()) {
     return NextResponse.json({ error: "Ce code promo a expiré." }, { status: 410 });
   }
-  if (promo.maxRedemptions !== null) {
-    const redemptionCount = await db.promoCodeRedemption.count({ where: { promoCodeId: promo.id } });
-    if (redemptionCount >= promo.maxRedemptions) {
-      return NextResponse.json({ error: "Ce code promo a atteint sa limite d'utilisation." }, { status: 410 });
-    }
-  }
-
   // Un abonné déjà actif/en essai n'a rien à gagner (et surtout ne doit
   // jamais voir un vrai abonnement payant écrasé par un trialEndsAt de code
   // promo, potentiellement plus court) — on enregistre quand même la
@@ -63,14 +56,31 @@ export async function POST(req: NextRequest) {
       !!riderProfile.trialEndsAt &&
       riderProfile.trialEndsAt > new Date());
 
-  try {
-    await db.promoCodeRedemption.create({ data: { promoCodeId: promo.id, riderId: riderProfile.id } });
-  } catch (e) {
-    const alreadyRedeemed = e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
-    if (alreadyRedeemed) {
-      return NextResponse.json({ error: "Tu as déjà utilisé ce code promo." }, { status: 409 });
+  // Comptage + enregistrement dans UNE transaction verrouillée sur le code :
+  // sans verrou, deux utilisations simultanées lisaient chacune le compteur
+  // avant que l'autre ne l'incrémente, et dépassaient maxRedemptions.
+  const outcome = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${`promo:${promo.id}`}, 0))`;
+    if (promo.maxRedemptions !== null) {
+      const redemptionCount = await tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id } });
+      if (redemptionCount >= promo.maxRedemptions) return "limit" as const;
     }
-    throw e;
+    // Vérifié AVANT l'insertion plutôt que via l'erreur d'unicité : une erreur
+    // SQL invalide toute la transaction Postgres. Sûr grâce au verrou
+    // ci-dessus (même code ⇒ requêtes sérialisées).
+    const existing = await tx.promoCodeRedemption.findFirst({
+      where: { promoCodeId: promo.id, riderId: riderProfile.id },
+      select: { id: true },
+    });
+    if (existing) return "already" as const;
+    await tx.promoCodeRedemption.create({ data: { promoCodeId: promo.id, riderId: riderProfile.id } });
+    return "ok" as const;
+  });
+  if (outcome === "limit") {
+    return NextResponse.json({ error: "Ce code promo a atteint sa limite d'utilisation." }, { status: 410 });
+  }
+  if (outcome === "already") {
+    return NextResponse.json({ error: "Tu as déjà utilisé ce code promo." }, { status: 409 });
   }
 
   if (alreadyPremium) {

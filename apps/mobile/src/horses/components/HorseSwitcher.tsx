@@ -1,10 +1,10 @@
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
+import { openPaywall } from "@/subscription/paywall";
 
 /** Rangée horizontale d'avatars pour changer le cheval actif — un seul
  * composant partagé (cf. Accueil/Planning/Agenda), là où trois écrans
@@ -50,7 +50,7 @@ export function HorseSwitcher({
             key={h.id}
             onPress={() => {
               if (locked) {
-                router.push("/paywall");
+                openPaywall("horses", { feature: "locked_horse_switcher", horseId: h.id });
                 return;
               }
               selectHorse(h.id);

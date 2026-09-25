@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fetchWeatherSnapshot } from "@/lib/weather";
-import { pickAndPersistImage } from "@/lib/imagePicker";
+import { chooseAndPersistImage } from "@/lib/imagePicker";
 import { daysFromNow, useAgenda, type ActivityType, type JournalEntry, type Mood } from "@/agenda/store";
 
 const emptyJournalForm = {
@@ -103,7 +103,7 @@ export function useJournalForm({
   }
 
   async function handlePickJournalPhoto() {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPersistImage();
     if (uri) setJournalForm((f) => ({ ...f, photoUri: uri }));
   }
 

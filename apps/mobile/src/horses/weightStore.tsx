@@ -1,5 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
+import { mergeRemote } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushWeightMeasurement, deleteWeightMeasurementRemote } from "@/lib/cloudSync";
 import { useHorses } from "@/horses/store";
 
@@ -32,6 +35,9 @@ type WeightContextValue = {
   addMeasurement: (weightKg: number, date: Date) => void;
   deleteMeasurement: (id: string) => void;
   hydrateFromCloud: (measurements: WeightMeasurement[]) => void;
+  /** Fusionne une relecture du serveur sans écraser les saisies locales pas
+   * encore envoyées (cf. lib/mergeRemote.ts, lib/cloudRefresh.ts). */
+  mergeFromCloud: (measurements: WeightMeasurement[], pullStartedAt: number) => void;
   clearAll: () => Promise<void>;
   /** Purge locale des mesures d'UN cheval supprimé (cf. agenda/store.tsx
    * removeHorseData, même besoin) — pas de recalcul de Horse.weightKg
@@ -48,6 +54,12 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   /** Cf. `loadFailed` d'agenda/store.tsx : même protection, même raison. */
   const [loadFailed, setLoadFailed] = useState(false);
+  // Fusion d'une relecture du serveur seulement une fois la lecture locale
+  // terminée et réussie (cf. mergeFromCloud).
+  const syncReadyRef = useRef(false);
+  useEffect(() => {
+    syncReadyRef.current = loaded && !loadFailed;
+  }, [loaded, loadFailed]);
 
   useEffect(() => {
     (async () => {
@@ -134,6 +146,14 @@ export function WeightProvider({ children }: { children: ReactNode }) {
     writeJson(WEIGHT_KEY, remote);
   }, []);
 
+  const mergeFromCloud = useCallback((remote: WeightMeasurement[], pullStartedAt: number) => {
+    if (!syncReadyRef.current) return;
+    const guard = syncGuard("horse_weight_measurements", pullStartedAt, pendingIdsFor("horse_weight_measurements"));
+    // Persisté par l'effet d'écriture qui suit chaque changement.
+    setMeasurements((list) => mergeRemote(list, remote, guard).items);
+    noteRemoteSnapshot("horse_weight_measurements", remote.map((m) => m.id), pullStartedAt);
+  }, []);
+
   const clearAll = useCallback(async () => {
     // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ce delete tourne dans le Promise.all de (auth)/login.tsx.afterSuccessfulAuth,
@@ -147,8 +167,8 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<WeightContextValue>(
-    () => ({ measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, removeHorseData, loading: !loaded }),
-    [measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, removeHorseData, loaded]
+    () => ({ measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, mergeFromCloud, clearAll, removeHorseData, loading: !loaded }),
+    [measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, mergeFromCloud, clearAll, removeHorseData, loaded]
   );
 
   return <WeightContext.Provider value={value}>{children}</WeightContext.Provider>;

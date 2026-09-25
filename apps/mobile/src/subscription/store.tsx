@@ -5,6 +5,9 @@ import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { withKeyLock } from "@/lib/keyLock";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
+import { track } from "@/lib/analytics";
+import { invalidatePaywallOffer } from "./paywall";
 import {
   ENTITLEMENT_ID,
   Purchases,
@@ -262,6 +265,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     refresh().catch(() => {});
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // L'éligibilité à l'essai est propre à chaque compte.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") invalidatePaywallOffer();
       if (!isPurchasesAvailable()) return;
       if (event === "SIGNED_IN" && session?.user) {
         withKeyLock("revenuecat", () => loginRevenueCat(session.user.id))
@@ -295,6 +300,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return { ok: false, message: "Connecte-toi pour utiliser un code promo." };
+    track("promo_code_submitted");
     try {
       const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/promo/redeem`, {
         method: "POST",
@@ -302,6 +308,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ code }),
       });
       const json = await res.json().catch(() => null);
+      track("promo_code_result", { ok: res.ok, applied: !!json?.applied });
       if (!res.ok) return { ok: false, message: json?.error ?? "Ce code promo n'est pas valide." };
       if (json.applied && json.trialEndsAt) {
         await persistLocal({ status: "trialing", billingPeriod: null, trialEndsAt: json.trialEndsAt });
@@ -381,24 +388,59 @@ export function useSubscribeFlow() {
   }, []);
 
   const subscribe = useCallback(
-    async (period: BillingPeriod, onSuccess: (persisted: Persisted) => void | Promise<void>) => {
+    async (
+      period: BillingPeriod,
+      onSuccess: (persisted: Persisted) => void | Promise<void>,
+      /** Contexte d'ouverture du paywall, pour les événements analytics. */
+      placement: string = "unknown"
+    ) => {
       setSubmitting(true);
+      track("purchase_started", { period, placement });
       try {
         if (!isPurchasesAvailable()) {
-          // RevenueCat pas encore configuré (.env vide) : simulation locale,
-          // identique au comportement avant le branchement RevenueCat.
-          const persisted = await startTrial(period);
-          await onSuccess(persisted);
+          // La simulation locale (30 jours de Premium accordés sans aucun
+          // paiement) est un outil de DÉVELOPPEMENT, jamais un repli
+          // acceptable dans une app publiée.
+          //
+          // Sur Android elle se déclenchait pour tout le monde : la clé
+          // RevenueCat Android est encore une clé Test Store ("test_…"), que
+          // lib/revenuecat.ts refuse hors Expo Go — `configurePurchases` ne
+          // configure donc rien, `isPurchasesAvailable()` reste false, et ce
+          // bloc offrait Premium gratuitement à chaque installation. Le
+          // serveur, lui, ne voit aucun abonnement (cf. le webhook RevenueCat
+          // et les règles RLS) : l'app affichait Premium pendant que toutes
+          // les écritures Premium étaient rejetées.
+          //
+          // Le même piège existe sur iOS dès que `Purchases.configure()`
+          // échoue (clé invalide, SDK non initialisable — cf. le catch de
+          // configurePurchases) : mieux vaut un message honnête qu'un faux
+          // Premium que le serveur ne reconnaîtra jamais.
+          if (__DEV__) {
+            const persisted = await startTrial(period);
+            track("purchase_completed", { period, placement, status: persisted.status, simulated: true });
+            await onSuccess(persisted);
+            return;
+          }
+          track("purchase_failed", { period, placement, reason: "purchases_unavailable" });
+          Alert.alert(
+            "Abonnement indisponible",
+            "L'abonnement n'est pas disponible sur cet appareil pour le moment. Vérifie ta connexion et réessaie — si le problème persiste, réessaie un peu plus tard."
+          );
           return;
         }
 
         const pkg = await getSubscriptionPackage(period);
         if (!pkg) {
+          track("purchase_failed", { period, placement, reason: "package_missing" });
           Alert.alert("Indisponible", "Cette offre n'est pas encore configurée. Réessaie plus tard.");
           return;
         }
         // Non-null : isPurchasesAvailable() a déjà été vérifié plus haut dans ce bloc.
-        const { customerInfo } = await Purchases!.purchasePackage(pkg);
+        // `runNativeInteraction` : l'écran de paiement du Play Store est une
+        // activité Android distincte, qui rejouerait sinon le verrou
+        // biométrique en plein achat (cf. lib/nativeInteraction.ts). Sans
+        // effet sur iOS.
+        const { customerInfo } = await runNativeInteraction(() => Purchases!.purchasePackage(pkg));
         // On calcule le résultat de l'achat ici plutôt que de laisser l'appelant
         // relire `subscription` (cf. useSubscription()) : applyCustomerInfo()
         // ci-dessous ne fait que programmer un re-render, donc toute closure
@@ -408,10 +450,18 @@ export function useSubscribeFlow() {
         // pendant l'onboarding supprimés juste après un abonnement Premium
         // réussi, car maxHorses() lisait encore l'état pré-achat.
         const persisted = persistedFromCustomerInfo(customerInfo);
+        track("purchase_completed", { period, placement, status: persisted.status });
+        // L'éligibilité à l'essai vient d'être consommée : l'offre en cache
+        // (cf. usePaywallOffer) ne doit plus la promettre.
+        invalidatePaywallOffer();
         await applyCustomerInfo(customerInfo);
         await onSuccess(persisted);
       } catch (e) {
-        if ((e as { userCancelled?: boolean })?.userCancelled) return;
+        if ((e as { userCancelled?: boolean })?.userCancelled) {
+          track("purchase_cancelled", { period, placement });
+          return;
+        }
+        track("purchase_failed", { period, placement, reason: "store_error" });
         Alert.alert(
           "Oups",
           "Impossible de finaliser l'achat. Vérifie ta connexion et réessaie — si le problème persiste, la boutique est peut-être temporairement indisponible."
@@ -424,6 +474,7 @@ export function useSubscribeFlow() {
   );
 
   const restore = useCallback(async () => {
+    track("restore_tapped");
     if (!isPurchasesAvailable()) {
       Alert.alert("Indisponible", "La restauration des achats sera possible une fois les abonnements activés.");
       return;
@@ -431,9 +482,12 @@ export function useSubscribeFlow() {
     setRestoring(true);
     try {
       // Non-null : isPurchasesAvailable() vérifié juste au-dessus.
-      const info = await Purchases!.restorePurchases();
+      // `runNativeInteraction` : cf. `subscribe` ci-dessus.
+      const info = await runNativeInteraction(() => Purchases!.restorePurchases());
       await applyCustomerInfo(info);
       const hasEntitlement = !!info.entitlements.active[ENTITLEMENT_ID];
+      track("restore_completed", { restored: hasEntitlement });
+      invalidatePaywallOffer();
       Alert.alert(hasEntitlement ? "Abonnement restauré" : "Rien à restaurer", hasEntitlement ? "" : "Aucun achat actif trouvé pour ce compte.");
     } catch {
       Alert.alert("Oups", "Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie.");
