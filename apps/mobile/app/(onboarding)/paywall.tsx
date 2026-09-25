@@ -1,7 +1,15 @@
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
-import { maxHorses, useSubscribeFlow, useSubscription, type BillingPeriod, type Persisted } from "@/subscription/store";
+import {
+  computeIsActiveOrTrialing,
+  maxHorses,
+  useSubscribeFlow,
+  useSubscription,
+  type BillingPeriod,
+  type Persisted,
+} from "@/subscription/store";
+import { track } from "@/lib/analytics";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { useOnboarding } from "@/onboarding/store";
 import { RIDER_LEVEL_TO_HORSE_LEVEL } from "@/onboarding/options";
@@ -26,7 +34,24 @@ export default function OnboardingPaywall() {
   // ci-dessus) quand il est fourni, car ce dernier reste sur sa valeur au
   // moment du rendu précédent l'achat (le re-render déclenché par
   // applyCustomerInfo() n'arrive pas avant que ce closure ne s'exécute).
+  // Chevaux nommés du brouillon, cheval principal en tête — cités dans le
+  // titre du paywall et dans le lien de sortie gratuite (cf. PaywallView).
+  const namedHorses = [...horses]
+    .filter((h) => h.name.trim().length > 0)
+    .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+    .map((h) => h.name.trim());
+  // Plusieurs chevaux : la conséquence du choix gratuit est dite AVANT le
+  // clic (seul le cheval principal est gardé), pas découverte après coup
+  // dans une alerte.
+  const skipLabel =
+    namedHorses.length > 1 ? `Continuer avec ${namedHorses[0]} seulement (gratuit)` : "Continuer avec la version gratuite";
+
   async function finish(justSubscribed?: Persisted) {
+    const premium = !!justSubscribed && computeIsActiveOrTrialing(justSubscribed);
+    track("onboarding_completed", {
+      choice: premium ? justSubscribed!.status : "free",
+      horse_count: namedHorses.length,
+    });
     // Ce compte a-t-il déjà terminé l'onboarding ailleurs ? Cas réel : sur
     // account.tsx, un email déjà utilisé propose "connecte-toi plutôt" — une
     // fois connecté, on atterrit quand même ici avec un brouillon d'onboarding
@@ -106,17 +131,23 @@ export default function OnboardingPaywall() {
     // avec l'écurie possédée), limite acceptée pour ce cas rare.
     const invites = await pullPendingInvites().catch(() => []);
     router.replace("/(tabs)/today");
+    // Une invitation en attente (cheval partagé) passe avant la bienvenue
+    // Premium : c'est une action attendue par quelqu'un d'autre.
     if (invites.length > 0) router.push("/invites-modal");
+    else if (premium) router.push("/premium-welcome");
   }
 
   async function onSubscribe(period: BillingPeriod) {
-    await subscribe(period, finish);
+    await subscribe(period, finish, "onboarding");
   }
 
   return (
     <PaywallView
+      placement="onboarding"
+      horseNames={namedHorses}
       onSubscribe={onSubscribe}
-      onSkip={finish}
+      onSkip={() => finish()}
+      skipLabel={skipLabel}
       onRestore={restore}
       submitting={submitting}
       restoring={restoring}

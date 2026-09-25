@@ -77,14 +77,14 @@ export function ExpenseCard({
               </View>
             )
           ) : (
-            <Locked message="Joindre une facture réservé à l'abonnement Premium (coffre-fort)">
+            <Locked message="Joins la facture à cette dépense pour la retrouver en deux secondes" placement="vault" feature="expense_invoice">
               <TouchableOpacity onPress={onAttachReceipt} activeOpacity={0.7} className="flex-row items-center gap-1.5">
                 <MaterialCommunityIcons name="paperclip" size={15} color={colors.accent} />
                 <Text className="text-sm font-semibold text-accent">Joindre une facture</Text>
               </TouchableOpacity>
             </Locked>
           )}
-          <Locked message="Basculer le statut payé/à régler réservé à l'abonnement Premium">
+          <Locked message="Suis ce qui est payé et ce qui reste à régler" placement="budget" feature="expense_paid_status">
             <TouchableOpacity onPress={onTogglePaid} activeOpacity={0.7} className="mt-1">
               <Text className="text-sm font-semibold text-accent">
                 {expense.isPaid ? "Marquer à régler" : "Marquer payée"}

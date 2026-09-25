@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
-import { Animated } from "react-native";
+import { Animated, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
@@ -59,7 +59,21 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarShowLabel: true,
-        tabBarStyle: { borderTopWidth: 1, borderTopColor: colors.border, height: 62, paddingTop: 6 },
+        // Hauteur imposée sur iOS seulement. La barre d'onglets ajoute
+        // TOUJOURS la marge système du bas à l'intérieur de cette hauteur
+        // (cf. BottomTabBar : `paddingBottom: insets.bottom`). Sur Android,
+        // cette marge vaut la hauteur de la barre de navigation — environ
+        // 48 dp avec les trois boutons — et il ne restait donc qu'une
+        // douzaine de points pour l'icône et le libellé, tronqués. En la
+        // laissant indéfinie, la barre se dimensionne elle-même à partir de
+        // son contenu et de la marge réelle de l'appareil. iOS garde la
+        // valeur d'origine, donc le rendu iPhone est strictement inchangé.
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          height: Platform.OS === "ios" ? 62 : undefined,
+          paddingTop: 6,
+        },
       }}
     >
       <Tabs.Screen
@@ -82,15 +96,11 @@ export default function TabsLayout() {
         name="profile"
         options={{ title: "Profil", tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} /> }}
       />
-      {/* Ancien écran Agenda (rendez-vous/documents/budget) — retiré de la
-          barre d'onglets (remplacé à terme par le Horse Hub, cf. plan Phase 3
-          Étape 2) mais PAS supprimé : reste une route valide, atteignable
-          via router.push("/(tabs)/agenda") le temps que son remplacement
-          soit fonctionnel et validé (cf. consigne explicite). */}
-      <Tabs.Screen
-        name="agenda"
-        options={{ title: "Agenda", href: null, tabBarIcon: ({ focused }) => <TabIcon name="agenda" focused={focused} /> }}
-      />
+      {/* L'écran Agenda a été supprimé : ses trois sections ont rejoint la
+          fiche cheval (app/horse/[id]/documents.tsx et budget.tsx) et le
+          Planning (rendez-vous, création comme édition). C'était le
+          remplacement annoncé par son propre commentaire — il restait une
+          route sans entrée dans la barre, qui dupliquait le Planning. */}
     </Tabs>
   );
 }

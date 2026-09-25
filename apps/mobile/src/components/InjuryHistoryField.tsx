@@ -25,17 +25,28 @@ function recoveryLabel(status: HorseRecoveryStatus | null): string {
 
 /**
  * Section autonome "Historique de blessures" : liste + mini-formulaire d'ajout
- * (type, date, état de récupération, note) — réutilisée par l'onboarding et
- * par l'ajout de cheval depuis le Profil, pour garder les deux parcours à parité.
+ * (type, date, état de récupération, note) — réutilisée par l'onboarding, par
+ * l'ajout de cheval depuis le Profil, et par l'écran Santé (cf. audit du
+ * 2026-09-19 : ces blessures étaient saisies puis introuvables), pour garder
+ * tous les parcours à parité.
+ *
+ * `onMarkRecovered` : affiche un raccourci "Marquer comme rétablie" sur les
+ * blessures pas encore guéries (l'écran Santé, où on suit l'évolution).
+ * `readOnly` : liste seule, sans ajout/retrait — cheval partagé avec
+ * l'utilisateur, dont il n'est pas propriétaire.
  */
 export function InjuryHistoryField({
   injuries,
   onAdd,
   onRemove,
+  onMarkRecovered,
+  readOnly = false,
 }: {
   injuries: InjuryEntry[];
   onAdd: (entry: Omit<InjuryEntry, "key">) => void;
   onRemove: (key: string) => void;
+  onMarkRecovered?: (key: string) => void;
+  readOnly?: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [type, setType] = useState<string | null>(null);
@@ -66,28 +77,45 @@ export function InjuryHistoryField({
     <View className="gap-3">
       <Text className="text-sm font-semibold text-muted">Historique de blessures</Text>
 
+      {injuries.length === 0 && readOnly ? <Text className="text-sm text-muted">Aucune blessure enregistrée.</Text> : null}
+
       {injuries.map((injury) => (
         <View key={injury.key} className="gap-1 rounded-card border border-border bg-surface p-4">
           <View className="flex-row items-start justify-between">
             <Text className="flex-1 text-base font-bold text-text">{injury.type}</Text>
-            <TouchableOpacity
-              onPress={() => onRemove(injury.key)}
-              hitSlop={8}
-              accessibilityLabel={`Retirer ${injury.type}`}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons name="close" size={16} color={colors.danger} accessibilityElementsHidden />
-            </TouchableOpacity>
+            {readOnly ? null : (
+              <TouchableOpacity
+                onPress={() => onRemove(injury.key)}
+                hitSlop={8}
+                accessibilityLabel={`Retirer ${injury.type}`}
+                accessibilityRole="button"
+              >
+                <MaterialCommunityIcons name="close" size={16} color={colors.danger} accessibilityElementsHidden />
+              </TouchableOpacity>
+            )}
           </View>
           <Text className="text-sm text-muted">
             {injury.occurredAt ? formatDate(injury.occurredAt) : "Date non précisée"} ·{" "}
             {recoveryLabel(injury.recoveryStatus)}
           </Text>
           {injury.note ? <Text className="text-sm text-text">{injury.note}</Text> : null}
+          {!readOnly && onMarkRecovered && injury.recoveryStatus !== "RECOVERED" ? (
+            <TouchableOpacity
+              onPress={() => onMarkRecovered(injury.key)}
+              hitSlop={8}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Marquer ${injury.type} comme rétablie`}
+              className="mt-1 flex-row items-center gap-1.5 self-start"
+            >
+              <MaterialCommunityIcons name="check-circle-outline" size={15} color={colors.success} />
+              <Text className="text-sm font-semibold text-success">Marquer comme rétablie</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ))}
 
-      {formOpen ? (
+      {readOnly ? null : formOpen ? (
         <View className="gap-4 rounded-card border border-dashed border-primary p-4">
           <DropdownField
             label="Type de blessure"

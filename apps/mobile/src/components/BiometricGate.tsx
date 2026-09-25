@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
+import { isNativeInteractionActive } from "@/lib/nativeInteraction";
 import { colors } from "@/theme/colors";
 
 type GateStatus = "checking" | "locked" | "unlocked";
@@ -54,6 +55,15 @@ export function BiometricGate() {
 
     const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
       if (next === "background") {
+        // Sur Android, ouvrir le sélecteur de photos, la feuille de partage,
+        // une demande de permission ou l'écran de paiement met notre activité
+        // en pause — donc fait passer l'app en "background", exactement comme
+        // si on l'avait quittée (cf. lib/nativeInteraction.ts). Sans cette
+        // garde, le verrou se refermait à chaque ajout de photo et redemandait
+        // l'empreinte au retour, alors que l'utilisateur n'a jamais quitté
+        // Horsetrack. Sur iPhone, aucun de ces écrans ne déclenche
+        // "background" : le comportement y est strictement inchangé.
+        if (isNativeInteractionActive()) return;
         setStatus((s) => {
           if (s !== "unlocked") return s;
           pendingReEval.current = true;

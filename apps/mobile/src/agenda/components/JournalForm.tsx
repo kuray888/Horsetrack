@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
+import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
+import { FormDetails } from "@/components/FormDetails";
 import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
 import { PrimaryButton } from "@/components/onboarding";
@@ -23,6 +26,7 @@ export function JournalForm({
   setForm,
   editingJournalId,
   saving,
+  targetHorseName = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -33,20 +37,42 @@ export function JournalForm({
   setForm: (updater: (f: JournalFormValue) => JournalFormValue) => void;
   editingJournalId: string | null;
   saving: boolean;
+  /** Cf. AppointmentForm : cheval rappelé en tête du formulaire. */
+  targetHorseName?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
   onPickPhoto: () => void;
 }) {
+  // Cf. AppointmentForm : hook avant le garde `!show`, réaligné au passage
+  // création ↔ édition.
+  const [showDetails, setShowDetails] = useState(!!editingJournalId);
+  const [syncedEditingId, setSyncedEditingId] = useState(editingJournalId);
+  if (editingJournalId !== syncedEditingId) {
+    setSyncedEditingId(editingJournalId);
+    setShowDetails(!!editingJournalId);
+  }
+
   if (!show) {
     return <AddToggle label="Ajouter une entrée de journal" onPress={onOpen} color={colors.primary} />;
   }
+
+  /** Cf. components/FormDetails.tsx. L'heure est préremplie : la replier sans
+   * la dire l'enregistrerait sans que rien ne l'ait montrée. */
+  const detailsSummary = [
+    form.time.trim() || "sans heure",
+    form.photoUri ? "avec photo" : null,
+    form.notes.trim() ? "avec note" : "sans note",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <View className={`${CARD} gap-3`}>
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
         {editingJournalId ? "Modifier l'entrée de journal" : "Nouvelle entrée de journal"}
       </Text>
+      <HorseTargetNotice horseName={targetHorseName} />
       <Field label="Activité">
         <ChipSelect
           options={Object.entries(ACTIVITY_META).map(([value, meta]) => ({
@@ -70,8 +96,9 @@ export function JournalForm({
         />
       </Field>
       <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
+      <FormDetails open={showDetails} onToggle={() => setShowDetails((v) => !v)} summary={detailsSummary}>
       <TimePickerField label="Heure" value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
-      <Locked message="Photo du jour réservée à l'abonnement Premium">
+      <Locked message="Ajoute la photo du jour pour revoir ses progrès" placement="journal_photo" feature="journal_photo">
         {form.photoUri ? (
           <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
             <Image
@@ -102,6 +129,7 @@ export function JournalForm({
           multiline
         />
       </View>
+      </FormDetails>
       <View className="flex-row gap-2">
         <TouchableOpacity onPress={onCancel} className="flex-1 items-center rounded-card border border-border p-4">
           <Text className="text-base font-semibold text-muted">Annuler</Text>

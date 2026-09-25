@@ -166,7 +166,13 @@ export default function HorseWeightScreen() {
                     <Text className="text-base font-bold text-text">{m.weightKg} kg</Text>
                     <Text className="text-sm text-muted">{formatDate(m.date)}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => confirmDelete(m.id)} hitSlop={8} activeOpacity={0.7}>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete(m.id)}
+                    hitSlop={8}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Supprimer la pesée du ${formatDate(m.date)}`}
+                  >
                     <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>

@@ -4,10 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import * as SecureStore from "expo-secure-store";
+import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import type { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
 import { cancelReminder, type ReminderOption } from "@/lib/notifications";
@@ -23,11 +24,23 @@ import {
   deleteCompetitionEntryRemote,
   pushExpense,
   deleteExpenseRemote,
+  retryPendingDocumentUploads,
 } from "@/lib/cloudSync";
-import { safeJsonParse } from "@/lib/safeJsonParse";
+import {
+  DEFAULT_CHECKLIST_LABELS,
+  applyChecklistTemplate,
+  buildChecklist,
+  normalizeChecklistLabels,
+} from "@/agenda/checklistTemplate";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
 import { useHorses } from "@/horses/store";
 import type { Discipline } from "@/onboarding/store";
+import { track } from "@/lib/analytics";
+import { markPremiumActivated } from "@/subscription/trialLifecycle";
+import { mergeRemote, pickFileUrl } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
+import { cancelRemindersOf, rescheduleReminders } from "@/agenda/remoteMergeEffects";
 
 /**
  * Rendez-vous et documents, persistés localement (en attendant Supabase) —
@@ -64,6 +77,10 @@ export type ExpenseCategory =
 
 export type ChecklistItem = { id: string; label: string; checked: boolean };
 
+/** Niveau d'un concours — un international dure souvent 4 à 5 jours (cf.
+ * Appointment.endDate). */
+export type CompetitionLevel = "national" | "international";
+
 /** Épreuve d'un concours — N par rendez-vous de type "concours" (cf.
  * CompetitionEntry côté schema.prisma). Table dédiée côté serveur plutôt
  * qu'un champ JSON comme ChecklistItem : plus riche par ligne et destinée à
@@ -78,7 +95,7 @@ export type CompetitionEntry = {
 };
 
 /** Libellés/icônes d'affichage pour ActivityType — utilisé par le journal
- * (cf. (tabs)/agenda.tsx) et par la planification manuelle de séances (cf.
+ * (cf. les formulaires de rendez-vous) et par la planification manuelle de séances (cf.
  * sessions/store.tsx, (tabs)/today.tsx, (tabs)/planning.tsx), donc défini ici
  * plutôt que dupliqué dans chaque écran consommateur. */
 export const ACTIVITY_META: Record<
@@ -128,6 +145,12 @@ export type Appointment = {
   dossard: string | null;
   /** Épreuves du concours (concours uniquement). Vide pour les autres types. */
   competitionEntries: CompetitionEntry[];
+  /** National ou international (concours uniquement). Null pour les autres
+   * types et pour les concours saisis avant l'introduction de ce champ. */
+  competitionLevel: CompetitionLevel | null;
+  /** Dernier jour d'un concours sur plusieurs jours (concours uniquement) ;
+   * `date` reste le premier jour. Null = un seul jour. */
+  endDate: Date | null;
   /** Praticien/professionnel intervenu (surtout pertinent pour les types de
    * soin) — texte libre, null si non renseigné. */
   professional: string | null;
@@ -135,7 +158,7 @@ export type Appointment = {
    * Expense.appointmentId), qui reste le rattachement optionnel côté budget. */
   cost: number | null;
   /** Prochaine échéance du même soin (ex: prochain rappel de vaccin) — pilote
-   * un rappel local si renseignée (cf. (tabs)/agenda.tsx). Null si aucune
+   * un rappel local si renseignée (cf. useAppointmentForm). Null si aucune
    * échéance de suivi. */
   nextDueDate: Date | null;
   /** Id de la notification locale programmée pour nextDueDate, pour pouvoir
@@ -143,14 +166,17 @@ export type Appointment = {
   nextDueNotificationId: string | null;
 };
 
-/** `horseId` n'est pas fourni par l'appelant : `addAppointment` le rattache
- * automatiquement au cheval actuellement sélectionné (cf. AgendaProvider). */
+/** `horseId` n'est pas fourni ici : `addAppointment` le rattache par défaut au
+ * cheval actuellement sélectionné, sauf si l'appelant l'impose explicitement
+ * (cf. AgendaProvider, même mécanisme optionnel que `addJournalEntry`). */
 export type NewAppointment = Omit<
   Appointment,
-  "id" | "horseId" | "result" | "checklist" | "competitionEntries"
+  "id" | "horseId" | "result" | "checklist" | "competitionEntries" | "competitionLevel" | "endDate"
 > & {
   checklist?: ChecklistItem[];
   competitionEntries?: CompetitionEntry[];
+  competitionLevel?: CompetitionLevel | null;
+  endDate?: Date | null;
 };
 
 export type Doc = {
@@ -226,7 +252,7 @@ export type Expense = {
   date: Date;
   notes: string;
   /** Rattachement optionnel à un rendez-vous existant (suggéré, jamais créé
-   * automatiquement — cf. (tabs)/agenda.tsx). Null si non rattachée. */
+   * automatiquement — cf. useExpenseForm). Null si non rattachée. */
   appointmentId: string | null;
   /** Rattachement optionnel à un reçu du coffre-fort. Résolu localement
    * contre la liste `documents` déjà chargée (cf. cloudSync.ts pullExpenses)
@@ -234,7 +260,7 @@ export type Expense = {
    * au propriétaire, RLS documents n'étant jamais partagée. */
   documentId: string | null;
   /** Statut payé/à régler — fonctionnalité Premium (cf. <Locked> dans
-   * (tabs)/agenda.tsx) ; reste toujours `false` sur un compte gratuit,
+   * app/horse/[id]/budget.tsx) ; reste toujours `false` sur un compte gratuit,
    * faute de pouvoir basculer le statut. */
   isPaid: boolean;
 };
@@ -242,6 +268,7 @@ export type Expense = {
 export type NewExpense = Omit<Expense, "id" | "horseId">;
 
 const APPOINTMENTS_KEY = "agenda_appointments_v1";
+const CHECKLIST_TEMPLATE_KEY = "agenda_checklist_template_v1";
 const DOCUMENTS_KEY = "agenda_documents_v1";
 const JOURNAL_KEY = "agenda_journal_v1";
 const EXPENSES_KEY = "agenda_expenses_v1";
@@ -261,20 +288,8 @@ export function daysFromNow(offset: number): Date {
   return d;
 }
 
-const CHECKLIST_LABELS = [
-  "Papiers d'identité du cheval (passeport)",
-  "Carnet de vaccination à jour",
-  "Licence FFE / engagement",
-  "Matériel de pansage",
-  "Tapis de selle + couvertures",
-  "Protections (guêtres, cloches)",
-  "Casque",
-  "Gilet de protection",
-  "Eau et nourriture pour la journée",
-];
-
 export function defaultChecklist(): ChecklistItem[] {
-  return CHECKLIST_LABELS.map((label, i) => ({ id: `c${i}`, label, checked: false }));
+  return DEFAULT_CHECKLIST_LABELS.map((label, i) => ({ id: `c${i}`, label, checked: false }));
 }
 
 /** Aucune donnée de démonstration : un compte neuf doit voir un agenda
@@ -288,17 +303,35 @@ const DEFAULT_JOURNAL: JournalEntry[] = [];
 
 const DEFAULT_EXPENSES: Expense[] = [];
 
+export type AgendaRemoteSnapshot = {
+  appointments?: Appointment[];
+  documents?: Doc[];
+  journal?: JournalEntry[];
+  expenses?: Expense[];
+};
+
 type AgendaContextValue = {
   appointments: Appointment[];
   documents: Doc[];
   journal: JournalEntry[];
   expenses: Expense[];
-  addAppointment: (appt: NewAppointment) => void;
+  /** `horseId` optionnel : sinon, rattaché au cheval globalement sélectionné
+   * (cf. implémentation dans le provider) — permet à un appelant qui connaît
+   * déjà le bon cheval (ex: création pour plusieurs chevaux d'un coup) de
+   * l'imposer explicitement. */
+  addAppointment: (appt: NewAppointment & { horseId?: string | null }) => void;
   updateAppointment: (
     apptId: string,
     patch: Partial<Omit<Appointment, "id" | "horseId" | "checklist" | "competitionEntries">>
   ) => void;
   deleteAppointment: (appt: Appointment) => void;
+  /** Checklist type des concours (libellés) — modèle recopié dans chaque
+   * nouveau concours et, à l'enregistrement, dans tous les concours à venir. */
+  checklistTemplate: string[];
+  /** Enregistre la checklist type ET l'applique à tous les concours À VENIR
+   * des chevaux possédés (jamais ceux d'un cheval partagé, cf.
+   * horses/selectableHorses.ts). Renvoie le nombre de concours mis à jour. */
+  saveChecklistTemplate: (labels: string[]) => number;
   saveResult: (apptId: string, result: string) => void;
   toggleChecklistItem: (apptId: string, itemId: string) => void;
   addChecklistItem: (apptId: string, label: string) => void;
@@ -306,13 +339,17 @@ type AgendaContextValue = {
   addCompetitionEntry: (apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => void;
   updateCompetitionEntryResult: (apptId: string, entryId: string, result: string) => void;
   deleteCompetitionEntry: (apptId: string, entryId: string) => void;
-  /** Retourne l'id généré localement — cf. addDocument dans le provider. */
-  addDocument: (doc: Omit<Doc, "id" | "filePath" | "horseId">) => string;
+  /** Retourne l'id généré localement — cf. addDocument dans le provider.
+   * `horseId` optionnel, même mécanisme que `addAppointment` : sinon le cheval
+   * actif. Un reçu créé avec une dépense doit suivre le cheval de CETTE dépense,
+   * pas le cheval actif (cf. useExpenseForm). */
+  addDocument: (doc: Omit<Doc, "id" | "filePath" | "horseId"> & { horseId?: string | null }) => string;
   updateDocument: (docId: string, patch: Partial<Omit<Doc, "id" | "filePath">>) => void;
   deleteDocument: (docId: string) => void;
   /** Remplace les documents locaux par ceux restaurés depuis le cloud (cf.
-   * (auth)/login.tsx) — n'écrit que l'état + SecureStore, ne relance jamais
-   * de synchro (on viendrait de recevoir exactement ces données du serveur). */
+   * (auth)/login.tsx) — n'écrit que l'état + le stockage local, ne relance
+   * jamais de synchro (on viendrait de recevoir exactement ces données du
+   * serveur). */
   hydrateDocumentsFromCloud: (docs: Doc[]) => void;
   hydrateAppointmentsFromCloud: (appts: Appointment[]) => void;
   hydrateJournalFromCloud: (entries: JournalEntry[]) => void;
@@ -324,13 +361,27 @@ type AgendaContextValue = {
   ) => void;
   updateJournalEntry: (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath">>) => void;
   deleteJournalEntry: (entryId: string) => void;
-  addExpense: (expense: NewExpense) => void;
+  /** `horseId` optionnel — même rôle que dans `addAppointment` ci-dessus. */
+  addExpense: (expense: NewExpense & { horseId?: string | null }) => void;
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, "id" | "horseId" | "isPaid" | "documentId">>) => void;
   deleteExpense: (expenseId: string) => void;
   toggleExpensePaid: (expenseId: string) => void;
   linkExpenseDocument: (expenseId: string, documentId: string | null) => void;
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
+  /** Fusionne une relecture du serveur sans écraser les saisies locales
+   * pas encore envoyées (cf. lib/mergeRemote.ts, lib/cloudRefresh.ts).
+   * Un domaine absent (`undefined`) n'est pas touché. */
+  mergeFromCloud: (remote: AgendaRemoteSnapshot, pullStartedAt: number) => void;
   /** Efface rendez-vous + documents + journal + dépenses locaux (cf. suppression de compte dans Profil). */
+  /** Vrai quand la dernière sauvegarde locale a échoué (cf. lib/localStore.ts).
+   * Permet à un écran de le dire en continu, là où l'alerte ne passe qu'une
+   * fois par session — une perte de données silencieuse était exactement ce
+   * que les anciens `.catch(() => {})` produisaient. */
+  saveFailed: boolean;
+  /** Lecture locale terminée ET réussie : condition pour fusionner une
+   * relecture du serveur (sinon la fusion partirait de l'état par défaut, ou
+   * d'un état qu'on ne peut pas réécrire). */
+  syncReady: boolean;
   clearAll: () => Promise<void>;
   /** Purge locale des rendez-vous/journal/dépenses d'UN cheval supprimé (cf.
    * edit-horse-modal.tsx) — le cascade Postgres (onDelete: Cascade) fait déjà
@@ -351,19 +402,66 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useState<Doc[]>(DEFAULT_DOCUMENTS);
   const [journal, setJournal] = useState<JournalEntry[]>(DEFAULT_JOURNAL);
   const [expenses, setExpenses] = useState<Expense[]>(DEFAULT_EXPENSES);
+  // Checklist type des concours (libellés). Propre à l'appareil — chaque
+  // concours en porte une COPIE (Appointment.checklist), seule celle-là est
+  // synchronisée.
+  const [checklistTemplate, setChecklistTemplate] = useState<string[]>([...DEFAULT_CHECKLIST_LABELS]);
+  // Lus par addAppointment/saveChecklistTemplate sans les mettre en dépendance :
+  // une identité stable évite de recréer tous les mutateurs à chaque édition.
+  const checklistTemplateRef = useRef(checklistTemplate);
+  const appointmentsRef = useRef(appointments);
+  const horsesRef = useRef(horses);
+  useEffect(() => {
+    checklistTemplateRef.current = checklistTemplate;
+    appointmentsRef.current = appointments;
+    horsesRef.current = horses;
+  }, [checklistTemplate, appointments, horses]);
   const [loaded, setLoaded] = useState(false);
+  /** Vrai quand au moins une des lectures n'a PAS abouti. Les écritures sont
+   * alors désactivées : réécrire l'état courant (vide, faute d'avoir pu lire)
+   * effacerait le fichier qu'on vient justement de ne pas savoir lire. */
+  const [loadFailed, setLoadFailed] = useState(false);
+  /** Vrai quand la dernière écriture locale a échoué (disque plein, fichier
+   * inaccessible). L'utilisateur est déjà prévenu une fois par session par
+   * lib/localStore.ts ; cet état permet en plus à l'écran de le montrer en
+   * continu, tant que la situation dure (cf. la bannière d'Agenda). */
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Déclaré ici pour que TOUTES les écritures ci-dessous passent par le même
+  // chemin : une seule ligne à écrire par effet de persistance, et aucun
+  // moyen d'oublier de traiter l'échec — c'est exactement ce qui manquait aux
+  // anciens `.catch(() => {})`.
+  const noteSaveResult = useCallback((ok: boolean) => setSaveFailed(!ok), []);
 
   // Charge les données persistées une fois au montage (sinon on garde les mocks par défaut).
   useEffect(() => {
     (async () => {
       try {
-        const [apptRaw, docRaw, journalRaw, expenseRaw] = await Promise.all([
-          SecureStore.getItemAsync(APPOINTMENTS_KEY),
-          SecureStore.getItemAsync(DOCUMENTS_KEY),
-          SecureStore.getItemAsync(JOURNAL_KEY),
-          SecureStore.getItemAsync(EXPENSES_KEY),
+        // readJson lit le fichier JSON et, la première fois, recopie
+        // l'ancienne valeur SecureStore au passage (cf. lib/localStore.ts).
+        const results = await Promise.all([
+          readJsonChecked<Appointment[] | null>(APPOINTMENTS_KEY, null),
+          readJsonChecked<Doc[] | null>(DOCUMENTS_KEY, null),
+          readJsonChecked<JournalEntry[] | null>(JOURNAL_KEY, null),
+          readJsonChecked<Expense[] | null>(EXPENSES_KEY, null),
+          readJsonChecked<string[] | null>(CHECKLIST_TEMPLATE_KEY, null),
         ]);
-        const parsedAppts = safeJsonParse<Appointment[] | null>(apptRaw, null);
+        // Une seule lecture ratée suffit à couper TOUTES les écritures de ce
+        // store : les cinq clés sont réécrites par des effets distincts, et
+        // rien ne garantit que celle qui a échoué soit la seule touchée.
+        if (results.some((r) => !r.ok)) {
+          setLoadFailed(true);
+          console.warn("[agenda] lecture partielle : écritures désactivées pour protéger les fichiers existants");
+        }
+        const [parsedAppts, parsedDocs, parsedJournal, parsedExpenses, parsedTemplate] = results.map((r) => r.value) as [
+          Appointment[] | null,
+          Doc[] | null,
+          JournalEntry[] | null,
+          Expense[] | null,
+          string[] | null,
+        ];
+        if (Array.isArray(parsedTemplate)) {
+          setChecklistTemplate(normalizeChecklistLabels(parsedTemplate.filter((l) => typeof l === "string")));
+        }
         if (parsedAppts) {
           setAppointments(
             parsedAppts.map((a) => ({
@@ -375,6 +473,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
               checklist: a.checklist ?? (a.type === "concours" ? defaultChecklist() : []),
               dossard: a.dossard ?? null,
               competitionEntries: a.competitionEntries ?? [],
+              competitionLevel: a.competitionLevel ?? null,
+              endDate: a.endDate ? new Date(a.endDate) : null,
               professional: a.professional ?? null,
               cost: a.cost ?? null,
               nextDueDate: a.nextDueDate ? new Date(a.nextDueDate) : null,
@@ -382,7 +482,6 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             }))
           );
         }
-        const parsedDocs = safeJsonParse<Doc[] | null>(docRaw, null);
         if (parsedDocs) {
           // fileUri/filePath n'existent pas sur les documents sauvegardés avant
           // leur ajout — les compléter plutôt que de laisser `undefined` (cf. le
@@ -400,7 +499,6 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             }))
           );
         }
-        const parsedJournal = safeJsonParse<JournalEntry[] | null>(journalRaw, null);
         if (parsedJournal) {
           // photoUri/photoPath n'existent pas sur les entrées sauvegardées
           // avant leur ajout — même souci déjà rencontré sur Doc.fileUri/filePath.
@@ -418,7 +516,6 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
             }))
           );
         }
-        const parsedExpenses = safeJsonParse<Expense[] | null>(expenseRaw, null);
         if (parsedExpenses) {
           setExpenses(
             parsedExpenses.map((e) => ({
@@ -432,7 +529,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
           );
         }
       } catch (e) {
-        console.warn("[agenda] lecture SecureStore échouée, agenda par défaut", e);
+        console.warn("[agenda] lecture du stockage local échouée, agenda par défaut", e);
+        setLoadFailed(true);
       } finally {
         setLoaded(true);
       }
@@ -458,47 +556,90 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     setDocuments((list) => (list.every((d) => d.horseId) ? list : list.map((d) => (d.horseId ? d : { ...d, horseId: fallbackHorseId }))));
   }, [loaded, horsesLoading, horses, selectedHorse]);
 
+  // Reprise des fichiers de documents jamais envoyés (cf.
+  // cloudSync.retryPendingDocumentUploads) — une fois par lancement, après le
+  // chargement local.
+  const uploadRetryDone = useRef(false);
+  useEffect(() => {
+    if (!loaded || uploadRetryDone.current) return;
+    uploadRetryDone.current = true;
+    retryPendingDocumentUploads(documents)
+      .then((done) => {
+        if (done.length === 0) return;
+        const byId = new Map(done.map((d) => [d.id, d.filePath]));
+        setDocuments((list) => list.map((d) => (byId.has(d.id) ? { ...d, filePath: byId.get(d.id)! } : d)));
+      })
+      .catch(() => {});
+  }, [loaded, documents]);
+
   // Persiste à chaque changement, une fois le chargement initial terminé
   // (sinon on écraserait les données sauvegardées avec les mocks par défaut).
   useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appointments)).catch(() => {});
-  }, [appointments, loaded]);
+    if (!loaded || loadFailed) return;
+    writeJson(APPOINTMENTS_KEY, appointments).then(noteSaveResult);
+  }, [appointments, loaded, loadFailed, noteSaveResult]);
 
   useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(documents)).catch(() => {});
-  }, [documents, loaded]);
+    if (!loaded || loadFailed) return;
+    writeJson(DOCUMENTS_KEY, documents).then(noteSaveResult);
+  }, [documents, loaded, loadFailed, noteSaveResult]);
 
   useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(journal)).catch(() => {});
-  }, [journal, loaded]);
+    if (!loaded || loadFailed) return;
+    writeJson(JOURNAL_KEY, journal).then(noteSaveResult);
+  }, [journal, loaded, loadFailed, noteSaveResult]);
 
   useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(expenses)).catch(() => {});
-  }, [expenses, loaded]);
+    if (!loaded || loadFailed) return;
+    writeJson(EXPENSES_KEY, expenses).then(noteSaveResult);
+  }, [expenses, loaded, loadFailed, noteSaveResult]);
+
+  useEffect(() => {
+    if (!loaded || loadFailed) return;
+    writeJson(CHECKLIST_TEMPLATE_KEY, checklistTemplate).then(noteSaveResult);
+  }, [checklistTemplate, loaded, loadFailed, noteSaveResult]);
 
   const addAppointment = useCallback(
-    (appt: NewAppointment) => {
+    // `horseId` optionnel : par défaut le cheval globalement sélectionné,
+    // comme avant — un appelant peut l'imposer explicitement (cf. création
+    // d'un même rendez-vous pour plusieurs chevaux, useAppointmentForm) sans
+    // qu'il y ait deux sources de vérité : c'est toujours soit un choix
+    // explicite de l'appelant, soit le même fallback qu'avant. Même
+    // mécanisme que `addJournalEntry` plus bas.
+    (appt: NewAppointment & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = appt;
       const next: Appointment = {
-        ...appt,
+        ...rest,
         id: generateId("a"),
-        horseId: selectedHorse?.id ?? null,
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
         result: null,
-        checklist: appt.checklist ?? [],
-        competitionEntries: appt.competitionEntries ?? [],
+        // Un concours neuf part de la checklist type ; les autres types n'en ont pas.
+        checklist:
+          appt.checklist ??
+          (appt.type === "concours" ? buildChecklist(checklistTemplateRef.current, () => generateId("c")) : []),
+        // Identifiants FRAIS pour chaque épreuve : une épreuve est une ligne
+        // à clé primaire propre côté serveur (cf. pushCompetitionEntry, upsert
+        // sur `id`). Un même concours créé pour plusieurs chevaux recopie le
+        // même sous-formulaire N fois ; sans nouveaux ids, les N copies
+        // partageaient les mêmes clés et les épreuves finissaient toutes
+        // rattachées au dernier rendez-vous.
+        competitionEntries: (appt.competitionEntries ?? []).map((e) => ({ ...e, id: generateId("ce") })),
+        competitionLevel: appt.competitionLevel ?? null,
+        endDate: appt.endDate ?? null,
       };
       setAppointments((list) => [...list, next]);
-      pushAppointment(next).catch(() => {});
       // Épreuves saisies dans le sous-formulaire à la création (cf.
       // agenda.tsx) : chacune vit dans sa propre table côté serveur
       // (contrairement à checklist, sérialisée dans la ligne appointment),
-      // donc un push par épreuve après la création du rendez-vous parent.
-      for (const entry of next.competitionEntries) {
-        pushCompetitionEntry(next.id, entry).catch(() => {});
-      }
+      // donc un push par épreuve APRÈS celui du rendez-vous parent : envoyés en
+      // parallèle, une épreuve pouvait arriver avant lui, être refusée (sa règle
+      // RLS exige que le rendez-vous existe) et ne jamais se synchroniser —
+      // avec pour seule trace un message dans les logs.
+      pushAppointment(next)
+        .then(() =>
+          Promise.all(next.competitionEntries.map((entry) => pushCompetitionEntry(next.id, entry).catch(() => {})))
+        )
+        .catch(() => {});
     },
     [selectedHorse]
   );
@@ -509,7 +650,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
    * formulaire d'ajout permet déjà de saisir, pour permettre une vraie
    * édition sans passer par supprimer + recréer. Le rappel programmé
    * (reminderNotificationId/emailReminderId) n'est PAS recalculé ici : cf.
-   * (tabs)/agenda.tsx handleUpdateAppointment, qui annule l'ancien et
+   * useAppointmentForm handleSubmitAppointment, qui annule l'ancien et
    * reprogramme le nouveau avant d'appeler ce mutateur, exactement comme à la
    * création (cf. handleAddAppointment) — cette fonction reste un simple
    * "patch + push", sans effet de bord sur les notifications. */
@@ -539,6 +680,38 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // — sans ça, un résultat de concours ou une checklist cochée ne survivrait
   // ni à une restauration cloud (cf. login.tsx, qui écraserait silencieusement
   // ces changements jamais envoyés au serveur) ni au partage DP/coach.
+
+  const saveChecklistTemplate = useCallback((labels: string[]): number => {
+    const previous = checklistTemplateRef.current;
+    const next = normalizeChecklistLabels(labels);
+    setChecklistTemplate(next);
+    // Ref mise à jour tout de suite : un concours créé dans la foulée doit déjà
+    // partir de la nouvelle liste, sans attendre le prochain rendu.
+    checklistTemplateRef.current = next;
+
+    const ownedHorseIds = new Set(horsesRef.current.filter((h) => !h.sharedRole).map((h) => h.id));
+    const todayStart = daysFromNow(0);
+    const isUpcomingConcours = (a: Appointment) =>
+      a.type === "concours" &&
+      a.horseId !== null &&
+      ownedHorseIds.has(a.horseId) &&
+      (a.endDate && a.endDate > a.date ? a.endDate : a.date) >= todayStart;
+
+    const changed: Appointment[] = [];
+    const updatedList = appointmentsRef.current.map((a) => {
+      if (!isUpcomingConcours(a)) return a;
+      const updated = { ...a, checklist: applyChecklistTemplate(a.checklist, previous, next, () => generateId("c")) };
+      changed.push(updated);
+      return updated;
+    });
+    if (changed.length > 0) {
+      appointmentsRef.current = updatedList;
+      setAppointments(updatedList);
+      // Un push par concours, comme les autres mutateurs de checklist.
+      for (const a of changed) pushAppointment(a).catch(() => {});
+    }
+    return changed.length;
+  }, []);
 
   const saveResult = useCallback((apptId: string, result: string) => {
     setAppointments((list) => {
@@ -628,10 +801,20 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDocument = useCallback(
-    (doc: Omit<Doc, "id" | "filePath" | "horseId">) => {
+    (doc: Omit<Doc, "id" | "filePath" | "horseId"> & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = doc;
       const id = generateId("d");
-      const next: Doc = { ...doc, id, filePath: null, horseId: selectedHorse?.id ?? null };
+      const next: Doc = {
+        ...rest,
+        id,
+        filePath: null,
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
+      };
       setDocuments((list) => [...list, next]);
+      // Le coffre-fort est Premium : un ajout est une activation de l'essai
+      // (cf. subscription/trialLifecycle.ts).
+      track("document_added", { category: next.category });
+      markPremiumActivated();
       // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Le filePath
       // résultant est reporté localement pour ne pas re-uploader la même photo
       // à la prochaine synchro (cf. pushDocument).
@@ -644,7 +827,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         .catch(() => {});
       // Retourné pour permettre de lier immédiatement le document tout juste
       // créé (ex : reçu joint depuis le formulaire de dépense, cf.
-      // (tabs)/agenda.tsx handleAddExpense) sans attendre un aller-retour cloud.
+      // useExpenseForm handleSubmitExpense) sans attendre un aller-retour cloud.
       return id;
     },
     [selectedHorse]
@@ -682,18 +865,18 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   const hydrateDocumentsFromCloud = useCallback((docs: Doc[]) => {
     setDocuments(docs);
-    SecureStore.setItemAsync(DOCUMENTS_KEY, JSON.stringify(docs)).catch(() => {});
-  }, []);
+    writeJson(DOCUMENTS_KEY, docs).then(noteSaveResult);
+  }, [noteSaveResult]);
 
   const hydrateAppointmentsFromCloud = useCallback((appts: Appointment[]) => {
     setAppointments(appts);
-    SecureStore.setItemAsync(APPOINTMENTS_KEY, JSON.stringify(appts)).catch(() => {});
-  }, []);
+    writeJson(APPOINTMENTS_KEY, appts).then(noteSaveResult);
+  }, [noteSaveResult]);
 
   const hydrateJournalFromCloud = useCallback((entries: JournalEntry[]) => {
     setJournal(entries);
-    SecureStore.setItemAsync(JOURNAL_KEY, JSON.stringify(entries)).catch(() => {});
-  }, []);
+    writeJson(JOURNAL_KEY, entries).then(noteSaveResult);
+  }, [noteSaveResult]);
 
   const addJournalEntry = useCallback(
     // `horseId` optionnel : par défaut le cheval globalement sélectionné,
@@ -724,7 +907,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   /** Édition d'une entrée de journal existante (activité/ressenti/date/heure/
    * notes) — la météo capturée à la création n'est jamais recalculée ici,
-   * cf. (tabs)/agenda.tsx : corriger une entrée passée ne doit pas réécrire
+   * cf. useJournalForm : corriger une entrée passée ne doit pas réécrire
    * un relevé météo qui n'a plus de sens rétroactivement. */
   const updateJournalEntry = useCallback(
     (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath">>) => {
@@ -765,8 +948,14 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addExpense = useCallback(
-    (expense: NewExpense) => {
-      const next: Expense = { ...expense, id: generateId("e"), horseId: selectedHorse?.id ?? null };
+    // `horseId` optionnel — même mécanisme que `addAppointment`/`addJournalEntry`.
+    (expense: NewExpense & { horseId?: string | null }) => {
+      const { horseId: explicitHorseId, ...rest } = expense;
+      const next: Expense = {
+        ...rest,
+        id: generateId("e"),
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
+      };
       setExpenses((list) => [...list, next]);
       pushExpense(next).catch(() => {});
     },
@@ -816,20 +1005,78 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
 
   const hydrateExpensesFromCloud = useCallback((next: Expense[]) => {
     setExpenses(next);
-    SecureStore.setItemAsync(EXPENSES_KEY, JSON.stringify(next)).catch(() => {});
+    writeJson(EXPENSES_KEY, next).then(noteSaveResult);
+  }, [noteSaveResult]);
+
+  // `appointmentsRef`/`horsesRef` (déclarés plus haut) : derniers états rendus,
+  // pour calculer HORS des mises à jour d'état les effets d'une fusion (rappels
+  // à suivre). Les données, elles, sont fusionnées dans des mises à jour
+  // fonctionnelles, sur l'état le plus récent.
+  const mergeFromCloud = useCallback((remote: AgendaRemoteSnapshot, pullStartedAt: number) => {
+    if (remote.appointments) {
+      const remoteAppointments = remote.appointments;
+      const guard = syncGuard("appointments", pullStartedAt, pendingIdsFor("appointments"));
+      // Identifiants de rappels : propres à cet appareil, jamais synchronisés.
+      const preserve = (l: Appointment, r: Appointment): Appointment => ({
+        ...r,
+        reminderNotificationId: l.reminderNotificationId,
+        emailReminderId: l.emailReminderId,
+        nextDueNotificationId: l.nextDueNotificationId,
+      });
+      const preview = mergeRemote(appointmentsRef.current, remoteAppointments, guard, preserve);
+      if (preview.changed) {
+        setAppointments((list) => mergeRemote(list, remoteAppointments, guard, preserve).items);
+        for (const gone of preview.removed) cancelRemindersOf(gone);
+        for (const { before, after } of preview.updated) {
+          const horseName = horsesRef.current.find((h) => h.id === after.horseId)?.name ?? null;
+          rescheduleReminders(before, after, horseName)
+            .then((ids) => {
+              if (!ids) return;
+              setAppointments((list) => list.map((a) => (a.id === after.id ? { ...a, ...ids } : a)));
+            })
+            .catch(() => {});
+        }
+      }
+      noteRemoteSnapshot("appointments", remoteAppointments.map((a) => a.id), pullStartedAt);
+    }
+    if (remote.documents) {
+      const remoteDocs = remote.documents;
+      const guard = syncGuard("documents", pullStartedAt, pendingIdsFor("documents"));
+      const preserve = (l: Doc, r: Doc): Doc => ({ ...r, fileUri: pickFileUrl(l.fileUri, l.filePath, r.fileUri, r.filePath) });
+      setDocuments((list) => mergeRemote(list, remoteDocs, guard, preserve).items);
+      noteRemoteSnapshot("documents", remoteDocs.map((d) => d.id), pullStartedAt);
+    }
+    if (remote.journal) {
+      const remoteJournal = remote.journal;
+      const guard = syncGuard("journal_entries", pullStartedAt, pendingIdsFor("journal_entries"));
+      const preserve = (l: JournalEntry, r: JournalEntry): JournalEntry => ({
+        ...r,
+        photoUri: pickFileUrl(l.photoUri, l.photoPath, r.photoUri, r.photoPath),
+      });
+      setJournal((list) => mergeRemote(list, remoteJournal, guard, preserve).items);
+      noteRemoteSnapshot("journal_entries", remoteJournal.map((j) => j.id), pullStartedAt);
+    }
+    if (remote.expenses) {
+      const remoteExpenses = remote.expenses;
+      const guard = syncGuard("expenses", pullStartedAt, pendingIdsFor("expenses"));
+      setExpenses((list) => mergeRemote(list, remoteExpenses, guard).items);
+      noteRemoteSnapshot("expenses", remoteExpenses.map((e) => e.id), pullStartedAt);
+    }
   }, []);
 
   const clearAll = useCallback(async () => {
-    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ces deletes tournent dans le Promise.all de
     // (auth)/login.tsx.afterSuccessfulAuth, un rejet non catché ici plantait
     // tout le groupe.
     await Promise.all([
-      SecureStore.deleteItemAsync(APPOINTMENTS_KEY).catch(() => {}),
-      SecureStore.deleteItemAsync(DOCUMENTS_KEY).catch(() => {}),
-      SecureStore.deleteItemAsync(JOURNAL_KEY).catch(() => {}),
-      SecureStore.deleteItemAsync(EXPENSES_KEY).catch(() => {}),
+      removeJson(APPOINTMENTS_KEY),
+      removeJson(DOCUMENTS_KEY),
+      removeJson(JOURNAL_KEY),
+      removeJson(EXPENSES_KEY),
+      removeJson(CHECKLIST_TEMPLATE_KEY),
     ]);
+    setChecklistTemplate([...DEFAULT_CHECKLIST_LABELS]);
     setAppointments(DEFAULT_APPOINTMENTS);
     setDocuments(DEFAULT_DOCUMENTS);
     setJournal(DEFAULT_JOURNAL);
@@ -845,6 +1092,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addAppointment,
       updateAppointment,
       deleteAppointment,
+      checklistTemplate,
+      saveChecklistTemplate,
       saveResult,
       toggleChecklistItem,
       addChecklistItem,
@@ -867,6 +1116,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
+      mergeFromCloud,
+      saveFailed,
+      syncReady: loaded && !loadFailed,
       clearAll,
       removeHorseData,
     }),
@@ -878,6 +1130,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addAppointment,
       updateAppointment,
       deleteAppointment,
+      checklistTemplate,
+      saveChecklistTemplate,
       saveResult,
       toggleChecklistItem,
       addChecklistItem,
@@ -901,6 +1155,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
+      mergeFromCloud,
+      saveFailed,
+      loaded,
+      loadFailed,
       clearAll,
     ]
   );

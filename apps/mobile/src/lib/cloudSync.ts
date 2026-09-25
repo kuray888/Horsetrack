@@ -1,5 +1,7 @@
 import { File } from "expo-file-system";
+import { discardSupersededWrites, enqueueFailedWrite, flushSyncQueue, type SyncOperation } from "@/lib/syncQueue";
 import { supabase } from "@/lib/supabase";
+import { beginWrite, endWrite, recordWriteSuccess, withWriteTracking } from "@/lib/remoteIndex";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
 import type { Appointment, CompetitionEntry, Doc, Expense, JournalEntry } from "@/agenda/store";
@@ -29,8 +31,87 @@ import type { WeightMeasurement } from "@/horses/weightStore";
  */
 const SIGNED_URL_TTL_SECONDS = 90 * 24 * 60 * 60;
 
+/** Signe plusieurs chemins d'un bucket en une requête par lot de 100 (au lieu
+ * d'une requête par fichier) — les relectures régulières (cf.
+ * lib/cloudRefresh.ts) resignent tout le coffre-fort et le journal. Chemin
+ * absent de la réponse = pas d'URL (fichier supprimé, erreur). */
+async function signPaths(bucket: string, paths: string[]): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  const unique = [...new Set(paths)];
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100);
+    const { data } = await supabase.storage.from(bucket).createSignedUrls(chunk, SIGNED_URL_TTL_SECONDS);
+    for (const entry of data ?? []) {
+      if (entry.path && entry.signedUrl && !entry.error) urls.set(entry.path, entry.signedUrl);
+    }
+  }
+  return urls;
+}
+
 function generateId(): string {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Rejoue les écritures mises en attente par une panne réseau (cf.
+ * lib/syncQueue.ts). Appelée au démarrage, au retour de l'app au premier plan
+ * (cf. app/_layout.tsx), et après chaque écriture réussie — une réussite est
+ * le meilleur indice disponible que le réseau est revenu, et évite d'ajouter
+ * une dépendance de détection de connectivité pour l'apprendre.
+ */
+export async function retryPendingWrites(): Promise<void> {
+  await flushSyncQueue(async (operation: SyncOperation) => {
+    if (operation.op === "delete") {
+      const { error } = await supabase.from(operation.table).delete().eq("id", operation.id);
+      if (!error) recordWriteSuccess(operation.table, operation.id, true);
+      return { error };
+    }
+    const { error } = await supabase.from(operation.table).upsert(operation.row ?? {});
+    if (!error) recordWriteSuccess(operation.table, operation.id, false);
+    return { error };
+  });
+}
+
+/**
+ * Sort commune de toutes les écritures : trace l'échec, met l'opération en
+ * attente de reprise, et profite d'un succès pour vider ce qui attendait.
+ *
+ * `row` est la ligne déjà prête pour PostgREST (dates en ISO), donc rejouable
+ * telle quelle. Sans `row`, l'opération est une suppression.
+ */
+/** Exporté pour les stores qui écrivent eux-mêmes dans Supabase (cf.
+ * goals/store.tsx) : même file de reprise que les écritures de ce module. */
+export async function settleRemoteWrite(
+  label: string,
+  table: string,
+  id: string,
+  error: { code?: string; message?: string } | null,
+  row?: Record<string, unknown>
+): Promise<void> {
+  return settleWrite(label, table, id, error, row);
+}
+
+async function settleWrite(
+  label: string,
+  table: string,
+  id: string,
+  error: { code?: string; message?: string } | null,
+  row?: Record<string, unknown>
+): Promise<void> {
+  if (!error) {
+    recordWriteSuccess(table, id, !row);
+    // Les opérations plus anciennes sur cette même ligne sont périmées : les
+    // retirer AVANT de vider la file, sinon elles écraseraient ce qu'on vient
+    // d'écrire. Départ de l'écriture ≈ son `updatedAt` (posé juste avant
+    // l'envoi) ; à défaut (suppression), maintenant.
+    const startedAt = typeof row?.updatedAt === "string" ? Date.parse(row.updatedAt) : Date.now();
+    await discardSupersededWrites({ table, id }, Number.isFinite(startedAt) ? startedAt : Date.now()).catch(() => {});
+    // Le réseau répond : c'est le moment de rejouer ce qui attendait.
+    retryPendingWrites().catch(() => {});
+    return;
+  }
+  console.warn(`[cloudSync] ${label} échoué`, error);
+  await enqueueFailedWrite({ table, op: row ? "upsert" : "delete", id, row }, error);
 }
 
 async function getOwnerProfile(userId: string): Promise<{ id: string; onboardingCompletedAt: string | null } | null> {
@@ -88,6 +169,26 @@ async function uploadHorsePhoto(horseId: string, localUri: string): Promise<stri
   } catch {
     return null;
   }
+}
+
+/**
+ * Supprime UN cheval côté serveur (suppression explicite demandée par
+ * l'utilisateur, cf. horses/store.tsx removeHorse). La cascade Postgres
+ * emporte ses rendez-vous, séances, journal, dépenses ; le stockage n'ayant
+ * pas de cascade, sa photo et ses photos de journal sont supprimées ici
+ * (best-effort). En cas d'échec réseau, la suppression de la ligne passe par
+ * la file de reprise (cf. settleWrite) plutôt que d'être perdue.
+ */
+async function deleteHorseRemoteImpl(horseId: string): Promise<void> {
+  try {
+    const { data: journalFiles } = await supabase.storage.from("horse-photos").list(`${horseId}/journal`, { limit: 1000 });
+    const paths = [`${horseId}/photo.jpg`, ...(journalFiles ?? []).map((f) => `${horseId}/journal/${f.name}`)];
+    await supabase.storage.from("horse-photos").remove(paths);
+  } catch {
+    // best-effort : cf. commentaire de deleteHorsePhotoRemote
+  }
+  const { error } = await supabase.from("horses").delete().eq("id", horseId);
+  await settleWrite("deleteHorseRemote", "horses", horseId, error);
 }
 
 /** Best-effort : si l'objet ne se supprime pas, RLS empêche de toute façon
@@ -184,7 +285,7 @@ async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
  * l'utilisateur, mais l'appelant doit retenir que l'écurie reste à
  * synchroniser — cf. horses/store.tsx, qui repasse alors en push global au
  * prochain appel plutôt que de ne republier que le cheval suivant modifié. */
-export async function pushHorses(
+async function pushHorsesImpl(
   horses: Horse[],
   onlyIds?: string[]
 ): Promise<{
@@ -245,6 +346,7 @@ export async function pushHorses(
       isPrimary: h.isPrimary,
       updatedAt: now,
     });
+    if (!error) recordWriteSuccess("horses", h.id, false);
     if (error) {
       console.warn("[cloudSync] upsert horse échoué", h.id, error);
       if (error.message?.toLowerCase().includes("horse quota exceeded")) {
@@ -261,29 +363,14 @@ export async function pushHorses(
     }
   }
 
-  // Supprime côté distant les chevaux qui n'existent plus localement — pas de
-  // suppression de cheval dans l'UI actuelle sans passer par removeHorse()
-  // (qui, elle, appelle toujours pushHorses sans `onlyIds`), donc rien à
-  // nettoyer ici pour un push ciblé : `onlyIds` ne réduit jamais l'écurie, il
-  // ne fait qu'écarter les chevaux non modifiés de l'upsert. Ce
-  // select+delete ne tourne donc que pour les pushs globaux
-  // (replaceHorses/removeHorse), pas à chaque simple renommage/photo.
-  if (!onlyIds) {
-    const { data: remoteHorses, error: selectHorsesError } = await supabase
-      .from("horses")
-      .select("id")
-      .eq("ownerId", profile.id);
-    if (selectHorsesError) {
-      console.warn("[cloudSync] lecture horses échouée", selectHorsesError);
-      hadUnexpectedError = true;
-    }
-    const localIds = horses.map((h) => h.id);
-    const staleHorseIds = (remoteHorses ?? []).map((r) => r.id).filter((id) => !localIds.includes(id));
-    if (staleHorseIds.length > 0) {
-      const { error } = await supabase.from("horses").delete().in("id", staleHorseIds);
-      if (error) console.warn("[cloudSync] suppression horses obsolètes échouée", error);
-    }
-  }
+  // Plus AUCUNE suppression déduite ici (« tout cheval distant absent de cet
+  // appareil ») : l'app ne relit le serveur qu'à la connexion, donc un second
+  // appareil connecté au même compte ignore les chevaux ajoutés ailleurs — et
+  // un push global (rattrapage après un simple échec réseau, cf.
+  // horses/store.tsx needsFullSyncRef) supprimait alors ces chevaux côté
+  // serveur, avec en cascade tous leurs rendez-vous, séances, journal et
+  // dépenses. Une suppression est désormais toujours explicite et ciblée :
+  // cf. deleteHorseRemote, appelée par removeHorse.
 
   for (const horse of toUpsert) {
     // Jamais créé côté serveur (cf. rejectedIds ci-dessus) : y pousser ses
@@ -382,6 +469,15 @@ export type RemoteHorse = Omit<
   horse_injuries: RemoteInjury[];
 };
 
+/** Tags d'un même type, sans doublon. Des synchros qui se chevauchaient
+ * (cf. horses/store.tsx persist, désormais en file) ont pu laisser deux lignes
+ * pour le même tag côté serveur : les afficher deux fois ne rendrait service à
+ * personne, et la déduplication à la lecture nettoie aussi les comptes déjà
+ * touchés. L'ordre de première apparition est conservé. */
+function tagsOfKind(traits: RemoteTrait[], kind: string): string[] {
+  return [...new Set(traits.filter((t) => t.kind === kind).map((t) => t.tag))];
+}
+
 /** Convertit la forme "brute" renvoyée par une requête Supabase imbriquée
  * (horses(*, horse_traits(*), horse_injuries(*))) en `Horse` local — partagée
  * entre `pullCloudData` (chevaux possédés) et `lib/sharing.ts` `pullSharedHorses`
@@ -404,10 +500,10 @@ export async function mapRemoteHorse(h: RemoteHorse): Promise<Horse> {
     photoUrl,
     emoji: "🐴",
     sharedRole: null,
-    strengths: h.horse_traits.filter((t) => t.kind === "STRENGTH").map((t) => t.tag),
-    weaknesses: h.horse_traits.filter((t) => t.kind === "WEAKNESS").map((t) => t.tag),
-    temperament: h.horse_traits.filter((t) => t.kind === "TEMPERAMENT").map((t) => t.tag),
-    healthConditions: h.horse_traits.filter((t) => t.kind === "HEALTH_CONDITION").map((t) => t.tag),
+    strengths: tagsOfKind(h.horse_traits, "STRENGTH"),
+    weaknesses: tagsOfKind(h.horse_traits, "WEAKNESS"),
+    temperament: tagsOfKind(h.horse_traits, "TEMPERAMENT"),
+    healthConditions: tagsOfKind(h.horse_traits, "HEALTH_CONDITION"),
     // Pas encore synchronisé côté serveur (cf. décision lors de son ajout) —
     // l'utilisateur devra le ressaisir une fois après une restauration.
     restDayActivities: [],
@@ -440,7 +536,7 @@ function categoryFromDb(category: string): Doc["category"] {
 
 /** Devine l'extension/le type MIME réels du fichier local plutôt que de
  * forcer ".jpg"/"image/jpeg" pour tout (cf. audit pré-publication) : un
- * document du coffre-fort peut être un PDF (cf. pickAndPersistDocumentFile),
+ * document du coffre-fort peut être un PDF (cf. pickAndPersistDocument),
  * et un objet Storage uploadé avec un mauvais Content-Type ne s'affiche pas
  * correctement une fois resservi (signed URL). */
 function documentContentType(localUri: string): { ext: string; contentType: string } {
@@ -479,7 +575,7 @@ async function uploadDocumentPhoto(userId: string, docId: string, localUri: stri
  * "{userId}/{docId}.jpg" est déterministe par document, un nouvel upload
  * écrase donc simplement l'ancien objet (upsert), même logique que les photos
  * de cheval (cf. uploadHorsePhoto plus haut). */
-export async function pushDocument(doc: Doc): Promise<string | null> {
+async function pushDocumentImpl(doc: Doc): Promise<string | null> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) return null;
@@ -505,7 +601,7 @@ export async function pushDocument(doc: Doc): Promise<string | null> {
     }
   }
 
-  const { error } = await supabase.from("documents").upsert({
+  const row = {
     id: doc.id,
     riderId: profile.id,
     horseId: doc.horseId,
@@ -514,7 +610,11 @@ export async function pushDocument(doc: Doc): Promise<string | null> {
     date: doc.date.toISOString(),
     filePath,
     updatedAt: new Date().toISOString(),
-  });
+  };
+  const { error } = await supabase.from("documents").upsert(row);
+  // Hors ligne : la ligne attend dans la file de reprise au lieu d'être
+  // perdue (le fichier, lui, est renvoyé par retryPendingDocumentUploads).
+  await settleWrite("pushDocument", "documents", doc.id, error, row);
   return error ? null : filePath;
 }
 
@@ -524,8 +624,9 @@ export async function pushDocument(doc: Doc): Promise<string | null> {
  * chemin en supposant ".jpg" ratait la suppression Storage pour tout autre
  * type de fichier, laissant l'objet orphelin indéfiniment (la ligne DB
  * disparaît, donc plus aucune référence ne permet de le retrouver ensuite). */
-export async function deleteDocumentRemote(docId: string, filePath: string | null): Promise<void> {
-  await supabase.from("documents").delete().eq("id", docId);
+async function deleteDocumentRemoteImpl(docId: string, filePath: string | null): Promise<void> {
+  const { error } = await supabase.from("documents").delete().eq("id", docId);
+  await settleWrite("deleteDocumentRemote", "documents", docId, error);
   if (!filePath) return;
   // Best-effort : si l'objet Storage ne se supprime pas, RLS empêche de
   // toute façon tout accès par un autre utilisateur — pas une fuite.
@@ -555,14 +656,12 @@ export async function pullDocuments(): Promise<Doc[] | null> {
   if (error || !data) return null;
 
   const docs: Doc[] = [];
+  const signedFiles = await signPaths(
+    "documents",
+    data.map((row) => row.filePath).filter((p): p is string => !!p)
+  );
   for (const row of data) {
-    let fileUri: string | null = null;
-    if (row.filePath) {
-      const { data: signed } = await supabase.storage
-        .from("documents")
-        .createSignedUrl(row.filePath, SIGNED_URL_TTL_SECONDS);
-      fileUri = signed?.signedUrl ?? null;
-    }
+    const fileUri = row.filePath ? (signedFiles.get(row.filePath) ?? null) : null;
     docs.push({
       id: row.id,
       horseId: row.horseId ?? null,
@@ -597,9 +696,9 @@ function appointmentTypeFromDb(type: string): Appointment["type"] {
 /** Pas de push si l'entrée n'est pas encore rattachée à un cheval (cf.
  * agenda/store.tsx, backfill au chargement) — rien à synchroniser tant
  * qu'aucun horseId n'est connu. */
-export async function pushAppointment(appt: Appointment): Promise<void> {
+async function pushAppointmentImpl(appt: Appointment): Promise<void> {
   if (!appt.horseId) return;
-  const { error } = await supabase.from("appointments").upsert({
+  const row = {
     id: appt.id,
     horseId: appt.horseId,
     type: appointmentTypeToDb(appt.type),
@@ -616,13 +715,37 @@ export async function pushAppointment(appt: Appointment): Promise<void> {
     cost: appt.cost,
     nextDueDate: appt.nextDueDate?.toISOString() ?? null,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushAppointment échoué", error);
+  };
+  const fullRow = { ...row, competitionLevel: appt.competitionLevel, endDate: appt.endDate?.toISOString() ?? null };
+  const { error } = await supabase.from("appointments").upsert(fullRow);
+  if (!error) {
+    await settleWrite("pushAppointment", "appointments", appt.id, null, fullRow);
+    return;
+  }
+  // Colonnes `competitionLevel`/`endDate` ajoutées après coup : tant que la base
+  // n'a pas reçu la migration (`pnpm db:push`), l'upsert entier serait refusé et
+  // AUCUN rendez-vous ne se synchroniserait plus. On retente sans elles : le
+  // reste du rendez-vous est sauvegardé, seuls niveau et date de fin attendent.
+  if (isMissingAppointmentColumnError(error)) {
+    const { error: retryError } = await supabase.from("appointments").upsert(row);
+    // En attente de reprise, c'est la ligne SANS ces colonnes qu'on garde :
+    // rejouer la version complète buterait sur le même schéma non migré.
+    await settleWrite("pushAppointment", "appointments", appt.id, retryError, row);
+    return;
+  }
+  await settleWrite("pushAppointment", "appointments", appt.id, error, fullRow);
 }
 
-export async function deleteAppointmentRemote(apptId: string): Promise<void> {
+/** Vrai si l'erreur PostgREST/Postgres vient de l'absence de `competitionLevel`
+ * ou `endDate` dans la table (schéma pas encore migré). */
+function isMissingAppointmentColumnError(error: { message?: string }): boolean {
+  const message = (error.message ?? "").toLowerCase();
+  return message.includes("competitionlevel") || message.includes("enddate");
+}
+
+async function deleteAppointmentRemoteImpl(apptId: string): Promise<void> {
   const { error } = await supabase.from("appointments").delete().eq("id", apptId);
-  if (error) console.warn("[cloudSync] deleteAppointmentRemote échoué", error);
+  await settleWrite("deleteAppointmentRemote", "appointments", apptId, error);
 }
 
 /** Restaure les rendez-vous visibles par l'utilisateur courant — possédés ET
@@ -631,11 +754,15 @@ export async function deleteAppointmentRemote(apptId: string): Promise<void> {
  * technique que `pullCloudData` pour horse_traits/horse_injuries), pas un
  * appel séparé. */
 export async function pullAppointments(): Promise<Appointment[] | null> {
-  const { data, error } = await supabase
-    .from("appointments")
-    .select(
-      "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, professional, cost, nextDueDate, competition_entries(id, name, discipline, time, result)"
-    );
+  const baseColumns =
+    "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, professional, cost, nextDueDate";
+  const entries = "competition_entries(id, name, discipline, time, result)";
+  let { data, error } = await supabase.from("appointments").select(`${baseColumns}, competitionLevel, endDate, ${entries}`);
+  // Base pas encore migrée (cf. pushAppointment) : sans ce repli, sélectionner
+  // une colonne inconnue ferait échouer TOUTE la restauration des rendez-vous.
+  if (error && isMissingAppointmentColumnError(error)) {
+    ({ data, error } = await supabase.from("appointments").select(`${baseColumns}, ${entries}`));
+  }
   if (error || !data) return null;
   return data.map((row) => ({
     id: row.id,
@@ -658,6 +785,8 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
     professional: row.professional ?? null,
     cost: row.cost === null || row.cost === undefined ? null : Number(row.cost),
     nextDueDate: row.nextDueDate ? new Date(row.nextDueDate) : null,
+    competitionLevel: normalizeCompetitionLevel((row as { competitionLevel?: unknown }).competitionLevel),
+    endDate: (row as { endDate?: string | null }).endDate ? new Date((row as { endDate: string }).endDate) : null,
     competitionEntries: ((row.competition_entries ?? []) as RemoteCompetitionEntry[]).map((e) => ({
       id: e.id,
       name: e.name,
@@ -668,13 +797,17 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
   }));
 }
 
+function normalizeCompetitionLevel(value: unknown): Appointment["competitionLevel"] {
+  return value === "national" || value === "international" ? value : null;
+}
+
 type RemoteCompetitionEntry = { id: string; name: string; discipline: string; time: string; result: string | null };
 
 /** Une épreuve à la fois (upsert) — même logique que les documents (cf.
  * pushDocument) : pas d'opération de remplacement en masse, le volume par
  * rendez-vous reste faible. */
-export async function pushCompetitionEntry(appointmentId: string, entry: CompetitionEntry): Promise<void> {
-  const { error } = await supabase.from("competition_entries").upsert({
+async function pushCompetitionEntryImpl(appointmentId: string, entry: CompetitionEntry): Promise<void> {
+  const row = {
     id: entry.id,
     appointmentId,
     name: entry.name,
@@ -682,13 +815,31 @@ export async function pushCompetitionEntry(appointmentId: string, entry: Competi
     time: entry.time,
     result: entry.result,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushCompetitionEntry échoué", error);
+  };
+  const { error } = await supabase.from("competition_entries").upsert(row);
+  await settleWrite("pushCompetitionEntry", "competition_entries", entry.id, error, row);
 }
 
 export async function deleteCompetitionEntryRemote(entryId: string): Promise<void> {
   const { error } = await supabase.from("competition_entries").delete().eq("id", entryId);
-  if (error) console.warn("[cloudSync] deleteCompetitionEntryRemote échoué", error);
+  await settleWrite("deleteCompetitionEntryRemote", "competition_entries", entryId, error);
+}
+
+/**
+ * Documents dont le fichier n'est jamais parti (création hors ligne, réseau
+ * coupé pendant l'envoi) : fichier encore uniquement local (`file://`) et
+ * aucun chemin distant. Sans cette reprise, le document restait sans fichier
+ * côté serveur — invisible après une réinstallation ou sur un autre appareil.
+ * Renvoie les chemins obtenus, à reporter dans l'état local.
+ */
+export async function retryPendingDocumentUploads(docs: Doc[]): Promise<{ id: string; filePath: string }[]> {
+  const pending = docs.filter((d) => !d.filePath && d.fileUri?.startsWith("file://"));
+  const done: { id: string; filePath: string }[] = [];
+  for (const doc of pending) {
+    const filePath = await pushDocument(doc).catch(() => null);
+    if (filePath) done.push({ id: doc.id, filePath });
+  }
+  return done;
 }
 
 function activityTypeToDb(type: JournalEntry["activityType"]): string {
@@ -734,7 +885,7 @@ async function uploadJournalPhoto(horseId: string, entryId: string, localUri: st
  * pas re-uploader la même photo à la prochaine synchro. `entry.photoUri` ne
  * vaut "file://…" QUE pour une photo locale pas encore envoyée (premier envoi
  * ou remplacement lors d'une édition, cf. updateJournalEntry). */
-export async function pushJournalEntry(entry: JournalEntry): Promise<string | null> {
+async function pushJournalEntryImpl(entry: JournalEntry): Promise<string | null> {
   if (!entry.horseId) return null;
 
   let photoPath = entry.photoPath;
@@ -743,7 +894,7 @@ export async function pushJournalEntry(entry: JournalEntry): Promise<string | nu
     if (uploaded) photoPath = uploaded;
   }
 
-  const { error } = await supabase.from("journal_entries").upsert({
+  const row = {
     id: entry.id,
     horseId: entry.horseId,
     activityType: activityTypeToDb(entry.activityType),
@@ -754,12 +905,14 @@ export async function pushJournalEntry(entry: JournalEntry): Promise<string | nu
     weather: entry.weather,
     photoPath,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) {
-    console.warn("[cloudSync] pushJournalEntry échoué", error);
-    return null;
-  }
-  return photoPath;
+  };
+  const { error } = await supabase.from("journal_entries").upsert(row);
+  await settleWrite("pushJournalEntry", "journal_entries", entry.id, error, row);
+  // La photo, elle, n'est pas rejouable depuis la file (l'upload Storage a
+  // lieu plus haut, hors de la ligne) : on ne renvoie son chemin que si
+  // l'entrée est bien partie, pour ne pas l'enregistrer localement comme
+  // synchronisée alors qu'elle ne l'est pas.
+  return error ? null : photoPath;
 }
 
 /** `horseId` nécessaire pour supprimer aussi la photo distante (cf. ci-dessus,
@@ -767,9 +920,9 @@ export async function pushJournalEntry(entry: JournalEntry): Promise<string | nu
  * l'objet Storage ne se supprime pas, RLS empêche de toute façon tout accès
  * par un autre utilisateur que le propriétaire/un collaborateur du cheval
  * déjà supprimé, pas une fuite. */
-export async function deleteJournalEntryRemote(entryId: string, horseId: string | null): Promise<void> {
+async function deleteJournalEntryRemoteImpl(entryId: string, horseId: string | null): Promise<void> {
   const { error } = await supabase.from("journal_entries").delete().eq("id", entryId);
-  if (error) console.warn("[cloudSync] deleteJournalEntryRemote échoué", error);
+  await settleWrite("deleteJournalEntryRemote", "journal_entries", entryId, error);
   if (horseId) {
     await supabase.storage.from("horse-photos").remove([`${horseId}/journal/${entryId}.jpg`]);
   }
@@ -781,14 +934,12 @@ export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
     .select("id, horseId, activityType, mood, notes, date, time, weather, photoPath");
   if (error || !data) return null;
   const entries: JournalEntry[] = [];
+  const signedPhotos = await signPaths(
+    "horse-photos",
+    data.map((row) => row.photoPath).filter((p): p is string => !!p)
+  );
   for (const row of data) {
-    let photoUri: string | null = null;
-    if (row.photoPath) {
-      const { data: signed } = await supabase.storage
-        .from("horse-photos")
-        .createSignedUrl(row.photoPath, SIGNED_URL_TTL_SECONDS);
-      photoUri = signed?.signedUrl ?? null;
-    }
+    const photoUri = row.photoPath ? (signedPhotos.get(row.photoPath) ?? null) : null;
     entries.push({
       id: row.id,
       horseId: row.horseId,
@@ -813,9 +964,9 @@ export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
  * doit être visible par un demi-pensionnaire/coach.
  */
 
-export async function pushTrainingSession(session: TrainingSession): Promise<void> {
+async function pushTrainingSessionImpl(session: TrainingSession): Promise<void> {
   if (!session.horseId) return;
-  const { error } = await supabase.from("training_sessions").upsert({
+  const row = {
     id: session.id,
     horseId: session.horseId,
     activityType: session.activityType.toUpperCase(),
@@ -827,13 +978,14 @@ export async function pushTrainingSession(session: TrainingSession): Promise<voi
     notes: session.notes,
     completed: session.completed,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushTrainingSession échoué", error);
+  };
+  const { error } = await supabase.from("training_sessions").upsert(row);
+  await settleWrite("pushTrainingSession", "training_sessions", session.id, error, row);
 }
 
-export async function deleteTrainingSessionRemote(sessionId: string): Promise<void> {
+async function deleteTrainingSessionRemoteImpl(sessionId: string): Promise<void> {
   const { error } = await supabase.from("training_sessions").delete().eq("id", sessionId);
-  if (error) console.warn("[cloudSync] deleteTrainingSessionRemote échoué", error);
+  await settleWrite("deleteTrainingSessionRemote", "training_sessions", sessionId, error);
 }
 
 /** Restaure les séances visibles par l'utilisateur courant — possédées ET
@@ -863,20 +1015,21 @@ export async function pullTrainingSessions(): Promise<TrainingSession[] | null> 
  * horses/weightStore.tsx.
  */
 
-export async function pushWeightMeasurement(measurement: WeightMeasurement): Promise<void> {
-  const { error } = await supabase.from("horse_weight_measurements").upsert({
+async function pushWeightMeasurementImpl(measurement: WeightMeasurement): Promise<void> {
+  const row = {
     id: measurement.id,
     horseId: measurement.horseId,
     weightKg: measurement.weightKg,
     date: measurement.date.toISOString(),
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushWeightMeasurement échoué", error);
+  };
+  const { error } = await supabase.from("horse_weight_measurements").upsert(row);
+  await settleWrite("pushWeightMeasurement", "horse_weight_measurements", measurement.id, error, row);
 }
 
-export async function deleteWeightMeasurementRemote(id: string): Promise<void> {
+async function deleteWeightMeasurementRemoteImpl(id: string): Promise<void> {
   const { error } = await supabase.from("horse_weight_measurements").delete().eq("id", id);
-  if (error) console.warn("[cloudSync] deleteWeightMeasurementRemote échoué", error);
+  await settleWrite("deleteWeightMeasurementRemote", "horse_weight_measurements", id, error);
 }
 
 export async function pullWeightMeasurements(): Promise<WeightMeasurement[] | null> {
@@ -905,9 +1058,9 @@ function expenseCategoryFromDb(category: string): Expense["category"] {
   return category.toLowerCase() as Expense["category"];
 }
 
-export async function pushExpense(expense: Expense): Promise<void> {
+async function pushExpenseImpl(expense: Expense): Promise<void> {
   if (!expense.horseId) return;
-  const { error } = await supabase.from("expenses").upsert({
+  const row = {
     id: expense.id,
     horseId: expense.horseId,
     amount: expense.amount,
@@ -919,13 +1072,14 @@ export async function pushExpense(expense: Expense): Promise<void> {
     documentId: expense.documentId,
     isPaid: expense.isPaid,
     updatedAt: new Date().toISOString(),
-  });
-  if (error) console.warn("[cloudSync] pushExpense échoué", error);
+  };
+  const { error } = await supabase.from("expenses").upsert(row);
+  await settleWrite("pushExpense", "expenses", expense.id, error, row);
 }
 
-export async function deleteExpenseRemote(expenseId: string): Promise<void> {
+async function deleteExpenseRemoteImpl(expenseId: string): Promise<void> {
   const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
-  if (error) console.warn("[cloudSync] deleteExpenseRemote échoué", error);
+  await settleWrite("deleteExpenseRemote", "expenses", expenseId, error);
 }
 
 /** Restaure les dépenses visibles par l'utilisateur courant — possédées ET
@@ -934,7 +1088,7 @@ export async function deleteExpenseRemote(expenseId: string): Promise<void> {
  * un collaborateur consultant une dépense partagée dont le reçu appartient
  * au propriétaire (RLS `documents` = owns_rider_profile, jamais partagée) ne
  * l'aura de toute façon jamais dans son propre `pullDocuments()` — l'écran
- * (cf. agenda.tsx) affiche "reçu non disponible" en croisant localement
+ * (cf. app/horse/[id]/budget.tsx) affiche "reçu non disponible" en croisant localement
  * `documentId` avec la liste de documents déjà chargée par l'utilisateur
  * courant, sans appel réseau supplémentaire ni fuite. */
 export async function pullExpenses(): Promise<Expense[] | null> {
@@ -954,4 +1108,77 @@ export async function pullExpenses(): Promise<Expense[] | null> {
     documentId: row.documentId ?? null,
     isPaid: row.isPaid ?? false,
   }));
+}
+
+// Écritures suivies (cf. lib/remoteIndex.ts) : tant qu'une écriture est en
+
+// vol, une relecture du serveur ne doit pas écraser la version locale qu'elle
+
+// envoie. Chaque fonction exportée enveloppe son implémentation `…Impl`.
+
+export function pushDocument(doc: Doc) {
+  return withWriteTracking("documents", doc.id, () => pushDocumentImpl(doc));
+}
+
+export function deleteDocumentRemote(docId: string, filePath: string | null) {
+  return withWriteTracking("documents", docId, () => deleteDocumentRemoteImpl(docId, filePath));
+}
+
+export function pushAppointment(appt: Appointment) {
+  return withWriteTracking("appointments", appt.id, () => pushAppointmentImpl(appt));
+}
+
+export function deleteAppointmentRemote(apptId: string) {
+  return withWriteTracking("appointments", apptId, () => deleteAppointmentRemoteImpl(apptId));
+}
+
+export function pushCompetitionEntry(appointmentId: string, entry: CompetitionEntry) {
+  return withWriteTracking("appointments", appointmentId, () => pushCompetitionEntryImpl(appointmentId, entry));
+}
+
+export function pushJournalEntry(entry: JournalEntry) {
+  return withWriteTracking("journal_entries", entry.id, () => pushJournalEntryImpl(entry));
+}
+
+export function deleteJournalEntryRemote(entryId: string, horseId: string | null) {
+  return withWriteTracking("journal_entries", entryId, () => deleteJournalEntryRemoteImpl(entryId, horseId));
+}
+
+export function pushTrainingSession(session: TrainingSession) {
+  return withWriteTracking("training_sessions", session.id, () => pushTrainingSessionImpl(session));
+}
+
+export function deleteTrainingSessionRemote(sessionId: string) {
+  return withWriteTracking("training_sessions", sessionId, () => deleteTrainingSessionRemoteImpl(sessionId));
+}
+
+export function pushWeightMeasurement(measurement: WeightMeasurement) {
+  return withWriteTracking("horse_weight_measurements", measurement.id, () => pushWeightMeasurementImpl(measurement));
+}
+
+export function deleteWeightMeasurementRemote(id: string) {
+  return withWriteTracking("horse_weight_measurements", id, () => deleteWeightMeasurementRemoteImpl(id));
+}
+
+export function pushExpense(expense: Expense) {
+  return withWriteTracking("expenses", expense.id, () => pushExpenseImpl(expense));
+}
+
+export function deleteExpenseRemote(expenseId: string) {
+  return withWriteTracking("expenses", expenseId, () => deleteExpenseRemoteImpl(expenseId));
+}
+
+export function deleteHorseRemote(horseId: string) {
+  return withWriteTracking("horses", horseId, () => deleteHorseRemoteImpl(horseId));
+}
+
+/** Envoi de l'écurie, suivi cheval par cheval (cf. withWriteTracking). */
+export async function pushHorses(horses: Horse[], onlyIds?: string[]): ReturnType<typeof pushHorsesImpl> {
+  const ids = (onlyIds ? horses.filter((h) => onlyIds.includes(h.id)) : horses).map((h) => h.id);
+  ids.forEach((id) => beginWrite("horses", id));
+  try {
+    return await pushHorsesImpl(horses, onlyIds);
+  } finally {
+    ids.forEach((id) => endWrite("horses", id));
+  }
 }

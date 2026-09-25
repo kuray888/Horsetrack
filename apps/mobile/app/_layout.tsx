@@ -1,9 +1,19 @@
+// Placé avant tout autre import : l'origine des mesures de démarrage est
+// l'évaluation de ce module-là, donc plus il est évalué tôt, moins la mesure
+// rate de travail (cf. lib/startupTrace.ts).
+import { startupTrace, formatTrace, summarizeTrace } from "@/lib/startupTrace";
 import "../global.css";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import { Stack } from "expo-router";
 import * as Sentry from "@sentry/react-native";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque";
+import { TrialLifecycleSync } from "@/subscription/TrialLifecycleSync";
+import { startAnalytics } from "@/lib/analytics";
+import { markFirstSeen } from "@/lib/reviewPrompt";
+import { CloudRefreshProvider } from "@/lib/cloudRefresh";
 
 // Garde le splash natif affiché tant que la police d'affichage n'est pas
 // chargée — sans ça, les titres (font-display) flasheraient un instant dans
@@ -43,6 +53,11 @@ import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener"
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 import { CrashFallback } from "@/components/CrashFallback";
+import { retryPendingWrites } from "@/lib/cloudSync";
+
+// Analytics produit (cf. lib/analytics.ts) : inactives sans clé PostHog.
+startAnalytics();
+markFirstSeen();
 
 function RootLayout() {
   const [fontsLoaded] = useFonts({ BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold });
@@ -50,6 +65,65 @@ function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  // Repères de démarrage. Deux instants suffisent ici : le reste de la mesure
+  // vient des lectures de fichiers, instrumentées à la source dans
+  // lib/localStore.ts. `marked` est une ref et non un état : marquer ne doit
+  // rien redessiner, sinon la mesure changerait ce qu'elle mesure.
+  //
+  // Les deux noms sont choisis pour ne pas mentir. Le premier passage ici suit
+  // un rendu qui a renvoyé `null` (cf. le garde-fou `if (!fontsLoaded)` plus
+  // bas) : rien n'est encore à l'écran, le splash natif tient toujours. La
+  // première frame réellement peinte est celle qui suit le chargement de la
+  // police, d'où la seconde marque.
+  const marked = useRef({ mount: false, painted: false });
+  useEffect(() => {
+    if (!marked.current.mount) {
+      marked.current.mount = true;
+      startupTrace.mark("montage du layout racine (écran encore vide)");
+    }
+    if (fontsLoaded && !marked.current.painted) {
+      marked.current.painted = true;
+      startupTrace.mark("police chargée, première frame avec contenu");
+    }
+  }, [fontsLoaded]);
+
+  // Rapport automatique en développement seulement. Le délai laisse aux
+  // lectures des stores le temps de finir : les publier plus tôt donnerait un
+  // tableau à moitié vide, qu'on lirait à tort comme un démarrage rapide. En
+  // production, rien n'est journalisé — les mesures restent lisibles à la
+  // demande depuis l'écran Profil.
+  useEffect(() => {
+    if (!__DEV__) return;
+    const timer = setTimeout(() => {
+      const report = startupTrace.report();
+      console.log(
+        [
+          "[démarrage] mesures (origine : premier module JS)",
+          formatTrace(report),
+          ...summarizeTrace(report),
+          // Les écritures sont synchrones (cf. lib/localStore.ts) : ce sont
+          // elles, pas les lectures, qui bloquent le thread JS.
+          ...summarizeTrace(report, "écriture "),
+        ].join("\n")
+      );
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Rejoue les écritures cloud restées en attente d'un retour du réseau (cf.
+  // lib/syncQueue.ts) : au démarrage, puis à chaque retour de l'app au premier
+  // plan — c'est le moment où le téléphone a le plus de chances d'avoir
+  // retrouvé du réseau (sortie du manège, du van, d'un sous-sol). Pas de
+  // détection de connectivité dédiée : elle demanderait une dépendance de
+  // plus pour, au mieux, déclencher les mêmes reprises un peu plus tôt.
+  useEffect(() => {
+    retryPendingWrites().catch(() => {});
+    const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
+      if (next === "active") retryPendingWrites().catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!fontsLoaded) return null;
 
@@ -62,6 +136,7 @@ function RootLayout() {
     <PickerOverlayProvider>
     <GlossaryProvider>
       <SubscriptionProvider>
+        <TrialLifecycleSync />
         <RiderProfileProvider>
           <HorsesProvider>
             <WeightProvider>
@@ -69,24 +144,39 @@ function RootLayout() {
               <AgendaProvider>
                 <SessionsProvider>
                   <GoalsProvider>
+                  <CloudRefreshProvider>
                     <Stack screenOptions={{ headerShown: false }}>
                       <Stack.Screen name="index" />
                       <Stack.Screen name="(auth)" />
                       <Stack.Screen name="(onboarding)" />
                       <Stack.Screen name="(tabs)" />
                       <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="premium-welcome" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="document-viewer" options={{ presentation: "fullScreenModal", animation: "fade" }} />
                       <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="share-horse-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="invites-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="session-note-modal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="search" options={{ presentation: "modal" }} />
                       <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
                       <Stack.Screen name="reset-password" />
                     </Stack>
+                    {/* Icônes de la barre système en sombre, sur les deux
+                        plateformes. Toutes les palettes de l'app ont un fond
+                        clair (cf. theme/palettes.ts) : sans consigne
+                        explicite, la barre suit le mode du téléphone et
+                        passe en blanc sur blanc dès que l'appareil est en
+                        thème sombre — heure et batterie deviennent alors
+                        illisibles. Android est le cas le plus visible, le
+                        plein écran y étant imposé par la cible API 36. */}
+                    <StatusBar style="dark" />
                     <PasswordRecoveryListener />
                     <BiometricGate />
                     <LastCrashNotice />
+                  </CloudRefreshProvider>
                   </GoalsProvider>
                 </SessionsProvider>
               </AgendaProvider>

@@ -1,6 +1,6 @@
+import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Field } from "@/components/Field";
@@ -8,8 +8,14 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { PrimaryButton } from "@/components/onboarding";
 import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
+import { AttachmentPreview } from "@/agenda/components/AttachmentPreview";
+import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
+import { HorseTargetNotice } from "@/horses/components/HorseTargetNotice";
+import { FormDetails } from "@/components/FormDetails";
+import { needsExplicitHorseChoice, resolveTargetHorseIds, shouldOfferHorseChoice } from "@/horses/selectableHorses";
 import type { Appointment, ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
+import { AmountModeField } from "@/agenda/components/AmountModeField";
 import type { ExpenseFormValue } from "@/agenda/hooks/useExpenseForm";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -25,6 +31,9 @@ export function ExpenseForm({
   setForm,
   editingExpenseId,
   suggestedAppointmentFor,
+  selectableHorses = [],
+  fallbackHorseIds = [],
+  targetHorseName = null,
   onOpen,
   onCancel,
   onSubmit,
@@ -34,21 +43,62 @@ export function ExpenseForm({
   form: ExpenseFormValue;
   setForm: (updater: (f: ExpenseFormValue) => ExpenseFormValue) => void;
   editingExpenseId: string | null;
-  suggestedAppointmentFor: (category: ExpenseCategory) => Appointment | null;
+  /** `horseId` = le cheval effectivement visé par la dépense : le rapprochement
+   * doit porter sur SES rendez-vous, pas sur ceux du cheval actif (sinon une
+   * dépense pour B se liait au vaccin de A). Les écrans cadrés sur un seul
+   * cheval peuvent ignorer ce second argument. */
+  suggestedAppointmentFor: (category: ExpenseCategory, horseId: string | null) => Appointment | null;
+  /** Cf. AppointmentForm, même rôle et même provenance (useSelectableHorses). */
+  selectableHorses?: { id: string; name: string }[];
+  fallbackHorseIds?: string[];
+  /** Cf. AppointmentForm : cheval rappelé en tête du formulaire. */
+  targetHorseName?: string | null;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
   onPickPhoto: () => void;
 }) {
+  // Cf. AppointmentForm : hook avant le garde `!show` (le composant reste
+  // monté), et réaligné au passage création ↔ édition.
+  const [showDetails, setShowDetails] = useState(!!editingExpenseId);
+  const [syncedEditingId, setSyncedEditingId] = useState(editingExpenseId);
+  if (editingExpenseId !== syncedEditingId) {
+    setSyncedEditingId(editingExpenseId);
+    setShowDetails(!!editingExpenseId);
+  }
+
   if (!show) {
     return <AddToggle label="Ajouter une dépense" onPress={onOpen} color={colors.primary} />;
   }
+
+  const offerHorseChoice = !editingExpenseId && shouldOfferHorseChoice(selectableHorses, fallbackHorseIds);
+  const targetIds = offerHorseChoice
+    ? resolveTargetHorseIds(form.horseIds, selectableHorses, fallbackHorseIds)
+    : fallbackHorseIds;
+  // Modifier une dépense n'en crée qu'une : jamais de choix de chevaux ni de
+  // répartition, même si la cible par défaut de l'écran couvre plusieurs chevaux.
+  const targetCount = editingExpenseId ? 1 : Math.max(1, targetIds.length);
+  // Cf. AppointmentForm : en vue « Tous », rien n'est visé tant que rien
+  // n'est coché.
+  const missingHorseChoice =
+    !editingExpenseId && needsExplicitHorseChoice(form.horseIds, selectableHorses, fallbackHorseIds);
+  const parsedAmount = Number(form.amount.replace(",", "."));
+  /** Cf. components/FormDetails.tsx : ce qui est replié doit rester lisible
+   * d'un coup d'œil. */
+  const detailsSummary = [
+    form.notes.trim() ? "avec note" : "sans note",
+    form.fileUri ? "facture jointe" : null,
+    form.appointmentId ? "lié à un rendez-vous" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <View className={`${CARD} gap-3`}>
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
         {editingExpenseId ? "Modifier la dépense" : "Nouvelle dépense"}
       </Text>
+      {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
       <Field label="Catégorie">
         <ChipSelect
           options={Object.entries(EXPENSE_META).map(([value, meta]) => ({
@@ -60,6 +110,16 @@ export function ExpenseForm({
           onChange={(category) => setForm((f) => ({ ...f, category, appointmentId: null }))}
         />
       </Field>
+      {offerHorseChoice ? (
+        <HorseMultiSelect
+          horses={selectableHorses}
+          fallbackIds={fallbackHorseIds}
+          value={form.horseIds}
+          // Le lien vers un rendez-vous est propre à UN cheval : changer les
+          // chevaux cochés invalide celui qui aurait été choisi pour l'ancien.
+          onChange={(horseIds) => setForm((f) => ({ ...f, horseIds, appointmentId: null }))}
+        />
+      ) : null}
       <Field label="Montant (€)">
         <TextInput
           className={INPUT}
@@ -69,7 +129,15 @@ export function ExpenseForm({
           keyboardType="decimal-pad"
         />
       </Field>
+      <AmountModeField
+        mode={form.amountMode}
+        onChange={(amountMode) => setForm((f) => ({ ...f, amountMode }))}
+        horseCount={targetCount}
+        amount={parsedAmount}
+        noun="dépenses"
+      />
       <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
+      <FormDetails open={showDetails} onToggle={() => setShowDetails((v) => !v)} summary={detailsSummary}>
       <View className="gap-1.5">
         <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Notes (optionnel)</Text>
         <TextInput
@@ -80,7 +148,11 @@ export function ExpenseForm({
         />
       </View>
       {(() => {
-        const suggestion = suggestedAppointmentFor(form.category);
+        // Un rendez-vous n'appartient qu'à un cheval : le rapprochement n'a
+        // plus de sens dès que la dépense en vise plusieurs (cf.
+        // handleSubmitExpense, qui écarte alors `appointmentId`).
+        if (targetCount > 1) return null;
+        const suggestion = suggestedAppointmentFor(form.category, targetIds[0] ?? null);
         if (!suggestion) return null;
         const linked = form.appointmentId === suggestion.id;
         return (
@@ -108,15 +180,11 @@ export function ExpenseForm({
           Le reçu joint se gère depuis la fiche de la dépense, pas depuis ce formulaire.
         </Text>
       ) : (
-        <Locked message="Joindre une facture réservé à l'abonnement Premium (coffre-fort)">
+        <Locked message="Joins la facture à cette dépense pour la retrouver en deux secondes" placement="vault" feature="expense_invoice">
           {form.fileUri ? (
             <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
-              <Image
-                source={{ uri: form.fileUri }}
-                style={{ width: "100%", height: 128, borderRadius: 20 }}
-                contentFit="cover"
-              />
-              <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
+              <AttachmentPreview uri={form.fileUri} height={128} />
+              <Text className="text-center text-sm font-semibold text-accent">Changer la facture</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -125,19 +193,22 @@ export function ExpenseForm({
               className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
             >
               <MaterialCommunityIcons name="paperclip" size={17} color={colors.textMuted} />
-              <Text className="text-sm font-semibold text-muted">Joindre une facture</Text>
+              <Text className="text-sm font-semibold text-muted">Joindre une facture (photos ou PDF)</Text>
             </TouchableOpacity>
           )}
         </Locked>
       )}
+      </FormDetails>
       <View className="flex-row gap-2">
         <TouchableOpacity onPress={onCancel} className="flex-1 items-center rounded-card border border-border p-4">
           <Text className="text-base font-semibold text-muted">Annuler</Text>
         </TouchableOpacity>
         <View className="flex-1">
           <PrimaryButton
-            label={editingExpenseId ? "Enregistrer" : "Ajouter"}
-            disabled={!form.amount.trim() || !form.date || !(Number(form.amount.replace(",", ".")) > 0)}
+            label={editingExpenseId ? "Enregistrer" : targetCount > 1 ? `Ajouter (×${targetCount})` : "Ajouter"}
+            disabled={
+              !form.amount.trim() || !form.date || !(Number(form.amount.replace(",", ".")) > 0) || missingHorseChoice
+            }
             onPress={onSubmit}
           />
         </View>

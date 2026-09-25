@@ -9,7 +9,7 @@
  * Limite connue : seules les classes Tailwind (bg-primary, text-accent…)
  * suivent le thème en direct, via les variables CSS injectées par
  * ThemeProvider. Les teintes d'icônes définies dans les *_META à portée de
- * module (ex: EXPENSE_META dans agenda.tsx) restent figées sur la palette
+ * module (ex: EXPENSE_META dans agenda/meta.ts) restent figées sur la palette
  * Marine — accents secondaires/décoratifs, pas la couleur de marque
  * perçue de l'app.
  */

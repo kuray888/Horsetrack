@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fetchWeatherSnapshot } from "@/lib/weather";
-import { pickAndPersistImage } from "@/lib/imagePicker";
+import { chooseAndPersistImage } from "@/lib/imagePicker";
 import { daysFromNow, useAgenda, type ActivityType, type JournalEntry, type Mood } from "@/agenda/store";
 
 const emptyJournalForm = {
@@ -25,10 +25,17 @@ type AgendaActions = ReturnType<typeof useAgenda>;
 export function useJournalForm({
   addJournalEntry,
   updateJournalEntry,
+  horse = null,
   onEditStart,
 }: {
   addJournalEntry: AgendaActions["addJournalEntry"];
   updateJournalEntry: AgendaActions["updateJournalEntry"];
+  /** Cheval visé par la création. Omis par les écrans qui laissent
+   * `addJournalEntry` retomber sur le cheval actif (comportement d'origine) ;
+   * indispensable aux écrans cadrés sur un cheval précis qui ne changent PAS
+   * le cheval actif — la fiche cheval, depuis qu'ouvrir une fiche ne
+   * redéfinit plus le contexte global (cf. app/horse/[id]/index.tsx). */
+  horse?: { id: string } | null;
   onEditStart: () => void;
 }) {
   const [showJournalForm, setShowJournalForm] = useState(false);
@@ -79,6 +86,7 @@ export function useJournalForm({
         // doit pas empêcher d'enregistrer l'entrée de journal.
         const weather = await fetchWeatherSnapshot();
         addJournalEntry({
+          ...(horse ? { horseId: horse.id } : {}),
           activityType: journalForm.activityType,
           mood: journalForm.mood,
           notes: journalForm.notes.trim(),
@@ -95,7 +103,7 @@ export function useJournalForm({
   }
 
   async function handlePickJournalPhoto() {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPersistImage();
     if (uri) setJournalForm((f) => ({ ...f, photoUri: uri }));
   }
 

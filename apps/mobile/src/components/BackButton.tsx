@@ -15,7 +15,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
  * ex: Horse Hub → onglet "agenda" cachée) doit fournir une cible explicite —
  * revenir vers un écran déjà présent à la base de la pile Tabs efface tout
  * ce qui était empilé par-dessus (dont le Horse Hub), laissant `router.back()`
- * sans historique où revenir (cf. audit pré-publication, `agenda.tsx`). */
+ * sans historique où revenir (cf. audit pré-publication). */
 export function BackButton({ onPress }: { onPress?: () => void }) {
   const colors = useThemeColors();
   return (

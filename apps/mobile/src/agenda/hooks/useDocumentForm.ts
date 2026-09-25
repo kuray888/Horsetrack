@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { pickAndPersistDocumentFile } from "@/lib/imagePicker";
+import { chooseAndPickDocument } from "@/lib/imagePicker";
 import { useAgenda, type Doc, type DocumentCategory } from "@/agenda/store";
 
 const emptyDocForm = {
@@ -20,10 +20,16 @@ type AgendaActions = ReturnType<typeof useAgenda>;
 export function useDocumentForm({
   addDocument,
   updateDocument,
+  horse = null,
   onEditStart,
 }: {
   addDocument: AgendaActions["addDocument"];
   updateDocument: AgendaActions["updateDocument"];
+  /** Cheval visé par la création. Omis, `addDocument` retombe sur le cheval
+   * actif (comportement d'origine) ; indispensable aux écrans cadrés sur un
+   * cheval précis qui ne changent pas le contexte global — le coffre-fort
+   * d'une fiche cheval (cf. app/horse/[id]/documents.tsx). */
+  horse?: { id: string } | null;
   onEditStart: () => void;
 }) {
   const [showDocForm, setShowDocForm] = useState(false);
@@ -49,13 +55,19 @@ export function useDocumentForm({
     if (editingDocId) {
       updateDocument(editingDocId, { category: docForm.category, name: docForm.name.trim(), date, fileUri: docForm.fileUri });
     } else {
-      addDocument({ category: docForm.category, name: docForm.name.trim(), date, fileUri: docForm.fileUri });
+      addDocument({
+        ...(horse ? { horseId: horse.id } : {}),
+        category: docForm.category,
+        name: docForm.name.trim(),
+        date,
+        fileUri: docForm.fileUri,
+      });
     }
     cancelDocForm();
   }
 
-  async function handlePickDocPhoto() {
-    const uri = await pickAndPersistDocumentFile();
+  async function handlePickDocument() {
+    const uri = await chooseAndPickDocument();
     if (uri) setDocForm((f) => ({ ...f, fileUri: uri }));
   }
 
@@ -68,6 +80,6 @@ export function useDocumentForm({
     startEditDoc,
     cancelDocForm,
     handleSubmitDocument,
-    handlePickDocPhoto,
+    handlePickDocument,
   };
 }

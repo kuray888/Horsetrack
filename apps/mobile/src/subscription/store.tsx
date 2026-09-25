@@ -5,6 +5,9 @@ import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { withKeyLock } from "@/lib/keyLock";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
+import { track } from "@/lib/analytics";
+import { invalidatePaywallOffer } from "./paywall";
 import {
   ENTITLEMENT_ID,
   Purchases,
@@ -54,7 +57,7 @@ type SubscriptionContextValue = Persisted & {
    * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
   startTrial: (period: BillingPeriod) => Promise<Persisted>;
   refresh: () => Promise<void>;
-  applyCustomerInfo: (info: CustomerInfo) => void;
+  applyCustomerInfo: (info: CustomerInfo) => Promise<void>;
   /** Valide et applique un code promo — validation exclusivement côté serveur
    * (cf. apps/api/src/app/api/promo/redeem/route.ts), jamais sur la seule foi
    * de la valeur saisie ici. */
@@ -99,11 +102,109 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     setState(next);
   }, []);
 
+  /** Dernier état CONFIRMÉ, relu depuis le stockage sécurisé — pour
+   * `applyCustomerInfo` ci-dessous. Volontairement PAS `state` ni une ref sur
+   * lui : au lancement, `state` vaut encore DEFAULT ("free") tant que le
+   * premier chargement n'a pas abouti, et `refresh()` interroge RevenueCat
+   * AVANT d'avoir lu quoi que ce soit (cf. son ordre) ; l'écouteur SIGNED_IN
+   * peut par ailleurs déclencher applyCustomerInfo à tout moment. Le stockage
+   * est la seule source de vérité qui ne dépend d'aucun de ces ordonnancements. */
+  const readPersisted = useCallback(async (): Promise<Persisted> => {
+    const raw = await withKeyLock(KEY, () => SecureStore.getItemAsync(KEY));
+    return { ...DEFAULT, ...safeJsonParse<Partial<Persisted>>(raw, {}) };
+  }, []);
+
+  /** Essai par code promo connu du SERVEUR mais pas de cet appareil : nouvel
+   * iPhone, réinstallation, autre appareil. Le code n'est utilisable qu'une
+   * fois (« déjà utilisé »), et rien d'autre ne recopie l'essai serveur
+   * (rider_profiles.subscriptionStatus/trialEndsAt) vers l'app — sans ça, le
+   * serveur traitait le compte en Premium (quota de chevaux, coffre-fort)
+   * pendant que l'app le croyait gratuit et le paywallait pour toute la durée
+   * de l'essai. N'adopte que un essai ENCORE en cours ; jamais « actif » (un
+   * abonnement que RevenueCat ne voit plus peut être résilié, le webhook en
+   * retard). Best-effort : renvoie null au moindre doute. */
+  const readServerTrial = useCallback(async (): Promise<{ trial: Persisted; userId: string } | null> => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return null;
+      const userId = userData.user.id;
+      const { data, error } = await supabase
+        .from("rider_profiles")
+        .select("subscriptionStatus, trialEndsAt")
+        .eq("userId", userId)
+        .maybeSingle();
+      if (error || !data || data.subscriptionStatus !== "TRIALING" || !data.trialEndsAt) return null;
+      const trial: Persisted = {
+        status: "trialing",
+        billingPeriod: null,
+        trialEndsAt: new Date(data.trialEndsAt).toISOString(),
+      };
+      // `userId` est rendu à l'appelant pour qu'il vérifie, au moment d'écrire,
+      // que c'est toujours ce compte qui est connecté.
+      return computeIsActiveOrTrialing(trial) ? { trial, userId } : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const applyCustomerInfo = useCallback(
-    (info: CustomerInfo) => {
-      persistLocal(persistedFromCustomerInfo(info)).catch((e) => console.warn("[subscription] persistLocal échoué", e));
+    async (info: CustomerInfo) => {
+      const next = persistedFromCustomerInfo(info);
+      try {
+        // Un vrai achat/essai Apple vu par RevenueCat est toujours prioritaire :
+        // il écrase l'état local sans autre question.
+        if (next.status !== "free") {
+          await persistLocal(next);
+          return;
+        }
+        // RevenueCat ne voit rien. Un code promo (redeemPromoCode plus bas)
+        // accorde pourtant un essai directement en base
+        // (rider_profiles.subscriptionStatus/trialEndsAt côté serveur), sans
+        // jamais passer par RevenueCat/Apple — marqué localement par
+        // `billingPeriod: null` (seule valeur que redeemPromoCode écrit).
+        // RevenueCat répond donc "aucun entitlement actif" à CHAQUE lancement
+        // (cf. refresh()) : sans cette garde, `next` valait {status:"free",...}
+        // et écrasait aussitôt l'essai promo en local — dès le lancement
+        // suivant, potentiellement le jour même de son activation, bien avant
+        // sa vraie date d'expiration (cf. audit du 2026-09-18).
+        const current = await readPersisted();
+        const hasValidPromoTrial =
+          current.status === "trialing" && current.billingPeriod === null && computeIsActiveOrTrialing(current);
+        if (hasValidPromoTrial) {
+          // Rien à réécrire — mais il faut refléter l'essai dans l'état React,
+          // qui vaut encore DEFAULT au lancement : sans ce setState, l'essai
+          // survivait en Keychain tout en paywallant l'utilisateur pendant
+          // toute la session.
+          setState(current);
+          return;
+        }
+        await persistLocal(next);
+        // Rien de local ni chez RevenueCat : le serveur connaît peut-être un
+        // essai par code promo (cf. readServerTrial). Sans attendre — cette
+        // lecture réseau ne doit pas retarder le lancement de tous les comptes
+        // gratuits — et sans jamais écraser un état devenu Premium entre-temps
+        // (achat en cours, autre refresh).
+        readServerTrial()
+          .then(async (found) => {
+            if (!found) return;
+            // Le compte a pu changer pendant ces deux appels réseau
+            // (déconnexion, bascule vers un autre compte sur le même appareil —
+            // la même course que withKeyLock règle pour le Keychain). Écrire
+            // sans revérifier donnait l'essai d'un compte à un autre, et la
+            // garde anti-écrasement ci-dessus le lui conservait ensuite à
+            // chaque lancement, jusqu'à sa date de fin.
+            const { data: current } = await supabase.auth.getUser();
+            if (current.user?.id !== found.userId) return;
+            const latest = await readPersisted();
+            if (computeIsActiveOrTrialing(latest)) return;
+            await persistLocal(found.trial);
+          })
+          .catch((e) => console.warn("[subscription] restauration de l'essai promo échouée", e));
+      } catch (e) {
+        console.warn("[subscription] applyCustomerInfo échoué", e);
+      }
     },
-    [persistLocal]
+    [persistLocal, readPersisted, readServerTrial]
   );
 
   const refreshFromRevenueCat = useCallback(async () => {
@@ -116,7 +217,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (data.user) await loginRevenueCat(data.user.id);
       // Non-null : on n'arrive ici que si isPurchasesAvailable() est true (cf. refresh()).
       const info = await Purchases!.getCustomerInfo();
-      applyCustomerInfo(info);
+      await applyCustomerInfo(info);
     });
   }, [applyCustomerInfo]);
 
@@ -164,6 +265,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     refresh().catch(() => {});
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // L'éligibilité à l'essai est propre à chaque compte.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") invalidatePaywallOffer();
       if (!isPurchasesAvailable()) return;
       if (event === "SIGNED_IN" && session?.user) {
         withKeyLock("revenuecat", () => loginRevenueCat(session.user.id))
@@ -197,6 +300,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return { ok: false, message: "Connecte-toi pour utiliser un code promo." };
+    track("promo_code_submitted");
     try {
       const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/promo/redeem`, {
         method: "POST",
@@ -204,6 +308,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ code }),
       });
       const json = await res.json().catch(() => null);
+      track("promo_code_result", { ok: res.ok, applied: !!json?.applied });
       if (!res.ok) return { ok: false, message: json?.error ?? "Ce code promo n'est pas valide." };
       if (json.applied && json.trialEndsAt) {
         await persistLocal({ status: "trialing", billingPeriod: null, trialEndsAt: json.trialEndsAt });
@@ -283,24 +388,59 @@ export function useSubscribeFlow() {
   }, []);
 
   const subscribe = useCallback(
-    async (period: BillingPeriod, onSuccess: (persisted: Persisted) => void | Promise<void>) => {
+    async (
+      period: BillingPeriod,
+      onSuccess: (persisted: Persisted) => void | Promise<void>,
+      /** Contexte d'ouverture du paywall, pour les événements analytics. */
+      placement: string = "unknown"
+    ) => {
       setSubmitting(true);
+      track("purchase_started", { period, placement });
       try {
         if (!isPurchasesAvailable()) {
-          // RevenueCat pas encore configuré (.env vide) : simulation locale,
-          // identique au comportement avant le branchement RevenueCat.
-          const persisted = await startTrial(period);
-          await onSuccess(persisted);
+          // La simulation locale (30 jours de Premium accordés sans aucun
+          // paiement) est un outil de DÉVELOPPEMENT, jamais un repli
+          // acceptable dans une app publiée.
+          //
+          // Sur Android elle se déclenchait pour tout le monde : la clé
+          // RevenueCat Android est encore une clé Test Store ("test_…"), que
+          // lib/revenuecat.ts refuse hors Expo Go — `configurePurchases` ne
+          // configure donc rien, `isPurchasesAvailable()` reste false, et ce
+          // bloc offrait Premium gratuitement à chaque installation. Le
+          // serveur, lui, ne voit aucun abonnement (cf. le webhook RevenueCat
+          // et les règles RLS) : l'app affichait Premium pendant que toutes
+          // les écritures Premium étaient rejetées.
+          //
+          // Le même piège existe sur iOS dès que `Purchases.configure()`
+          // échoue (clé invalide, SDK non initialisable — cf. le catch de
+          // configurePurchases) : mieux vaut un message honnête qu'un faux
+          // Premium que le serveur ne reconnaîtra jamais.
+          if (__DEV__) {
+            const persisted = await startTrial(period);
+            track("purchase_completed", { period, placement, status: persisted.status, simulated: true });
+            await onSuccess(persisted);
+            return;
+          }
+          track("purchase_failed", { period, placement, reason: "purchases_unavailable" });
+          Alert.alert(
+            "Abonnement indisponible",
+            "L'abonnement n'est pas disponible sur cet appareil pour le moment. Vérifie ta connexion et réessaie — si le problème persiste, réessaie un peu plus tard."
+          );
           return;
         }
 
         const pkg = await getSubscriptionPackage(period);
         if (!pkg) {
+          track("purchase_failed", { period, placement, reason: "package_missing" });
           Alert.alert("Indisponible", "Cette offre n'est pas encore configurée. Réessaie plus tard.");
           return;
         }
         // Non-null : isPurchasesAvailable() a déjà été vérifié plus haut dans ce bloc.
-        const { customerInfo } = await Purchases!.purchasePackage(pkg);
+        // `runNativeInteraction` : l'écran de paiement du Play Store est une
+        // activité Android distincte, qui rejouerait sinon le verrou
+        // biométrique en plein achat (cf. lib/nativeInteraction.ts). Sans
+        // effet sur iOS.
+        const { customerInfo } = await runNativeInteraction(() => Purchases!.purchasePackage(pkg));
         // On calcule le résultat de l'achat ici plutôt que de laisser l'appelant
         // relire `subscription` (cf. useSubscription()) : applyCustomerInfo()
         // ci-dessous ne fait que programmer un re-render, donc toute closure
@@ -310,10 +450,18 @@ export function useSubscribeFlow() {
         // pendant l'onboarding supprimés juste après un abonnement Premium
         // réussi, car maxHorses() lisait encore l'état pré-achat.
         const persisted = persistedFromCustomerInfo(customerInfo);
-        applyCustomerInfo(customerInfo);
+        track("purchase_completed", { period, placement, status: persisted.status });
+        // L'éligibilité à l'essai vient d'être consommée : l'offre en cache
+        // (cf. usePaywallOffer) ne doit plus la promettre.
+        invalidatePaywallOffer();
+        await applyCustomerInfo(customerInfo);
         await onSuccess(persisted);
       } catch (e) {
-        if ((e as { userCancelled?: boolean })?.userCancelled) return;
+        if ((e as { userCancelled?: boolean })?.userCancelled) {
+          track("purchase_cancelled", { period, placement });
+          return;
+        }
+        track("purchase_failed", { period, placement, reason: "store_error" });
         Alert.alert(
           "Oups",
           "Impossible de finaliser l'achat. Vérifie ta connexion et réessaie — si le problème persiste, la boutique est peut-être temporairement indisponible."
@@ -326,6 +474,7 @@ export function useSubscribeFlow() {
   );
 
   const restore = useCallback(async () => {
+    track("restore_tapped");
     if (!isPurchasesAvailable()) {
       Alert.alert("Indisponible", "La restauration des achats sera possible une fois les abonnements activés.");
       return;
@@ -333,9 +482,12 @@ export function useSubscribeFlow() {
     setRestoring(true);
     try {
       // Non-null : isPurchasesAvailable() vérifié juste au-dessus.
-      const info = await Purchases!.restorePurchases();
-      applyCustomerInfo(info);
+      // `runNativeInteraction` : cf. `subscribe` ci-dessus.
+      const info = await runNativeInteraction(() => Purchases!.restorePurchases());
+      await applyCustomerInfo(info);
       const hasEntitlement = !!info.entitlements.active[ENTITLEMENT_ID];
+      track("restore_completed", { restored: hasEntitlement });
+      invalidatePaywallOffer();
       Alert.alert(hasEntitlement ? "Abonnement restauré" : "Rien à restaurer", hasEntitlement ? "" : "Aucun achat actif trouvé pour ce compte.");
     } catch {
       Alert.alert("Oups", "Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie.");

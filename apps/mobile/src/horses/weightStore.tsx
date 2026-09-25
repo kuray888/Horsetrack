@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import * as SecureStore from "expo-secure-store";
-import { safeJsonParse } from "@/lib/safeJsonParse";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
+import { mergeRemote } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushWeightMeasurement, deleteWeightMeasurementRemote } from "@/lib/cloudSync";
 import { useHorses } from "@/horses/store";
 
@@ -33,6 +35,9 @@ type WeightContextValue = {
   addMeasurement: (weightKg: number, date: Date) => void;
   deleteMeasurement: (id: string) => void;
   hydrateFromCloud: (measurements: WeightMeasurement[]) => void;
+  /** Fusionne une relecture du serveur sans écraser les saisies locales pas
+   * encore envoyées (cf. lib/mergeRemote.ts, lib/cloudRefresh.ts). */
+  mergeFromCloud: (measurements: WeightMeasurement[], pullStartedAt: number) => void;
   clearAll: () => Promise<void>;
   /** Purge locale des mesures d'UN cheval supprimé (cf. agenda/store.tsx
    * removeHorseData, même besoin) — pas de recalcul de Horse.weightKg
@@ -47,17 +52,29 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   const { horses, selectedHorse, updateHorse } = useHorses();
   const [measurements, setMeasurements] = useState<WeightMeasurement[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** Cf. `loadFailed` d'agenda/store.tsx : même protection, même raison. */
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Fusion d'une relecture du serveur seulement une fois la lecture locale
+  // terminée et réussie (cf. mergeFromCloud).
+  const syncReadyRef = useRef(false);
+  useEffect(() => {
+    syncReadyRef.current = loaded && !loadFailed;
+  }, [loaded, loadFailed]);
 
   useEffect(() => {
     (async () => {
       try {
-        const raw = await SecureStore.getItemAsync(WEIGHT_KEY);
-        const parsed = safeJsonParse<WeightMeasurement[] | null>(raw, null);
+        // Cf. lib/localStore.ts (fichier JSON + migration SecureStore).
+        const { ok, value: parsed } = await readJsonChecked<WeightMeasurement[] | null>(WEIGHT_KEY, null);
+        if (!ok) {
+          setLoadFailed(true);
+          console.warn("[poids] lecture ratée : écritures désactivées pour protéger le fichier existant");
+        }
         if (parsed) {
           setMeasurements(parsed.map((m) => ({ ...m, date: new Date(m.date) })));
         }
       } catch (e) {
-        console.warn("[weight] lecture SecureStore échouée", e);
+        console.warn("[weight] lecture du stockage local échouée", e);
       } finally {
         setLoaded(true);
       }
@@ -65,9 +82,9 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(measurements)).catch(() => {});
-  }, [measurements, loaded]);
+    if (!loaded || loadFailed) return;
+    writeJson(WEIGHT_KEY, measurements);
+  }, [measurements, loaded, loadFailed]);
 
   const addMeasurement = useCallback(
     (weightKg: number, date: Date) => {
@@ -126,14 +143,22 @@ export function WeightProvider({ children }: { children: ReactNode }) {
 
   const hydrateFromCloud = useCallback((remote: WeightMeasurement[]) => {
     setMeasurements(remote);
-    SecureStore.setItemAsync(WEIGHT_KEY, JSON.stringify(remote)).catch(() => {});
+    writeJson(WEIGHT_KEY, remote);
+  }, []);
+
+  const mergeFromCloud = useCallback((remote: WeightMeasurement[], pullStartedAt: number) => {
+    if (!syncReadyRef.current) return;
+    const guard = syncGuard("horse_weight_measurements", pullStartedAt, pendingIdsFor("horse_weight_measurements"));
+    // Persisté par l'effet d'écriture qui suit chaque changement.
+    setMeasurements((list) => mergeRemote(list, remote, guard).items);
+    noteRemoteSnapshot("horse_weight_measurements", remote.map((m) => m.id), pullStartedAt);
   }, []);
 
   const clearAll = useCallback(async () => {
-    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ce delete tourne dans le Promise.all de (auth)/login.tsx.afterSuccessfulAuth,
     // un rejet non catché ici plantait tout le groupe.
-    await SecureStore.deleteItemAsync(WEIGHT_KEY).catch(() => {});
+    await removeJson(WEIGHT_KEY);
     setMeasurements([]);
   }, []);
 
@@ -142,8 +167,8 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<WeightContextValue>(
-    () => ({ measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, removeHorseData, loading: !loaded }),
-    [measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, clearAll, removeHorseData, loaded]
+    () => ({ measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, mergeFromCloud, clearAll, removeHorseData, loading: !loaded }),
+    [measurements, addMeasurement, deleteMeasurement, hydrateFromCloud, mergeFromCloud, clearAll, removeHorseData, loaded]
   );
 
   return <WeightContext.Provider value={value}>{children}</WeightContext.Provider>;

@@ -10,7 +10,9 @@ function labelOf<T extends string>(options: { value: T; label: string }[], value
  * extrait tel quel de l'ancien bloc "Mon écurie" de profile.tsx (cf. plan
  * Phase 3 Étape 6), déplacé vers le Horse Hub qui est maintenant la vue
  * complète d'un cheval. Pure fonction : aucun effet de bord ici. */
-export function buildHorseShareText(horse: Horse): string {
+/** `downloadUrl` : lien de téléchargement ajouté en signature — chaque fiche
+ * partagée fait connaître l'app à qui la reçoit (cf. lib/links.ts). */
+export function buildHorseShareText(horse: Horse, downloadUrl: string | null = null): string {
   const currentYear = new Date().getFullYear();
   const lines: string[] = [`🐴 Fiche de ${horse.name}`, ""];
 
@@ -39,7 +41,7 @@ export function buildHorseShareText(horse: Horse): string {
     activeInjuries.forEach((i) => lines.push(`• ${i.type}${i.note ? ` — ${i.note}` : ""}`));
   }
 
-  lines.push("", "—", "Créé avec Horsetrack");
+  lines.push("", "—", downloadUrl ? `Créé avec Horsetrack · ${downloadUrl}` : "Créé avec Horsetrack");
 
   return lines.join("\n");
 }

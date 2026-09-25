@@ -1,6 +1,5 @@
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -10,6 +9,7 @@ import { Locked } from "@/components/Locked";
 import type { DocumentCategory } from "@/agenda/store";
 import { DOC_META } from "@/agenda/meta";
 import type { DocumentFormValue } from "@/agenda/hooks/useDocumentForm";
+import { AttachmentPreview } from "@/agenda/components/AttachmentPreview";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -26,7 +26,7 @@ export function DocumentForm({
   onOpen,
   onCancel,
   onSubmit,
-  onPickPhoto,
+  onPickDocument,
 }: {
   show: boolean;
   form: DocumentFormValue;
@@ -35,11 +35,11 @@ export function DocumentForm({
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
-  onPickPhoto: () => void;
+  onPickDocument: () => void;
 }) {
   if (!show) {
     return (
-      <Locked message="Abonne-toi pour ajouter un document">
+      <Locked message="Range ordonnances, factures et carnet de santé au même endroit" placement="vault" feature="document_add">
         <AddToggle label="Ajouter un document" onPress={onOpen} color={colors.primary} />
       </Locked>
     );
@@ -71,22 +71,18 @@ export function DocumentForm({
       </Field>
       <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
       {form.fileUri ? (
-        <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
-          <Image
-            source={{ uri: form.fileUri }}
-            style={{ width: "100%", height: 128, borderRadius: 20 }}
-            contentFit="cover"
-          />
-          <Text className="text-center text-sm font-semibold text-accent">Changer la photo</Text>
+        <TouchableOpacity onPress={onPickDocument} activeOpacity={0.8} className="gap-2">
+          <AttachmentPreview uri={form.fileUri} />
+          <Text className="text-center text-sm font-semibold text-accent">Changer le document</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
-          onPress={onPickPhoto}
+          onPress={onPickDocument}
           activeOpacity={0.8}
           className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
         >
           <MaterialCommunityIcons name="paperclip" size={17} color={colors.textMuted} />
-          <Text className="text-sm font-semibold text-muted">Joindre une photo du document</Text>
+          <Text className="text-sm font-semibold text-muted">Joindre des photos ou un PDF</Text>
         </TouchableOpacity>
       )}
       <View className="flex-row gap-2">

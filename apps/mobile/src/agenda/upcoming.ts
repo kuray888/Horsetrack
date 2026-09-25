@@ -13,7 +13,9 @@ export function findNextSession(sessions: TrainingSession[], horseId: string, to
 }
 
 /** Prochaine échéance de soin (ex: prochain vaccin) d'un cheval — même
- * logique que agenda.tsx (upcomingDueDates), restreinte à un cheval donné. */
+ * logique que l'ancien écran Agenda (upcomingDueDates), restreinte à un
+ * cheval donné — cf. app/horse/[id]/sante.tsx, qui porte désormais ces
+ * échéances. */
 export function findNextDue(appointments: Appointment[], horseId: string, today: Date): Appointment | null {
   return (
     appointments

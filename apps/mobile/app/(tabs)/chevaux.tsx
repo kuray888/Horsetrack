@@ -9,10 +9,13 @@ import { Locked } from "@/components/Locked";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses, type Horse } from "@/horses/store";
 import { maxHorses, useSubscription } from "@/subscription/store";
+import { openPaywall } from "@/subscription/paywall";
 import { useSessions } from "@/sessions/store";
+import { HorseHub } from "@/horses/components/HorseHub";
 import { useAgenda, ACTIVITY_META } from "@/agenda/store";
 import { APPT_META, daysUntilLabel } from "@/agenda/meta";
 import { findNextSession, findNextDue } from "@/agenda/upcoming";
+import { useCloudRefresh } from "@/lib/cloudRefresh";
 import { DISCIPLINES, HORSE_LEVELS } from "@/onboarding/options";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -79,7 +82,7 @@ function HorseRow({
     </TouchableOpacity>
   );
   return locked ? (
-    <Locked message="Débloque ce cheval avec Horsetrack Premium">{card}</Locked>
+    <Locked message="Retrouve ce cheval avec Premium : ses données sont conservées" placement="horses" feature="locked_horse" horseId={horse.id}>{card}</Locked>
   ) : (
     card
   );
@@ -90,9 +93,13 @@ export default function ChevauxScreen() {
   const { horses, selectedHorse, selectHorse, syncFailed, retrySync } = useHorses();
   const [refreshing, setRefreshing] = useState(false);
 
+  const { refresh: refreshFromCloud } = useCloudRefresh();
+  // Tirer pour rafraîchir : envoie d'abord l'écurie locale, puis relit le
+  // serveur (nouveaux chevaux partagés, modifications faites ailleurs).
   async function onRefresh() {
     setRefreshing(true);
     await retrySync();
+    await refreshFromCloud();
     setRefreshing(false);
   }
   const subscription = useSubscription();
@@ -110,10 +117,11 @@ export default function ChevauxScreen() {
   const sharedHorses = horses.filter((h) => h.sharedRole);
 
   function openHorse(horse: Horse) {
-    // Le Horse Hub (app/horse/[id]/index.tsx) re-sélectionne aussi ce cheval
-    // à son montage (même garantie), mais on le fait déjà ici pour que le
-    // contexte global soit cohérent dès la navigation, sans attendre un
-    // aller-retour de rendu.
+    // Seul endroit où ouvrir une fiche change encore le cheval actif, et
+    // volontairement : cet écran EST le sélecteur de cheval — il marque la
+    // ligne active (cf. `isActive`), et y toucher une ligne se lit comme
+    // « je passe sur ce cheval ». Ailleurs, consulter une fiche laisse le
+    // contexte global tel quel (cf. app/horse/[id]/index.tsx).
     selectHorse(horse.id);
     router.push(`/horse/${horse.id}`);
   }
@@ -131,6 +139,21 @@ export default function ChevauxScreen() {
         onPress={() => openHorse(horse)}
       />
     );
+  }
+
+  // Une écurie d'un seul cheval n'a pas de liste à parcourir : cet onglet
+  // affichait une ligne unique, qu'il fallait toucher pour atteindre la fiche
+  // — deux appuis pour l'écran le plus utilisé de l'app, et un écran
+  // intermédiaire qui n'apprenait rien. On rend la fiche directement.
+  //
+  // Rendu du composant, PAS une redirection : un écran qui redirige à son
+  // montage (même via <Redirect>) plantait en TestFlight — cf.
+  // horses/horseHubNavigation.test.ts et l'ancien horse/[id]/entrainement.tsx.
+  //
+  // Dès deux chevaux (partagé compris), la liste reprend sa place : c'est là
+  // qu'elle sert, et elle reste le sélecteur de cheval actif de l'app.
+  if (horses.length === 1) {
+    return <HorseHub horseId={horses[0].id} inTab />;
   }
 
   return (
@@ -164,6 +187,24 @@ export default function ChevauxScreen() {
           <FadeInView delay={40}>
             <Text className="text-sm font-bold uppercase tracking-wide text-muted">Mes chevaux</Text>
           </FadeInView>
+          {/* Retour au palier gratuit (fin d'essai, résiliation) : les chevaux
+              au-delà du premier restent là, verrouillés. On dit explicitement
+              que rien n'est perdu — c'est vrai, et c'est ce qui inquiète. */}
+          {!subscription.loading && ownedHorses.length > horseLimit ? (
+            <FadeInView delay={60}>
+              <TouchableOpacity
+                onPress={() => openPaywall("horses", { feature: "locked_horses_banner" })}
+                activeOpacity={0.85}
+                className="flex-row items-center gap-3 rounded-card bg-highlight p-4"
+              >
+                <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.primary} />
+                <Text className="flex-1 text-sm text-text">
+                  Tes autres chevaux sont conservés, avec toutes leurs données. Premium te permet de les retrouver.
+                </Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </FadeInView>
+          ) : null}
           {ownedHorses.map((horse, i) => (
             <FadeInView key={horse.id} delay={80 + i * 60}>
               {rowFor(horse, i >= horseLimit)}

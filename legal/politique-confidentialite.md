@@ -2,7 +2,7 @@
 
 > **Brouillon de travail — pas une validation juridique.** Rédigé à partir du fonctionnement réel de l'app (vérifié dans le code : ce qui est collecté, où c'est stocké, à qui c'est transmis), pas d'un modèle générique. À faire relire par un professionnel du droit avant publication, et à tenir à jour si de nouvelles fonctionnalités changent les traitements décrits ici. Remplace les passages entre crochets `[...]` avant publication.
 
-**Dernière mise à jour : 3 septembre 2026**
+**Dernière mise à jour : 25 septembre 2026**
 
 ## 1. Qui sommes-nous
 
@@ -20,8 +20,10 @@ Contact pour toute question relative à vos données : horsetrack.app@gmail.com.
 | Agenda, journal, finances | Rendez-vous, notes de journal (humeur, activité, météo), documents du coffre-fort, dépenses liées à un cheval | Utilisation normale de l'app |
 | Données d'abonnement | Statut d'abonnement (essai, actif, expiré), identifiant RevenueCat — **pas vos moyens de paiement**, traités exclusivement par Apple/Google | Souscription à un abonnement |
 | Données techniques | Jeton de session, identifiant utilisateur, date de dernière mise à jour | Utilisation normale de l'app |
+| Mesure d'usage | Écrans consultés et actions effectuées dans l'app (ex. « formule annuelle choisie », « rappel créé »), version de l'app, système du téléphone, rattachés à votre identifiant utilisateur — **jamais** le contenu de vos fiches (noms, notes, documents) | Utilisation normale de l'app |
+| Photos prises avec l'appareil | Photo d'un cheval, d'une ordonnance ou d'une facture, uniquement quand vous choisissez « Prendre une photo » | Ajout d'une photo ou d'un document |
 
-**Nous ne collectons pas** : votre localisation précise, vos contacts, des données de navigation publicitaire, ni aucun identifiant à des fins de tracking publicitaire — l'Application n'intègre aucun SDK publicitaire ni outil d'analyse comportementale tiers.
+**Nous ne collectons pas** : votre localisation précise, vos contacts, des données de navigation publicitaire, ni aucun identifiant à des fins de tracking publicitaire — l'Application n'intègre aucun SDK publicitaire. La mesure d'usage ci-dessus sert uniquement à améliorer l'Application ; elle n'est ni revendue, ni croisée avec des données d'autres applications ou sites.
 
 **Précision sur les données de santé** : les informations relatives à l'état de santé saisies dans l'Application concernent votre **cheval** (blessures, conditions de santé), pas vous-même — il ne s'agit pas de données de santé au sens du RGPD pour ce qui vous concerne personnellement.
 
@@ -33,12 +35,13 @@ Contact pour toute question relative à vos données : horsetrack.app@gmail.com.
 - Permettre le partage d'un cheval avec une demi-pension ou un coach que vous invitez.
 - Gérer votre abonnement et votre période d'essai.
 - Assurer la sécurité du service (authentification, limitation d'usage abusif).
+- Comprendre comment l'Application est utilisée (écrans qui posent problème, fonctions utiles ou ignorées) pour l'améliorer.
 
 Nous ne revendons aucune de vos données et ne les utilisons à aucune fin publicitaire.
 
 ## 4. Base légale du traitement
 
-Le traitement de vos données repose sur l'exécution du contrat qui nous lie (fourniture du service que vous avez demandé en créant un compte), et, pour les notes libres et données optionnelles, sur votre consentement explicite lors de leur saisie.
+Le traitement de vos données repose sur l'exécution du contrat qui nous lie (fourniture du service que vous avez demandé en créant un compte), et, pour les notes libres et données optionnelles, sur votre consentement explicite lors de leur saisie. La mesure d'usage repose sur notre intérêt légitime à améliorer l'Application ; vous pouvez vous y opposer en nous écrivant à l'adresse de contact ci-dessus.
 
 ## 5. À qui transmettons-nous vos données
 
@@ -50,6 +53,7 @@ Nous faisons appel à des prestataires techniques tiers, strictement nécessaire
 | **Resend** | Envoi des emails de rappel de rendez-vous et des emails d'invitation à partager un cheval | Adresse email du destinataire, contenu de l'email (nom du cheval, type de rendez-vous ou d'invitation) |
 | **RevenueCat** | Gestion des abonnements et synchronisation avec Apple/Google | Statut d'abonnement, identifiant utilisateur |
 | **Apple (App Store) / Google (Play Store)** | Traitement des paiements d'abonnement | Moyens de paiement (nous n'y avons jamais accès) |
+| **PostHog** | Mesure d'usage de l'Application (serveurs situés en Union Européenne) | Mesure d'usage décrite en section 2, identifiant utilisateur |
 
 Resend étant basé aux États-Unis, l'envoi d'emails constitue un transfert de données hors Union Européenne, encadré par les clauses contractuelles types (CCT) prévues par la réglementation européenne.
 

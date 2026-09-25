@@ -1,9 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
-import * as SecureStore from "expo-secure-store";
-import { safeJsonParse } from "@/lib/safeJsonParse";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
+import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
+import { mergeRemote } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushTrainingSession, deleteTrainingSessionRemote } from "@/lib/cloudSync";
 import type { ActivityType } from "@/agenda/store";
 import { useHorses } from "@/horses/store";
+import { recordPositiveMoment } from "@/lib/reviewPrompt";
 
 /**
  * Séances d'entraînement planifiées manuellement par le cavalier — remplace
@@ -48,7 +51,16 @@ function generateId(): string {
 
 type SessionsContextValue = {
   sessions: TrainingSession[];
-  addSession: (session: NewTrainingSession) => void;
+  /** `horseId` optionnel : sinon, rattaché au cheval globalement sélectionné
+   * — même mécanisme que `addAppointment`/`addJournalEntry` (cf.
+   * agenda/store.tsx), pour qu'un écran filtré sur un cheval précis (vue
+   * « Tous les chevaux » du Planning) puisse créer là où il affiche.
+   *
+   * `completed` optionnel, faux par défaut (comportement d'origine) : une
+   * séance saisie après coup est déjà faite, la cocher ensuite serait un
+   * deuxième geste pour rien (cf. le choix « Déjà faite » du formulaire de
+   * Planning). Même champ que `toggleCompleted`, aucun nouveau modèle. */
+  addSession: (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => void;
   updateSession: (session: TrainingSession) => void;
   deleteSession: (sessionId: string) => void;
   toggleCompleted: (sessionId: string) => void;
@@ -56,9 +68,14 @@ type SessionsContextValue = {
    * date/heure — utilisé par Today pour la carte "prochaine séance". */
   upcomingForSelectedHorse: TrainingSession[];
   hydrateFromCloud: (sessions: TrainingSession[]) => void;
+  /** Fusionne une relecture du serveur sans écraser les saisies locales pas
+   * encore envoyées (cf. lib/mergeRemote.ts, lib/cloudRefresh.ts). */
+  mergeFromCloud: (sessions: TrainingSession[], pullStartedAt: number) => void;
   /** Efface les séances locales (changement/déconnexion de compte sur cet
    * appareil, cf. (auth)/login.tsx, (onboarding)/account.tsx). */
   clearAll: () => Promise<void>;
+  /** Cf. `saveFailed` d'agenda/store.tsx. */
+  saveFailed: boolean;
   /** Purge locale des séances d'UN cheval supprimé (cf. agenda/store.tsx
    * removeHorseData, même besoin — cascade Postgres déjà fait côté serveur). */
   removeHorseData: (horseId: string) => void;
@@ -71,19 +88,36 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const { horses, selectedHorse, loading: horsesLoading } = useHorses();
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** Cf. `loadFailed` d'agenda/store.tsx : une lecture ratée coupe les
+   * écritures, sans quoi l'état vide écraserait le fichier illisible. */
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Fusion d'une relecture du serveur seulement une fois la lecture locale
+  // terminée et réussie (cf. mergeFromCloud).
+  const syncReadyRef = useRef(false);
+  useEffect(() => {
+    syncReadyRef.current = loaded && !loadFailed;
+  }, [loaded, loadFailed]);
+  /** Cf. `saveFailed` d'agenda/store.tsx : même rôle, même raison. */
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const raw = await SecureStore.getItemAsync(SESSIONS_KEY);
-        const parsed = safeJsonParse<TrainingSession[] | null>(raw, null);
+        // Fichier JSON, avec recopie de l'ancienne valeur SecureStore à la
+        // première lecture (cf. lib/localStore.ts).
+        const { ok, value: parsed } = await readJsonChecked<TrainingSession[] | null>(SESSIONS_KEY, null);
+        if (!ok) {
+          setLoadFailed(true);
+          console.warn("[sessions] lecture ratée : écritures désactivées pour protéger le fichier existant");
+        }
         if (parsed) {
           setSessions(
             parsed.map((s) => ({ ...s, date: new Date(s.date), customActivityLabel: s.customActivityLabel ?? null }))
           );
         }
       } catch (e) {
-        console.warn("[sessions] lecture SecureStore échouée", e);
+        console.warn("[sessions] lecture du stockage local échouée", e);
+        setLoadFailed(true);
       } finally {
         setLoaded(true);
       }
@@ -106,13 +140,19 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, [loaded, horsesLoading, horses, selectedHorse]);
 
   useEffect(() => {
-    if (!loaded) return;
-    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
-  }, [sessions, loaded]);
+    if (!loaded || loadFailed) return;
+    writeJson(SESSIONS_KEY, sessions).then((ok) => setSaveFailed(!ok));
+  }, [sessions, loaded, loadFailed]);
 
   const addSession = useCallback(
-    (session: NewTrainingSession) => {
-      const next: TrainingSession = { ...session, id: generateId(), horseId: selectedHorse?.id ?? null, completed: false };
+    (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => {
+      const { horseId: explicitHorseId, completed, ...rest } = session;
+      const next: TrainingSession = {
+        ...rest,
+        id: generateId(),
+        horseId: explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null),
+        completed: completed ?? false,
+      };
       setSessions((list) => [...list, next]);
       pushTrainingSession(next).catch(() => {});
     },
@@ -136,13 +176,24 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       const next = { ...target, completed: !target.completed };
       setSessions((list) => list.map((s) => (s.id === sessionId ? next : s)));
       pushTrainingSession(next).catch(() => {});
+      // Séance cochée : le moment le plus satisfaisant de l'app (cf. demande
+      // d'avis, lib/reviewPrompt.ts).
+      if (next.completed) recordPositiveMoment("session_done");
     },
     [sessions]
   );
 
   const hydrateFromCloud = useCallback((remote: TrainingSession[]) => {
     setSessions(remote);
-    SecureStore.setItemAsync(SESSIONS_KEY, JSON.stringify(remote)).catch(() => {});
+    writeJson(SESSIONS_KEY, remote).then((ok) => setSaveFailed(!ok));
+  }, []);
+
+  const mergeFromCloud = useCallback((remote: TrainingSession[], pullStartedAt: number) => {
+    if (!syncReadyRef.current) return;
+    const guard = syncGuard("training_sessions", pullStartedAt, pendingIdsFor("training_sessions"));
+    // Persisté par l'effet d'écriture qui suit chaque changement de `sessions`.
+    setSessions((list) => mergeRemote(list, remote, guard).items);
+    noteRemoteSnapshot("training_sessions", remote.map((s) => s.id), pullStartedAt);
   }, []);
 
   const removeHorseData = useCallback((horseId: string) => {
@@ -150,10 +201,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
-    // Best-effort : cf. audit crash SecureStore Apple Sign In du 2026-09-09 —
+    // Best-effort : cf. audit crash stockage Apple Sign In du 2026-09-09 —
     // ce delete tourne dans le Promise.all de (auth)/login.tsx.afterSuccessfulAuth,
     // un rejet non catché ici plantait tout le groupe.
-    await SecureStore.deleteItemAsync(SESSIONS_KEY).catch(() => {});
+    await removeJson(SESSIONS_KEY);
     setSessions([]);
   }, []);
 
@@ -175,8 +226,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       toggleCompleted,
       upcomingForSelectedHorse,
       hydrateFromCloud,
+      mergeFromCloud,
       clearAll,
       removeHorseData,
+      saveFailed,
       loading: !loaded,
     }),
     [
@@ -187,8 +240,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       toggleCompleted,
       upcomingForSelectedHorse,
       hydrateFromCloud,
+      mergeFromCloud,
       clearAll,
       removeHorseData,
+      saveFailed,
       loaded,
     ]
   );

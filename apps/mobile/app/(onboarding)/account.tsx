@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
+import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { translateAuthError } from "@/lib/authErrors";
@@ -11,7 +12,9 @@ import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import { pullPendingInvites } from "@/lib/sharing";
 import { withTimeout } from "@/lib/withTimeout";
+import { track } from "@/lib/analytics";
 import { useSessions } from "@/sessions/store";
+import { clearSyncQueue } from "@/lib/syncQueue";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
@@ -22,6 +25,10 @@ const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-t
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function OnboardingAccount() {
+  useEffect(() => {
+    track("onboarding_step_viewed", { step: "account" });
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -35,6 +42,13 @@ export default function OnboardingAccount() {
   // n'est pas confirmé). Si la confirmation n'est pas requise pour ce projet
   // (data.session déjà présent après signUp), cet écran n'est jamais montré.
   const [step, setStep] = useState<"form" | "confirmEmail">("form");
+  // Vrai tant qu'on ignore s'il existe déjà une session (cf. l'effet plus bas).
+  // Le Keychain survit à la désinstallation de l'app sur iOS : après une
+  // réinstallation (TestFlight surtout), une session reste souvent en place
+  // alors que l'onboarding n'est pas terminé. Sans ce garde, le formulaire
+  // e-mail / mot de passe / confirmation s'affichait un instant avant d'être
+  // remplacé par l'étape suivante.
+  const [checkingSession, setCheckingSession] = useState(true);
   const [checkingConfirmation, setCheckingConfirmation] = useState(false);
   const [notConfirmedYet, setNotConfirmedYet] = useState(false);
   const [resending, setResending] = useState(false);
@@ -57,10 +71,17 @@ export default function OnboardingAccount() {
   // vides et le bouton "Créer mon compte" resterait désactivé sans porte
   // de sortie : on poursuit directement dès que l'écran s'affiche.
   useEffect(() => {
+    // Filet : si la poursuite automatique traîne (réseau lent pendant
+    // pullPendingInvites), on finit par montrer le formulaire plutôt que de
+    // laisser un écran de chargement sans issue.
+    const safetyTimer = setTimeout(() => setCheckingSession(false), 5000);
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
-        if (!data.session) return;
+        if (!data.session) {
+          setCheckingSession(false);
+          return;
+        }
         // Seul des 5 endroits de ce fichier qui poursuit après authentification
         // sans passer par afterAccountObtained() d'abord — les 4 autres
         // réconcilient toujours local_data_owner en premier. Rien n'a permis de
@@ -69,9 +90,12 @@ export default function OnboardingAccount() {
         // qu'un futur changement le fasse.
         const userId = data.session.user.id;
         await afterAccountObtained(userId);
-        continueAfterAuth();
+        // Le chargement reste affiché pendant la navigation : on ne le retire
+        // qu'en cas d'échec, pour révéler le formulaire.
+        await continueAfterAuth();
       })
-      .catch(() => {});
+      .catch(() => setCheckingSession(false));
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   /** Compte créé ou retrouvé : direction le parcours normal (profil cavalier
@@ -99,8 +123,27 @@ export default function OnboardingAccount() {
 
   async function afterAccountObtained(userId: string) {
     const owner = await getLocalDataOwner();
-    if (owner && owner !== userId) {
-      await Promise.all([clearSessions(), clearAgenda(), clearGoals(), clearWeight(), clearSubscription()]);
+    // Pas de garde `owner &&` : un propriétaire ABSENT ne veut pas dire « rien
+    // à nettoyer ». C'est précisément l'état que laisse une suppression de
+    // compte (clearLocalDataOwner), et la garde faisait alors hériter le
+    // nouveau compte des données de l'ancien, qu'il repoussait ensuite dans SON
+    // cloud (cf. audit du 2026-09-23). Sur une installation neuve, ces purges
+    // ne trouvent rien : elles ne coûtent qu'un fichier vide écrit.
+    //
+    // Purger ici ne risque pas d'effacer une saisie en cours : le compte est
+    // obtenu AVANT les écrans qui collectent quoi que ce soit (cf.
+    // continueAfterAuth, qui enchaîne seulement ensuite sur rider-level).
+    if (owner !== userId) {
+      await Promise.all([
+        clearSessions(),
+        clearAgenda(),
+        clearGoals(),
+        clearWeight(),
+        clearSubscription(),
+        // Écritures en attente d'un autre compte : elles ne doivent pas partir
+        // sous cette identité-ci (cf. lib/syncQueue.ts).
+        clearSyncQueue(),
+      ]);
     }
     await setLocalDataOwner(userId);
   }
@@ -243,6 +286,14 @@ export default function OnboardingAccount() {
     setNotConfirmedYet(false);
     setResendResult(null);
     setResendCooldown(0);
+  }
+
+  if (checkingSession) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-background" edges={["top", "bottom"]}>
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
   }
 
   if (step === "confirmEmail") {

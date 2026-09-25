@@ -1,10 +1,12 @@
 import { Alert, Linking, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Locked } from "@/components/Locked";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
 import type { Doc } from "@/agenda/store";
 import { DOC_META } from "@/agenda/meta";
 
@@ -13,26 +15,38 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 /** Un PDF ne peut pas être décodé par <Image> (cf. audit pré-publication :
  * écran vide à l'ouverture) — détecté via filePath (chemin Storage brut,
  * une fois synchronisé) ou fileUri (fichier local pas encore synchronisé,
- * cf. lib/imagePicker.ts pickAndPersistDocumentFile). Pas via l'URL signée
+ * cf. lib/imagePicker.ts pickAndPersistDocument). Pas via l'URL signée
  * elle-même : son "?token=..." final empêcherait un simple `.endsWith`. */
 function isPdfDoc(doc: Doc): boolean {
   return (doc.filePath ?? doc.fileUri ?? "").toLowerCase().endsWith(".pdf");
 }
 
-/** Ouvre le PDF dans le lecteur natif — Quick Look (iOS) / equivalent Android
- * pour un fichier local pas encore synchronisé, Safari/Chrome pour une URL
- * signée distante (déjà consultable telle quelle, pas besoin de la
- * retélécharger). */
-async function openPdf(fileUri: string) {
+/** Ouvre un PDF. Fichier local (pas encore synchronisé) : feuille de partage
+ * système — ce N'EST PAS un lecteur (elle propose d'enregistrer ou de
+ * partager, cf. le commentaire erroné d'origine qui parlait de Quick Look) ;
+ * un vrai affichage in-app d'un PDF exige un module natif que le projet n'a
+ * pas. URL signée distante : Safari/Chrome, qui l'affichent tel quel.
+ *
+ * Les PHOTOS n'utilisent plus cette fonction : elles ont leur visionneur
+ * plein écran (cf. app/document-viewer.tsx, `openPhoto` ci-dessous). */
+async function openDocument(fileUri: string, mimeType: string) {
+  // `runNativeInteraction` : feuille de partage et navigateur sont des
+  // activités Android distinctes, qui rejoueraient sinon le verrou biométrique
+  // au retour (cf. lib/nativeInteraction.ts). Sans effet sur iOS.
   if (fileUri.startsWith("file://")) {
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(fileUri, { mimeType: "application/pdf" });
+      await runNativeInteraction(() => Sharing.shareAsync(fileUri, { mimeType }));
     } else {
       Alert.alert("Impossible d'ouvrir", "Aucune application disponible pour afficher ce document.");
     }
     return;
   }
-  await Linking.openURL(fileUri);
+  await runNativeInteraction(() => Linking.openURL(fileUri));
+}
+
+/** Ouvre une photo de document en grand dans la visionneuse intégrée. */
+function openPhoto(uri: string, title: string) {
+  router.push({ pathname: "/document-viewer", params: { uri, title } });
 }
 
 export function DocumentCard({
@@ -66,7 +80,7 @@ export function DocumentCard({
         <View className="mt-4 gap-2 border-t border-border pt-4">
           {doc.fileUri && isPdfDoc(doc) ? (
             <TouchableOpacity
-              onPress={() => openPdf(doc.fileUri!)}
+              onPress={() => openDocument(doc.fileUri!, "application/pdf")}
               activeOpacity={0.8}
               className="flex-row items-center justify-center gap-2 rounded-card border border-border p-4"
             >
@@ -74,11 +88,20 @@ export function DocumentCard({
               <Text className="text-sm font-semibold text-accent">Consulter le PDF</Text>
             </TouchableOpacity>
           ) : doc.fileUri ? (
-            <Image
-              source={{ uri: doc.fileUri }}
-              style={{ width: "100%", height: 160, borderRadius: 20 }}
-              contentFit="cover"
-            />
+            <TouchableOpacity
+              onPress={() => openPhoto(doc.fileUri!, doc.name)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Ouvrir le document en grand"
+              className="gap-2"
+            >
+              <Image
+                source={{ uri: doc.fileUri }}
+                style={{ width: "100%", height: 260, borderRadius: 20 }}
+                contentFit="contain"
+              />
+              <Text className="text-center text-xs font-semibold text-accent">Toucher pour ouvrir en grand</Text>
+            </TouchableOpacity>
           ) : (
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="paperclip" size={15} color={colors.textMuted} />
@@ -91,7 +114,7 @@ export function DocumentCard({
               voyait son "Modifier"/"Supprimer" mettre à jour l'affichage local
               en silence pendant que le serveur rejetait l'écriture, cf. audit
               pré-publication. */}
-          <Locked message="Modifier ou supprimer un document réservé à l'abonnement Premium">
+          <Locked message="Tes documents restent consultables. Pour les modifier ou les supprimer, Premium doit être actif." placement="vault" feature="document_manage">
             <View className="mt-1 flex-row items-center gap-4">
               <TouchableOpacity onPress={onEdit} activeOpacity={0.7}>
                 <Text className="text-sm font-semibold text-accent">Modifier</Text>

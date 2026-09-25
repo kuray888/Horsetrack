@@ -19,11 +19,12 @@ import {
   HORSE_TEMPERAMENTS,
   HORSE_TRAITS,
   HORSE_WORKLOADS,
-  NO_HEALTH_CONDITION,
   REST_DAY_ACTIVITIES,
 } from "@/onboarding/options";
 import type { Injury, NewHorse } from "@/horses/store";
-import { pickAndPersistImage } from "@/lib/imagePicker";
+import { chooseAndPersistImage } from "@/lib/imagePicker";
+import { toggleHealthCondition } from "@/horses/healthConditions";
+import { generateInjuryId } from "@/horses/injuries";
 import { CoatField } from "@/components/CoatField";
 import type { Discipline, HorseFitnessLevel, HorseLevel, HorseSex, HorseWorkload } from "@/onboarding/store";
 
@@ -59,18 +60,6 @@ export const EMPTY_HORSE_DRAFT: HorseFormDraft = {
 
 function toggle(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
-}
-
-function toggleHealthCondition(list: string[], value: string): string[] {
-  if (value === NO_HEALTH_CONDITION) {
-    return list.includes(NO_HEALTH_CONDITION) ? [] : [NO_HEALTH_CONDITION];
-  }
-  const withoutNone = list.filter((v) => v !== NO_HEALTH_CONDITION);
-  return withoutNone.includes(value) ? withoutNone.filter((v) => v !== value) : [...withoutNone, value];
-}
-
-function generateInjuryId(): string {
-  return `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
@@ -115,7 +104,7 @@ export function HorseForm({
   const [injuries, setInjuries] = useState<Injury[]>(initial.injuries);
 
   async function pickPhoto() {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPersistImage();
     if (uri) setPhotoUrl(uri);
   }
 
@@ -158,7 +147,7 @@ export function HorseForm({
         keyboardShouldPersistTaps="handled"
       >
         <View className="items-center">
-          <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8}>
+          <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Choisir une photo du cheval">
             {photoUrl ? (
               <Image source={{ uri: photoUrl }} className="h-24 w-24 rounded-full" />
             ) : (

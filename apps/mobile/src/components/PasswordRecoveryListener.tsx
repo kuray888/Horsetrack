@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import { Linking } from "react-native";
+import { Alert, Linking } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
-import { extractRecoveryTokens } from "@/lib/passwordRecovery";
+import { extractRecoveryTokens, tokenIdentity } from "@/lib/passwordRecovery";
 
 /**
  * Intercepte le lien de récupération de mot de passe envoyé par Supabase
@@ -18,6 +18,22 @@ export function PasswordRecoveryListener() {
       if (!url) return;
       const tokens = extractRecoveryTokens(url);
       if (!tokens) return;
+
+      // Déjà connecté à un AUTRE compte : ne pas remplacer la session en
+      // silence. Les données locales (écurie, agenda…) sont celles du compte
+      // actuel ; basculer ici, sans passer par la connexion qui les vide
+      // (cf. (auth)/login.tsx), les ferait partir dans l'autre compte — y
+      // compris dans un compte piégé si le lien vient d'un tiers.
+      const { data: current } = await supabase.auth.getSession();
+      const currentUserId = current.session?.user.id ?? null;
+      const target = tokenIdentity(tokens.accessToken);
+      if (currentUserId && target.userId && target.userId !== currentUserId) {
+        Alert.alert(
+          "Lien pour un autre compte",
+          `Ce lien de réinitialisation concerne ${target.email ?? "un autre compte"}. Déconnecte-toi d'abord (Profil → Se déconnecter), puis rouvre le lien depuis l'email.`
+        );
+        return;
+      }
 
       await supabase.auth.setSession({
         access_token: tokens.accessToken,

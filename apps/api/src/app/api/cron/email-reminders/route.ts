@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@cheval/db";
 import { sendEmail } from "@/lib/resend";
+import { getAuthEmail } from "@/lib/supabaseAdmin";
 
 /**
  * Déclenché toutes les 15 minutes par un workflow GitHub Actions (cf.
@@ -18,9 +19,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Par lots : un passage toutes les 15 min absorbe largement le flux normal,
+  // et une file anormalement longue ne fait pas dépasser le temps d'exécution
+  // de la fonction (le reste part au passage suivant).
   const due = await db.emailReminder.findMany({
     where: { sendAt: { lte: new Date() }, sentAt: null },
-    include: { user: { select: { email: true } } },
+    orderBy: { sendAt: "asc" },
+    take: 200,
   });
 
   let sent = 0;
@@ -36,7 +41,16 @@ export async function GET(req: NextRequest) {
     });
     if (claim.count === 0) continue;
 
-    const ok = await sendEmail(reminder.user.email, reminder.subject, reminder.body);
+    // Destinataire = email de connexion (Supabase Auth), jamais
+    // public.users.email : cette copie n'est pas tenue à jour et a longtemps
+    // été modifiable par l'utilisateur (relais d'emails vers un tiers, cf.
+    // rls.sql protect_user_email).
+    const to = await getAuthEmail(reminder.userId);
+    // Compte introuvable côté Auth : rien à envoyer, et le retenter à chaque
+    // passage finirait par occuper tout le lot (cf. `take` ci-dessus). Le
+    // claim reste posé, le rappel est abandonné.
+    if (!to) continue;
+    const ok = await sendEmail(to, reminder.subject, reminder.body);
     if (ok) {
       sent++;
     } else {

@@ -9,9 +9,14 @@ import {
   type ReactNode,
 } from "react";
 import * as SecureStore from "expo-secure-store";
-import { safeJsonParse } from "@/lib/safeJsonParse";
-import { deleteHorsePhotoRemote, pushHorses } from "@/lib/cloudSync";
+import { readJson, removeJson, writeJson } from "@/lib/localStore";
+import { deleteHorseRemote, pushHorses } from "@/lib/cloudSync";
+import { mergeRemote, pickFileUrl } from "@/lib/mergeRemote";
+import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { pendingIdsFor } from "@/lib/syncQueue";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
+import { useSubscription } from "@/subscription/store";
+import { withKeyLock } from "@/lib/keyLock";
 import type {
   Discipline,
   HorseDraft,
@@ -39,6 +44,37 @@ export type Injury = {
   recoveryStatus: HorseRecoveryStatus | null;
   note: string;
 };
+
+/** Ne garde que les champs de `Horse` : les lignes relues du serveur portent
+ * aussi des colonnes techniques (ownerId, dates, jointures), qui feraient
+ * paraître chaque cheval « modifié » à chaque relecture. */
+export function normalizeRemoteHorse(h: Horse): Horse {
+  return {
+    id: h.id,
+    name: h.name,
+    emoji: h.emoji,
+    photoUrl: h.photoUrl,
+    photoPath: h.photoPath,
+    birthYear: h.birthYear,
+    sex: h.sex,
+    breed: h.breed,
+    coat: h.coat,
+    heightCm: h.heightCm,
+    weightKg: h.weightKg,
+    discipline: h.discipline,
+    level: h.level,
+    fitnessLevel: h.fitnessLevel,
+    workload: h.workload,
+    isPrimary: h.isPrimary,
+    strengths: h.strengths,
+    weaknesses: h.weaknesses,
+    temperament: h.temperament,
+    healthConditions: h.healthConditions,
+    restDayActivities: h.restDayActivities,
+    injuries: h.injuries,
+    sharedRole: h.sharedRole,
+  };
+}
 
 export type Horse = {
   id: string;
@@ -200,6 +236,11 @@ type HorsesContextValue = {
   horses: Horse[];
   addHorse: (horse: NewHorse) => void;
   updateHorse: (id: string, horse: NewHorse) => void;
+  /** Ne modifie que les antécédents de santé d'un cheval POSSÉDÉ (conditions
+   * et/ou blessures) — pour l'écran Santé, qui ne doit jamais réécrire le
+   * reste de la fiche avec les valeurs qu'il avait au moment de son rendu.
+   * No-op pour un cheval partagé (lecture seule, cf. Horse.sharedRole). */
+  updateHorseHealth: (id: string, patch: Partial<Pick<Horse, "healthConditions" | "injuries">>) => void;
   /** Remplace toute l'écurie par les chevaux de l'onboarding — appelé une
    * seule fois à la fin du parcours (cf. (onboarding)/paywall.tsx). */
   replaceHorses: (drafts: HorseDraft[]) => void;
@@ -207,6 +248,10 @@ type HorsesContextValue = {
    * distinct de replaceHorses : prend des Horse déjà complets, pas des
    * brouillons d'onboarding, et ne republie pas vers le cloud. */
   hydrateFromCloud: (horses: Horse[]) => void;
+  /** Fusionne une relecture du serveur (chevaux possédés + partagés) sans
+   * écraser les modifications locales pas encore envoyées. Renvoie false si
+   * la fusion a été reportée (écurie locale pas entièrement synchronisée). */
+  mergeFromCloud: (owned: Horse[], shared: Horse[], pullStartedAt: number) => boolean;
   updateHorsePhoto: (id: string, photoUrl: string) => void;
   /** Retire un cheval possédé de l'écurie (jamais un cheval partagé) — no-op
    * si c'est le dernier cheval possédé : Today/Horse Hub/etc. supposent
@@ -233,6 +278,13 @@ type HorsesContextValue = {
 
 const HorsesContext = createContext<HorsesContextValue | null>(null);
 
+/** Nouvelles tentatives quand le serveur refuse un cheval que l'app croit
+ * autorisé (Premium pas encore reconnu côté serveur) : au bout de 10 s, 20 s
+ * puis 30 s. Au-delà, le bandeau « non synchronisé » de l'onglet Chevaux
+ * (« Réessayer ») prend le relais. */
+const QUOTA_RETRY_DELAY_MS = 10_000;
+const QUOTA_RETRY_MAX_ATTEMPTS = 3;
+
 export function HorsesProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [horses, setHorses] = useState<Horse[]>(DEFAULT_HORSES);
@@ -247,15 +299,39 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   // Ref et non state : lu au moment exact du push suivant (pas de closure
   // périmée) et ne doit déclencher aucun rendu — cf. son usage dans persist().
   const needsFullSyncRef = useRef(false);
+  // Le compte est-il Premium d'après l'app (RevenueCat / essai promo) ? Lu au
+  // moment où le serveur refuse un cheval, cf. persist() : le serveur applique
+  // SON quota (rider_profiles.subscriptionStatus, tenu à jour par le webhook
+  // RevenueCat), qui peut retarder de quelques secondes sur l'état local.
+  const { isActiveOrTrialing } = useSubscription();
+  const premiumRef = useRef(isActiveOrTrialing);
+  const horsesRef = useRef<Horse[]>(horses);
+  const persistRef = useRef<((next: Horse[]) => Promise<void>) | null>(null);
+  const quotaRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quotaRetryAttemptsRef = useRef(0);
+  useEffect(() => {
+    premiumRef.current = isActiveOrTrialing;
+    horsesRef.current = horses;
+  }, [isActiveOrTrialing, horses]);
+  useEffect(
+    () => () => {
+      if (quotaRetryTimerRef.current) clearTimeout(quotaRetryTimerRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
-    Promise.all([SecureStore.getItemAsync(STORAGE_KEY), SecureStore.getItemAsync(SELECTED_KEY)])
+    // L'écurie part dans un fichier JSON (cf. lib/localStore.ts, qui migre
+    // l'ancienne valeur SecureStore à la première lecture) ; l'identifiant du
+    // cheval actif reste dans SecureStore — court, et lu au tout premier
+    // rendu de chaque écran.
+    Promise.all([readJson<Horse[]>(STORAGE_KEY, DEFAULT_HORSES), SecureStore.getItemAsync(SELECTED_KEY)])
       .then(([rawHorses, rawSelected]) => {
-        const loaded: Horse[] = reviveHorses(safeJsonParse(rawHorses, DEFAULT_HORSES));
+        const loaded: Horse[] = reviveHorses(rawHorses);
         setHorses(loaded);
         setSelectedHorseId(rawSelected ?? loaded.find((h) => h.isPrimary)?.id ?? loaded[0]?.id ?? null);
       })
-      .catch((e) => console.warn("[horses] lecture SecureStore échouée, écurie par défaut", e))
+      .catch((e) => console.warn("[horses] lecture du stockage local échouée, écurie par défaut", e))
       .finally(() => setLoading(false));
   }, []);
 
@@ -274,7 +350,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     // le nettoyage des chevaux obsolètes côté serveur ne tourne alors plus
     // (cf. pushHorses), il faut le push global pour rester correct.
     (next: Horse[], changedIds?: string[]) => {
-      SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      writeJson(STORAGE_KEY, next);
       // Rattrapage : tant qu'un push précédent n'a pas abouti (erreur réseau,
       // ou profil serveur pas encore créé), on ignore `changedIds` et on
       // republie TOUT. Sans ça, le cheval resté non synchronisé ne serait
@@ -282,21 +358,47 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       // modification republiait l'écurie entière et rattrapait donc
       // implicitement les échecs précédents — ce filet avait disparu avec
       // l'optimisation (cf. audit du 2026-09-17).
-      const catchUp = needsFullSyncRef.current;
       // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Une régénération de
       // programme/affichage local ne doit jamais attendre le réseau. Exclut les
       // chevaux partagés : on n'en est pas propriétaire, les réécrire serait
       // sans effet (RLS bloque, cf. owns_rider_profile) et inutile.
-      return pushHorses(next.filter((h) => !h.sharedRole), catchUp ? undefined : changedIds)
+      //
+      // Un push à la fois (cf. lib/keyLock) : chaque push d'un cheval remplace
+      // ses tags côté serveur (suppression puis réinsertion, cf.
+      // pushHorseTraitsAndInjuries). Deux pushs qui se chevauchent — cocher
+      // plusieurs problèmes de santé à la suite sur l'écran Santé en lance un
+      // par tap — laissaient les tags en double. `catchUp` est lu au moment de
+      // partir, pas à l'appel : il doit refléter le résultat du push précédent.
+      return withKeyLock("horses-push", () => {
+        const catchUp = needsFullSyncRef.current;
+        return pushHorses(next.filter((h) => !h.sharedRole), catchUp ? undefined : changedIds);
+      })
         .then(({ photoUpdates, rejectedIds, hadUnexpectedError, skipped }) => {
           // Invariant : `needsFullSyncRef` faux ⟺ tout était synchronisé au
           // dernier push. Un push ciblé qui réussit alors que le drapeau
           // était déjà faux suffit donc à affirmer que plus rien n'est en
           // attente. `skipped` n'est pas une erreur à afficher (cas normal
           // pendant l'onboarding) mais laisse bien l'écurie à resynchroniser.
-          needsFullSyncRef.current = hadUnexpectedError || skipped;
-          setSyncFailed(hadUnexpectedError);
-          if (photoUpdates.length === 0 && rejectedIds.length === 0) return;
+          // Cheval refusé par le quota serveur alors que l'app se sait Premium :
+          // l'abonnement n'est simplement pas encore reconnu côté serveur
+          // (webhook RevenueCat en retard). Supprimer le cheval localement lui
+          // faisait « apparaître une seconde puis disparaître » juste après
+          // l'achat du Premium — on le garde et on retente (cf. plus bas).
+          const keepRejected = rejectedIds.length > 0 && premiumRef.current;
+          needsFullSyncRef.current = hadUnexpectedError || skipped || keepRejected;
+          setSyncFailed(hadUnexpectedError || keepRejected);
+          if (keepRejected) {
+            if (quotaRetryAttemptsRef.current < QUOTA_RETRY_MAX_ATTEMPTS && !quotaRetryTimerRef.current) {
+              quotaRetryAttemptsRef.current += 1;
+              quotaRetryTimerRef.current = setTimeout(() => {
+                quotaRetryTimerRef.current = null;
+                persistRef.current?.(horsesRef.current);
+              }, QUOTA_RETRY_DELAY_MS * quotaRetryAttemptsRef.current);
+            }
+          } else if (rejectedIds.length === 0 && !hadUnexpectedError) {
+            quotaRetryAttemptsRef.current = 0;
+          }
+          if (photoUpdates.length === 0 && (rejectedIds.length === 0 || keepRejected)) return;
           setHorses((prev) => {
             // Reporte le photoPath résultant d'un upload/suppression de photo
             // (cf. cloudSync.ts pushHorses) dans l'état local — sans ça, une photo
@@ -306,7 +408,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
               const update = photoUpdates.find((u) => u.id === h.id);
               return update ? { ...h, photoPath: update.photoPath } : h;
             });
-            if (rejectedIds.length > 0) {
+            if (rejectedIds.length > 0 && !keepRejected) {
               // Cheval refusé par le trigger enforce_horse_quota (palier
               // gratuit déjà à sa limite, cf. cloudSync.ts pushHorses) : il
               // n'a jamais existé côté serveur et n'existera jamais tant que
@@ -327,7 +429,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
                 if (fallbackId) SecureStore.setItemAsync(SELECTED_KEY, fallbackId).catch(() => {});
               }
             }
-            SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
+            writeJson(STORAGE_KEY, merged);
             return merged;
           });
         })
@@ -338,6 +440,9 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     },
     [selectedHorseId]
   );
+  useEffect(() => {
+    persistRef.current = persist;
+  }, [persist]);
 
   const addHorse = useCallback(
     (horse: NewHorse) => {
@@ -357,6 +462,19 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     (id: string, horse: NewHorse) => {
       setHorses((prev) => {
         const next = prev.map((h) => (h.id === id ? { ...h, ...horse } : h));
+        persist(next, [id]);
+        return next;
+      });
+    },
+    [persist]
+  );
+
+  const updateHorseHealth = useCallback(
+    (id: string, patch: Partial<Pick<Horse, "healthConditions" | "injuries">>) => {
+      setHorses((prev) => {
+        const target = prev.find((h) => h.id === id);
+        if (!target || target.sharedRole) return prev;
+        const next = prev.map((h) => (h.id === id ? { ...h, ...patch } : h));
         persist(next, [id]);
         return next;
       });
@@ -388,10 +506,10 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       if (!target || target.sharedRole) return;
       if (horses.filter((h) => !h.sharedRole).length <= 1) return;
 
-      // Best-effort : le storage n'a pas de cascade FK depuis `horses`
-      // (contrairement aux tables Postgres), donc pas nettoyé automatiquement
-      // par la suppression de la ligne côté serveur.
-      if (target.photoPath) deleteHorsePhotoRemote(id).catch(() => {});
+      // Suppression explicite et ciblée côté serveur (ligne + photos) — le
+      // push global qui suit ne supprime plus rien de lui-même (cf.
+      // cloudSync.pushHorses).
+      deleteHorseRemote(id).catch(() => {});
 
       let next = horses.filter((h) => h.id !== id);
       if (target.isPrimary) {
@@ -429,10 +547,35 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   // un aller-retour inutile.
   const hydrateFromCloud = useCallback((next: Horse[]) => {
     setHorses(next);
-    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+    writeJson(STORAGE_KEY, next);
     const primaryId = next.find((h) => h.isPrimary)?.id ?? next[0]?.id ?? null;
     setSelectedHorseId(primaryId);
     if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId).catch(() => {});
+  }, []);
+
+  const mergeFromCloud = useCallback((owned: Horse[], shared: Horse[], pullStartedAt: number): boolean => {
+    // Écurie locale pas entièrement envoyée (dernier envoi en échec, cheval
+    // refusé…) : ses modifications n'existent qu'ici, on ne fusionne pas —
+    // le prochain envoi réussi rétablira l'invariant, la relecture suivante
+    // fusionnera.
+    if (needsFullSyncRef.current) return false;
+    const remote = [...owned, ...shared].map(normalizeRemoteHorse);
+    const guard = syncGuard("horses", pullStartedAt, pendingIdsFor("horses"));
+    // Champs propres à l'appareil : emoji, jours de repos (pas encore
+    // synchronisés), photo locale tant que la photo distante n'a pas changé.
+    const preserve = (l: Horse, r: Horse): Horse => ({
+      ...r,
+      emoji: l.emoji,
+      restDayActivities: l.restDayActivities,
+      photoUrl: pickFileUrl(l.photoUrl, l.photoPath, r.photoUrl, r.photoPath),
+    });
+    setHorses((list) => {
+      const result = mergeRemote(list, remote, guard, preserve);
+      if (result.changed) writeJson(STORAGE_KEY, result.items);
+      return result.items;
+    });
+    noteRemoteSnapshot("horses", remote.map((h) => h.id), pullStartedAt);
+    return true;
   }, []);
 
   const selectHorse = useCallback((id: string) => {
@@ -446,7 +589,7 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     // (auth)/login.tsx.afterSuccessfulAuth (compte jamais onboardé), un rejet
     // non catché ici plantait tout le groupe.
     await Promise.all([
-      SecureStore.deleteItemAsync(STORAGE_KEY).catch(() => {}),
+      removeJson(STORAGE_KEY),
       SecureStore.deleteItemAsync(SELECTED_KEY).catch(() => {}),
     ]);
     setHorses(DEFAULT_HORSES);
@@ -466,8 +609,10 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       horses,
       addHorse,
       updateHorse,
+      updateHorseHealth,
       replaceHorses,
       hydrateFromCloud,
+      mergeFromCloud,
       updateHorsePhoto,
       removeHorse,
       selectedHorse,
@@ -481,8 +626,10 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       horses,
       addHorse,
       updateHorse,
+      updateHorseHealth,
       replaceHorses,
       hydrateFromCloud,
+      mergeFromCloud,
       updateHorsePhoto,
       removeHorse,
       selectedHorse,

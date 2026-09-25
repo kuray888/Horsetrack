@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { PurchasesPackage } from "react-native-purchases";
 import type { BillingPeriod } from "@/subscription/store";
@@ -127,7 +127,8 @@ export async function getSubscriptionPackage(period: BillingPeriod): Promise<Pur
  *    cause côté app.
  * `null` = indéterminé (RevenueCat pas encore configuré, offering introuvable,
  * erreur réseau/store) : ne PAS l'interpréter comme une confirmation
- * d'éligibilité — seul `true` en est une. `false` est en revanche une
+ * d'éligibilité — seul `true` en est une (cf. PaywallView, qui n'affiche
+ * l'essai que sur un `true`). `false` est en revanche une
  * confirmation négative fiable (offre absente du produit, ou compte non
  * éligible côté Apple) et doit systématiquement faire disparaître la promesse
  * d'essai gratuit de l'UI, pour ne jamais facturer quelqu'un à qui l'app
@@ -155,6 +156,71 @@ export async function isTrialEligible(period: BillingPeriod): Promise<boolean | 
     // paywall — l'appelant traite `null` comme "ne pas promettre l'essai".
     return null;
   }
+}
+
+/** Ce que le paywall affiche pour une fréquence : tout vient du store quand
+ * il répond (prix localisé, durée réelle de l'essai), jamais d'une constante. */
+export type PaywallPlanInfo = {
+  price: number;
+  priceString: string;
+  pricePerMonthString: string | null;
+  /** true = essai confirmé ; false = pas d'essai ; null = indéterminé, à
+   * traiter comme « pas d'essai » (on ne promet que ce qui est confirmé). */
+  trialEligible: boolean | null;
+  trialUnit: string | null;
+  trialCount: number | null;
+};
+
+export type PaywallOffer = Partial<Record<BillingPeriod, PaywallPlanInfo>>;
+
+/** Charge les deux formules en un seul passage (offerings + éligibilité).
+ * `{}` si RevenueCat n'est pas disponible — l'appelant retombe alors sur ses
+ * prix de repli et ne promet aucun essai. */
+export async function loadPaywallOffer(): Promise<PaywallOffer> {
+  if (!configured || !Purchases) return {};
+  const periods: BillingPeriod[] = ["MONTHLY", "ANNUAL"];
+  const entries = await Promise.all(
+    periods.map(async (period): Promise<[BillingPeriod, PaywallPlanInfo] | null> => {
+      try {
+        const pkg = await getSubscriptionPackage(period);
+        if (!pkg) return null;
+        const intro = pkg.product.introPrice;
+        const isFreeTrial = !!intro && intro.price === 0;
+        return [
+          period,
+          {
+            price: pkg.product.price,
+            priceString: pkg.product.priceString,
+            pricePerMonthString: pkg.product.pricePerMonthString ?? null,
+            trialEligible: isFreeTrial ? await isTrialEligible(period) : false,
+            trialUnit: isFreeTrial ? intro.periodUnit : null,
+            trialCount: isFreeTrial ? intro.periodNumberOfUnits : null,
+          },
+        ];
+      } catch {
+        return null;
+      }
+    })
+  );
+  return Object.fromEntries(entries.filter((e): e is [BillingPeriod, PaywallPlanInfo] => e !== null));
+}
+
+/** Ouvre la gestion d'abonnement du store (changer de formule, résilier).
+ * Repli sur l'URL publique si le SDK n'est pas disponible. */
+export async function openManageSubscriptions(): Promise<void> {
+  if (configured && Purchases) {
+    try {
+      await Purchases.showManageSubscriptions();
+      return;
+    } catch {
+      // repli ci-dessous
+    }
+  }
+  const url =
+    Platform.OS === "ios"
+      ? "https://apps.apple.com/account/subscriptions"
+      : "https://play.google.com/store/account/subscriptions";
+  await Linking.openURL(url).catch(() => {});
 }
 
 export { Purchases };

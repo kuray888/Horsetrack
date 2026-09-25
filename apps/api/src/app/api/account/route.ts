@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, db } from "@cheval/db";
-import { deleteSupabaseAuthUser, getUserIdFromRequest } from "@/lib/supabaseAdmin";
+import { deleteSupabaseAuthUser, getUserIdFromRequest, removeStorageFolder } from "@/lib/supabaseAdmin";
+import { safeLine } from "@/lib/emailSafety";
 import { sendEmail } from "@/lib/resend";
 
 /** Suppression de compte (exigée par la guideline App Store 5.1.1(v)) — supprime
@@ -32,6 +33,10 @@ export async function DELETE(req: NextRequest) {
     select: { invitedEmail: true, horse: { select: { name: true } } },
   });
 
+  // Chevaux possédés, lus avant la cascade : leurs photos (profil + journal)
+  // vivent dans le stockage, que la suppression des lignes n'efface pas.
+  const ownedHorses = await db.horse.findMany({ where: { owner: { userId } }, select: { id: true } });
+
   try {
     await db.user.delete({ where: { id: userId } });
   } catch (e) {
@@ -52,12 +57,20 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
+  // Fichiers stockés (ordonnances, factures, photos) : la politique de
+  // confidentialité promet une suppression complète — jusqu'ici seules les
+  // lignes en base partaient, les fichiers restaient indéfiniment. Chemins :
+  // documents/{userId}/…, horse-photos/{horseId}/… (cf. rls.sql §5-6).
+  await removeStorageFolder("documents", userId);
+  for (const h of ownedHorses) await removeStorageFolder("horse-photos", h.id);
+
   for (const c of affectedCollaborators) {
+    const horseName = safeLine(c.horse.name, 60) || "ce cheval";
     sendEmail(
       c.invitedEmail,
-      `Ton accès à ${c.horse.name} sur Horsetrack a été retiré`,
+      `Ton accès à ${horseName} sur Horsetrack a été retiré`,
       [
-        `Le compte propriétaire de ${c.horse.name} a été supprimé sur Horsetrack, ce qui met fin à ton accès partagé à ce cheval.`,
+        `Le compte propriétaire de ${horseName} a été supprimé sur Horsetrack, ce qui met fin à ton accès partagé à ce cheval.`,
         "",
         "Si tu penses qu'il s'agit d'une erreur, rapproche-toi directement de cette personne.",
       ].join("\n")

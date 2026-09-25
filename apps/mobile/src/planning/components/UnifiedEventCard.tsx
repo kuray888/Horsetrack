@@ -1,3 +1,5 @@
+import { View } from "react-native";
+import { HorseNameBadge } from "@/horses/components/HorseFilterChips";
 import { SessionCard } from "@/sessions/components/SessionCard";
 import { AppointmentCard } from "@/agenda/components/AppointmentCard";
 import type { Appointment, CompetitionEntry } from "@/agenda/store";
@@ -30,6 +32,48 @@ type AppointmentHandlers = {
  * leurs styles — juste un point d'appel unique pour l'appelant (planning.tsx),
  * qui n'a pas à brancher lui-même sur `event.kind` à chaque rendu de liste. */
 export function UnifiedEventCard({
+  event,
+  expanded,
+  onToggleExpand,
+  sessionHandlers,
+  appointmentHandlers,
+  horseName = null,
+}: {
+  event: UnifiedEvent;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  sessionHandlers: SessionHandlers;
+  appointmentHandlers: AppointmentHandlers;
+  /** Nom à afficher en pastille au-dessus de la carte — renseigné seulement
+   * quand la liste mêle plusieurs chevaux (vue « Tous » du Planning). Rendu
+   * ici plutôt que chez l'appelant parce que planning.tsx rend cette carte à
+   * trois endroits (jour du mois, à venir, passés) : la pastille serait
+   * sinon à écrire, et à maintenir, trois fois. */
+  horseName?: string | null;
+}) {
+  return horseName ? (
+    <View className="gap-1.5">
+      <HorseNameBadge name={horseName} />
+      <EventCard
+        event={event}
+        expanded={expanded}
+        onToggleExpand={onToggleExpand}
+        sessionHandlers={sessionHandlers}
+        appointmentHandlers={appointmentHandlers}
+      />
+    </View>
+  ) : (
+    <EventCard
+      event={event}
+      expanded={expanded}
+      onToggleExpand={onToggleExpand}
+      sessionHandlers={sessionHandlers}
+      appointmentHandlers={appointmentHandlers}
+    />
+  );
+}
+
+function EventCard({
   event,
   expanded,
   onToggleExpand,

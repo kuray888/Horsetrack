@@ -1,8 +1,18 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Alert } from "react-native";
 import { formatDate } from "@/lib/dateFormat";
-import { pickAndPersistImage } from "@/lib/imagePicker";
+import { chooseAndPickDocument } from "@/lib/imagePicker";
 import { daysFromNow, useAgenda, type Expense, type ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
+import { amountsForHorses, type AmountMode } from "@/agenda/splitAmount";
+import {
+  hiddenTargetsMessage,
+  needsExplicitHorseChoice,
+  resolveTargetHorseIds,
+  shouldOfferHorseChoice,
+  targetsOutsideView,
+} from "@/horses/selectableHorses";
+import type { Horse } from "@/horses/store";
 
 const emptyExpenseForm = {
   category: "veto" as ExpenseCategory,
@@ -14,6 +24,15 @@ const emptyExpenseForm = {
    * du coffre-fort (catégorie facture) au moment de l'ajout, cf.
    * handleSubmitExpense. Fonctionnalité Premium comme le reste du coffre-fort. */
   fileUri: null as string | null,
+  /** Chevaux visés — vide = « aucun choix explicite », donc le cheval actif
+   * seul (cf. resolveTargetHorseIds, même convention que le formulaire de
+   * rendez-vous). */
+  horseIds: [] as string[],
+  /** Comment lire le montant quand plusieurs chevaux sont cochés — sans
+   * effet sur un seul (cf. amountsForHorses). Par cheval par défaut : c'est
+   * le cas le plus fréquent (pension, vaccin facturé à l'unité), et c'est le
+   * mode qui ne divise rien sans qu'on l'ait demandé. */
+  amountMode: "per-horse" as AmountMode,
 };
 
 export type ExpenseFormValue = typeof emptyExpenseForm;
@@ -33,16 +52,46 @@ export function useExpenseForm({
   addDocument,
   linkExpenseDocument,
   isActiveOrTrialing,
+  horse = null,
+  selectableHorses = [],
+  defaultHorseIds,
+  visibleHorseIds,
 }: {
   addExpense: AgendaActions["addExpense"];
   updateExpense: AgendaActions["updateExpense"];
   addDocument: AgendaActions["addDocument"];
   linkExpenseDocument: AgendaActions["linkExpenseDocument"];
   isActiveOrTrialing: boolean;
+  /** Cheval visé par défaut. Omis par les écrans qui laissent `addExpense`
+   * retomber tout seul sur le cheval actif — comportement d'origine. */
+  horse?: Horse | null;
+  /** Chevaux proposables pour créer la même dépense d'un coup (cf.
+   * useSelectableHorses). Vide = pas de sélecteur, rien ne change. */
+  selectableHorses?: Horse[];
+  /** Cf. useAppointmentForm : cible par défaut, sinon `horse`. Vide en vue
+   * « Tous » du Planning, où la sélection doit être explicite. */
+  defaultHorseIds?: string[];
+  /** Cf. useAppointmentForm : chevaux affichés par l'écran. */
+  visibleHorseIds?: string[];
 }) {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  /** Verrou de soumission — handleSubmitExpense est entièrement synchrone :
+   * deux appuis rapprochés sur « Ajouter » lisent tous deux l'état d'avant le
+   * rendu suivant et créent deux dépenses identiques, qui gonflent le budget
+   * du mois sans qu'on voie pourquoi. Une ref, pas un state : un setState ne
+   * serait lu qu'au rendu suivant, trop tard. Relâché à l'OUVERTURE du
+   * formulaire et quand la soumission a été refusée — surtout pas à sa
+   * fermeture : `cancelExpenseForm` est justement ce qui termine un
+   * enregistrement réussi, et le relâcher là rouvrirait la fenêtre qu'on
+   * ferme. Le relâchement passe par un effet, seul endroit où toucher une ref
+   * est permis quel que soit le chemin d'ouverture (cf. planning.tsx, même
+   * mécanisme pour le formulaire de séance). */
+  const submitLock = useRef(false);
+  useEffect(() => {
+    if (showExpenseForm) submitLock.current = false;
+  }, [showExpenseForm]);
 
   function startEditExpense(expense: Expense) {
     setEditingExpenseId(expense.id);
@@ -56,6 +105,10 @@ export function useExpenseForm({
       // (onAttachReceipt/onRemoveReceipt) — l'édition générale ne le touche
       // pas (cf. updateExpense, dont le patch exclut documentId).
       fileUri: null,
+      // Le sélecteur de chevaux est masqué en édition : on ne réaffecte
+      // jamais une dépense existante, et son montant ne se re-répartit pas.
+      horseIds: [],
+      amountMode: "per-horse",
     });
     setShowExpenseForm(true);
   }
@@ -67,10 +120,13 @@ export function useExpenseForm({
   }
 
   function handleSubmitExpense() {
+    if (submitLock.current) return;
     const date = expenseForm.date;
     const amount = Number(expenseForm.amount.replace(",", "."));
     if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    submitLock.current = true;
 
+    let hiddenNames: string[] = [];
     if (editingExpenseId) {
       updateExpense(editingExpenseId, {
         amount,
@@ -81,10 +137,30 @@ export function useExpenseForm({
         appointmentId: expenseForm.appointmentId,
       });
     } else {
+      // Chevaux visés : le choix du formulaire s'il est proposé, sinon la cible
+      // par défaut de l'écran (cf. shouldOfferHorseChoice — sur un cheval
+      // partagé le sélecteur est masqué et on garde le comportement d'origine).
+      const fallbackIds = defaultHorseIds ?? (horse ? [horse.id] : []);
+      const targetHorseIds = shouldOfferHorseChoice(selectableHorses, fallbackIds)
+        ? resolveTargetHorseIds(expenseForm.horseIds, selectableHorses, fallbackIds)
+        : fallbackIds;
+      // Ceinture du bouton désactivé (cf. ExpenseForm) — même règle que pour
+      // les rendez-vous : la vue « Tous » ne désigne aucun cheval par défaut.
+      if (needsExplicitHorseChoice(expenseForm.horseIds, selectableHorses, fallbackIds)) {
+        Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer cette dépense.");
+        // Rien n'a été écrit et le formulaire reste ouvert : le bouton doit
+        // redevenir utilisable une fois un cheval coché.
+        submitLock.current = false;
+        return;
+      }
       // La facture jointe devient un document du coffre-fort (catégorie
       // "facture"), lié à la dépense — seulement si Premium (coffre-fort
       // gaté, cf. Locked sur le bouton "Joindre une facture" plus bas) et si
-      // une photo a effectivement été prise.
+      // une photo a effectivement été prise. Rattaché au PREMIER cheval visé
+      // (et non au cheval actif) : il apparaît ainsi dans le coffre d'un cheval
+      // dont on paie la facture. C'est un seul document pour les N dépenses —
+      // une seule facture, la rescanner par cheval n'aurait pas de sens
+      // (Expense.documentId n'est pas unique, cf. schema.prisma).
       const documentId =
         isActiveOrTrialing && expenseForm.fileUri
           ? addDocument({
@@ -92,27 +168,46 @@ export function useExpenseForm({
               name: `Facture ${EXPENSE_META[expenseForm.category].label.toLowerCase()} — ${formatDate(date)}`,
               date,
               fileUri: expenseForm.fileUri,
+              ...(targetHorseIds[0] ? { horseId: targetHorseIds[0] } : {}),
             })
           : null;
-      addExpense({
-        amount,
-        currency: "EUR",
-        category: expenseForm.category,
-        date,
-        notes: expenseForm.notes.trim(),
-        appointmentId: expenseForm.appointmentId,
-        documentId,
-        // Le statut payé/à régler se règle après coup depuis la liste (cf.
-        // toggle Premium sur chaque dépense) — une dépense vient d'être créée,
-        // elle est donc "à régler" par défaut.
-        isPaid: false,
+      // Une dépense par cheval visé, chacune indépendante (même invariant que
+      // les rendez-vous : aucune notion de série côté modèle).
+      const amounts = amountsForHorses(amount, Math.max(1, targetHorseIds.length), expenseForm.amountMode);
+      // Un rendez-vous n'appartient qu'à un cheval : le lien de rapprochement
+      // ne peut pas suivre sur les dépenses des autres. Plutôt que de le
+      // rattacher de travers, on le laisse tomber dès qu'il y a plusieurs
+      // chevaux — le formulaire masque d'ailleurs le champ dans ce cas.
+      const appointmentId = targetHorseIds.length > 1 ? null : expenseForm.appointmentId;
+      const targets = targetHorseIds.length > 0 ? targetHorseIds : [undefined];
+      targets.forEach((targetHorseId, i) => {
+        addExpense({
+          ...(targetHorseId === undefined ? {} : { horseId: targetHorseId }),
+          amount: amounts[i] ?? amount,
+          currency: "EUR",
+          category: expenseForm.category,
+          date,
+          notes: expenseForm.notes.trim(),
+          appointmentId,
+          documentId,
+          // Le statut payé/à régler se règle après coup depuis la liste (cf.
+          // toggle Premium sur chaque dépense) — une dépense vient d'être créée,
+          // elle est donc "à régler" par défaut.
+          isPaid: false,
+        });
       });
+      // Une dépense créée pour un cheval que la liste de cet écran n'affiche
+      // pas semblerait perdue : on le dit (cf. hiddenTargetsMessage).
+      hiddenNames = targetsOutsideView(targetHorseIds, visibleHorseIds ?? fallbackIds).map(
+        (id) => selectableHorses.find((h) => h.id === id)?.name ?? "un autre cheval"
+      );
     }
     cancelExpenseForm();
+    if (hiddenNames.length > 0) Alert.alert("Dépense enregistrée", hiddenTargetsMessage(hiddenNames));
   }
 
   async function handlePickExpensePhoto() {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPickDocument();
     if (uri) setExpenseForm((f) => ({ ...f, fileUri: uri }));
   }
 
@@ -120,13 +215,15 @@ export function useExpenseForm({
    * handleSubmitExpense, qui le fait à la création) — même principe : nouveau
    * document du coffre-fort, puis lien via linkExpenseDocument. */
   async function handleAttachReceipt(expense: Expense) {
-    const uri = await pickAndPersistImage();
+    const uri = await chooseAndPickDocument();
     if (!uri) return;
     const documentId = addDocument({
       category: "facture",
       name: `Facture ${EXPENSE_META[expense.category].label.toLowerCase()} — ${formatDate(expense.date)}`,
       date: expense.date,
       fileUri: uri,
+      // Le cheval de CETTE dépense, pas le cheval actif (cf. handleSubmitExpense).
+      horseId: expense.horseId,
     });
     linkExpenseDocument(expense.id, documentId);
   }

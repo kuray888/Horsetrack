@@ -2,7 +2,7 @@
   "expo": {
     "name": "Horsetrack",
     "slug": "horsetrack",
-    "version": "1.0.4",
+    "version": "1.1.0",
     "orientation": "portrait",
     "scheme": "horsetrack",
     "userInterfaceStyle": "automatic",
@@ -24,8 +24,10 @@
       "permissions": [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
@@ -47,11 +49,19 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#274c77"
+        }
+      ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Horsetrack a besoin d'accéder à tes photos pour ajouter une photo de cheval."
+          "photosPermission": "Horsetrack a besoin d'accéder à tes photos pour ajouter une photo de ton cheval ou d'un document.",
+          "cameraPermission": "Horsetrack utilise l'appareil photo pour photographier ton cheval, une ordonnance ou une facture.",
+          "microphonePermission": false
         }
       ],
       [
@@ -72,9 +82,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "21834375-e18a-4102-a029-17f34f85433d"
+        "projectId": "2c10e0d8-3180-4faa-a194-97be4ca3cfbe"
       }
     },
-    "owner": "kuraayys-team"
+    "owner": "batyeooo"
   }
 }

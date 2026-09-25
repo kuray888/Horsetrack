@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Linking, RefreshControl, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "@/components/AppImage";
 import { pushWidgetData } from "@/lib/widgetKit";
-import { scheduleWeeklySummary } from "@/lib/notifications";
+import {
+  ensureNotificationPermission,
+  getNotificationPermissionState,
+  scheduleWeeklySummary,
+  type NotificationPermissionState,
+} from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
 import { WeatherForecastStrip } from "@/components/WeatherForecastStrip";
+import { useWeather } from "@/weather/store";
+import { sessionWeatherWarning } from "@/weather/sessionWeather";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
@@ -14,6 +21,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { MONTHS, isSameDate } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
 import { useSessions } from "@/sessions/store";
+import { SessionDonePrompt, useSessionDonePrompt } from "@/sessions/useSessionDonePrompt";
 import { useAgenda, ACTIVITY_META, type Appointment, type ExpenseCategory } from "@/agenda/store";
 import { APPT_META, suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { useSubscription } from "@/subscription/store";
@@ -25,7 +33,13 @@ import {
   type UnifiedEvent,
 } from "@/planning/unifiedEvents";
 import { buildHorseAlerts } from "@/horses/alerts";
+import { usePendingSyncCount } from "@/lib/useSyncQueue";
+import { retryPendingWrites } from "@/lib/cloudSync";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
+import { RemindersUpsellCard } from "@/subscription/RemindersUpsellCard";
+import { FirstStepsCard, MonthlyRecapCard } from "@/components/EngagementCards";
+import { HEALTH_APPOINTMENT_TYPES, weeklyStreak } from "@/lib/progress";
+import { useCloudRefresh } from "@/lib/cloudRefresh";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
 import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
@@ -112,10 +126,15 @@ function weeklyRecapMessage(done: number, total: number): string {
 
 export default function TodayScreen() {
   const colors = useThemeColors();
-  const { horses, selectedHorse, selectHorse } = useHorses();
-  const { sessions, toggleCompleted } = useSessions();
+  const { horses, selectedHorse } = useHorses();
+  const { sessions } = useSessions();
+  // Cocher une séance propose d'en dire un mot (cf. useSessionDonePrompt) —
+  // le journal se remplit là où la séance se termine, au lieu d'attendre
+  // qu'on pense à ouvrir un autre onglet.
+  const { toggleSessionDone, prompted, dismissPrompt } = useSessionDonePrompt();
   const {
     appointments,
+    saveFailed,
     addAppointment,
     updateAppointment,
     addExpense,
@@ -127,6 +146,40 @@ export default function TodayScreen() {
   } = useAgenda();
   const subscription = useSubscription();
   const { isActiveOrTrialing } = subscription;
+  // Écritures cloud en attente d'un retour du réseau (cf. lib/syncQueue.ts).
+  const pendingSync = usePendingSyncCount();
+  /** Permission de notification refusée : les rappels sont enregistrés mais
+   * ne s'afficheront jamais. Cette bannière vivait dans l'écran Agenda,
+   * supprimé — sans elle, plus rien ne signalait que des rappels programmés
+   * ne sonneraient pas.
+   *
+   * `getNotificationStatus` LIT l'état sans le demander, contrairement à
+   * l'ancien écran qui appelait `ensureNotificationPermission` au montage :
+   * l'Accueil étant le premier écran de l'app, cela aurait déclenché la
+   * demande système dès le lancement. La demande ne part que sur appui du
+   * bouton « Activer ». */
+  const [notifPermission, setNotifPermission] = useState<boolean | null>(null);
+  // Distingue « jamais demandé » (on peut encore afficher la demande système,
+  // avec sa raison) de « refusé » (seuls les réglages du téléphone y peuvent
+  // quelque chose) — cf. la carte plus bas.
+  const [notifState, setNotifState] = useState<NotificationPermissionState | null>(null);
+  useEffect(() => {
+    getNotificationPermissionState()
+      .then((state) => {
+        setNotifState(state);
+        setNotifPermission(state === "granted");
+      })
+      .catch(() => setNotifPermission(null));
+  }, []);
+  // Un rappel créé peut avoir déclenché (et essuyé) la demande système :
+  // relire l'état pour que la carte propose directement les réglages plutôt
+  // qu'un bouton « Activer » devenu sans effet.
+  useEffect(() => {
+    if (notifPermission !== false) return;
+    getNotificationPermissionState()
+      .then(setNotifState)
+      .catch(() => {});
+  }, [notifPermission]);
   const horse = selectedHorse;
 
   // Une seule fois par montage, pas à chaque render (cf. audit perf du
@@ -134,6 +187,16 @@ export default function TodayScreen() {
   // même session d'app, un `new Date()` frais à chaque render ne ferait que
   // casser toute mémoïsation en aval sans rien apporter.
   const today = useMemo(() => new Date(), []);
+
+  // Tirer pour rafraîchir : relit le serveur (rendez-vous ajoutés par la
+  // demi-pension, modifications faites sur un autre appareil).
+  const { refresh: refreshFromCloud } = useCloudRefresh();
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  async function onPullRefresh() {
+    setPullRefreshing(true);
+    await refreshFromCloud();
+    setPullRefreshing(false);
+  }
   const todayStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()), [today]);
   // 0 = lundi ... 6 = dimanche (même convention qu'ailleurs dans l'app).
   const todayDayOffset = useMemo(() => (today.getDay() + 6) % 7, [today]);
@@ -159,6 +222,12 @@ export default function TodayScreen() {
     [horseSessions, weekStart, weekEnd]
   );
   const weekDoneCount = useMemo(() => weekSessions.filter((s) => s.completed).length, [weekSessions]);
+  // Semaines consécutives avec au moins une séance faite (cf. lib/progress.ts).
+  const streak = useMemo(() => (horse ? weeklyStreak(sessions, horse.id, today) : 0), [sessions, horse, today]);
+  const hasHealthAppointment = useMemo(
+    () => !!horse && appointments.some((a) => a.horseId === horse.id && HEALTH_APPOINTMENT_TYPES.has(a.type)),
+    [appointments, horse]
+  );
 
   // "Prochains événements" : séances + rendez-vous du cheval actif fusionnés
   // par le même système que Planning (cf. plan Phase 3 Étape 3) — aucune
@@ -168,13 +237,36 @@ export default function TodayScreen() {
     [appointments, horse?.id]
   );
   const upcoming = useMemo(
-    () => upcomingUnifiedEvents(buildUnifiedEvents(horseSessions, horseAppointments), todayStart).slice(0, 3),
+    () => upcomingUnifiedEvents(buildUnifiedEvents(horseSessions, horseAppointments), todayStart),
     [horseSessions, horseAppointments, todayStart]
   );
+  // Le même événement ne doit apparaître qu'à un seul endroit : ce qui tombe
+  // aujourd'hui vit dans le bloc « Aujourd'hui » (où il est actionnable), le
+  // reste dans « Prochainement ». Avant, la séance du jour s'affichait à la
+  // fois dans le bouton d'action et dans la liste des prochains événements.
+  const todayEvents = useMemo(() => upcoming.filter((e) => isSameDate(e.date, todayStart)), [upcoming, todayStart]);
+  const laterEvents = useMemo(
+    () => upcoming.filter((e) => !isSameDate(e.date, todayStart)).slice(0, 3),
+    [upcoming, todayStart]
+  );
+  /** Première échéance à venir, tous chevaux confondus — sert à l'état vide :
+   * « rien aujourd'hui » ne veut pas dire « rien à faire », et une journée
+   * libre est justement le moment où l'on veut voir ce qui arrive ensuite. */
+  const nextEvent = laterEvents[0] ?? null;
 
   // Alertes (cf. plan Phase 3 Étape 4 §6) : toutes les écuries, pas
   // seulement le cheval actif — une alerte peut concerner un autre cheval.
   const alerts = useMemo(() => buildHorseAlerts(horses, appointments, todayStart), [horses, appointments, todayStart]);
+
+  // Météo de la prochaine séance : les prévisions étaient déjà là (bandeau
+  // plus bas) et les séances aussi, mais il fallait faire le rapprochement
+  // soi-même. Toutes les séances du cheval affiché, pas seulement celles du
+  // jour — l'intérêt est justement d'anticiper (cf. weather/sessionWeather.ts).
+  const { forecast } = useWeather();
+  const weatherWarning = useMemo(
+    () => sessionWeatherWarning(horseSessions, forecast, today),
+    [horseSessions, forecast, today]
+  );
 
   // Synchronise le widget iOS dès que les données de la journée changent —
   // best-effort, silencieux hors iOS/EAS build (actuellement no-op, cf.
@@ -192,17 +284,21 @@ export default function TodayScreen() {
     });
   }, [horse?.id, todaySession, weekDoneCount, weekSessions.length]);
 
-  // Programme le bilan du dimanche soir une fois par semaine.
+  // Programme (ou met à jour) le bilan du dimanche soir — seulement si les
+  // notifications sont déjà autorisées, d'où `notifPermission` dans les
+  // dépendances : le bilan se programme dès l'autorisation donnée.
   useEffect(() => {
-    if (!horse) return;
+    if (!horse || !notifPermission) return;
     scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
-  }, [horse?.id, weekDoneCount, weekSessions.length]);
+  }, [horse?.id, horse?.name, weekDoneCount, weekSessions.length, notifPermission]);
 
   // Ajout rapide (cf. plan Phase 3 Étape 4 §9) — mêmes hooks/formulaires que
   // Planning et le Horse Hub, rattachement automatique au cheval actif via
   // le mécanisme global existant (aucune deuxième logique de sélection).
   const [quickAddVisible, setQuickAddVisible] = useState(false);
-  const [, setNotifPermission] = useState<boolean | null>(null);
+  // `setNotifPermission` est celui déclaré plus haut avec la bannière : quand
+  // la programmation d'un rappel échoue (permission révoquée entre-temps),
+  // useAppointmentForm le passe à `false` et la bannière apparaît aussitôt.
 
   const {
     showApptForm,
@@ -235,7 +331,17 @@ export default function TodayScreen() {
     cancelExpenseForm,
     handleSubmitExpense,
     handlePickExpensePhoto,
-  } = useExpenseForm({ addExpense, updateExpense, addDocument, linkExpenseDocument, isActiveOrTrialing });
+  } = useExpenseForm({
+    addExpense,
+    updateExpense,
+    addDocument,
+    linkExpenseDocument,
+    isActiveOrTrialing,
+    // Explicitement le cheval affiché par cet écran, plutôt que de laisser le
+    // store retomber sur le cheval actif : c'est le même ici, mais le dire
+    // garde le rattachement lisible depuis l'écran (cf. HorseTargetNotice).
+    horse: horse ?? null,
+  });
 
   const {
     showJournalForm,
@@ -247,7 +353,7 @@ export default function TodayScreen() {
     cancelJournalForm,
     handleSubmitJournalEntry,
     handlePickJournalPhoto,
-  } = useJournalForm({ addJournalEntry, updateJournalEntry, onEditStart: () => {} });
+  } = useJournalForm({ addJournalEntry, updateJournalEntry, horse: horse ?? null, onEditStart: () => {} });
 
   // Suggestion de rapprochement pour le formulaire de dépense (cf.
   // agenda/meta.ts suggestedAppointmentFor, partagé avec planning.tsx/Horse Hub).
@@ -293,7 +399,9 @@ export default function TodayScreen() {
 
   return (
     <>
-    <Screen>
+    <Screen
+      refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} tintColor={colors.primary} />}
+    >
       {/* En-tête */}
       <FadeInView>
         <View className="gap-4 rounded-card bg-primary p-5">
@@ -304,38 +412,30 @@ export default function TodayScreen() {
                 Prêt pour une séance avec {horse?.name ?? "ton cheval"} ?
               </Text>
             </View>
-            <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-on-primary/15">
-              {horse?.photoUrl ? (
-                <Image source={{ uri: horse.photoUrl }} style={{ width: 56, height: 56 }} />
-              ) : (
-                <MaterialCommunityIcons name="horse-variant" size={26} color={colors.textOnPrimary} />
-              )}
+            <View className="flex-row items-center gap-2">
+              {/* Recherche transversale (cf. app/search.tsx) — dans l'en-tête
+                  plutôt que dans un onglet : elle traverse toutes les
+                  sections, elle n'appartient à aucune. */}
+              <TouchableOpacity
+                onPress={() => router.push("/search")}
+                accessibilityLabel="Rechercher"
+                accessibilityRole="button"
+                hitSlop={8}
+                className="h-10 w-10 items-center justify-center rounded-full bg-on-primary/15"
+              >
+                <MaterialCommunityIcons name="magnify" size={20} color={colors.textOnPrimary} />
+              </TouchableOpacity>
+              <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-on-primary/15">
+                {horse?.photoUrl ? (
+                  <Image source={{ uri: horse.photoUrl }} style={{ width: 56, height: 56 }} />
+                ) : (
+                  <MaterialCommunityIcons name="horse-variant" size={26} color={colors.textOnPrimary} />
+                )}
+              </View>
             </View>
           </View>
 
-          {/* Bilan de la semaine — anneau animé, généré à partir des vraies séances cochées */}
-          <View className="flex-row items-center gap-3 rounded-card bg-on-primary/10 p-3">
-            <CircularProgress
-              progress={weekSessions.length > 0 ? weekDoneCount / weekSessions.length : 0}
-              size={44}
-              strokeWidth={5}
-              trackColor="rgba(255,255,255,0.25)"
-              progressColor={colors.textOnPrimary}
-            >
-              <Text className="text-[11px] font-bold text-on-primary">
-                {weekDoneCount}/{weekSessions.length}
-              </Text>
-            </CircularProgress>
-            <Text className="flex-1 text-[13px] leading-[17px] text-on-primary/90">
-              {weeklyRecapMessage(weekDoneCount, weekSessions.length)}
-            </Text>
-          </View>
         </View>
-      </FadeInView>
-
-      {/* Météo des prochains jours — purement indicatif, masqué si indisponible */}
-      <FadeInView delay={20}>
-        <WeatherForecastStrip />
       </FadeInView>
 
       {/* Sélecteur de cheval — visible seulement à partir de 2 chevaux dans
@@ -345,6 +445,136 @@ export default function TodayScreen() {
           <HorseSwitcher />
         </FadeInView>
       ) : null}
+
+      {/* Sauvegarde locale en échec (disque plein, fichier inaccessible) —
+          au-dessus de tout le reste : tant que ça dure, rien de ce qui est
+          saisi ne survivra à la fermeture de l'app. L'alerte de
+          lib/localStore.ts ne passe qu'une fois par session ; cette bannière,
+          elle, reste tant que le problème dure. */}
+      {saveFailed ? (
+        <FadeInView delay={50}>
+          <View className="flex-row items-center gap-2.5 rounded-card bg-danger/15 p-3.5">
+            <MaterialCommunityIcons name="content-save-off-outline" size={18} color={colors.danger} />
+            <Text className="flex-1 text-sm text-text">
+              Tes dernières modifications n&apos;ont pas pu être enregistrées sur cet appareil. Vérifie l&apos;espace de
+              stockage disponible.
+            </Text>
+          </View>
+        </FadeInView>
+      ) : null}
+
+      {/* Sauvegarde cloud en retard — dit ce qui n'est PAS encore parti,
+          plutôt que de laisser croire que tout est à l'abri. Les données sont
+          bien enregistrées sur l'appareil : c'est une information, pas une
+          alerte, d'où le ton et la couleur plus calmes que la bannière
+          ci-dessus. La reprise est automatique (démarrage, retour au premier
+          plan) ; le bouton permet juste de ne pas attendre. */}
+      {pendingSync > 0 ? (
+        <FadeInView delay={55}>
+          <View className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5">
+            <MaterialCommunityIcons name="cloud-sync-outline" size={18} color={colors.warning} />
+            <Text className="flex-1 text-sm text-text">
+              {pendingSync === 1
+                ? "1 modification enregistrée sur cet appareil attend la sauvegarde en ligne."
+                : `${pendingSync} modifications enregistrées sur cet appareil attendent la sauvegarde en ligne.`}
+            </Text>
+            <TouchableOpacity onPress={() => retryPendingWrites().catch(() => {})} hitSlop={8}>
+              <Text className="text-sm font-bold text-warning">Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        </FadeInView>
+      ) : null}
+
+      <FadeInView delay={52}>
+        <SessionDonePrompt session={prompted} onDismiss={dismissPrompt} />
+      </FadeInView>
+
+      {/* Météo et conseil du jour, remontés en tête à la demande de
+          l'utilisateur (2026-09-23). Ils restent SOUS les deux bannières de
+          sauvegarde : celles-ci signalent une perte de données possible, et
+          rien ne doit passer devant. Le bilan hebdomadaire, lui, reste en bas. */}
+      <FadeInView delay={53}>
+        <WeatherForecastStrip />
+      </FadeInView>
+
+      <FadeInView delay={53}>
+        <View className="flex-row gap-3 rounded-card bg-highlight p-5">
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-surface">
+            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.primary} />
+          </View>
+          <View className="flex-1 gap-0.5">
+            <Text className="text-sm font-bold uppercase tracking-wide text-primary">Conseil du jour</Text>
+            <Text className="text-[15px] leading-5 text-text">{dailyTip()}</Text>
+          </View>
+        </View>
+      </FadeInView>
+
+      {/* Météo de la prochaine séance — juste sous « à surveiller » : c'est
+          une information qui peut faire déplacer une séance, donc elle a sa
+          place en haut, contrairement au bandeau de prévisions générales qui
+          reste en bas. */}
+      {weatherWarning ? (
+        <FadeInView delay={54}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/(tabs)/planning")}
+            className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5"
+          >
+            <Text className="text-base">{weatherWarning.icon}</Text>
+            <Text className="flex-1 text-sm text-text">
+              Séance {formatWhen(weatherWarning.date).toLowerCase()} — {weatherWarning.message}.
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </FadeInView>
+      ) : null}
+
+      {/* Notifications : la demande système ne part que d'ici (ou d'un
+          rappel créé, ou de l'écran de bienvenue Premium), sur appui, avec sa
+          raison affichée juste avant — jamais au lancement (cf.
+          scheduleWeeklySummary). Une fois refusées, l'OS ne la réaffiche
+          plus : le bouton mène alors aux réglages du téléphone. */}
+      {notifPermission === false ? (
+        <FadeInView delay={58}>
+          {notifState === "denied" ? (
+            <View className={`${CARD} flex-row items-center gap-3`}>
+              <MaterialCommunityIcons name="bell-off-outline" size={20} color={colors.textMuted} />
+              <Text className="flex-1 text-sm text-muted">
+                Notifications désactivées : tes rappels et ton bilan du dimanche ne s&apos;afficheront pas sur ton
+                téléphone.
+              </Text>
+              <TouchableOpacity onPress={() => Linking.openSettings().catch(() => {})} activeOpacity={0.7} hitSlop={8}>
+                <Text className="text-sm font-bold text-accent">Réglages</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="flex-row items-center gap-3 rounded-card bg-highlight p-4">
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-surface">
+                <MaterialCommunityIcons name="bell-ring-outline" size={20} color={colors.primary} />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text className="text-[15px] font-bold text-text">Ne rate rien pour {horse?.name ?? "ton cheval"}</Text>
+                <Text className="text-sm text-muted">Ton bilan du dimanche et tes rappels avant chaque soin.</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() =>
+                  ensureNotificationPermission()
+                    .then((granted) => {
+                      setNotifPermission(granted);
+                      setNotifState(granted ? "granted" : "denied");
+                    })
+                    .catch(() => {})
+                }
+                activeOpacity={0.85}
+                className="rounded-full bg-primary px-4 py-2"
+              >
+                <Text className="text-sm font-bold text-on-primary">Activer</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </FadeInView>
+      ) : null}
+
 
       {/* Alertes — échéance santé < 14j ou concours < 7j, tous chevaux
           confondus (cf. plan Phase 3 Étape 4 §6) ; rien affiché si aucune
@@ -359,17 +589,23 @@ export default function TodayScreen() {
             {alerts.map((alert) => (
               <TouchableOpacity
                 key={alert.horseId}
-                onPress={() => {
-                  selectHorse(alert.horseId);
-                  router.push(`/horse/${alert.horseId}`);
-                }}
+                onPress={() =>
+                  // Consulter l'alerte d'un autre cheval ne change pas le
+                  // cheval actif : c'était le cas le plus visible du recadrage
+                  // silencieux (on revenait sur un Accueil qui parlait d'un
+                  // autre cheval), et les écrans de destination se suffisent
+                  // désormais à eux-mêmes (cf. app/horse/[id]/index.tsx).
+                  // Une blessure en cours se suit dans Santé (bouton "Marquer
+                  // comme rétablie") plutôt que dans la fiche générale.
+                  router.push(alert.kind === "injury" ? `/horse/${alert.horseId}/sante` : `/horse/${alert.horseId}`)
+                }
                 activeOpacity={0.7}
                 className="flex-row items-center gap-2"
               >
                 <MaterialCommunityIcons
-                  name={alert.kind === "health" ? "heart-pulse" : "trophy-outline"}
+                  name={alert.kind === "health" ? "heart-pulse" : alert.kind === "injury" ? "bandage" : "trophy-outline"}
                   size={15}
-                  color={alert.kind === "health" ? colors.warning : colors.accent}
+                  color={alert.kind === "concours" ? colors.accent : colors.warning}
                 />
                 <Text className="flex-1 text-sm text-text">
                   <Text className="font-semibold">{alert.horseName}</Text> · {alert.message}
@@ -381,94 +617,164 @@ export default function TodayScreen() {
         </FadeInView>
       ) : null}
 
-      {/* CTA rapide — séance du jour ou planification */}
+      {/* Premiers pas, bilan du mois, offre rappels — APRÈS « À surveiller » :
+          une alerte santé passe avant tout message d'engagement. Chacun se
+          masque seul une fois sans objet, ou à la demande. Premiers pas :
+          propriétaire seulement (un cheval partagé n'est pas à configurer). */}
+      {horse && !horse.sharedRole ? (
+        <FirstStepsCard
+          horseName={horse.name}
+          hasPhoto={!!horse.photoUrl}
+          hasSession={horseSessions.length > 0}
+          hasHealthAppointment={hasHealthAppointment}
+          onAddPhoto={() => router.push(`/edit-horse-modal?id=${horse.id}`)}
+          onPlanSession={() => handleQuickAdd("seance")}
+          onAddHealthAppointment={() => handleQuickAdd("soin")}
+        />
+      ) : null}
+      {horse ? (
+        <MonthlyRecapCard horseId={horse.id} horseName={horse.name} sessions={sessions} appointments={appointments} />
+      ) : null}
+
+      <RemindersUpsellCard />
+
+      {/* Aujourd'hui — ce qui tombe dans la journée, actionnable sur place
+          (une séance se coche d'ici, cf. toggleCompleted) plutôt que renvoyé
+          au Planning. Chaque événement n'apparaît qu'ici, jamais aussi dans
+          « Prochainement » (cf. todayEvents/laterEvents). */}
       <FadeInView delay={80}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            if (todaySession) {
-              toggleCompleted(todaySession.id);
-            } else {
-              // Ouvre directement le formulaire de création dans Planning (cf.
-              // QuickAdd "Séance" ci-dessous, même destination) — avant, ce
-              // bouton se contentait d'une Alert et ne planifiait jamais rien
-              // (cf. audit produit du 2026-09-05). `ts` unique à chaque appui,
-              // voir son commentaire juste au-dessus dans handleQuickAdd.
-              router.push({ pathname: "/(tabs)/planning", params: { openForm: "session", ts: String(Date.now()) } });
-            }
-          }}
-          className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
-        >
-          <Text className="text-base font-bold text-on-primary">
-            {todaySession
-              ? todaySession.completed
-                ? "Séance du jour marquée faite ✓"
-                : "Marquer la séance du jour comme faite"
-              : "Planifier une séance"}
-          </Text>
-        </TouchableOpacity>
-      </FadeInView>
-
-      {/* Conseil du jour — teinté pour se distinguer des cartes neutres ci-dessous */}
-      <FadeInView delay={160}>
-        <View className="flex-row gap-3 rounded-card bg-highlight p-5">
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-surface">
-            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.primary} />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-bold uppercase tracking-wide text-primary">
-              Conseil du jour
-            </Text>
-            <Text className="text-[15px] leading-5 text-text">{dailyTip()}</Text>
-          </View>
-        </View>
-      </FadeInView>
-
-      {/* Prochains événements — planning unifié (cf. plan Phase 3 Étape 3),
-          pas de deuxième logique de calendrier. */}
-      <FadeInView delay={200}>
         <View className="mt-1 flex-row items-center justify-between">
-          <Text className="text-xl font-bold text-text">Prochains événements</Text>
+          <Text className="text-xl font-bold text-text">Aujourd&apos;hui</Text>
           <TouchableOpacity onPress={() => router.push("/(tabs)/planning")}>
-            <Text className="text-sm font-semibold text-accent">Voir tout</Text>
+            <Text className="text-sm font-semibold text-accent">Voir le planning</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
 
-      <FadeInView delay={240}>
-        {upcoming.length === 0 ? (
-          <View className={`${CARD} items-center gap-2`}>
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
-              <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={colors.textMuted} />
-            </View>
-            <Text className="text-sm text-muted">Rien de prévu pour l&apos;instant.</Text>
+      <FadeInView delay={100}>
+        {todayEvents.length === 0 ? (
+          <View className={`${CARD} gap-1.5`}>
+            <Text className="text-[15px] font-semibold text-text">Rien de prévu aujourd&apos;hui.</Text>
+            {/* « Rien de prévu » n'est pas « tout est à jour » : on dit ce qui
+                attend quand même, plutôt que de laisser une carte vide qui se
+                lit comme un feu vert. */}
+            <Text className="text-sm leading-5 text-muted">
+              {alerts.length > 0
+                ? `${alerts.length} point${alerts.length > 1 ? "s" : ""} à surveiller plus haut${
+                    nextEvent ? `, et ${formatWhen(nextEvent.date).toLowerCase()} : ${upcomingEventMeta(nextEvent).title}` : ""
+                  }.`
+                : nextEvent
+                  ? `Prochaine échéance ${formatWhen(nextEvent.date).toLowerCase()} : ${upcomingEventMeta(nextEvent).title}.`
+                  : "Rien d'enregistré non plus pour les jours à venir — planifie une séance, ou note celle que tu viens de faire."}
+            </Text>
           </View>
         ) : (
           <View className={CARD}>
-            {upcoming.map((event, i) => {
+            {todayEvents.map((event, i) => {
               const meta = upcomingEventMeta(event);
-              const when = formatWhen(event.date, eventTime(event));
+              const time = eventTime(event);
+              const session = event.kind === "session" ? event.session : null;
               return (
-                <TouchableOpacity
+                <View
                   key={event.id}
-                  onPress={() => router.push("/(tabs)/planning")}
-                  activeOpacity={0.7}
                   className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
                 >
-                  <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
-                    <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
-                  </View>
-                  <View className="flex-1 gap-0.5">
-                    <Text className="text-[15px] font-semibold text-text">{meta.title}</Text>
-                    <Text className="text-sm text-muted">{when}</Text>
-                  </View>
-                  <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => router.push("/(tabs)/planning")}
+                    activeOpacity={0.7}
+                    className="flex-1 flex-row items-center gap-3"
+                  >
+                    <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
+                      <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
+                    </View>
+                    <View className="flex-1 gap-0.5">
+                      <Text
+                        className={`text-[15px] font-semibold ${session?.completed ? "text-muted line-through" : "text-text"}`}
+                      >
+                        {meta.title}
+                      </Text>
+                      <Text className="text-sm text-muted">{time ? `${meta.label} · ${time}` : meta.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {session ? (
+                    <TouchableOpacity
+                      onPress={() => toggleSessionDone(session)}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={session.completed ? "Marquer à faire" : "Marquer faite"}
+                      className={`rounded-full border px-3 py-1.5 ${
+                        session.completed ? "border-success bg-success/15" : "border-primary"
+                      }`}
+                    >
+                      <Text className={`text-xs font-bold ${session.completed ? "text-success" : "text-primary"}`}>
+                        {session.completed ? "Faite ✓" : "Marquer faite"}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
+                  )}
+                </View>
               );
             })}
           </View>
         )}
       </FadeInView>
+
+      {/* Planifier une séance — bouton conservé d'un accès direct, y compris
+          quand la journée est déjà remplie (cf. audit produit du 2026-09-05 :
+          il ne doit jamais se contenter d'une Alert). `ts` unique à chaque
+          appui, cf. son commentaire dans handleQuickAdd. */}
+      <FadeInView delay={120}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() =>
+            router.push({ pathname: "/(tabs)/planning", params: { openForm: "session", ts: String(Date.now()) } })
+          }
+          className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
+        >
+          <Text className="text-base font-bold text-on-primary">Planifier une séance</Text>
+        </TouchableOpacity>
+      </FadeInView>
+
+      {/* Prochainement — les jours suivants seulement (aujourd'hui est
+          au-dessus), planning unifié comme avant (cf. plan Phase 3 Étape 3). */}
+      {laterEvents.length > 0 ? (
+        <>
+          <FadeInView delay={140}>
+            <View className="mt-1 flex-row items-center justify-between">
+              <Text className="text-xl font-bold text-text">Prochainement</Text>
+              <TouchableOpacity onPress={() => router.push("/(tabs)/planning")}>
+                <Text className="text-sm font-semibold text-accent">Voir tout</Text>
+              </TouchableOpacity>
+            </View>
+          </FadeInView>
+          <FadeInView delay={160}>
+            <View className={CARD}>
+              {laterEvents.map((event, i) => {
+                const meta = upcomingEventMeta(event);
+                const when = formatWhen(event.date, eventTime(event));
+                return (
+                  <TouchableOpacity
+                    key={event.id}
+                    onPress={() => router.push("/(tabs)/planning")}
+                    activeOpacity={0.7}
+                    className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
+                  >
+                    <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
+                      <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
+                    </View>
+                    <View className="flex-1 gap-0.5">
+                      <Text className="text-[15px] font-semibold text-text">{meta.title}</Text>
+                      <Text className="text-sm text-muted">{when}</Text>
+                    </View>
+                    <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </FadeInView>
+        </>
+      ) : null}
 
       {/* Ajout rapide (cf. plan Phase 3 Étape 4 §9) — le déclencheur cède la
           place au formulaire ouvert, même principe que Planning/Horse Hub
@@ -481,6 +787,7 @@ export default function TodayScreen() {
             setForm={setApptForm}
             editingApptId={editingApptId}
             submitting={submittingAppt}
+            targetHorseName={horse?.name ?? null}
             onOpen={() => setShowApptForm(true)}
             onCancel={cancelApptForm}
             onSubmit={handleSubmitAppointment}
@@ -495,6 +802,7 @@ export default function TodayScreen() {
             setForm={setExpenseForm}
             editingExpenseId={editingExpenseId}
             suggestedAppointmentFor={suggestedAppointmentFor}
+            targetHorseName={horse?.name ?? null}
             onOpen={() => setShowExpenseForm(true)}
             onCancel={cancelExpenseForm}
             onSubmit={handleSubmitExpense}
@@ -507,6 +815,7 @@ export default function TodayScreen() {
             setForm={setJournalForm}
             editingJournalId={editingJournalId}
             saving={savingJournal}
+            targetHorseName={horse?.name ?? null}
             onOpen={() => setShowJournalForm(true)}
             onCancel={cancelJournalForm}
             onSubmit={handleSubmitJournalEntry}
@@ -523,6 +832,36 @@ export default function TodayScreen() {
           </TouchableOpacity>
         )}
       </FadeInView>
+
+      {/* Bilan de la semaine — reste en second plan : il ne demande aucune
+          action et ne se périme pas dans la journée. */}
+      <FadeInView delay={300}>
+        <View className={`${CARD} flex-row items-center gap-3`}>
+          <CircularProgress
+            progress={weekSessions.length > 0 ? weekDoneCount / weekSessions.length : 0}
+            size={44}
+            strokeWidth={5}
+            trackColor={colors.border}
+            progressColor={colors.primary}
+          >
+            <Text className="text-[11px] font-bold text-text">
+              {weekDoneCount}/{weekSessions.length}
+            </Text>
+          </CircularProgress>
+          <View className="flex-1 gap-0.5">
+            <Text className="text-xs font-bold uppercase tracking-wide text-muted">Cette semaine</Text>
+            <Text className="text-[13px] leading-[17px] text-text">
+              {weeklyRecapMessage(weekDoneCount, weekSessions.length)}
+            </Text>
+            {streak >= 2 ? (
+              <Text className="text-[13px] font-semibold text-primary">
+                🔥 {streak} semaines d&apos;affilée avec {horse?.name ?? "ton cheval"}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </FadeInView>
+
     </Screen>
     <QuickAddSheet visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} onSelect={handleQuickAdd} />
     <PickerOverlaySlot />

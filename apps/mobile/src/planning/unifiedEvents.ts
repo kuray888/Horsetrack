@@ -2,6 +2,7 @@ import { HEALTH_APPT_TYPES } from "@/agenda/meta";
 import type { Appointment } from "@/agenda/store";
 import type { TrainingSession } from "@/sessions/store";
 import type { PlanningFilterValue } from "@/planning/planningDestination";
+import { daysCovered, lastDayOf } from "@/planning/eventSpan";
 
 /**
  * Un "planning unifié" est d'abord une unification d'affichage (cf. plan
@@ -53,6 +54,13 @@ export function filterUnifiedEvents(events: UnifiedEvent[], filter: PlanningFilt
   return events.filter((e) => e.kind === "appointment" && e.category === filter);
 }
 
+/** Cheval d'un événement unifié, quel que soit son type — pour afficher la
+ * pastille de nom quand la liste en mêle plusieurs (cf. Planning en vue
+ * « Tous les chevaux »). */
+export function eventHorseId(event: UnifiedEvent): string | null {
+  return event.kind === "session" ? event.session.horseId : event.appointment.horseId;
+}
+
 /** Heure d'un événement unifié, quel que soit son type — pour trier une
  * liste d'un même jour (cf. Planning, vue mois). */
 export function eventTime(event: UnifiedEvent): string {
@@ -65,7 +73,16 @@ export function eventTime(event: UnifiedEvent): string {
  * Agenda (upcomingAppts/pastAppts). */
 export function isEventUpcoming(event: UnifiedEvent, todayStart: Date): boolean {
   if (event.kind === "session") return !event.session.completed && event.date >= todayStart;
-  return event.date >= todayStart;
+  // Un concours de plusieurs jours reste « à venir » jusqu'à son dernier jour :
+  // passé dans « Passées » dès le lendemain du premier jour, il disparaîtrait
+  // de la liste en plein milieu de l'événement.
+  return lastDayOf(event.date, event.appointment.endDate) >= todayStart;
+}
+
+/** Jours de la grille du mois où l'événement doit apparaître : tous ses jours
+ * pour un concours de plusieurs jours, sinon son seul jour. */
+export function eventDays(event: UnifiedEvent): Date[] {
+  return event.kind === "appointment" ? daysCovered(event.date, event.appointment.endDate) : [event.date];
 }
 
 /** Événements à venir triés chronologiquement (croissant) — utilisé par

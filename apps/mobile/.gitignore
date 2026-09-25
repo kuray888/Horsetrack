@@ -4,3 +4,14 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Dossiers natifs générés par `expo prebuild` / `expo run:ios` (workflow
+# managed : ils sont reconstruits à la demande et ne doivent pas être
+# versionnés — 1,2 Go, et leur contenu dépend de la machine).
+ios/
+android/
+
+# Clé du compte de service Google Play, utilisée par `eas submit` (cf.
+# eas.json submit.production.android) : c'est un secret qui donne le droit de
+# publier sur le Play Store, il ne doit jamais partir dans le dépôt.
+google-play-service-account.json

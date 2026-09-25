@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
 
 export type WeatherSnapshot = { tempC: number; code: number; label: string; icon: string };
 
@@ -25,7 +26,12 @@ function labelForCode(code: number): { label: string; icon: string } {
 export async function requestLocationOnce(): Promise<{ lat: number; lon: number } | null> {
   try {
     const current = await Location.getForegroundPermissionsAsync();
-    const granted = current.granted ? true : (await Location.requestForegroundPermissionsAsync()).granted;
+    // `runNativeInteraction` : la boîte de dialogue de permission Android met
+    // notre activité en pause, ce qui rejouerait le verrou biométrique au
+    // retour (cf. lib/nativeInteraction.ts). Sans effet sur iOS.
+    const granted = current.granted
+      ? true
+      : (await runNativeInteraction(() => Location.requestForegroundPermissionsAsync())).granted;
     if (!granted) return null;
     const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
     return { lat: position.coords.latitude, lon: position.coords.longitude };
