@@ -16,6 +16,7 @@ import { useWeather } from "@/weather/store";
 import { sessionWeatherWarning } from "@/weather/sessionWeather";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
+import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { MONTHS, isSameDate } from "@/lib/dateFormat";
@@ -361,6 +362,12 @@ export default function TodayScreen() {
     return findSuggestedAppointment(horseAppointments, category);
   }
 
+  // Formulaires d'ajout en bas de l'écran : ouverts depuis plus haut (carte
+  // Premiers pas), ils restaient hors de vue — cf. useScrollToOnOpen.
+  const { scrollRef, onAnchorLayout: onAddFormLayout } = useScrollToOnOpen(
+    showApptForm || showExpenseForm || showJournalForm
+  );
+
   function handleQuickAdd(option: QuickAddOption) {
     setQuickAddVisible(false);
     switch (option) {
@@ -400,6 +407,7 @@ export default function TodayScreen() {
   return (
     <>
     <Screen
+      scrollRef={scrollRef}
       refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} tintColor={colors.primary} />}
     >
       {/* En-tête */}
@@ -779,6 +787,7 @@ export default function TodayScreen() {
       {/* Ajout rapide (cf. plan Phase 3 Étape 4 §9) — le déclencheur cède la
           place au formulaire ouvert, même principe que Planning/Horse Hub
           (jamais les deux affichés en même temps). */}
+      <View onLayout={onAddFormLayout}>
       <FadeInView delay={260}>
         {showApptForm ? (
           <AppointmentForm
@@ -832,6 +841,7 @@ export default function TodayScreen() {
           </TouchableOpacity>
         )}
       </FadeInView>
+      </View>
 
       {/* Bilan de la semaine — reste en second plan : il ne demande aucune
           action et ne se périme pas dans la journée. */}
