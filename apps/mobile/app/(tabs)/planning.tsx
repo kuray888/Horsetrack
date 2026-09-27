@@ -618,6 +618,7 @@ export default function PlanningScreen() {
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     startEditAppt,
     cancelApptForm,
     handleSubmitAppointment,
@@ -1344,6 +1345,7 @@ export default function PlanningScreen() {
             form={apptForm}
             setForm={setApptForm}
             editingApptId={editingApptId}
+            reminderUnlocked={reminderUnlocked}
             submitting={submittingAppt}
             selectableHorses={selectableHorses}
             fallbackHorseIds={defaultHorseIds}

@@ -11,7 +11,7 @@ import {
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import type { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
-import { cancelReminder, type ReminderOption } from "@/lib/notifications";
+import { cancelAllReminders, cancelReminder, type ReminderOption } from "@/lib/notifications";
 import { cancelEmailReminder } from "@/lib/emailReminders";
 import {
   pushDocument,
@@ -1069,7 +1069,11 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     // ces deletes tournent dans le Promise.all de
     // (auth)/login.tsx.afterSuccessfulAuth, un rejet non catché ici plantait
     // tout le groupe.
+    // Appelé seulement quand les données locales changent de propriétaire
+    // (suppression du compte, connexion à un autre compte) : les rappels
+    // programmés pour ces rendez-vous partent avec eux.
     await Promise.all([
+      cancelAllReminders(),
       removeJson(APPOINTMENTS_KEY),
       removeJson(DOCUMENTS_KEY),
       removeJson(JOURNAL_KEY),

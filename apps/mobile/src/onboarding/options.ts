@@ -12,8 +12,11 @@ import type {
   HorseRecoveryStatus,
 } from "./store";
 
-/** Nombre d'étapes affichant la barre de progression (welcome/building/paywall exclus). */
-export const TOTAL_STEPS = 6;
+/** Nombre d'étapes affichant la barre de progression (welcome/building/paywall
+ * exclus) : niveau, discipline, cheval, chevaux. Fréquence et objectif ne sont
+ * plus demandés à l'inscription (ils ne personnalisaient rien, retour produit
+ * du 2026-09-27) : ils restent modifiables depuis le Profil. */
+export const TOTAL_STEPS = 4;
 
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";

@@ -114,6 +114,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     cancelApptForm,
     handleSubmitAppointment,
     addApptFormEntry,
@@ -474,6 +475,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               form={apptForm}
               setForm={setApptForm}
               editingApptId={editingApptId}
+              reminderUnlocked={reminderUnlocked}
               submitting={submittingAppt}
               targetHorseName={horse.name}
               onOpen={() => setShowApptForm(true)}

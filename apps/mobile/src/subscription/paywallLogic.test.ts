@@ -7,6 +7,7 @@ import {
   orderedBenefits,
   PAYWALL_PLACEMENTS,
   shouldShowRemindersUpsell,
+  hasFreeReminderSlot,
   parsePlacement,
   parseTrialPeriod,
   paywallCopy,
@@ -122,5 +123,28 @@ describe("shouldShowRemindersUpsell", () => {
     const twentyDaysAgo = new Date(2026, 8, 5);
     expect(shouldShowRemindersUpsell({ premium: false, healthAppointments: 5, dismissedAt: tenDaysAgo, now })).toBe(false);
     expect(shouldShowRemindersUpsell({ premium: false, healthAppointments: 5, dismissedAt: twentyDaysAgo, now })).toBe(true);
+  });
+});
+
+describe("hasFreeReminderSlot", () => {
+  const now = new Date(2026, 8, 25, 10);
+  const appt = (id: string, date: Date, reminderNotificationId: string | null) => ({ id, date, reminderNotificationId });
+
+  it("offre un rappel tant qu'aucun rendez-vous à venir n'en porte", () => {
+    expect(hasFreeReminderSlot([], null, now)).toBe(true);
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 30), null)], null, now)).toBe(true);
+  });
+
+  it("n'en offre pas un deuxième", () => {
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 30), "n1")], null, now)).toBe(false);
+  });
+
+  it("libère la place une fois le rendez-vous passé (le jour même compte encore)", () => {
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 24), "n1")], null, now)).toBe(true);
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 25, 8), "n1")], null, now)).toBe(false);
+  });
+
+  it("laisse le rendez-vous modifié garder son propre rappel", () => {
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 30), "n1")], "a", now)).toBe(true);
   });
 });

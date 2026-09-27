@@ -364,8 +364,14 @@ export default function ProfileScreen() {
         <View className={CARD}>
           <InfoRow label="Niveau" value={labelOf(RIDER_LEVELS, riderProfile.level)} />
           <InfoRow label="Discipline principale" value={labelOf(DISCIPLINES, riderProfile.mainDiscipline)} />
-          <InfoRow label="Fréquence de monte" value={labelOf(RIDE_FREQUENCIES, riderProfile.rideFrequency)} />
-          <InfoRow label="Objectif principal" value={labelOf(RIDER_GOALS, riderProfile.primaryGoal)} />
+          {/* Plus demandés à l'inscription : affichés une fois renseignés
+              (bouton « Modifier » ci-dessus). */}
+          {riderProfile.rideFrequency ? (
+            <InfoRow label="Fréquence de monte" value={labelOf(RIDE_FREQUENCIES, riderProfile.rideFrequency)} />
+          ) : null}
+          {riderProfile.primaryGoal ? (
+            <InfoRow label="Objectif principal" value={labelOf(RIDER_GOALS, riderProfile.primaryGoal)} />
+          ) : null}
         </View>
       </FadeInView>
 

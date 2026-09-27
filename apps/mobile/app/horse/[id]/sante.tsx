@@ -54,6 +54,7 @@ export default function HorseSanteScreen() {
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     startEditAppt,
     cancelApptForm,
     handleSubmitAppointment,
@@ -178,6 +179,7 @@ export default function HorseSanteScreen() {
             form={apptForm}
             setForm={setApptForm}
             editingApptId={editingApptId}
+            reminderUnlocked={reminderUnlocked}
             submitting={submittingAppt}
             targetHorseName={horse.name}
             onOpen={startAddAppt}

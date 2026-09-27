@@ -29,6 +29,7 @@ export function Locked({
   placement,
   feature,
   horseId,
+  unlocked: unlockedOverride = false,
 }: {
   children: ReactNode;
   message: string;
@@ -37,12 +38,14 @@ export function Locked({
   feature: string;
   /** Cheval concerné, cité par le paywall quand c'est pertinent. */
   horseId?: string;
+  /** Ouvre le contenu malgré un compte gratuit (ex. le rappel offert). */
+  unlocked?: boolean;
 }) {
   const { isActiveOrTrialing } = useSubscription();
   const trialConfirmed = useTrialConfirmed();
   const colors = useThemeColors();
   const { scale, onPressIn, onPressOut } = usePressScale();
-  const unlocked = isActiveOrTrialing;
+  const unlocked = isActiveOrTrialing || unlockedOverride;
 
   if (unlocked) return <>{children}</>;
 

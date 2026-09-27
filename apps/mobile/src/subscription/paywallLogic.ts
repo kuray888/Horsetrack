@@ -275,3 +275,27 @@ export function shouldShowRemindersUpsell(input: {
   const now = input.now ?? new Date();
   return now.getTime() - input.dismissedAt.getTime() >= UPSELL_SNOOZE_DAYS * DAY_MS;
 }
+
+// --- Rappel offert (palier gratuit) ------------------------------------------
+
+/** Rappels de rendez-vous actifs offerts en gratuit : un seul à la fois, pour
+ * que chacun vive au moins une fois « l'app m'a prévenu » avant qu'on lui
+ * propose les rappels illimités de Premium. */
+export const FREE_ACTIVE_REMINDERS = 1;
+
+/** Vrai si un compte gratuit peut encore programmer un rappel : moins de
+ * FREE_ACTIVE_REMINDERS rendez-vous à venir portant un rappel programmé SUR
+ * CET APPAREIL (`reminderNotificationId`, jamais synchronisé : un rendez-vous
+ * partagé par quelqu'un d'autre ne consomme donc pas la place). Le rendez-vous
+ * en cours de modification ne compte pas : il peut garder son propre rappel. */
+export function hasFreeReminderSlot(
+  appointments: { id: string; date: Date; reminderNotificationId: string | null }[],
+  editingId: string | null,
+  now: Date = new Date()
+): boolean {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const active = appointments.filter(
+    (a) => a.id !== editingId && !!a.reminderNotificationId && a.date >= startOfToday
+  ).length;
+  return active < FREE_ACTIVE_REMINDERS;
+}
