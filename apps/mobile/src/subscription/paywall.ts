@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { router } from "expo-router";
 import { isPurchasesAvailable, loadPaywallOffer, type PaywallOffer } from "@/lib/revenuecat";
 import { track } from "@/lib/analytics";
@@ -38,6 +39,21 @@ function fetchOffer(): Promise<PaywallOffer> {
 export function invalidatePaywallOffer(): void {
   cached = null;
 }
+
+// L'offre reste en cache pour toute la durée du process JS (cf. `cached`
+// ci-dessus), donc jusqu'ici seulement invalidée par un événement précis
+// (connexion/achat/restauration). Un changement fait EN DEHORS de l'app —
+// pays du compte Apple modifié dans Réglages, changement de compte sandbox —
+// ne déclenche aucun de ces événements : le paywall pouvait alors garder un
+// prix/une devise périmés tant que l'app restait en mémoire (repéré : prix
+// affiché en $ alors que la fiche d'achat Apple, elle, interroge le store à
+// chaque fois et affichait correctement le prix en €) — cf. la remontée du
+// 2026-09-27. On invalide donc aussi à chaque retour au premier plan —
+// RevenueCat garde son propre cache léger côté SDK, ce n'est jamais un
+// aller-retour réseau à vide.
+AppState.addEventListener("change", (next) => {
+  if (next === "active") invalidatePaywallOffer();
+});
 
 function getOffer(): Promise<PaywallOffer> {
   if (!cached) {
