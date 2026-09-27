@@ -6,6 +6,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
+import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { isEmailAlreadyRegisteredError, isEmailNotConfirmedError, MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
@@ -376,22 +377,20 @@ export default function OnboardingAccount() {
         </Field>
 
         <Field label="Mot de passe">
-          <TextInput
-            className={INPUT}
+          <PasswordInput
             placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            autoComplete="new-password"
           />
         </Field>
 
         <Field label="Confirmer le mot de passe">
-          <TextInput
-            className={INPUT}
+          <PasswordInput
             placeholder="Retape ton mot de passe"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            secureTextEntry
+            autoComplete="new-password"
           />
           {passwordsMismatch ? (
             <Text className="text-xs text-red-500">Les mots de passe ne correspondent pas.</Text>

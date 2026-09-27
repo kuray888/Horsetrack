@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
+import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
 import { translateAuthError } from "@/lib/authErrors";
@@ -343,14 +344,11 @@ export default function LoginScreen() {
         </Field>
 
         <Field label="Mot de passe">
-          <TextInput
-            className={INPUT}
+          <PasswordInput
             placeholder="Ton mot de passe"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-            textContentType="password"
+            autoComplete="current-password"
           />
         </Field>
 

@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
-import { Alert, Text, TextInput, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
+import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
-
-const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
 /** Atteint uniquement via le lien de récupération de mot de passe (cf.
  * components/PasswordRecoveryListener.tsx, qui établit la session de
@@ -84,12 +83,11 @@ export default function ResetPasswordScreen() {
         </View>
 
         <Field label="Mot de passe">
-          <TextInput
-            className={INPUT}
+          <PasswordInput
             placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            autoComplete="new-password"
           />
         </Field>
       </View>

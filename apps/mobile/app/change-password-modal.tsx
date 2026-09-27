@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
+import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { colors } from "@/theme/colors";
-
-const INPUT = "rounded-card border border-border bg-surface p-4 pr-11 text-base text-text";
 
 function PasswordField({
   label,
@@ -30,31 +29,14 @@ function PasswordField({
 }) {
   return (
     <Field label={label}>
-      <View className="relative justify-center">
-        <TextInput
-          className={INPUT}
-          placeholder={placeholder}
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={!visible}
-          autoCapitalize="none"
-          autoComplete={autoComplete}
-          textContentType={autoComplete === "current-password" ? "password" : "newPassword"}
-        />
-        <TouchableOpacity
-          onPress={onToggleVisible}
-          hitSlop={12}
-          className="absolute right-3"
-          accessibilityLabel={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name={visible ? "eye-off-outline" : "eye-outline"}
-            size={20}
-            color={colors.textMuted}
-          />
-        </TouchableOpacity>
-      </View>
+      <PasswordInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        visible={visible}
+        onToggleVisible={onToggleVisible}
+        autoComplete={autoComplete}
+      />
     </Field>
   );
 }
