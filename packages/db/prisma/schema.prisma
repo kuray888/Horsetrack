@@ -516,6 +516,12 @@ model HorseCollaborator {
   /// champ n'est plus consulté : seule une invitation PENDING peut expirer.
   expiresAt DateTime?
 
+  /// Dernier email d'invitation envoyé (cf. /api/horse-invites) — limite les
+  /// renvois. Écrit uniquement par le backend : un trigger (cf.
+  /// invite-email-throttle-2026-09-27.sql) l'empêche d'être modifié via l'API
+  /// Supabase, sinon un propriétaire pourrait le remettre à zéro.
+  inviteEmailSentAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

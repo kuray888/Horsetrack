@@ -15,6 +15,13 @@ const schema = z.object({
 // pas d'import cross-package possible (app API distincte), donc dupliqué,
 // mais au moins avec les mêmes mots (cf. audit du 2026-09-09 : "lad" ici vs
 // "groom" partout côté app avait dérivé).
+/** Un même invité ne reçoit pas plus d'un email par heure (renvoi depuis
+ * l'app compris), et un compte n'envoie pas plus de 20 invitations par jour —
+ * sans ça, la route pouvait être rappelée en boucle (cf. audit sécurité du
+ * 2026-09-27). */
+const RESEND_COOLDOWN_MS = 60 * 60 * 1000;
+const MAX_INVITE_EMAILS_PER_DAY = 20;
+
 const ROLE_LABEL: Record<"DEMI_PENSION" | "COACH" | "RIDER" | "GROOM", string> = {
   DEMI_PENSION: "en demi-pension",
   COACH: "en tant que coach",
@@ -73,6 +80,35 @@ export async function POST(req: NextRequest) {
   });
   if (!invite) {
     return NextResponse.json({ error: "Invitation introuvable" }, { status: 404 });
+  }
+
+  // Claim atomique de l'envoi : une seule requête passe par fenêtre d'une
+  // heure pour cette invitation, même lancées en parallèle.
+  let claimed = true;
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sentToday = await db.horseCollaborator.count({
+      where: { horse: { owner: { userId } }, inviteEmailSentAt: { gte: since } },
+    });
+    if (sentToday >= MAX_INVITE_EMAILS_PER_DAY) {
+      return NextResponse.json({ sent: false, error: "Trop d'invitations envoyées aujourd'hui." }, { status: 429 });
+    }
+    const claim = await db.horseCollaborator.updateMany({
+      where: {
+        id: invite.id,
+        OR: [{ inviteEmailSentAt: null }, { inviteEmailSentAt: { lt: new Date(Date.now() - RESEND_COOLDOWN_MS) } }],
+      },
+      data: { inviteEmailSentAt: new Date() },
+    });
+    claimed = claim.count > 0;
+  } catch (e) {
+    // Colonne pas encore créée en base (SQL invite-email-throttle-2026-09-27
+    // non exécuté) : on envoie comme avant plutôt que de bloquer le partage.
+    console.warn("[horse-invites] limite d'envoi indisponible", e);
+  }
+  if (!claimed) {
+    // L'invitation existe et reste valable : seul l'email n'est pas renvoyé.
+    return NextResponse.json({ sent: false, throttled: true });
   }
 
   const inviter = await db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });

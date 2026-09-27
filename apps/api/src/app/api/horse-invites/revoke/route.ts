@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
     // Déjà révoqué (double appui, autre appareil) : rien à faire.
     return NextResponse.json({ revoked: false, sent: false });
   }
-  await db.horseCollaborator.delete({ where: { id: collaborator.id } });
+  // deleteMany plutôt que delete : ne relit pas la ligne supprimée, donc ne
+  // dépend d'aucune colonne récente (cf. inviteEmailSentAt).
+  await db.horseCollaborator.deleteMany({ where: { id: collaborator.id } });
 
   const horseName = safeLine(horse.name, 60) || "ce cheval";
   const subject = `Ton accès à ${horseName} sur Horsetrack a été retiré`;
