@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
-import { translateAuthError } from "@/lib/authErrors";
+import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { colors } from "@/theme/colors";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 pr-11 text-base text-text";
@@ -116,13 +116,13 @@ export default function ChangePasswordModal() {
       .finally(() => setCheckingIdentity(false));
   }, []);
 
-  const passwordTooShort = password.length > 0 && password.length < 6;
+  const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
   const mismatch = confirm.length > 0 && password !== confirm;
   const canSave =
     !checkingIdentity &&
     !loading &&
     (!hasPassword || currentPassword.length > 0) &&
-    password.length >= 6 &&
+    password.length >= MIN_PASSWORD_LENGTH &&
     password === confirm;
 
   async function submit() {
@@ -219,13 +219,13 @@ export default function ChangePasswordModal() {
               label="Nouveau mot de passe"
               value={password}
               onChangeText={setPassword}
-              placeholder="6 caractères minimum"
+              placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
               visible={showNew}
               onToggleVisible={() => setShowNew((v) => !v)}
               autoComplete="new-password"
             />
             {passwordTooShort ? (
-              <Text className="-mt-3 text-xs text-danger">Au moins 6 caractères.</Text>
+              <Text className="-mt-3 text-xs text-danger">Au moins {MIN_PASSWORD_LENGTH} caractères.</Text>
             ) : null}
 
             <PasswordField

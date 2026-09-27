@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
-import { translateAuthError } from "@/lib/authErrors";
+import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -14,13 +14,21 @@ const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-t
  * récupération avant de rediriger ici) — jamais depuis la navigation normale. */
 export default function ResetPasswordScreen() {
   const [ready, setReady] = useState(false);
+  // Affiché pour que l'on sache à quel compte s'applique le nouveau mot de
+  // passe : un lien de réinitialisation piégé pourrait sinon connecter une
+  // personne déconnectée au compte de quelqu'un d'autre sans qu'elle le voie
+  // (cf. audit sécurité du 2026-09-27).
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     supabase.auth
       .getSession()
-      .then(({ data }) => setReady(!!data.session))
+      .then(({ data }) => {
+        setReady(!!data.session);
+        setAccountEmail(data.session?.user.email ?? null);
+      })
       .catch(() => setReady(false));
   }, []);
 
@@ -65,13 +73,20 @@ export default function ResetPasswordScreen() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-display tracking-tight text-text">Nouveau mot de passe</Text>
-          <Text className="text-base text-muted">Choisis un nouveau mot de passe pour ton compte.</Text>
+          <Text className="text-base text-muted">
+            {accountEmail
+              ? `Choisis un nouveau mot de passe pour le compte ${accountEmail}.`
+              : "Choisis un nouveau mot de passe pour ton compte."}
+          </Text>
+          {accountEmail ? (
+            <Text className="text-sm text-muted">Ce n&apos;est pas ton adresse ? Ferme cet écran et déconnecte-toi.</Text>
+          ) : null}
         </View>
 
         <Field label="Mot de passe">
           <TextInput
             className={INPUT}
-            placeholder="6 caractères minimum"
+            placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -82,7 +97,7 @@ export default function ResetPasswordScreen() {
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
           label={loading ? "Mise à jour..." : "Mettre à jour"}
-          disabled={loading || password.length < 6}
+          disabled={loading || password.length < MIN_PASSWORD_LENGTH}
           onPress={submit}
         />
       </View>

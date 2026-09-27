@@ -32,6 +32,12 @@ export function isEmailAlreadyRegisteredError(message: string): boolean {
  * message d'origine si aucun cas connu ne correspond, plutôt que d'inventer
  * une traduction incorrecte pour un message imprévu.
  */
+/** Longueur minimale d'un NOUVEAU mot de passe (inscription, changement,
+ * réinitialisation). Relevée de 6 à 8 (audit sécurité du 2026-09-27) : la
+ * connexion n'impose aucune longueur, les mots de passe existants restent
+ * valables. */
+export const MIN_PASSWORD_LENGTH = 8;
+
 export function translateAuthError(message: string): string {
   const m = message.toLowerCase();
 
@@ -45,7 +51,7 @@ export function translateAuthError(message: string): string {
     return "Un compte existe déjà avec cet email — connecte-toi plutôt.";
   }
   if (m.includes("password should be at least")) {
-    return "Le mot de passe doit contenir au moins 6 caractères.";
+    return `Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`;
   }
   if (m.includes("new password should be different")) {
     return "Le nouveau mot de passe doit être différent de l'ancien.";

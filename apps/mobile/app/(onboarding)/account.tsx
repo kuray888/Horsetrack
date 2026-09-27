@@ -7,7 +7,7 @@ import { PrimaryButton } from "@/components/onboarding";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
-import { translateAuthError } from "@/lib/authErrors";
+import { isEmailAlreadyRegisteredError, isEmailNotConfirmedError, MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
 import { signInWithApple, useAppleSignInAvailable } from "@/lib/appleAuth";
 import { pullPendingInvites } from "@/lib/sharing";
@@ -19,7 +19,6 @@ import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
 import { useSubscription } from "@/subscription/store";
-import { isEmailAlreadyRegisteredError, isEmailNotConfirmedError } from "@/lib/authErrors";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -379,7 +378,7 @@ export default function OnboardingAccount() {
         <Field label="Mot de passe">
           <TextInput
             className={INPUT}
-            placeholder="6 caractères minimum"
+            placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -403,7 +402,7 @@ export default function OnboardingAccount() {
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
           label={loading ? "Création..." : "Créer mon compte"}
-          disabled={loading || !email.trim() || password.length < 6 || password !== confirmPassword}
+          disabled={loading || !email.trim() || password.length < MIN_PASSWORD_LENGTH || password !== confirmPassword}
           onPress={createAccount}
         />
         {appleAvailable ? (
