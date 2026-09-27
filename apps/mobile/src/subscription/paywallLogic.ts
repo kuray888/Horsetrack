@@ -169,6 +169,22 @@ export const FALLBACK_PRICE: Record<BillingPeriod, { price: number; priceString:
 
 export const PERIOD_SUFFIX: Record<BillingPeriod, string> = { MONTHLY: "/mois", ANNUAL: "/an" };
 
+/** Prix du store mis en forme en français à partir du montant et du code de
+ * devise fournis par Apple/Google (« 3,99 € », « 3,99 $US »), plutôt que du
+ * texte déjà formaté par le SDK, dont la mise en forme dépend des réglages de
+ * l'appareil (un paywall en « $ » a été vu alors que la fiche d'achat Apple
+ * affichait des euros, cf. remontée du 2026-09-27). La devise reste celle que
+ * le store facturera : on ne la remplace jamais. `null` si le format échoue
+ * (code inconnu, Intl absent) : l'appelant garde alors le texte du SDK. */
+export function formatStorePrice(amount: number, currencyCode: string | null | undefined): string | null {
+  if (!currencyCode || !Number.isFinite(amount)) return null;
+  try {
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: currencyCode }).format(amount);
+  } catch {
+    return null;
+  }
+}
+
 /** Économie de l'annuel par rapport à 12 mensualités, arrondie à l'entier
  * INFÉRIEUR (jamais surestimée). null si non calculable ou nulle. */
 export function annualSavingsPercent(monthlyPrice: number, annualPrice: number): number | null {

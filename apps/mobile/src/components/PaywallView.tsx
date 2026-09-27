@@ -326,6 +326,8 @@ export function PaywallView({
       horse_names_shown: horseNames.length,
       trial_eligible: offer?.ANNUAL?.trialEligible ?? null,
       store_prices: !!offer?.ANNUAL,
+      // Diagnostic de la devise renvoyée par le store (cf. formatStorePrice).
+      currency: offer?.ANNUAL?.currencyCode ?? null,
     });
   }, [loading, offer, placement, horseNames.length]);
 

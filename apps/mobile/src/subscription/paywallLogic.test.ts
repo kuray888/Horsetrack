@@ -8,6 +8,7 @@ import {
   PAYWALL_PLACEMENTS,
   shouldShowRemindersUpsell,
   hasFreeReminderSlot,
+  formatStorePrice,
   parsePlacement,
   parseTrialPeriod,
   paywallCopy,
@@ -146,5 +147,20 @@ describe("hasFreeReminderSlot", () => {
 
   it("laisse le rendez-vous modifié garder son propre rappel", () => {
     expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 30), "n1")], "a", now)).toBe(true);
+  });
+});
+
+describe("formatStorePrice", () => {
+  const plain = (s: string | null) => s?.replace(/\s/g, " ");
+  it("met en forme en français dans la devise du store", () => {
+    expect(plain(formatStorePrice(3.99, "EUR"))).toBe("3,99 €");
+    expect(plain(formatStorePrice(39.99, "EUR"))).toBe("39,99 €");
+  });
+  it("garde la devise facturée, jamais remplacée par l'euro", () => {
+    expect(formatStorePrice(3.99, "USD")).toContain("$");
+  });
+  it("renvoie null sans devise exploitable", () => {
+    expect(formatStorePrice(3.99, null)).toBeNull();
+    expect(formatStorePrice(3.99, "PAS_UNE_DEVISE")).toBeNull();
   });
 });
