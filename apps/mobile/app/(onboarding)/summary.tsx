@@ -9,13 +9,11 @@ import { DISCIPLINES } from "@/onboarding/options";
 import { track } from "@/lib/analytics";
 import { joinNames } from "@/subscription/paywallLogic";
 
-const GOAL_PITCH: Record<string, string> = {
-  COMPETE: "grimper en niveau de concours",
-  BONDING: "renforcer votre complicité",
-  FITNESS: "le remettre en pleine forme",
-  EVENT_PREP: "préparer ton prochain événement",
-  CONFIDENCE: "reprendre confiance en selle",
-};
+/** Minuscule initiale seulement : « Saut d'obstacles (CSO) » devenait
+ * « saut d'obstacles (cso) » avec un toLowerCase() sur tout le libellé. */
+function lowerFirst(label: string): string {
+  return label.charAt(0).toLowerCase() + label.slice(1);
+}
 
 function PlanRow({ text, premium = false }: { text: string; premium?: boolean }) {
   return (
@@ -30,10 +28,7 @@ export default function Summary() {
   const { rider, horses } = useOnboarding();
   const primary = horses.find((h) => h.isPrimary) ?? horses[0];
   const horseName = primary?.name?.trim() || "ton cheval";
-  const goalPitch = rider.primaryGoal ? GOAL_PITCH[rider.primaryGoal] : "progresser ensemble";
-  const disciplineLabel =
-    DISCIPLINES.find((d) => d.value === (primary?.discipline ?? rider.mainDiscipline))?.label ??
-    "ta discipline";
+  const disciplineLabel = DISCIPLINES.find((d) => d.value === (primary?.discipline ?? rider.mainDiscipline))?.label;
   const focus = primary?.weaknesses?.[0];
   const namedHorses = horses.filter((h) => h.name.trim().length > 0).map((h) => h.name.trim());
 
@@ -51,7 +46,11 @@ export default function Summary() {
               L&apos;écurie de {horseName} est prête 🎉
             </Text>
             <Text className="text-base text-muted">
-              Objectif : {goalPitch}, en {disciplineLabel.toLowerCase()}.
+              {/* L'objectif n'est plus demandé à l'inscription (cf.
+                  onboarding/options.ts TOTAL_STEPS). */}
+              {disciplineLabel
+                ? `Tout est prêt pour progresser ensemble en ${lowerFirst(disciplineLabel)}.`
+                : "Tout est prêt pour progresser ensemble."}
             </Text>
           </View>
         </FadeInView>
@@ -66,6 +65,7 @@ export default function Summary() {
             <PlanRow text={`Planifie les séances de ${horseName}`} />
             {focus ? <PlanRow text={`Point à travailler : ${focus.toLowerCase()}`} /> : null}
             <PlanRow text="Note les rendez-vous santé : véto, maréchal, ostéo, dentiste" />
+            <PlanRow text="Un rappel offert pour ton prochain soin" />
             <PlanRow text="Prépare tes concours et suis tes dépenses" />
           </View>
         </FadeInView>
@@ -73,7 +73,7 @@ export default function Summary() {
         <FadeInView delay={170}>
           <View className="rounded-card border border-primary/30 bg-highlight/40 p-5">
             <Text className="mb-1 text-sm font-bold uppercase tracking-wide text-primary">Avec Premium</Text>
-            <PlanRow premium text="Un rappel avant chaque soin, pour ne rien oublier" />
+            <PlanRow premium text="Un rappel avant chaque soin, sans limite" />
             {namedHorses.length > 1 ? (
               <PlanRow premium text={`${joinNames(namedHorses)} suivis dans la même écurie`} />
             ) : (

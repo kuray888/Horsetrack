@@ -23,6 +23,10 @@ export type ActivityEntry = {
  * depuis, qui ne l'étaient pas encore quand cet écran a été écrit) plutôt que
  * d'une copie locale.
  */
+function sessionLabel(label: string): string {
+  return label === label.toUpperCase() ? label : label.toLowerCase();
+}
+
 export function buildActivityEntries(
   horseId: string,
   data: {
@@ -43,7 +47,8 @@ export function buildActivityEntries(
         date: s.date,
         icon: ACTIVITY_META[s.activityType].icon,
         iconColor: ACTIVITY_META[s.activityType].tint,
-        title: `Séance ${ACTIVITY_META[s.activityType].label.toLowerCase()}`,
+        // « Séance CSO », pas « Séance cso » : un sigle garde ses majuscules.
+        title: `Séance ${sessionLabel(ACTIVITY_META[s.activityType].label)}`,
         subtitle: s.durationMinutes ? `${s.durationMinutes} min` : null,
       })),
     ...appointments
