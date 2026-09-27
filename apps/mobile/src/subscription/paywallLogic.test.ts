@@ -7,6 +7,8 @@ import {
   orderedBenefits,
   PAYWALL_PLACEMENTS,
   shouldShowRemindersUpsell,
+  hasFreeReminderSlot,
+  formatStorePrice,
   parsePlacement,
   parseTrialPeriod,
   paywallCopy,
@@ -122,5 +124,43 @@ describe("shouldShowRemindersUpsell", () => {
     const twentyDaysAgo = new Date(2026, 8, 5);
     expect(shouldShowRemindersUpsell({ premium: false, healthAppointments: 5, dismissedAt: tenDaysAgo, now })).toBe(false);
     expect(shouldShowRemindersUpsell({ premium: false, healthAppointments: 5, dismissedAt: twentyDaysAgo, now })).toBe(true);
+  });
+});
+
+describe("hasFreeReminderSlot", () => {
+  const now = new Date(2026, 8, 25, 10);
+  const appt = (id: string, date: Date, reminderNotificationId: string | null) => ({ id, date, reminderNotificationId });
+
+  it("offre un rappel tant qu'aucun rendez-vous à venir n'en porte", () => {
+    expect(hasFreeReminderSlot([], null, now)).toBe(true);
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 30), null)], null, now)).toBe(true);
+  });
+
+  it("n'en offre pas un deuxième", () => {
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 30), "n1")], null, now)).toBe(false);
+  });
+
+  it("libère la place une fois le rendez-vous passé (le jour même compte encore)", () => {
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 24), "n1")], null, now)).toBe(true);
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 25, 8), "n1")], null, now)).toBe(false);
+  });
+
+  it("laisse le rendez-vous modifié garder son propre rappel", () => {
+    expect(hasFreeReminderSlot([appt("a", new Date(2026, 8, 30), "n1")], "a", now)).toBe(true);
+  });
+});
+
+describe("formatStorePrice", () => {
+  const plain = (s: string | null) => s?.replace(/\s/g, " ");
+  it("met en forme en français dans la devise du store", () => {
+    expect(plain(formatStorePrice(3.99, "EUR"))).toBe("3,99 €");
+    expect(plain(formatStorePrice(39.99, "EUR"))).toBe("39,99 €");
+  });
+  it("garde la devise facturée, jamais remplacée par l'euro", () => {
+    expect(formatStorePrice(3.99, "USD")).toContain("$");
+  });
+  it("renvoie null sans devise exploitable", () => {
+    expect(formatStorePrice(3.99, null)).toBeNull();
+    expect(formatStorePrice(3.99, "PAS_UNE_DEVISE")).toBeNull();
   });
 });

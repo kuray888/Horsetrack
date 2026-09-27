@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
+import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
-import { translateAuthError } from "@/lib/authErrors";
+import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { colors } from "@/theme/colors";
-
-const INPUT = "rounded-card border border-border bg-surface p-4 pr-11 text-base text-text";
 
 function PasswordField({
   label,
@@ -30,31 +29,14 @@ function PasswordField({
 }) {
   return (
     <Field label={label}>
-      <View className="relative justify-center">
-        <TextInput
-          className={INPUT}
-          placeholder={placeholder}
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={!visible}
-          autoCapitalize="none"
-          autoComplete={autoComplete}
-          textContentType={autoComplete === "current-password" ? "password" : "newPassword"}
-        />
-        <TouchableOpacity
-          onPress={onToggleVisible}
-          hitSlop={12}
-          className="absolute right-3"
-          accessibilityLabel={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name={visible ? "eye-off-outline" : "eye-outline"}
-            size={20}
-            color={colors.textMuted}
-          />
-        </TouchableOpacity>
-      </View>
+      <PasswordInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        visible={visible}
+        onToggleVisible={onToggleVisible}
+        autoComplete={autoComplete}
+      />
     </Field>
   );
 }
@@ -116,13 +98,13 @@ export default function ChangePasswordModal() {
       .finally(() => setCheckingIdentity(false));
   }, []);
 
-  const passwordTooShort = password.length > 0 && password.length < 6;
+  const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
   const mismatch = confirm.length > 0 && password !== confirm;
   const canSave =
     !checkingIdentity &&
     !loading &&
     (!hasPassword || currentPassword.length > 0) &&
-    password.length >= 6 &&
+    password.length >= MIN_PASSWORD_LENGTH &&
     password === confirm;
 
   async function submit() {
@@ -219,13 +201,13 @@ export default function ChangePasswordModal() {
               label="Nouveau mot de passe"
               value={password}
               onChangeText={setPassword}
-              placeholder="6 caractères minimum"
+              placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
               visible={showNew}
               onToggleVisible={() => setShowNew((v) => !v)}
               autoComplete="new-password"
             />
             {passwordTooShort ? (
-              <Text className="-mt-3 text-xs text-danger">Au moins 6 caractères.</Text>
+              <Text className="-mt-3 text-xs text-danger">Au moins {MIN_PASSWORD_LENGTH} caractères.</Text>
             ) : null}
 
             <PasswordField

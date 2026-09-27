@@ -331,19 +331,15 @@ export default function ProfileScreen() {
                   : "1 cheval, planning et agenda gratuits — passe à Premium pour plus"}
             </Text>
           </View>
-          {/* Abonnement géré par le store (payant, ou essai Apple/Google) :
-              « Gérer » ouvre la gestion du store (changer de formule,
-              résilier) — jamais le paywall, qui proposerait de s'abonner à
-              quelqu'un qui l'est déjà. Essai par code promo (billingPeriod
-              null) : rien à gérer côté store, on propose de s'abonner. */}
+          {/* Toujours le paywall : on y voit les formules et c'est le choix
+              d'une formule qui ouvre la feuille d'achat du store (changement
+              mensuel ↔ annuel compris). Ouvrir directement la gestion du store
+              depuis ici n'incitait à rien (retour produit du 2026-09-26) ; la
+              résiliation se fait dans Réglages > Abonnements, comme partout. */}
           <TouchableOpacity
             onPress={() => {
-              if (storeManaged) {
-                track("manage_subscription_opened", { status });
-                void openManageSubscriptions();
-              } else {
-                openPaywall(isActiveOrTrialing && status === "trialing" ? "trial_ending" : "profile");
-              }
+              if (storeManaged) track("manage_subscription_opened", { status });
+              openPaywall(isActiveOrTrialing && status === "trialing" ? "trial_ending" : "profile");
             }}
             activeOpacity={0.8}
           >
@@ -368,8 +364,14 @@ export default function ProfileScreen() {
         <View className={CARD}>
           <InfoRow label="Niveau" value={labelOf(RIDER_LEVELS, riderProfile.level)} />
           <InfoRow label="Discipline principale" value={labelOf(DISCIPLINES, riderProfile.mainDiscipline)} />
-          <InfoRow label="Fréquence de monte" value={labelOf(RIDE_FREQUENCIES, riderProfile.rideFrequency)} />
-          <InfoRow label="Objectif principal" value={labelOf(RIDER_GOALS, riderProfile.primaryGoal)} />
+          {/* Plus demandés à l'inscription : affichés une fois renseignés
+              (bouton « Modifier » ci-dessus). */}
+          {riderProfile.rideFrequency ? (
+            <InfoRow label="Fréquence de monte" value={labelOf(RIDE_FREQUENCIES, riderProfile.rideFrequency)} />
+          ) : null}
+          {riderProfile.primaryGoal ? (
+            <InfoRow label="Objectif principal" value={labelOf(RIDER_GOALS, riderProfile.primaryGoal)} />
+          ) : null}
         </View>
       </FadeInView>
 

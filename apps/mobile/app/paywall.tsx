@@ -12,7 +12,11 @@ export default function AppPaywall() {
   const placement = parsePlacement(params.from);
   const { horses, selectedHorse } = useHorses();
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
-  const { redeemPromoCode } = useSubscription();
+  const { redeemPromoCode, isActiveOrTrialing, status, billingPeriod } = useSubscription();
+  // Abonnement store en cours (même règle que « Gérer » dans le Profil) : le
+  // paywall montre la formule actuelle au lieu de proposer de s'abonner.
+  const currentPeriod =
+    isActiveOrTrialing && (status === "active" || billingPeriod !== null) ? billingPeriod : null;
 
   const horse = (params.horseId ? horses.find((h) => h.id === params.horseId) : null) ?? selectedHorse;
   const horseNames = horse?.name ? [horse.name] : [];
@@ -23,7 +27,9 @@ export default function AppPaywall() {
       (persisted) => {
         // Achat/essai confirmé : écran de bienvenue (activation + rappel de fin
         // d'essai) à la place du paywall, plutôt qu'un simple retour arrière.
-        if (computeIsActiveOrTrialing(persisted)) router.replace("/premium-welcome");
+        // Un abonné qui change de formule n'a pas à revoir la bienvenue.
+        if (currentPeriod) router.back();
+        else if (computeIsActiveOrTrialing(persisted)) router.replace("/premium-welcome");
         else router.back();
       },
       placement
@@ -40,6 +46,7 @@ export default function AppPaywall() {
       onRedeemPromoCode={redeemPromoCode}
       submitting={submitting}
       restoring={restoring}
+      currentPeriod={currentPeriod}
     />
   );
 }

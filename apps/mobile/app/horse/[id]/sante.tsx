@@ -3,6 +3,7 @@ import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
+import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -53,6 +54,7 @@ export default function HorseSanteScreen() {
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     startEditAppt,
     cancelApptForm,
     handleSubmitAppointment,
@@ -68,6 +70,7 @@ export default function HorseSanteScreen() {
     setNotifPermission,
     onEditStart: () => {},
   });
+  const { scrollRef, onAnchorLayout: onFormLayout } = useScrollToOnOpen(showApptForm);
 
   if (!horse) {
     return (
@@ -157,7 +160,7 @@ export default function HorseSanteScreen() {
 
   return (
     <>
-      <Screen>
+      <Screen scrollRef={scrollRef}>
         <FadeInView>
           <View className="flex-row items-center justify-between">
             <Text className="text-2xl font-display tracking-tight text-text">Santé</Text>
@@ -167,12 +170,16 @@ export default function HorseSanteScreen() {
           </View>
         </FadeInView>
 
+        {/* Modifier un soin plus bas dans la liste ouvre le formulaire ici,
+            en haut : on y ramène l'écran (cf. useScrollToOnOpen). */}
+        <View onLayout={onFormLayout}>
         <FadeInView delay={40}>
           <AppointmentForm
             show={showApptForm}
             form={apptForm}
             setForm={setApptForm}
             editingApptId={editingApptId}
+            reminderUnlocked={reminderUnlocked}
             submitting={submittingAppt}
             targetHorseName={horse.name}
             onOpen={startAddAppt}
@@ -183,6 +190,7 @@ export default function HorseSanteScreen() {
             onRemoveEntry={removeApptFormEntry}
           />
         </FadeInView>
+        </View>
 
         {/* Export du carnet — masqué pendant la saisie, comme le reste : on
             n'exporte pas un carnet au milieu d'un ajout. */}

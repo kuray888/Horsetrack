@@ -2,6 +2,7 @@ import { Linking, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { PurchasesPackage } from "react-native-purchases";
 import type { BillingPeriod } from "@/subscription/store";
+import { formatStorePrice } from "@/subscription/paywallLogic";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -163,6 +164,9 @@ export async function isTrialEligible(period: BillingPeriod): Promise<boolean | 
 export type PaywallPlanInfo = {
   price: number;
   priceString: string;
+  /** Devise facturée par le store (EUR, USD…), pour la mise en forme et le
+   * diagnostic (cf. événement paywall_viewed). */
+  currencyCode: string | null;
   pricePerMonthString: string | null;
   /** true = essai confirmé ; false = pas d'essai ; null = indéterminé, à
    * traiter comme « pas d'essai » (on ne promet que ce qui est confirmé). */
@@ -186,12 +190,19 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
         if (!pkg) return null;
         const intro = pkg.product.introPrice;
         const isFreeTrial = !!intro && intro.price === 0;
+        const { price, currencyCode } = pkg.product;
         return [
           period,
           {
-            price: pkg.product.price,
-            priceString: pkg.product.priceString,
-            pricePerMonthString: pkg.product.pricePerMonthString ?? null,
+            price,
+            priceString: formatStorePrice(price, currencyCode) ?? pkg.product.priceString,
+            currencyCode: currencyCode ?? null,
+            // Équivalent mensuel arrondi au centime inférieur, comme le fait le
+            // SDK (39,99 € / 12 → 3,33 €).
+            pricePerMonthString:
+              formatStorePrice(period === "ANNUAL" ? Math.floor((price / 12) * 100) / 100 : price, currencyCode) ??
+              pkg.product.pricePerMonthString ??
+              null,
             trialEligible: isFreeTrial ? await isTrialEligible(period) : false,
             trialUnit: isFreeTrial ? intro.periodUnit : null,
             trialCount: isFreeTrial ? intro.periodNumberOfUnits : null,

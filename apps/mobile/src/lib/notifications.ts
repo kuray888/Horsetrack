@@ -223,6 +223,20 @@ export async function scheduleWeeklySummary(
   }
 }
 
+/** Annule TOUS les rappels programmés sur cet appareil (rendez-vous,
+ * échéances de soin, bilan du dimanche). Réservé aux moments où les données
+ * locales changent de propriétaire (suppression du compte, connexion à un
+ * autre compte) : sans ça, les rappels de l'ancien compte continuaient de
+ * sonner, y compris pour un compte supprimé. Best-effort. */
+export async function cancelAllReminders(): Promise<void> {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    await SecureStore.deleteItemAsync(WEEKLY_SUMMARY_KEY);
+  } catch {
+    // Best-effort : voir cancelReminder ci-dessus.
+  }
+}
+
 /** Annule le bilan hebdomadaire (suppression de compte, déconnexion…). */
 export async function cancelWeeklySummary(): Promise<void> {
   try {

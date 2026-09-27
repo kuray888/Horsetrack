@@ -21,7 +21,7 @@ Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le s
 >
 > **SUIVI SANTÉ**
 > • Véto, maréchal, ostéo, dentiste, vaccins, vermifuges : tout est noté, avec les prochaines échéances
-> • Un rappel avant chaque rendez-vous (Premium)
+> • Un rappel avant chaque rendez-vous (1 à la fois en gratuit, illimités avec Premium)
 > • Carnet de santé exportable en PDF, à envoyer au véto en un geste
 >
 > **PLANNING ET JOURNAL**
@@ -40,7 +40,7 @@ Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le s
 > • Partage ton cheval avec ta demi-pension, ton coach ou ton groom : chacun retrouve son planning, ses soins et ses rendez-vous (Premium)
 >
 > **GRATUIT POUR COMMENCER**
-> La version gratuite suit 1 cheval avec le planning, l'agenda, le journal et les dépenses. Horsetrack Premium ajoute les chevaux illimités, les rappels, le coffre-fort, le partage et les concours détaillés. Essai gratuit d'1 mois, puis 3,99 €/mois ou 39,99 €/an. Annulable à tout moment dans Réglages > Abonnements.
+> La version gratuite suit 1 cheval avec le planning, l'agenda, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute les chevaux illimités, les rappels illimités, le coffre-fort, le partage et les concours détaillés. Essai gratuit d'1 mois, puis 3,99 €/mois ou 39,99 €/an. Annulable à tout moment dans Réglages > Abonnements.
 >
 > Conditions : [lien /cgu] · Confidentialité : [lien /confidentialite]
 
@@ -80,7 +80,7 @@ Utilise une vraie photo de cheval sur les écrans, pas d'avatar vide.
 
 - **Avis positif** : « Merci beaucoup ! Ravis que Horsetrack t'aide avec [cheval/soins]. Une idée pour la suite ? Écris-nous depuis Profil → Contacter le support. »
 - **Bug** : « Désolés pour ce souci. Écris-nous depuis Profil → Contacter le support (la version de l'app est ajoutée automatiquement) pour qu'on règle ça vite. »
-- **Prix / Premium** : « Merci pour ton retour. La version gratuite reste complète pour 1 cheval ; Premium ajoute les rappels, le coffre-fort, le partage et les chevaux illimités, avec 1 mois d'essai annulable à tout moment. »
+- **Prix / Premium** : « Merci pour ton retour. La version gratuite reste complète pour 1 cheval, avec un rappel offert ; Premium ajoute les rappels illimités, le coffre-fort, le partage et les chevaux illimités, avec 1 mois d'essai annulable à tout moment. »
 
 ## « Nouveautés » de cette version
 

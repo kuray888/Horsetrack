@@ -169,6 +169,22 @@ export const FALLBACK_PRICE: Record<BillingPeriod, { price: number; priceString:
 
 export const PERIOD_SUFFIX: Record<BillingPeriod, string> = { MONTHLY: "/mois", ANNUAL: "/an" };
 
+/** Prix du store mis en forme en français à partir du montant et du code de
+ * devise fournis par Apple/Google (« 3,99 € », « 3,99 $US »), plutôt que du
+ * texte déjà formaté par le SDK, dont la mise en forme dépend des réglages de
+ * l'appareil (un paywall en « $ » a été vu alors que la fiche d'achat Apple
+ * affichait des euros, cf. remontée du 2026-09-27). La devise reste celle que
+ * le store facturera : on ne la remplace jamais. `null` si le format échoue
+ * (code inconnu, Intl absent) : l'appelant garde alors le texte du SDK. */
+export function formatStorePrice(amount: number, currencyCode: string | null | undefined): string | null {
+  if (!currencyCode || !Number.isFinite(amount)) return null;
+  try {
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: currencyCode }).format(amount);
+  } catch {
+    return null;
+  }
+}
+
 /** Économie de l'annuel par rapport à 12 mensualités, arrondie à l'entier
  * INFÉRIEUR (jamais surestimée). null si non calculable ou nulle. */
 export function annualSavingsPercent(monthlyPrice: number, annualPrice: number): number | null {
@@ -274,4 +290,28 @@ export function shouldShowRemindersUpsell(input: {
   if (!input.dismissedAt) return true;
   const now = input.now ?? new Date();
   return now.getTime() - input.dismissedAt.getTime() >= UPSELL_SNOOZE_DAYS * DAY_MS;
+}
+
+// --- Rappel offert (palier gratuit) ------------------------------------------
+
+/** Rappels de rendez-vous actifs offerts en gratuit : un seul à la fois, pour
+ * que chacun vive au moins une fois « l'app m'a prévenu » avant qu'on lui
+ * propose les rappels illimités de Premium. */
+export const FREE_ACTIVE_REMINDERS = 1;
+
+/** Vrai si un compte gratuit peut encore programmer un rappel : moins de
+ * FREE_ACTIVE_REMINDERS rendez-vous à venir portant un rappel programmé SUR
+ * CET APPAREIL (`reminderNotificationId`, jamais synchronisé : un rendez-vous
+ * partagé par quelqu'un d'autre ne consomme donc pas la place). Le rendez-vous
+ * en cours de modification ne compte pas : il peut garder son propre rappel. */
+export function hasFreeReminderSlot(
+  appointments: { id: string; date: Date; reminderNotificationId: string | null }[],
+  editingId: string | null,
+  now: Date = new Date()
+): boolean {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const active = appointments.filter(
+    (a) => a.id !== editingId && !!a.reminderNotificationId && a.date >= startOfToday
+  ).length;
+  return active < FREE_ACTIVE_REMINDERS;
 }

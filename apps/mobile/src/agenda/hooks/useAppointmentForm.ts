@@ -31,6 +31,7 @@ import { newDraftEntryId } from "@/agenda/meta";
 import { appointmentReminderContent, nextDueReminderContent } from "@/agenda/reminderContent";
 import { track } from "@/lib/analytics";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
+import { hasFreeReminderSlot } from "@/subscription/paywallLogic";
 
 const emptyApptForm = {
   type: "veto" as AppointmentType,
@@ -111,13 +112,16 @@ export function useAppointmentForm({
   setNotifPermission: (value: boolean | null | ((prev: boolean | null) => boolean | null)) => void;
   onEditStart: () => void;
 }) {
-  // Rappel par défaut "aucun" en gratuit : le champ reste verrouillé (cf.
-  // AppointmentForm.tsx, <Locked>) et handleSubmitAppointment force de toute
-  // façon "none" à la soumission pour un compte non Premium (cf. plus bas) —
-  // afficher "1 jour avant" pré-sélectionné sous le cadenas laissait croire
-  // qu'un rappel serait programmé, cf. audit pré-publication.
+  // Rappel par défaut "aucun" quand le champ est verrouillé (cf.
+  // AppointmentForm.tsx, <Locked>) : handleSubmitAppointment force de toute
+  // façon "none" à la soumission (cf. plus bas) — afficher "1 jour avant"
+  // pré-sélectionné sous le cadenas laissait croire qu'un rappel serait
+  // programmé, cf. audit pré-publication. Un compte gratuit a droit à un
+  // rappel actif (cf. hasFreeReminderSlot) : tant qu'il est libre, le champ
+  // est ouvert et pré-rempli comme en Premium.
   function initialApptForm(): AppointmentFormValue {
-    return { ...emptyApptForm, reminder: isActiveOrTrialing ? "1d" : "none" };
+    const unlocked = isActiveOrTrialing || hasFreeReminderSlot(appointments, null);
+    return { ...emptyApptForm, reminder: unlocked ? "1d" : "none" };
   }
 
   const [showApptForm, setShowApptForm] = useState(false);
@@ -127,6 +131,10 @@ export function useAppointmentForm({
   // réutilise le même formulaire/état que la création (apptForm), distingue
   // juste l'action à effectuer à la soumission (cf. handleSubmitAppointment).
   const [editingApptId, setEditingApptId] = useState<string | null>(null);
+  /** Rappel utilisable pour le rendez-vous en cours : toujours en Premium, et
+   * en gratuit tant que le rappel offert est libre (ou déjà porté par CE
+   * rendez-vous, en modification). */
+  const reminderUnlocked = isActiveOrTrialing || hasFreeReminderSlot(appointments, editingApptId);
 
   function startEditAppt(appt: Appointment) {
     setEditingApptId(appt.id);
@@ -187,9 +195,11 @@ export function useAppointmentForm({
     // divise à peu près par deux le temps d'une création pour plusieurs chevaux
     // (un appel réseau par entrée).
     const pushPromise = scheduleReminder(content.title, content.body, trigger).catch(() => null);
+    // Le rappel offert en gratuit est une notification seulement : l'e-mail
+    // reste Premium (l'API le refuse de toute façon, cf. /api/email-reminders).
     const [reminderNotificationId, emailReminderId] = await Promise.all([
       pushPromise,
-      scheduleEmailReminder(trigger, content.title, content.body),
+      isActiveOrTrialing ? scheduleEmailReminder(trigger, content.title, content.body) : Promise.resolve(null),
     ]);
     setNotifPermission((prev) => (!reminderNotificationId ? false : prev));
     return { reminderNotificationId, emailReminderId };
@@ -247,10 +257,10 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
     const title = apptForm.title.trim();
     const time = apptForm.time.trim();
     const location = apptForm.location.trim();
-    // Les rappels programmés (push + email) sont Premium (cf. champ "Rappel"
-    // verrouillé dans le formulaire) — sans ce clamp, un compte gratuit
-    // soumettrait quand même la valeur par défaut du formulaire ("1d").
-    const reminder: ReminderOption = isActiveOrTrialing ? apptForm.reminder : "none";
+    // Les rappels programmés (push + email) sont Premium, hors rappel offert
+    // (cf. champ "Rappel" verrouillé dans le formulaire) — sans ce clamp, un
+    // compte gratuit soumettrait quand même la valeur par défaut ("1d").
+    const reminder: ReminderOption = reminderUnlocked ? apptForm.reminder : "none";
     const isConcours = apptForm.type === "concours";
     const professional = apptForm.professional.trim() || null;
     const parsedCost = Number(apptForm.cost.replace(",", "."));
@@ -377,13 +387,17 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
           const targetHorseName = horseNameFor(targetHorseId);
           for (let i = 0; i < occurrenceDates.length; i++) {
             const occurrenceDate = occurrenceDates[i];
+            // Rappel offert : une seule place, donc sur la première entrée
+            // seulement (répétition ou plusieurs chevaux).
+            const entryReminder: ReminderOption =
+              !isActiveOrTrialing && (horseIndex > 0 || i > 0) ? "none" : reminder;
             const horseCost = cost === null ? null : (costs[horseIndex * occurrenceDates.length + i] ?? cost);
             const { reminderNotificationId, emailReminderId } = await scheduleApptReminder(
               title,
               occurrenceDate,
               time,
               location,
-              reminder,
+              entryReminder,
               targetHorseName
             );
             // La prochaine échéance de soin ne s'applique qu'à la première
@@ -403,7 +417,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
               time,
               location,
               notes: "",
-              reminder,
+              reminder: entryReminder,
               reminderNotificationId,
               emailReminderId,
               professional,
@@ -477,6 +491,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     startEditAppt,
     cancelApptForm,
     handleSubmitAppointment,

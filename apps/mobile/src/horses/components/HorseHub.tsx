@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
+import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { FadeInView } from "@/components/FadeInView";
 import { BackButton } from "@/components/BackButton";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -113,6 +114,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     cancelApptForm,
     handleSubmitAppointment,
     addApptFormEntry,
@@ -159,6 +161,10 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
     handleSubmitJournalEntry,
     handlePickJournalPhoto,
   } = useJournalForm({ addJournalEntry, updateJournalEntry, horse: horse ?? null, onEditStart: () => {} });
+
+  const { scrollRef, onAnchorLayout: onFormLayout } = useScrollToOnOpen(
+    showApptForm || showExpenseForm || showJournalForm
+  );
 
   if (!horse) {
     return (
@@ -286,7 +292,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={inTab ? [] : ["bottom"]}>
-    <Screen>
+    <Screen scrollRef={scrollRef}>
       {/* Rien où revenir depuis un onglet : le bouton n'y a pas sa place. */}
       {inTab ? null : <BackButton />}
       {/* Bannière de synchro : elle vivait dans la liste des chevaux, que
@@ -458,55 +464,63 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         />
       </FadeInView>
 
-      {showApptForm ? (
-        <FadeInView delay={200}>
-          <AppointmentForm
-            show={showApptForm}
-            form={apptForm}
-            setForm={setApptForm}
-            editingApptId={editingApptId}
-            submitting={submittingAppt}
-            targetHorseName={horse.name}
-            onOpen={() => setShowApptForm(true)}
-            onCancel={cancelApptForm}
-            onSubmit={handleSubmitAppointment}
-            onAddEntry={addApptFormEntry}
-            onUpdateEntry={updateApptFormEntry}
-            onRemoveEntry={removeApptFormEntry}
-          />
-        </FadeInView>
-      ) : null}
-      {showExpenseForm ? (
-        <FadeInView delay={200}>
-          <ExpenseForm
-            show={showExpenseForm}
-            form={expenseForm}
-            setForm={setExpenseForm}
-            editingExpenseId={editingExpenseId}
-            suggestedAppointmentFor={suggestedAppointmentFor}
-            targetHorseName={horse.name}
-            onOpen={() => setShowExpenseForm(true)}
-            onCancel={cancelExpenseForm}
-            onSubmit={handleSubmitExpense}
-            onPickPhoto={handlePickExpensePhoto}
-          />
-        </FadeInView>
-      ) : null}
-      {showJournalForm ? (
-        <FadeInView delay={200}>
-          <JournalForm
-            show={showJournalForm}
-            form={journalForm}
-            setForm={setJournalForm}
-            editingJournalId={editingJournalId}
-            saving={savingJournal}
-            targetHorseName={horse.name}
-            onOpen={() => setShowJournalForm(true)}
-            onCancel={cancelJournalForm}
-            onSubmit={handleSubmitJournalEntry}
-            onPickPhoto={handlePickJournalPhoto}
-          />
-        </FadeInView>
+      {/* Ouverts depuis le « + » flottant, les formulaires restaient hors de
+          vue une fois l'écran défilé jusqu'à l'activité récente. */}
+      {showApptForm || showExpenseForm || showJournalForm ? (
+        <View onLayout={onFormLayout}>
+        {showApptForm ? (
+          <FadeInView delay={200}>
+            <AppointmentForm
+              show={showApptForm}
+              form={apptForm}
+              setForm={setApptForm}
+              editingApptId={editingApptId}
+              reminderUnlocked={reminderUnlocked}
+              submitting={submittingAppt}
+              targetHorseName={horse.name}
+              onOpen={() => setShowApptForm(true)}
+              onCancel={cancelApptForm}
+              onSubmit={handleSubmitAppointment}
+              onAddEntry={addApptFormEntry}
+              onUpdateEntry={updateApptFormEntry}
+              onRemoveEntry={removeApptFormEntry}
+            />
+          </FadeInView>
+        ) : null}
+        {showExpenseForm ? (
+          <FadeInView delay={200}>
+            <ExpenseForm
+              show={showExpenseForm}
+              form={expenseForm}
+              setForm={setExpenseForm}
+              editingExpenseId={editingExpenseId}
+              suggestedAppointmentFor={suggestedAppointmentFor}
+              targetHorseName={horse.name}
+              onOpen={() => setShowExpenseForm(true)}
+              onCancel={cancelExpenseForm}
+              onSubmit={handleSubmitExpense}
+              onPickPhoto={handlePickExpensePhoto}
+            />
+          </FadeInView>
+        ) : null}
+        {showJournalForm ? (
+          <FadeInView delay={200}>
+            <JournalForm
+              show={showJournalForm}
+              form={journalForm}
+              setForm={setJournalForm}
+              editingJournalId={editingJournalId}
+              saving={savingJournal}
+              targetHorseName={horse.name}
+              onOpen={() => setShowJournalForm(true)}
+              onCancel={cancelJournalForm}
+              onSubmit={handleSubmitJournalEntry}
+              onPickPhoto={handlePickJournalPhoto}
+            />
+          </FadeInView>
+        ) : null}
+
+        </View>
       ) : null}
 
       <FadeInView delay={220}>

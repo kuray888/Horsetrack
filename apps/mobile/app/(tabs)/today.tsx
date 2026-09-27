@@ -16,6 +16,9 @@ import { useWeather } from "@/weather/store";
 import { sessionWeatherWarning } from "@/weather/sessionWeather";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
+import { dailyTip } from "@/lib/dailyTips";
+import { useRiderProfile } from "@/rider/store";
+import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { MONTHS, isSameDate } from "@/lib/dateFormat";
@@ -46,13 +49,6 @@ import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
 import { ExpenseForm } from "@/agenda/components/ExpenseForm";
 import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { JournalForm } from "@/agenda/components/JournalForm";
-
-const TIPS = [
-  "Varie les allures à l'échauffement pour mieux préparer les muscles de ton cheval.",
-  "Un debrief de 2 minutes après la séance aide à mémoriser les progrès.",
-  "Étire ton cheval en fin de séance pour limiter les courbatures.",
-  "Mieux vaut une séance courte et régulière qu'une longue séance espacée.",
-];
 
 const DAY_SHORT_BY_GETDAY = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
 
@@ -111,12 +107,6 @@ function greeting(): string {
   return "Bonsoir";
 }
 
-function dailyTip(): string {
-  const start = new Date(new Date().getFullYear(), 0, 0);
-  const dayOfYear = Math.floor((Date.now() - start.getTime()) / 86_400_000);
-  return TIPS[dayOfYear % TIPS.length];
-}
-
 function weeklyRecapMessage(done: number, total: number): string {
   if (total === 0) return "Aucune séance planifiée cette semaine.";
   if (done === 0) return "La semaine commence — à toi de planifier la première séance !";
@@ -146,6 +136,7 @@ export default function TodayScreen() {
   } = useAgenda();
   const subscription = useSubscription();
   const { isActiveOrTrialing } = subscription;
+  const { riderProfile } = useRiderProfile();
   // Écritures cloud en attente d'un retour du réseau (cf. lib/syncQueue.ts).
   const pendingSync = usePendingSyncCount();
   /** Permission de notification refusée : les rappels sont enregistrés mais
@@ -307,6 +298,7 @@ export default function TodayScreen() {
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     cancelApptForm,
     handleSubmitAppointment,
     addApptFormEntry,
@@ -361,6 +353,12 @@ export default function TodayScreen() {
     return findSuggestedAppointment(horseAppointments, category);
   }
 
+  // Formulaires d'ajout en bas de l'écran : ouverts depuis plus haut (carte
+  // Premiers pas), ils restaient hors de vue — cf. useScrollToOnOpen.
+  const { scrollRef, onAnchorLayout: onAddFormLayout } = useScrollToOnOpen(
+    showApptForm || showExpenseForm || showJournalForm
+  );
+
   function handleQuickAdd(option: QuickAddOption) {
     setQuickAddVisible(false);
     switch (option) {
@@ -400,6 +398,7 @@ export default function TodayScreen() {
   return (
     <>
     <Screen
+      scrollRef={scrollRef}
       refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} tintColor={colors.primary} />}
     >
       {/* En-tête */}
@@ -504,7 +503,7 @@ export default function TodayScreen() {
           </View>
           <View className="flex-1 gap-0.5">
             <Text className="text-sm font-bold uppercase tracking-wide text-primary">Conseil du jour</Text>
-            <Text className="text-[15px] leading-5 text-text">{dailyTip()}</Text>
+            <Text className="text-[15px] leading-5 text-text">{dailyTip(new Date(), riderProfile.mainDiscipline)}</Text>
           </View>
         </View>
       </FadeInView>
@@ -779,6 +778,7 @@ export default function TodayScreen() {
       {/* Ajout rapide (cf. plan Phase 3 Étape 4 §9) — le déclencheur cède la
           place au formulaire ouvert, même principe que Planning/Horse Hub
           (jamais les deux affichés en même temps). */}
+      <View onLayout={onAddFormLayout}>
       <FadeInView delay={260}>
         {showApptForm ? (
           <AppointmentForm
@@ -786,6 +786,7 @@ export default function TodayScreen() {
             form={apptForm}
             setForm={setApptForm}
             editingApptId={editingApptId}
+            reminderUnlocked={reminderUnlocked}
             submitting={submittingAppt}
             targetHorseName={horse?.name ?? null}
             onOpen={() => setShowApptForm(true)}
@@ -832,6 +833,7 @@ export default function TodayScreen() {
           </TouchableOpacity>
         )}
       </FadeInView>
+      </View>
 
       {/* Bilan de la semaine — reste en second plan : il ne demande aucune
           action et ne se périme pas dans la journée. */}

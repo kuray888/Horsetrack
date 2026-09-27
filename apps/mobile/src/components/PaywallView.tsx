@@ -34,13 +34,20 @@ const CANCEL_WHERE = Platform.OS === "ios" ? "Réglages > Abonnements" : "Google
 
 /** Palier gratuit — cf. rls.sql, tout ce qui n'appelle pas
  * rider_is_active_or_trialing. */
-const FREE_BULLETS: string[] = ["1 cheval", "Planning & agenda", "Journal d'entraînement", "Dépenses de base", "Objectifs"];
+const FREE_BULLETS: string[] = [
+  "1 cheval",
+  "Planning & agenda",
+  "1 rappel à la fois",
+  "Journal d'entraînement",
+  "Dépenses de base",
+  "Objectifs",
+];
 
 /** Palier Premium — n'inclut QUE ce qui n'est pas déjà dans le palier
  * gratuit ci-dessus. */
 const PREMIUM_BULLETS: string[] = [
   "Chevaux illimités",
-  "Rappels automatiques",
+  "Rappels illimités (notification et e-mail)",
   "Coffre-fort numérique",
   "Partage (demi-pension, coach, cavalière, groom)",
   "Concours multi-épreuves",
@@ -251,6 +258,7 @@ export function PaywallView({
   onRedeemPromoCode,
   submitting = false,
   restoring = false,
+  currentPeriod = null,
 }: {
   placement: PaywallPlacement;
   /** Chevaux à citer dans le titre (brouillon d'onboarding, cheval concerné). */
@@ -267,9 +275,14 @@ export function PaywallView({
   onRedeemPromoCode?: (code: string) => Promise<{ ok: boolean; message: string }>;
   submitting?: boolean;
   restoring?: boolean;
+  /** Formule de l'abonnement store en cours, pour un abonné qui ouvre le
+   * paywall depuis « Gérer » (Profil) : on lui montre sa formule plutôt que
+   * de lui proposer de s'abonner à ce qu'il a déjà. */
+  currentPeriod?: BillingPeriod | null;
 }) {
   const colors = useThemeColors();
-  const [period, setPeriod] = useState<BillingPeriod>("ANNUAL");
+  // Abonné : l'autre formule d'abord (le passage à l'annuel, le plus souvent).
+  const [period, setPeriod] = useState<BillingPeriod>(currentPeriod === "ANNUAL" ? "MONTHLY" : "ANNUAL");
   const [compareOpen, setCompareOpen] = useState(false);
   const offer = usePaywallOffer();
   // Instant d'ouverture, pour la durée passée sur le paywall (analytics) —
@@ -295,8 +308,10 @@ export function PaywallView({
   const selectedInfo = offer?.[period];
 
   const loading = offer === undefined;
-  // Seul un `true` confirmé par le store autorise la promesse d'essai.
-  const trialConfirmed = selectedInfo?.trialEligible === true;
+  const isCurrent = currentPeriod !== null && period === currentPeriod;
+  // Seul un `true` confirmé par le store autorise la promesse d'essai (jamais
+  // pour un abonné, qui a déjà eu le sien).
+  const trialConfirmed = !currentPeriod && selectedInfo?.trialEligible === true;
   const trial = parseTrialPeriod(selectedInfo?.trialUnit, selectedInfo?.trialCount) ?? DEFAULT_TRIAL;
   const now = new Date();
   const trialEnd = trialEndDate(now, trial);
@@ -311,6 +326,8 @@ export function PaywallView({
       horse_names_shown: horseNames.length,
       trial_eligible: offer?.ANNUAL?.trialEligible ?? null,
       store_prices: !!offer?.ANNUAL,
+      // Diagnostic de la devise renvoyée par le store (cf. formatStorePrice).
+      currency: offer?.ANNUAL?.currencyCode ?? null,
     });
   }, [loading, offer, placement, horseNames.length]);
 
@@ -333,7 +350,11 @@ export function PaywallView({
     ? "Un instant…"
     : loading
       ? "Chargement de l'offre…"
-      : trialConfirmed
+      : isCurrent
+        ? "C'est ta formule actuelle"
+        : currentPeriod
+          ? `Passer au ${period === "ANNUAL" ? "annuel" : "mensuel"} · ${selected.priceString}/${PERIOD_WORD[period]}`
+          : trialConfirmed
         ? `Essayer gratuitement pendant ${trialDurationLabel(trial)}`
         : `S'abonner · ${selected.priceString}/${PERIOD_WORD[period]}`;
 
@@ -392,7 +413,13 @@ export function PaywallView({
             label="Annuel"
             price={`${annual.priceString}/an`}
             sub={annual.pricePerMonthString ? `soit ${annual.pricePerMonthString}/mois` : null}
-            badge={savings ? `Le plus avantageux · −${savings} %` : "Le plus avantageux"}
+            badge={
+              currentPeriod === "ANNUAL"
+                ? "Ta formule"
+                : savings
+                  ? `Le plus avantageux · −${savings} %`
+                  : "Le plus avantageux"
+            }
             selected={period === "ANNUAL"}
             onPress={() => selectPeriod("ANNUAL")}
           />
@@ -400,7 +427,7 @@ export function PaywallView({
             label="Mensuel"
             price={`${monthly.priceString}/mois`}
             sub="sans engagement"
-            badge={null}
+            badge={currentPeriod === "MONTHLY" ? "Ta formule" : null}
             selected={period === "MONTHLY"}
             onPress={() => selectPeriod("MONTHLY")}
           />
@@ -408,20 +435,22 @@ export function PaywallView({
 
         {trialConfirmed ? <TrialTimeline reminderAt={reminderAt} endAt={trialEnd} priceLine={priceLine} /> : null}
 
-        {onRedeemPromoCode ? <PromoCodeField onRedeem={onRedeemPromoCode} /> : null}
+        {onRedeemPromoCode && !currentPeriod ? <PromoCodeField onRedeem={onRedeemPromoCode} /> : null}
       </ScrollView>
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
           label={ctaLabel}
-          disabled={submitting || loading}
+          disabled={submitting || loading || isCurrent}
           onPress={() => {
             track("paywall_cta_tapped", { placement, period, trial: trialConfirmed });
             onSubscribe(period);
           }}
         />
         <Text className="text-center text-xs leading-4 text-muted">
-          {trialConfirmed
+          {currentPeriod
+            ? `Le changement de formule passe par ton compte ${Platform.OS === "ios" ? "Apple" : "Google Play"}, sans double paiement.`
+            : trialConfirmed
             ? `Gratuit jusqu'au ${formatFullDate(trialEnd)}, puis ${priceLine}, renouvelé automatiquement.`
             : `${priceLine}, renouvelé automatiquement.`}{" "}
           Annulable à tout moment dans {CANCEL_WHERE}.

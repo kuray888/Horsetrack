@@ -67,7 +67,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Horsetrack utilise ta position pour enregistrer la météo du jour sur ton journal de travail."
+          "locationWhenInUsePermission": "Horsetrack utilise ta position approximative pour afficher la météo des prochains jours et l'enregistrer sur ton journal de travail."
         }
       ],
       "expo-build-properties",

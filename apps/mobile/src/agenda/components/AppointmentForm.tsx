@@ -7,6 +7,7 @@ import { TimePickerField } from "@/components/TimePickerField";
 import { PrimaryButton } from "@/components/onboarding";
 import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
+import { useSubscription } from "@/subscription/store";
 import { RecurrenceField } from "@/components/RecurrenceField";
 import { FormDetails } from "@/components/FormDetails";
 import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
@@ -42,6 +43,7 @@ export function AppointmentForm({
   selectableHorses = [],
   fallbackHorseIds = [],
   targetHorseName = null,
+  reminderUnlocked = false,
   onOpen,
   onCancel,
   onSubmit,
@@ -67,6 +69,9 @@ export function AppointmentForm({
    * (cf. HorseTargetNotice). Omis quand le sélecteur multi-chevaux s'affiche :
    * les cases cochées le disent déjà. */
   targetHorseName?: string | null;
+  /** Rappel ouvert malgré un compte gratuit (rappel offert, cf.
+   * useAppointmentForm `reminderUnlocked`). */
+  reminderUnlocked?: boolean;
   onOpen: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -74,6 +79,7 @@ export function AppointmentForm({
   onUpdateEntry: (id: string, patch: Partial<CompetitionEntry>) => void;
   onRemoveEntry: (id: string) => void;
 }) {
+  const { isActiveOrTrialing } = useSubscription();
   // Détails dépliés d'office en édition : replier des champs déjà renseignés
   // les ferait passer pour perdus. À la création, ce qui suffit à enregistrer
   // tient au-dessus (type, cheval, titre, date).
@@ -267,7 +273,12 @@ export function AppointmentForm({
           />
         </>
       ) : null}
-      <Locked message="Reçois une notification avant ce rendez-vous" placement="reminders" feature="appointment_reminder">
+      <Locked
+        message="Reçois une notification avant ce rendez-vous"
+        placement="reminders"
+        feature="appointment_reminder"
+        unlocked={reminderUnlocked}
+      >
         <Field label="Rappel">
           <ChipSelect
             options={Object.entries(REMINDER_META).map(([value, meta]) => ({
@@ -278,6 +289,11 @@ export function AppointmentForm({
             value={form.reminder}
             onChange={(reminder) => setForm((f) => ({ ...f, reminder }))}
           />
+          {reminderUnlocked && !isActiveOrTrialing ? (
+            <Text className="text-xs text-muted">
+              Rappel offert : un rappel à la fois en version gratuite, illimités avec Premium.
+            </Text>
+          ) : null}
         </Field>
       </Locked>
       {!editingApptId && form.type !== "concours" ? (

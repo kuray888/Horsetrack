@@ -44,7 +44,7 @@ export default function Horses() {
 
   return (
     <OnboardingShell
-      step={6}
+      step={4}
       total={TOTAL_STEPS}
       title="Ton écurie"
       subtitle="Ajoute tous les chevaux de ton écurie — le premier est gratuit, les suivants avec Horsetrack Premium."

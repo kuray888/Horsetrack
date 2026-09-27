@@ -12,7 +12,7 @@ export default function DisciplineStep() {
       title="Ta discipline principale ?"
       subtitle="Celle que tu pratiques le plus souvent."
       ctaDisabled={!rider.mainDiscipline}
-      onNext={() => router.push("/(onboarding)/frequency")}
+      onNext={() => router.push("/(onboarding)/horse-basics")}
     >
       <SingleSelect
         options={DISCIPLINES}

@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FadeInView } from "@/components/FadeInView";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
+import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
 import { TimePickerField } from "@/components/TimePickerField";
@@ -617,6 +618,7 @@ export default function PlanningScreen() {
     setApptForm,
     submittingAppt,
     editingApptId,
+    reminderUnlocked,
     startEditAppt,
     cancelApptForm,
     handleSubmitAppointment,
@@ -675,6 +677,10 @@ export default function PlanningScreen() {
     updateJournalEntry,
     onEditStart: () => setExpandedId(null),
   });
+
+  const { scrollRef, onAnchorLayout: onFormLayout } = useScrollToOnOpen(
+    showForm || showApptForm || showExpenseForm || showJournalForm
+  );
 
   // Ferme tout formulaire de création/édition resté ouvert d'une visite
   // précédente dès qu'une NOUVELLE destination explicite arrive depuis Horse
@@ -957,7 +963,7 @@ export default function PlanningScreen() {
 
   return (
     <>
-    <Screen>
+    <Screen scrollRef={scrollRef}>
       <FadeInView>
         <View className="gap-1">
           <Text className="text-3xl font-display tracking-tight text-text">Planning</Text>
@@ -1151,6 +1157,9 @@ export default function PlanningScreen() {
       </FadeInView>
       )}
 
+      {/* « Modifier » depuis la liste plus bas ouvre le formulaire ici : on
+          y ramène l'écran (cf. useScrollToOnOpen). */}
+      <View onLayout={onFormLayout}>
       <FadeInView delay={60}>
         {showForm ? (
           <View className={`${CARD} gap-3`}>
@@ -1336,6 +1345,7 @@ export default function PlanningScreen() {
             form={apptForm}
             setForm={setApptForm}
             editingApptId={editingApptId}
+            reminderUnlocked={reminderUnlocked}
             submitting={submittingAppt}
             selectableHorses={selectableHorses}
             fallbackHorseIds={defaultHorseIds}
@@ -1379,6 +1389,7 @@ export default function PlanningScreen() {
           <AddToggle label="Ajouter" onPress={() => setQuickAddVisible(true)} color={colors.primary} />
         )}
       </FadeInView>
+      </View>
 
       {!showForm && !showApptForm && !showExpenseForm && !showJournalForm && unifiedEvents.length > 0 ? (
         <FadeInView delay={90}>
