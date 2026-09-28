@@ -223,6 +223,18 @@ export function storePriceString(pkg: PurchasesPackage): string {
  * prix de repli et ne promet aucun essai. */
 export async function loadPaywallOffer(): Promise<PaywallOffer> {
   if (!configured || !Purchases) return {};
+  // Juste après Purchases.configure() (premier lancement, ou après une
+  // réinstallation), StoreKit 2 n'a parfois pas fini d'identifier la vraie
+  // boutique du compte : un premier appel peut renvoyer un catalogue par
+  // défaut (souvent américain), corrigé dès l'appel suivant. La fiche
+  // d'achat native, elle, se déclenche plus tard (au moment où on touche
+  // « S'abonner ») et voit donc toujours la bonne boutique — d'où un paywall
+  // vu en dollars suivi d'un achat facturé en euros sur le même compte, au
+  // même lancement (remontée du 2026-09-28, confirmée par une transaction
+  // réelle : 34,99 $ affichés, 39,99 € facturés). On lit le catalogue deux
+  // fois et on garde la seconde lecture, qui a laissé le temps à StoreKit de
+  // se stabiliser.
+  await Purchases.getOfferings().catch(() => null);
   const storefrontCountry = await getStorefrontCountry();
   const periods: BillingPeriod[] = ["MONTHLY", "ANNUAL"];
   const entries = await Promise.all(
