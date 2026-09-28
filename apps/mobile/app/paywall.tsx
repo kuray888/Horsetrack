@@ -1,4 +1,7 @@
+import { Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { PrimaryButton } from "@/components/onboarding";
 import { PaywallView } from "@/components/PaywallView";
 import { useSubscribeFlow, useSubscription, computeIsActiveOrTrialing, type BillingPeriod } from "@/subscription/store";
 import { parsePlacement } from "@/subscription/paywallLogic";
@@ -12,7 +15,7 @@ export default function AppPaywall() {
   const placement = parsePlacement(params.from);
   const { horses, selectedHorse } = useHorses();
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
-  const { redeemPromoCode, isActiveOrTrialing, status, billingPeriod } = useSubscription();
+  const { redeemPromoCode, isActiveOrTrialing, status, billingPeriod, promotional } = useSubscription();
   // Abonnement store en cours (même règle que « Gérer » dans le Profil) : le
   // paywall montre la formule actuelle au lieu de proposer de s'abonner.
   const currentPeriod =
@@ -33,6 +36,22 @@ export default function AppPaywall() {
         else router.back();
       },
       placement
+    );
+  }
+
+  // Premium offert (ambassadeurs) : jamais d'offre d'achat, qui ferait payer
+  // ce qui est déjà offert.
+  if (promotional && isActiveOrTrialing) {
+    return (
+      <SafeAreaView className="flex-1 justify-center gap-5 bg-background px-6" edges={["top", "bottom"]}>
+        <View className="gap-2">
+          <Text className="text-2xl font-display tracking-tight text-text">Tu as déjà Premium</Text>
+          <Text className="text-base text-muted">
+            Ton accès Premium t&apos;est offert par Horsetrack : toutes les fonctionnalités sont débloquées, sans aucun paiement.
+          </Text>
+        </View>
+        <PrimaryButton label="Fermer" onPress={() => router.back()} />
+      </SafeAreaView>
     );
   }
 

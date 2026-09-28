@@ -87,15 +87,18 @@ function billingPeriodFromProductId(productId: string): BillingPeriod | null {
  * trialLifecycle : rappel de fin d'essai « rien ne sera prélevé », Profil :
  * « Garder Premium »). Un vrai abonnement Apple/Google ne doit donc JAMAIS
  * finir à null : si le nom du produit ne dit pas sa formule, on la retrouve
- * dans l'offre courante (billingPeriodOfProduct). Seul un octroi
- * promotionnel RevenueCat (ambassadeurs, `store: "PROMOTIONAL"`) reste sans
- * formule — et ne sera en effet jamais prélevé. */
+ * dans l'offre courante (billingPeriodOfProduct). Un octroi promotionnel
+ * RevenueCat (ambassadeurs, `store: "PROMOTIONAL"`) est marqué `promotional`
+ * à part : il n'a pas de formule et ne sera jamais prélevé. */
 async function persistedFromCustomerInfo(info: CustomerInfo): Promise<Persisted> {
   const entitlement = info.entitlements.active[ENTITLEMENT_ID];
   if (!entitlement) return { ...DEFAULT };
 
+  if (entitlement.store === "PROMOTIONAL") {
+    return { status: "active", billingPeriod: null, trialEndsAt: null, promotional: true };
+  }
   let billingPeriod = billingPeriodFromProductId(entitlement.productIdentifier);
-  if (billingPeriod === null && entitlement.store !== "PROMOTIONAL") {
+  if (billingPeriod === null) {
     billingPeriod = await billingPeriodOfProduct(entitlement.productIdentifier).catch(() => null);
   }
   if (entitlement.periodType === "TRIAL") {
