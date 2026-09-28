@@ -164,6 +164,22 @@ export default function OnboardingAccount() {
     }
   }
 
+  /** Email déjà pris : direction la connexion, email pré-rempli, plutôt
+   * qu'une inscription qui ne peut pas aboutir. */
+  function promptExistingAccount() {
+    Alert.alert(
+      "Un compte existe déjà",
+      `Un compte Horsetrack existe déjà avec l'adresse ${email.trim()}. Tu ne peux pas en créer un deuxième : connecte-toi (ou utilise « Mot de passe oublié ? »).`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Se connecter",
+          onPress: () => router.replace({ pathname: "/(auth)/login", params: { email: email.trim() } }),
+        },
+      ]
+    );
+  }
+
   async function createAccount() {
     if (password !== confirmPassword) {
       Alert.alert("Erreur", "Les deux mots de passe ne correspondent pas.");
@@ -191,10 +207,23 @@ export default function OnboardingAccount() {
       );
 
       if (error) {
-        const message = isEmailAlreadyRegisteredError(error.message)
-          ? "Un compte existe déjà avec cet email — connecte-toi plutôt."
-          : translateAuthError(error.message);
-        Alert.alert("Erreur", message);
+        if (isEmailAlreadyRegisteredError(error.message)) {
+          promptExistingAccount();
+          return;
+        }
+        Alert.alert("Erreur", translateAuthError(error.message));
+        return;
+      }
+
+      // Email déjà utilisé par un compte confirmé : avec « Confirm email »
+      // activé, Supabase ne renvoie AUCUNE erreur (pour ne pas révéler quelles
+      // adresses ont un compte) et n'envoie aucun e-mail — il renvoie un faux
+      // utilisateur sans identité. L'app affichait alors « e-mail envoyé »,
+      // puis « J'ai vérifié » connectait à l'ANCIEN compte, et ce n'est qu'à
+      // la fin de l'inscription que « Compte existant retrouvé » apparaissait
+      // (remontée du 2026-09-28). On le dit tout de suite.
+      if (data.user && !data.session && (data.user.identities?.length ?? 0) === 0) {
+        promptExistingAccount();
         return;
       }
 
@@ -240,6 +269,7 @@ export default function OnboardingAccount() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (data.session) {
+        await afterAccountObtained(data.session.user.id);
         await continueAfterAuth();
         return;
       }
