@@ -22,8 +22,8 @@ const OFFER_TIMEOUT_MS = 6000;
  * locale d'essai d'1 mois (cf. useSubscribeFlow, __DEV__ uniquement) pour
  * pouvoir relire le paywall complet dans Expo Go. */
 const DEV_OFFER: PaywallOffer = {
-  MONTHLY: { price: 3.99, priceString: "3,99 €", currencyCode: "EUR", pricePerMonthString: "3,99 €", trialEligible: true, trialUnit: "MONTH", trialCount: 1 },
-  ANNUAL: { price: 39.99, priceString: "39,99 €", currencyCode: "EUR", pricePerMonthString: "3,33 €", trialEligible: true, trialUnit: "MONTH", trialCount: 1 },
+  MONTHLY: { price: 3.99, priceString: "3,99 €", currencyCode: "EUR", storefrontCountry: "FRA", pricePerMonthString: "3,99 €", trialEligible: true, hasFreeTrialOffer: true, trialUnit: "MONTH", trialCount: 1 },
+  ANNUAL: { price: 39.99, priceString: "39,99 €", currencyCode: "EUR", storefrontCountry: "FRA", pricePerMonthString: "3,33 €", trialEligible: true, hasFreeTrialOffer: true, trialUnit: "MONTH", trialCount: 1 },
 };
 
 let cached: Promise<PaywallOffer> | null = null;
@@ -68,9 +68,11 @@ function getOffer(): Promise<PaywallOffer> {
 }
 
 /** `undefined` tant que l'offre charge (l'UI n'affiche alors ni prix
- * définitif ni promesse d'essai), puis l'offre — éventuellement vide. */
-export function usePaywallOffer(): PaywallOffer | undefined {
+ * définitif ni promesse d'essai), puis l'offre — éventuellement vide.
+ * `retry` relance le chargement (offre vide : store injoignable). */
+export function usePaywallOfferState(): { offer: PaywallOffer | undefined; retry: () => void } {
   const [offer, setOffer] = useState<PaywallOffer | undefined>(undefined);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
@@ -93,8 +95,19 @@ export function usePaywallOffer(): PaywallOffer | undefined {
       cancelled = true;
       if (retry) clearTimeout(retry);
     };
-  }, []);
-  return offer;
+  }, [attempt]);
+  return {
+    offer,
+    retry: () => {
+      invalidatePaywallOffer();
+      setOffer(undefined);
+      setAttempt((n) => n + 1);
+    },
+  };
+}
+
+export function usePaywallOffer(): PaywallOffer | undefined {
+  return usePaywallOfferState().offer;
 }
 
 /** L'essai gratuit est-il CONFIRMÉ pour ce compte (formule annuelle, celle

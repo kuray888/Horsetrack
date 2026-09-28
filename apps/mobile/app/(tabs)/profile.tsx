@@ -134,6 +134,7 @@ export default function ProfileScreen() {
     status,
     billingPeriod,
     trialEndsAt,
+    promotional,
     isActiveOrTrialing,
     loading: subLoading,
     clearAll: clearSubscription,
@@ -275,10 +276,13 @@ export default function ProfileScreen() {
     }
   }
 
-  const storeManaged = isActiveOrTrialing && (status === "active" || billingPeriod !== null);
+  // Premium offert (ambassadeurs) : pas d'abonnement store derrière — ni
+  // « Gérer », ni paywall, ni avertissement de résiliation.
+  const storeManaged = isActiveOrTrialing && !promotional && (status === "active" || billingPeriod !== null);
 
   function subscriptionLabel(): string {
     if (subLoading) return "Chargement…";
+    if (promotional && isActiveOrTrialing) return "Premium offert";
     if (status === "active") return `Premium · ${billingPeriod === "ANNUAL" ? "annuel" : "mensuel"}`;
     if (status === "trialing") {
       const days = daysUntil(trialEndsAt);
@@ -326,7 +330,9 @@ export default function ProfileScreen() {
             <Text className={`text-xs ${isActiveOrTrialing ? "text-on-primary/80" : "text-muted"}`}>
               {isActiveOrTrialing && status === "trialing" && trialEndsAt
                 ? `Fin de l'essai le ${formatFullDate(new Date(trialEndsAt))}`
-                : isActiveOrTrialing
+                : isActiveOrTrialing && promotional
+                  ? "Offert par Horsetrack — aucun paiement"
+                  : isActiveOrTrialing
                   ? "Profite de toutes les fonctionnalités Premium"
                   : "1 cheval, planning et agenda gratuits — passe à Premium pour plus"}
             </Text>
@@ -336,6 +342,9 @@ export default function ProfileScreen() {
               mensuel ↔ annuel compris). Ouvrir directement la gestion du store
               depuis ici n'incitait à rien (retour produit du 2026-09-26) ; la
               résiliation se fait dans Réglages > Abonnements, comme partout. */}
+          {/* Premium offert : aucun bouton — le paywall proposerait d'acheter
+              ce qu'elle a déjà gratuitement (risque de prélèvement inutile). */}
+          {promotional && isActiveOrTrialing ? null : (
           <TouchableOpacity
             onPress={() => {
               if (storeManaged) track("manage_subscription_opened", { status });
@@ -347,6 +356,7 @@ export default function ProfileScreen() {
               {storeManaged ? "Gérer" : isActiveOrTrialing ? "Garder Premium" : "Voir Premium"}
             </Text>
           </TouchableOpacity>
+          )}
         </View>
       </FadeInView>
 

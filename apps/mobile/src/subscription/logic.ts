@@ -15,6 +15,9 @@ export type Persisted = {
   status: SubscriptionStatus;
   billingPeriod: BillingPeriod | null;
   trialEndsAt: string | null; // ISO
+  /** Premium offert depuis RevenueCat (ambassadeurs, `store: "PROMOTIONAL"`) :
+   * aucun abonnement store derrière, rien à gérer ni à acheter. */
+  promotional?: boolean;
 };
 
 export const DEFAULT_SUBSCRIPTION_STATE: Persisted = {

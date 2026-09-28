@@ -113,6 +113,17 @@ export async function getSubscriptionPackage(period: BillingPeriod): Promise<Pur
   return current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[period]) ?? null;
 }
 
+/** Formule (mensuelle/annuelle) d'un produit du store, retrouvée en le
+ * comparant aux produits de l'offre courante — indépendant de la façon dont
+ * les identifiants de produit sont nommés dans App Store Connect. */
+export async function billingPeriodOfProduct(productId: string): Promise<BillingPeriod | null> {
+  for (const period of ["MONTHLY", "ANNUAL"] as const) {
+    const pkg = await getSubscriptionPackage(period).catch(() => null);
+    if (pkg?.product.identifier === productId) return period;
+  }
+  return null;
+}
+
 /**
  * Vérifie si le compte courant peut réellement bénéficier de l'essai gratuit
  * promis par le paywall (cf. PaywallView) — deux conditions distinctes,
@@ -167,21 +178,52 @@ export type PaywallPlanInfo = {
   /** Devise facturée par le store (EUR, USD…), pour la mise en forme et le
    * diagnostic (cf. événement paywall_viewed). */
   currencyCode: string | null;
+  /** Pays de la boutique du compte Apple/Google (FRA, USA…) : explique la
+   * devise affichée (diagnostic, cf. paywall_viewed). */
+  storefrontCountry: string | null;
   pricePerMonthString: string | null;
   /** true = essai confirmé ; false = pas d'essai ; null = indéterminé, à
    * traiter comme « pas d'essai » (on ne promet que ce qui est confirmé). */
   trialEligible: boolean | null;
+  /** Une offre d'essai gratuit est configurée sur ce produit dans le store
+   * (diagnostic : distingue « pas d'essai configuré » de « essai déjà
+   * utilisé par ce compte », cf. paywall_viewed). */
+  hasFreeTrialOffer: boolean;
   trialUnit: string | null;
   trialCount: number | null;
 };
 
 export type PaywallOffer = Partial<Record<BillingPeriod, PaywallPlanInfo>>;
 
+/** Pays de la boutique du compte (ex. "FRA"), `null` si indisponible. */
+export async function getStorefrontCountry(): Promise<string | null> {
+  if (!configured || !Purchases) return null;
+  return Purchases.getStorefront()
+    .then((s) => s?.countryCode ?? null)
+    .catch(() => null);
+}
+
+/** Prix d'un package mis en forme en français, à partir du MONTANT et de la
+ * DEVISE du même objet StoreKit — jamais l'un de l'un, l'autre d'ailleurs :
+ * c'est cet objet, précisément, que l'OS facture à l'achat, donc c'est ce que
+ * l'app doit montrer pour que prix affiché et prix facturé soient TOUJOURS
+ * identiques, quel que soit l'environnement (test ou réel). Le pays de la
+ * boutique (storefrontCurrency) reste un diagnostic à part (cf.
+ * paywall_viewed) : il n'entre plus dans le calcul du prix affiché depuis
+ * qu'on a repéré le risque — devise du pays de la boutique appliquée à un
+ * montant qui, lui, restait celui d'une AUTRE devise si les deux
+ * venaient à diverger — d'afficher un prix qui ne serait pas celui
+ * réellement facturé (cf. remontée du 2026-09-28). */
+export function storePriceString(pkg: PurchasesPackage): string {
+  return formatStorePrice(pkg.product.price, pkg.product.currencyCode) ?? pkg.product.priceString;
+}
+
 /** Charge les deux formules en un seul passage (offerings + éligibilité).
  * `{}` si RevenueCat n'est pas disponible — l'appelant retombe alors sur ses
  * prix de repli et ne promet aucun essai. */
 export async function loadPaywallOffer(): Promise<PaywallOffer> {
   if (!configured || !Purchases) return {};
+  const storefrontCountry = await getStorefrontCountry();
   const periods: BillingPeriod[] = ["MONTHLY", "ANNUAL"];
   const entries = await Promise.all(
     periods.map(async (period): Promise<[BillingPeriod, PaywallPlanInfo] | null> => {
@@ -195,8 +237,9 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
           period,
           {
             price,
-            priceString: formatStorePrice(price, currencyCode) ?? pkg.product.priceString,
+            priceString: storePriceString(pkg),
             currencyCode: currencyCode ?? null,
+            storefrontCountry,
             // Équivalent mensuel arrondi au centime inférieur, comme le fait le
             // SDK (39,99 € / 12 → 3,33 €).
             pricePerMonthString:
@@ -204,6 +247,7 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
               pkg.product.pricePerMonthString ??
               null,
             trialEligible: isFreeTrial ? await isTrialEligible(period) : false,
+            hasFreeTrialOffer: isFreeTrial,
             trialUnit: isFreeTrial ? intro.periodUnit : null,
             trialCount: isFreeTrial ? intro.periodNumberOfUnits : null,
           },

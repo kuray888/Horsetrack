@@ -7,7 +7,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { usePressScale } from "@/hooks/usePressScale";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { BillingPeriod } from "@/subscription/store";
-import { usePaywallOffer } from "@/subscription/paywall";
+import { usePaywallOfferState } from "@/subscription/paywall";
 import { track } from "@/lib/analytics";
 import {
   BENEFITS,
@@ -49,7 +49,7 @@ const PREMIUM_BULLETS: string[] = [
   "Chevaux illimités",
   "Rappels illimités (notification et e-mail)",
   "Coffre-fort numérique",
-  "Partage (demi-pension, coach, cavalière, groom)",
+  "Partage de chaque cheval avec une personne (demi-pension, coach ou groom)",
   "Concours multi-épreuves",
   "Budget détaillé",
 ];
@@ -284,7 +284,7 @@ export function PaywallView({
   // Abonné : l'autre formule d'abord (le passage à l'annuel, le plus souvent).
   const [period, setPeriod] = useState<BillingPeriod>(currentPeriod === "ANNUAL" ? "MONTHLY" : "ANNUAL");
   const [compareOpen, setCompareOpen] = useState(false);
-  const offer = usePaywallOffer();
+  const { offer, retry: retryOffer } = usePaywallOfferState();
   // Instant d'ouverture, pour la durée passée sur le paywall (analytics) —
   // posé au montage plutôt qu'au rendu (règle de pureté des composants).
   const openedAt = useRef(0);
@@ -303,11 +303,16 @@ export function PaywallView({
   });
   const monthly = plan("MONTHLY");
   const annual = plan("ANNUAL");
-  const savings = annualSavingsPercent(monthly.price, annual.price);
+  const savings = offer?.MONTHLY && offer?.ANNUAL ? annualSavingsPercent(monthly.price, annual.price) : null;
   const selected = period === "ANNUAL" ? annual : monthly;
   const selectedInfo = offer?.[period];
 
   const loading = offer === undefined;
+  // Prix du store absents (réseau, store muet) : on n'affiche AUCUN prix de
+  // repli. Un montant écrit en dur (39,99 €) pouvait différer de celui que la
+  // fiche d'achat facture ensuite (autre pays, autre devise) — le prix montré
+  // doit toujours être celui du store (cf. storePriceString).
+  const storeUnavailable = !loading && !(offer?.MONTHLY && offer?.ANNUAL);
   const isCurrent = currentPeriod !== null && period === currentPeriod;
   // Seul un `true` confirmé par le store autorise la promesse d'essai (jamais
   // pour un abonné, qui a déjà eu le sien).
@@ -325,9 +330,14 @@ export function PaywallView({
       placement,
       horse_names_shown: horseNames.length,
       trial_eligible: offer?.ANNUAL?.trialEligible ?? null,
+      // Essai configuré dans le store (false : aucune offre d'essai sur le
+      // produit annuel — à corriger dans App Store Connect).
+      trial_offer_annual: offer?.ANNUAL?.hasFreeTrialOffer ?? null,
+      trial_offer_monthly: offer?.MONTHLY?.hasFreeTrialOffer ?? null,
       store_prices: !!offer?.ANNUAL,
       // Diagnostic de la devise renvoyée par le store (cf. formatStorePrice).
       currency: offer?.ANNUAL?.currencyCode ?? null,
+      storefront: offer?.ANNUAL?.storefrontCountry ?? null,
     });
   }, [loading, offer, placement, horseNames.length]);
 
@@ -350,7 +360,9 @@ export function PaywallView({
     ? "Un instant…"
     : loading
       ? "Chargement de l'offre…"
-      : isCurrent
+      : storeUnavailable
+        ? "Offre indisponible pour le moment"
+        : isCurrent
         ? "C'est ta formule actuelle"
         : currentPeriod
           ? `Passer au ${period === "ANNUAL" ? "annuel" : "mensuel"} · ${selected.priceString}/${PERIOD_WORD[period]}`
@@ -411,8 +423,8 @@ export function PaywallView({
         <View className="gap-2.5" accessibilityRole="radiogroup">
           <PlanCard
             label="Annuel"
-            price={`${annual.priceString}/an`}
-            sub={annual.pricePerMonthString ? `soit ${annual.pricePerMonthString}/mois` : null}
+            price={storeUnavailable ? "—" : `${annual.priceString}/an`}
+            sub={!storeUnavailable && annual.pricePerMonthString ? `soit ${annual.pricePerMonthString}/mois` : null}
             badge={
               currentPeriod === "ANNUAL"
                 ? "Ta formule"
@@ -425,7 +437,7 @@ export function PaywallView({
           />
           <PlanCard
             label="Mensuel"
-            price={`${monthly.priceString}/mois`}
+            price={storeUnavailable ? "—" : `${monthly.priceString}/mois`}
             sub="sans engagement"
             badge={currentPeriod === "MONTHLY" ? "Ta formule" : null}
             selected={period === "MONTHLY"}
@@ -441,12 +453,19 @@ export function PaywallView({
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
           label={ctaLabel}
-          disabled={submitting || loading || isCurrent}
+          disabled={submitting || loading || isCurrent || storeUnavailable}
           onPress={() => {
             track("paywall_cta_tapped", { placement, period, trial: trialConfirmed });
             onSubscribe(period);
           }}
         />
+        {storeUnavailable ? (
+          <TouchableOpacity onPress={retryOffer} hitSlop={8} className="py-1">
+            <Text className="text-center text-sm font-semibold text-accent">
+              Les prix n&apos;ont pas pu être chargés depuis {Platform.OS === "ios" ? "l'App Store" : "Google Play"}. Réessayer
+            </Text>
+          </TouchableOpacity>
+        ) : (
         <Text className="text-center text-xs leading-4 text-muted">
           {currentPeriod
             ? `Le changement de formule passe par ton compte ${Platform.OS === "ios" ? "Apple" : "Google Play"}, sans double paiement.`
@@ -455,6 +474,7 @@ export function PaywallView({
             : `${priceLine}, renouvelé automatiquement.`}{" "}
           Annulable à tout moment dans {CANCEL_WHERE}.
         </Text>
+        )}
         {onSkip ? (
           // Lien texte contrasté (text-text) : le palier gratuit permanent doit
           // rester visible à côté du CTA, sans rivaliser avec lui (cf. retour

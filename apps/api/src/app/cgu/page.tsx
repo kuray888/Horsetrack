@@ -7,7 +7,7 @@ import { LegalPage } from "@/components/LegalPage";
  * applicable — cf. /legal/cgu.md). */
 export default function CguPage() {
   return (
-    <LegalPage title="Conditions Générales d'Utilisation — Horsetrack" updated="3 septembre 2026">
+    <LegalPage title="Conditions Générales d'Utilisation — Horsetrack" updated="28 septembre 2026">
       <h2>1. Objet</h2>
       <p>
         Les présentes Conditions Générales d&apos;Utilisation (« CGU ») régissent l&apos;accès et l&apos;utilisation de
@@ -35,9 +35,9 @@ export default function CguPage() {
       </ul>
       <p>
         L&apos;abonnement Premium (cf. article 5) débloque en plus : plusieurs chevaux, le coffre-fort numérique de
-        documents (factures, ordonnances, rapports), le partage de l&apos;accès à un cheval avec une demi-pension ou
-        un coach, le suivi détaillé de plusieurs épreuves par concours, et les rappels automatiques programmés
-        (notification et email).
+        documents (factures, ordonnances, rapports), le partage de l&apos;accès à un cheval avec une personne
+        (demi-pension, coach ou groom), le suivi détaillé de plusieurs épreuves par concours, et les rappels
+        illimités (notification et email) — la version gratuite permet un rappel par notification à la fois.
       </p>
 
       <h2>3. Avertissement important</h2>

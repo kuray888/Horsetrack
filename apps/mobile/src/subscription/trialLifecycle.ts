@@ -4,10 +4,10 @@ import { withKeyLock } from "@/lib/keyLock";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { cancelReminder, getNotificationStatus, scheduleReminder } from "@/lib/notifications";
 import { cancelEmailReminder, scheduleEmailReminder } from "@/lib/emailReminders";
-import { getSubscriptionPackage } from "@/lib/revenuecat";
+import { getSubscriptionPackage, storePriceString } from "@/lib/revenuecat";
 import { track } from "@/lib/analytics";
 import { computeIsActiveOrTrialing, type Persisted } from "./logic";
-import { FALLBACK_PRICE, formatDayMonth, trialReminderDate } from "./paywallLogic";
+import { formatDayMonth, trialReminderDate } from "./paywallLogic";
 
 /**
  * Tient la promesse du paywall (« on te prévient avant la fin de l'essai ») et
@@ -71,10 +71,12 @@ async function endReminderText(state: Persisted, end: Date): Promise<{ title: st
   }
   const period = state.billingPeriod;
   const pkg = await getSubscriptionPackage(period).catch(() => null);
-  const price = pkg?.product.priceString ?? FALLBACK_PRICE[period].priceString;
+  // Prix du store uniquement : sans lui, on n'annonce aucun montant plutôt
+  // qu'un prix écrit en dur qui pourrait différer de celui facturé.
+  const priceNote = pkg ? ` (${storePriceString(pkg)} par ${period === "ANNUAL" ? "an" : "mois"})` : "";
   return {
     title: `Ton essai Premium se termine le ${day}`,
-    body: `Sans action de ta part, l'abonnement démarre ce jour-là (${price} par ${period === "ANNUAL" ? "an" : "mois"}). Pour l'arrêter : ${CANCEL_WHERE}. Si tu l'as déjà résilié, rien ne sera prélevé.`,
+    body: `Sans action de ta part, l'abonnement démarre ce jour-là${priceNote}. Pour l'arrêter : ${CANCEL_WHERE}. Si tu l'as déjà résilié, rien ne sera prélevé.`,
   };
 }
 

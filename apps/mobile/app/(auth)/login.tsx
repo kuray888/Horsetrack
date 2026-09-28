@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
@@ -36,7 +36,10 @@ import { useSubscription } from "@/subscription/store";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
+  // Pré-rempli quand on arrive depuis l'inscription avec un email déjà pris
+  // (cf. (onboarding)/account.tsx promptExistingAccount).
+  const params = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(typeof params.email === "string" ? params.email : "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const appleAvailable = useAppleSignInAvailable();

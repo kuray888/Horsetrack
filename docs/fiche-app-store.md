@@ -37,7 +37,7 @@ Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le s
 > • Suis tes dépenses, et avec Premium, ce qui est payé et ce qui reste à régler
 >
 > **À PLUSIEURS**
-> • Partage ton cheval avec ta demi-pension, ton coach ou ton groom : chacun retrouve son planning, ses soins et ses rendez-vous (Premium)
+> • Partage ton cheval avec ta demi-pension, ton coach ou ton groom (une personne par cheval) : elle retrouve son planning, ses soins et ses rendez-vous (Premium)
 >
 > **GRATUIT POUR COMMENCER**
 > La version gratuite suit 1 cheval avec le planning, l'agenda, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute les chevaux illimités, les rappels illimités, le coffre-fort, le partage et les concours détaillés. Essai gratuit d'1 mois, puis 3,99 €/mois ou 39,99 €/an. Annulable à tout moment dans Réglages > Abonnements.
