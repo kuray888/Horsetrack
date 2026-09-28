@@ -185,6 +185,34 @@ export function formatStorePrice(amount: number, currencyCode: string | null | u
   }
 }
 
+/** Devise facturée par la boutique Apple/Google d'un pays (code ISO à trois
+ * lettres renvoyé par le store, ex. "FRA"). Limité aux pays dont la devise de
+ * boutique est certaine ; ailleurs `null` et l'appelant garde la devise du
+ * produit.
+ *
+ * Pourquoi : en test (TestFlight), la devise que StoreKit 2 associe au
+ * produit suit les réglages de langue/région de l'iPhone, pas la boutique du
+ * compte — un paywall affichait des dollars alors que la fiche d'achat Apple,
+ * elle, affichait bien des euros (remontée du 2026-09-28). Le pays de la
+ * boutique, lui, est fiable. */
+const EURO_STOREFRONTS = new Set([
+  "FRA", "BEL", "LUX", "DEU", "AUT", "NLD", "ESP", "PRT", "ITA", "IRL", "FIN", "GRC",
+  "SVK", "SVN", "EST", "LVA", "LTU", "MLT", "CYP", "HRV",
+]);
+const OTHER_STOREFRONT_CURRENCIES: Record<string, string> = {
+  CHE: "CHF",
+  GBR: "GBP",
+  USA: "USD",
+  CAN: "CAD",
+};
+
+export function storefrontCurrency(countryCode: string | null | undefined): string | null {
+  if (!countryCode) return null;
+  const code = countryCode.toUpperCase();
+  if (EURO_STOREFRONTS.has(code)) return "EUR";
+  return OTHER_STOREFRONT_CURRENCIES[code] ?? null;
+}
+
 /** Économie de l'annuel par rapport à 12 mensualités, arrondie à l'entier
  * INFÉRIEUR (jamais surestimée). null si non calculable ou nulle. */
 export function annualSavingsPercent(monthlyPrice: number, annualPrice: number): number | null {

@@ -9,6 +9,7 @@ import {
   shouldShowRemindersUpsell,
   hasFreeReminderSlot,
   formatStorePrice,
+  storefrontCurrency,
   parsePlacement,
   parseTrialPeriod,
   paywallCopy,
@@ -162,5 +163,20 @@ describe("formatStorePrice", () => {
   it("renvoie null sans devise exploitable", () => {
     expect(formatStorePrice(3.99, null)).toBeNull();
     expect(formatStorePrice(3.99, "PAS_UNE_DEVISE")).toBeNull();
+  });
+});
+
+describe("storefrontCurrency", () => {
+  it("donne l'euro pour la France et la zone euro", () => {
+    expect(storefrontCurrency("FRA")).toBe("EUR");
+    expect(storefrontCurrency("bel")).toBe("EUR");
+  });
+  it("connaît les autres grandes boutiques", () => {
+    expect(storefrontCurrency("CHE")).toBe("CHF");
+    expect(storefrontCurrency("USA")).toBe("USD");
+  });
+  it("ne devine pas une boutique inconnue", () => {
+    expect(storefrontCurrency("MAR")).toBeNull();
+    expect(storefrontCurrency(null)).toBeNull();
   });
 });

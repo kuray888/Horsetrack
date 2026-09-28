@@ -2,7 +2,7 @@ import { Linking, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { PurchasesPackage } from "react-native-purchases";
 import type { BillingPeriod } from "@/subscription/store";
-import { formatStorePrice } from "@/subscription/paywallLogic";
+import { formatStorePrice, storefrontCurrency } from "@/subscription/paywallLogic";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -170,6 +170,9 @@ export type PaywallPlanInfo = {
   /** Pays de la boutique du compte Apple/Google (FRA, USA…) : explique la
    * devise affichée (diagnostic, cf. paywall_viewed). */
   storefrontCountry: string | null;
+  /** Devise déclarée par le produit lui-même (diagnostic : peut différer de
+   * `currencyCode` en test, cf. storefrontCurrency). */
+  productCurrencyCode: string | null;
   pricePerMonthString: string | null;
   /** true = essai confirmé ; false = pas d'essai ; null = indéterminé, à
    * traiter comme « pas d'essai » (on ne promet que ce qui est confirmé). */
@@ -180,16 +183,27 @@ export type PaywallPlanInfo = {
 
 export type PaywallOffer = Partial<Record<BillingPeriod, PaywallPlanInfo>>;
 
+/** Pays de la boutique du compte (ex. "FRA"), `null` si indisponible. */
+export async function getStorefrontCountry(): Promise<string | null> {
+  if (!configured || !Purchases) return null;
+  return Purchases.getStorefront()
+    .then((s) => s?.countryCode ?? null)
+    .catch(() => null);
+}
+
+/** Prix d'un package dans la devise de la boutique du compte (cf.
+ * storefrontCurrency), mis en forme en français. */
+export function storePriceString(pkg: PurchasesPackage, storefrontCountry: string | null): string {
+  const currency = storefrontCurrency(storefrontCountry) ?? pkg.product.currencyCode ?? null;
+  return formatStorePrice(pkg.product.price, currency) ?? pkg.product.priceString;
+}
+
 /** Charge les deux formules en un seul passage (offerings + éligibilité).
  * `{}` si RevenueCat n'est pas disponible — l'appelant retombe alors sur ses
  * prix de repli et ne promet aucun essai. */
 export async function loadPaywallOffer(): Promise<PaywallOffer> {
   if (!configured || !Purchases) return {};
-  const purchases = Purchases;
-  const storefrontCountry = await purchases
-    .getStorefront()
-    .then((s) => s?.countryCode ?? null)
-    .catch(() => null);
+  const storefrontCountry = await getStorefrontCountry();
   const periods: BillingPeriod[] = ["MONTHLY", "ANNUAL"];
   const entries = await Promise.all(
     periods.map(async (period): Promise<[BillingPeriod, PaywallPlanInfo] | null> => {
@@ -198,13 +212,18 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
         if (!pkg) return null;
         const intro = pkg.product.introPrice;
         const isFreeTrial = !!intro && intro.price === 0;
-        const { price, currencyCode } = pkg.product;
+        const { price } = pkg.product;
+        // Devise de la boutique du compte quand elle est connue, sinon celle
+        // du produit (cf. storefrontCurrency : celle du produit peut suivre la
+        // région de l'iPhone en test).
+        const currencyCode = storefrontCurrency(storefrontCountry) ?? pkg.product.currencyCode ?? null;
         return [
           period,
           {
             price,
-            priceString: formatStorePrice(price, currencyCode) ?? pkg.product.priceString,
-            currencyCode: currencyCode ?? null,
+            priceString: storePriceString(pkg, storefrontCountry),
+            currencyCode,
+            productCurrencyCode: pkg.product.currencyCode ?? null,
             storefrontCountry,
             // Équivalent mensuel arrondi au centime inférieur, comme le fait le
             // SDK (39,99 € / 12 → 3,33 €).

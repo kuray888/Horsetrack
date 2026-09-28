@@ -22,8 +22,8 @@ const OFFER_TIMEOUT_MS = 6000;
  * locale d'essai d'1 mois (cf. useSubscribeFlow, __DEV__ uniquement) pour
  * pouvoir relire le paywall complet dans Expo Go. */
 const DEV_OFFER: PaywallOffer = {
-  MONTHLY: { price: 3.99, priceString: "3,99 €", currencyCode: "EUR", storefrontCountry: "FRA", pricePerMonthString: "3,99 €", trialEligible: true, trialUnit: "MONTH", trialCount: 1 },
-  ANNUAL: { price: 39.99, priceString: "39,99 €", currencyCode: "EUR", storefrontCountry: "FRA", pricePerMonthString: "3,33 €", trialEligible: true, trialUnit: "MONTH", trialCount: 1 },
+  MONTHLY: { price: 3.99, priceString: "3,99 €", currencyCode: "EUR", storefrontCountry: "FRA", productCurrencyCode: "EUR", pricePerMonthString: "3,99 €", trialEligible: true, trialUnit: "MONTH", trialCount: 1 },
+  ANNUAL: { price: 39.99, priceString: "39,99 €", currencyCode: "EUR", storefrontCountry: "FRA", productCurrencyCode: "EUR", pricePerMonthString: "3,33 €", trialEligible: true, trialUnit: "MONTH", trialCount: 1 },
 };
 
 let cached: Promise<PaywallOffer> | null = null;

@@ -12,7 +12,9 @@
       "bundleIdentifier": "com.horsetrack.app",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "fr",
+        "CFBundleLocalizations": ["fr"]
       }
     },
     "android": {
