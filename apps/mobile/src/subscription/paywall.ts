@@ -68,9 +68,11 @@ function getOffer(): Promise<PaywallOffer> {
 }
 
 /** `undefined` tant que l'offre charge (l'UI n'affiche alors ni prix
- * définitif ni promesse d'essai), puis l'offre — éventuellement vide. */
-export function usePaywallOffer(): PaywallOffer | undefined {
+ * définitif ni promesse d'essai), puis l'offre — éventuellement vide.
+ * `retry` relance le chargement (offre vide : store injoignable). */
+export function usePaywallOfferState(): { offer: PaywallOffer | undefined; retry: () => void } {
   const [offer, setOffer] = useState<PaywallOffer | undefined>(undefined);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
@@ -93,8 +95,19 @@ export function usePaywallOffer(): PaywallOffer | undefined {
       cancelled = true;
       if (retry) clearTimeout(retry);
     };
-  }, []);
-  return offer;
+  }, [attempt]);
+  return {
+    offer,
+    retry: () => {
+      invalidatePaywallOffer();
+      setOffer(undefined);
+      setAttempt((n) => n + 1);
+    },
+  };
+}
+
+export function usePaywallOffer(): PaywallOffer | undefined {
+  return usePaywallOfferState().offer;
 }
 
 /** L'essai gratuit est-il CONFIRMÉ pour ce compte (formule annuelle, celle

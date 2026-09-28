@@ -2,7 +2,7 @@
 
 > **Brouillon de travail — pas une validation juridique.** Ce document a été rédigé à partir du fonctionnement réel de l'app (vérifié dans le code) pour donner un point de départ complet, mais doit être relu par un professionnel du droit avant publication, en particulier les sections paiement/résiliation, âge minimum et responsabilité. Remplace les passages entre crochets `[...]` avant publication.
 
-**Dernière mise à jour : 3 septembre 2026**
+**Dernière mise à jour : 28 septembre 2026**
 
 ## 1. Objet
 
@@ -20,7 +20,7 @@ Horsetrack est une application de gestion et de suivi équestre, disponible en a
 - tenir un journal d'entraînement (humeur, activité, météo) ;
 - suivre les dépenses liées à son cheval et se fixer des objectifs.
 
-L'abonnement Premium (cf. article 5) débloque en plus : plusieurs chevaux, le coffre-fort numérique de documents (factures, ordonnances, rapports), le partage de l'accès à un cheval avec une demi-pension ou un coach, le suivi détaillé de plusieurs épreuves par concours, et les rappels automatiques programmés (notification et email).
+L'abonnement Premium (cf. article 5) débloque en plus : plusieurs chevaux, le coffre-fort numérique de documents (factures, ordonnances, rapports), le partage de l'accès à un cheval avec une personne (demi-pension, coach ou groom), le suivi détaillé de plusieurs épreuves par concours, et les rappels illimités (notification et email) — la version gratuite permet un rappel par notification à la fois.
 
 ## 3. Avertissement important
 
