@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, ReactNode } from "react";
-import { Alert } from "react-native";
+import { Alert, AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +11,7 @@ import { invalidatePaywallOffer } from "./paywall";
 import {
   ENTITLEMENT_ID,
   Purchases,
+  billingPeriodOfProduct,
   configurePurchases,
   getSubscriptionPackage,
   isPurchasesAvailable,
@@ -79,11 +80,24 @@ function billingPeriodFromProductId(productId: string): BillingPeriod | null {
   return null;
 }
 
-function persistedFromCustomerInfo(info: CustomerInfo): Persisted {
+/** État d'abonnement vu par RevenueCat.
+ *
+ * `billingPeriod: null` sert ailleurs de marqueur « essai offert par code
+ * promo, sans abonnement store derrière » (cf. applyCustomerInfo,
+ * trialLifecycle : rappel de fin d'essai « rien ne sera prélevé », Profil :
+ * « Garder Premium »). Un vrai abonnement Apple/Google ne doit donc JAMAIS
+ * finir à null : si le nom du produit ne dit pas sa formule, on la retrouve
+ * dans l'offre courante (billingPeriodOfProduct). Seul un octroi
+ * promotionnel RevenueCat (ambassadeurs, `store: "PROMOTIONAL"`) reste sans
+ * formule — et ne sera en effet jamais prélevé. */
+async function persistedFromCustomerInfo(info: CustomerInfo): Promise<Persisted> {
   const entitlement = info.entitlements.active[ENTITLEMENT_ID];
   if (!entitlement) return { ...DEFAULT };
 
-  const billingPeriod = billingPeriodFromProductId(entitlement.productIdentifier);
+  let billingPeriod = billingPeriodFromProductId(entitlement.productIdentifier);
+  if (billingPeriod === null && entitlement.store !== "PROMOTIONAL") {
+    billingPeriod = await billingPeriodOfProduct(entitlement.productIdentifier).catch(() => null);
+  }
   if (entitlement.periodType === "TRIAL") {
     return { status: "trialing", billingPeriod, trialEndsAt: entitlement.expirationDate };
   }
@@ -149,7 +163,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const applyCustomerInfo = useCallback(
     async (info: CustomerInfo) => {
-      const next = persistedFromCustomerInfo(info);
+      const next = await persistedFromCustomerInfo(info);
       try {
         // Un vrai achat/essai Apple vu par RevenueCat est toujours prioritaire :
         // il écrase l'état local sans autre question.
@@ -278,7 +292,21 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           .catch((e) => console.warn("[subscription] logoutRevenueCat échoué", e));
       }
     });
-    return () => sub.subscription.unsubscribe();
+    // Relit l'abonnement à chaque retour dans l'app. Il n'était relu qu'au
+    // lancement : iOS garde souvent l'app en mémoire des jours durant, et un
+    // essai qui se termine pendant ce temps (trialEndsAt dépassé) faisait
+    // repasser l'app en gratuit — Premium bloqué pour un client qui venait
+    // d'être facturé, jusqu'à fermer complètement l'app. Même chose pour une
+    // résiliation arrivée à échéance, dans l'autre sens. RevenueCat garde son
+    // propre cache (quelques minutes) : pas d'appel réseau à chaque retour.
+    const appStateSub = AppState.addEventListener("change", (next) => {
+      if (next !== "active" || !isPurchasesAvailable()) return;
+      refreshFromRevenueCat().catch((e) => console.warn("[subscription] rafraîchissement au retour échoué", e));
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+      appStateSub.remove();
+    };
   }, [refresh, refreshFromRevenueCat, persistLocal]);
 
   /** Simulation locale (1 mois), utilisée uniquement tant que RevenueCat
@@ -449,7 +477,7 @@ export function useSubscribeFlow() {
         // "free") au moment de son exécution — bug constaté : chevaux ajoutés
         // pendant l'onboarding supprimés juste après un abonnement Premium
         // réussi, car maxHorses() lisait encore l'état pré-achat.
-        const persisted = persistedFromCustomerInfo(customerInfo);
+        const persisted = await persistedFromCustomerInfo(customerInfo);
         track("purchase_completed", { period, placement, status: persisted.status });
         // L'éligibilité à l'essai vient d'être consommée : l'offre en cache
         // (cf. usePaywallOffer) ne doit plus la promettre.

@@ -330,6 +330,10 @@ export function PaywallView({
       placement,
       horse_names_shown: horseNames.length,
       trial_eligible: offer?.ANNUAL?.trialEligible ?? null,
+      // Essai configuré dans le store (false : aucune offre d'essai sur le
+      // produit annuel — à corriger dans App Store Connect).
+      trial_offer_annual: offer?.ANNUAL?.hasFreeTrialOffer ?? null,
+      trial_offer_monthly: offer?.MONTHLY?.hasFreeTrialOffer ?? null,
       store_prices: !!offer?.ANNUAL,
       // Diagnostic de la devise renvoyée par le store (cf. formatStorePrice).
       currency: offer?.ANNUAL?.currencyCode ?? null,

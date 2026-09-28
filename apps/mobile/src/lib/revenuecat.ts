@@ -113,6 +113,17 @@ export async function getSubscriptionPackage(period: BillingPeriod): Promise<Pur
   return current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[period]) ?? null;
 }
 
+/** Formule (mensuelle/annuelle) d'un produit du store, retrouvée en le
+ * comparant aux produits de l'offre courante — indépendant de la façon dont
+ * les identifiants de produit sont nommés dans App Store Connect. */
+export async function billingPeriodOfProduct(productId: string): Promise<BillingPeriod | null> {
+  for (const period of ["MONTHLY", "ANNUAL"] as const) {
+    const pkg = await getSubscriptionPackage(period).catch(() => null);
+    if (pkg?.product.identifier === productId) return period;
+  }
+  return null;
+}
+
 /**
  * Vérifie si le compte courant peut réellement bénéficier de l'essai gratuit
  * promis par le paywall (cf. PaywallView) — deux conditions distinctes,
@@ -174,6 +185,10 @@ export type PaywallPlanInfo = {
   /** true = essai confirmé ; false = pas d'essai ; null = indéterminé, à
    * traiter comme « pas d'essai » (on ne promet que ce qui est confirmé). */
   trialEligible: boolean | null;
+  /** Une offre d'essai gratuit est configurée sur ce produit dans le store
+   * (diagnostic : distingue « pas d'essai configuré » de « essai déjà
+   * utilisé par ce compte », cf. paywall_viewed). */
+  hasFreeTrialOffer: boolean;
   trialUnit: string | null;
   trialCount: number | null;
 };
@@ -232,6 +247,7 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
               pkg.product.pricePerMonthString ??
               null,
             trialEligible: isFreeTrial ? await isTrialEligible(period) : false,
+            hasFreeTrialOffer: isFreeTrial,
             trialUnit: isFreeTrial ? intro.periodUnit : null,
             trialCount: isFreeTrial ? intro.periodNumberOfUnits : null,
           },
