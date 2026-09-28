@@ -2,7 +2,7 @@ import { Linking, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { PurchasesPackage } from "react-native-purchases";
 import type { BillingPeriod } from "@/subscription/store";
-import { formatStorePrice, storefrontCurrency } from "@/subscription/paywallLogic";
+import { formatStorePrice } from "@/subscription/paywallLogic";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -170,9 +170,6 @@ export type PaywallPlanInfo = {
   /** Pays de la boutique du compte Apple/Google (FRA, USA…) : explique la
    * devise affichée (diagnostic, cf. paywall_viewed). */
   storefrontCountry: string | null;
-  /** Devise déclarée par le produit lui-même (diagnostic : peut différer de
-   * `currencyCode` en test, cf. storefrontCurrency). */
-  productCurrencyCode: string | null;
   pricePerMonthString: string | null;
   /** true = essai confirmé ; false = pas d'essai ; null = indéterminé, à
    * traiter comme « pas d'essai » (on ne promet que ce qui est confirmé). */
@@ -191,11 +188,19 @@ export async function getStorefrontCountry(): Promise<string | null> {
     .catch(() => null);
 }
 
-/** Prix d'un package dans la devise de la boutique du compte (cf.
- * storefrontCurrency), mis en forme en français. */
-export function storePriceString(pkg: PurchasesPackage, storefrontCountry: string | null): string {
-  const currency = storefrontCurrency(storefrontCountry) ?? pkg.product.currencyCode ?? null;
-  return formatStorePrice(pkg.product.price, currency) ?? pkg.product.priceString;
+/** Prix d'un package mis en forme en français, à partir du MONTANT et de la
+ * DEVISE du même objet StoreKit — jamais l'un de l'un, l'autre d'ailleurs :
+ * c'est cet objet, précisément, que l'OS facture à l'achat, donc c'est ce que
+ * l'app doit montrer pour que prix affiché et prix facturé soient TOUJOURS
+ * identiques, quel que soit l'environnement (test ou réel). Le pays de la
+ * boutique (storefrontCurrency) reste un diagnostic à part (cf.
+ * paywall_viewed) : il n'entre plus dans le calcul du prix affiché depuis
+ * qu'on a repéré le risque — devise du pays de la boutique appliquée à un
+ * montant qui, lui, restait celui d'une AUTRE devise si les deux
+ * venaient à diverger — d'afficher un prix qui ne serait pas celui
+ * réellement facturé (cf. remontée du 2026-09-28). */
+export function storePriceString(pkg: PurchasesPackage): string {
+  return formatStorePrice(pkg.product.price, pkg.product.currencyCode) ?? pkg.product.priceString;
 }
 
 /** Charge les deux formules en un seul passage (offerings + éligibilité).
@@ -212,18 +217,13 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
         if (!pkg) return null;
         const intro = pkg.product.introPrice;
         const isFreeTrial = !!intro && intro.price === 0;
-        const { price } = pkg.product;
-        // Devise de la boutique du compte quand elle est connue, sinon celle
-        // du produit (cf. storefrontCurrency : celle du produit peut suivre la
-        // région de l'iPhone en test).
-        const currencyCode = storefrontCurrency(storefrontCountry) ?? pkg.product.currencyCode ?? null;
+        const { price, currencyCode } = pkg.product;
         return [
           period,
           {
             price,
-            priceString: storePriceString(pkg, storefrontCountry),
-            currencyCode,
-            productCurrencyCode: pkg.product.currencyCode ?? null,
+            priceString: storePriceString(pkg),
+            currencyCode: currencyCode ?? null,
             storefrontCountry,
             // Équivalent mensuel arrondi au centime inférieur, comme le fait le
             // SDK (39,99 € / 12 → 3,33 €).
