@@ -167,6 +167,9 @@ export type PaywallPlanInfo = {
   /** Devise facturée par le store (EUR, USD…), pour la mise en forme et le
    * diagnostic (cf. événement paywall_viewed). */
   currencyCode: string | null;
+  /** Pays de la boutique du compte Apple/Google (FRA, USA…) : explique la
+   * devise affichée (diagnostic, cf. paywall_viewed). */
+  storefrontCountry: string | null;
   pricePerMonthString: string | null;
   /** true = essai confirmé ; false = pas d'essai ; null = indéterminé, à
    * traiter comme « pas d'essai » (on ne promet que ce qui est confirmé). */
@@ -182,6 +185,11 @@ export type PaywallOffer = Partial<Record<BillingPeriod, PaywallPlanInfo>>;
  * prix de repli et ne promet aucun essai. */
 export async function loadPaywallOffer(): Promise<PaywallOffer> {
   if (!configured || !Purchases) return {};
+  const purchases = Purchases;
+  const storefrontCountry = await purchases
+    .getStorefront()
+    .then((s) => s?.countryCode ?? null)
+    .catch(() => null);
   const periods: BillingPeriod[] = ["MONTHLY", "ANNUAL"];
   const entries = await Promise.all(
     periods.map(async (period): Promise<[BillingPeriod, PaywallPlanInfo] | null> => {
@@ -197,6 +205,7 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
             price,
             priceString: formatStorePrice(price, currencyCode) ?? pkg.product.priceString,
             currencyCode: currencyCode ?? null,
+            storefrontCountry,
             // Équivalent mensuel arrondi au centime inférieur, comme le fait le
             // SDK (39,99 € / 12 → 3,33 €).
             pricePerMonthString:

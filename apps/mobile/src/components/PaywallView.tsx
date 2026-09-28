@@ -328,6 +328,7 @@ export function PaywallView({
       store_prices: !!offer?.ANNUAL,
       // Diagnostic de la devise renvoyée par le store (cf. formatStorePrice).
       currency: offer?.ANNUAL?.currencyCode ?? null,
+      storefront: offer?.ANNUAL?.storefrontCountry ?? null,
     });
   }, [loading, offer, placement, horseNames.length]);
 
