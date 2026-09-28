@@ -168,16 +168,15 @@ export const FALLBACK_PRICE: Record<BillingPeriod, { price: number; priceString:
   ANNUAL: { price: 39.99, priceString: "39,99 €" },
 };
 
-/** Affiche toujours les prix en euros (FALLBACK_PRICE), quelle que soit la
- * boutique renvoyée par le store. Décision produit du 2026-09-28 : l'app ne
- * vise que la zone euro pour l'instant, et en TestFlight Apple renvoie le
- * catalogue américain (34,99 $) alors que la facturation se fait en euros.
- *
- * Contrepartie : pour un compte d'un pays hors zone euro, le prix affiché ne
- * serait PAS celui facturé — d'où la disponibilité de l'app limitée aux pays
- * de la zone euro dans App Store Connect. Repasser à `false` (prix du store,
- * cf. storePriceString) avant toute ouverture à d'autres pays. */
-export const FORCE_EUR_PRICES = true;
+/** `true` : affiche toujours les prix en euros (FALLBACK_PRICE), quelle que
+ * soit la boutique renvoyée par le store. Désactivé (décision du
+ * 2026-09-28) : le paywall affiche le prix de la boutique de chaque client,
+ * qui est aussi celui facturé — un client français voit 39,99 €. Seul
+ * TestFlight renvoie le catalogue américain (34,99 $), sans effet sur les
+ * vrais clients. À n'activer que si l'app est limitée à la zone euro dans App
+ * Store Connect : sinon, un compte hors zone euro verrait un prix en euros
+ * différent de celui facturé. */
+export const FORCE_EUR_PRICES = false;
 
 export const PERIOD_SUFFIX: Record<BillingPeriod, string> = { MONTHLY: "/mois", ANNUAL: "/an" };
 
