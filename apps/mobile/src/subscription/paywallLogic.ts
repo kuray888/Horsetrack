@@ -160,12 +160,24 @@ export function joinNames(names: string[]): string {
 
 // --- Prix -------------------------------------------------------------------
 
-/** Repli si le store ne répond pas (dev sans RevenueCat, réseau) — les
- * montants réels viennent toujours de `priceString` quand il est disponible. */
+/** Prix de l'abonnement en euros, tels que configurés pour la France dans
+ * App Store Connect (39,99 €/an, 3,99 €/mois). Affichés à la place de ceux
+ * du store quand FORCE_EUR_PRICES est actif. */
 export const FALLBACK_PRICE: Record<BillingPeriod, { price: number; priceString: string }> = {
   MONTHLY: { price: 3.99, priceString: "3,99 €" },
   ANNUAL: { price: 39.99, priceString: "39,99 €" },
 };
+
+/** Affiche toujours les prix en euros (FALLBACK_PRICE), quelle que soit la
+ * boutique renvoyée par le store. Décision produit du 2026-09-28 : l'app ne
+ * vise que la zone euro pour l'instant, et en TestFlight Apple renvoie le
+ * catalogue américain (34,99 $) alors que la facturation se fait en euros.
+ *
+ * Contrepartie : pour un compte d'un pays hors zone euro, le prix affiché ne
+ * serait PAS celui facturé — d'où la disponibilité de l'app limitée aux pays
+ * de la zone euro dans App Store Connect. Repasser à `false` (prix du store,
+ * cf. storePriceString) avant toute ouverture à d'autres pays. */
+export const FORCE_EUR_PRICES = true;
 
 export const PERIOD_SUFFIX: Record<BillingPeriod, string> = { MONTHLY: "/mois", ANNUAL: "/an" };
 
