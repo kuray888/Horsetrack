@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
-import { mergeRemote } from "@/lib/mergeRemote";
+import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushTrainingSession, deleteTrainingSessionRemote } from "@/lib/cloudSync";
@@ -99,6 +99,12 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, [loaded, loadFailed]);
   /** Cf. `saveFailed` d'agenda/store.tsx : même rôle, même raison. */
   const [saveFailed, setSaveFailed] = useState(false);
+  // Liste courante, lue par mergeFromCloud pour renvoyer ce que le serveur
+  // n'a jamais reçu (cf. unsyncedLocalIds).
+  const sessionsRef = useRef<TrainingSession[]>([]);
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   useEffect(() => {
     (async () => {
@@ -191,9 +197,16 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const mergeFromCloud = useCallback((remote: TrainingSession[], pullStartedAt: number) => {
     if (!syncReadyRef.current) return;
     const guard = syncGuard("training_sessions", pullStartedAt, pendingIdsFor("training_sessions"));
+    // Séances jamais arrivées sur le serveur (refus définitif, ex. cheval pas
+    // encore créé côté serveur) : renvoyées à chaque relecture, sans quoi
+    // elles n'existaient que sur ce téléphone (cf. unsyncedLocalIds).
+    const unsynced = new Set(unsyncedLocalIds(sessionsRef.current, remote, guard));
     // Persisté par l'effet d'écriture qui suit chaque changement de `sessions`.
     setSessions((list) => mergeRemote(list, remote, guard).items);
     noteRemoteSnapshot("training_sessions", remote.map((s) => s.id), pullStartedAt);
+    for (const session of sessionsRef.current) {
+      if (unsynced.has(session.id)) pushTrainingSession(session).catch(() => {});
+    }
   }, []);
 
   const removeHorseData = useCallback((horseId: string) => {

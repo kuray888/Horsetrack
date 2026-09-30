@@ -23,7 +23,10 @@ import {
   setBiometricLockEnabled,
 } from "@/lib/biometrics";
 import { cancelWeeklySummary, ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
-import { deleteAccount } from "@/lib/account";
+import { AccountError, deleteAccount } from "@/lib/account";
+import { getAppleAuthorizationCode } from "@/lib/appleAuth";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
+import { purgeAccountMediaFiles } from "@/lib/localMedia";
 import { clearLocalDataOwner } from "@/lib/deviceOwner";
 import { resetOnboardingCompleted } from "@/onboarding/completion";
 import { formatDate } from "@/lib/dateFormat";
@@ -234,42 +237,67 @@ export default function ProfileScreen() {
     );
   }
 
+  /** Ramène l'appareil à un état « installation fraîche » une fois les données
+   * du compte effacées côté serveur. */
+  async function wipeLocalAccountData() {
+    // Le compte n'existe déjà plus côté serveur à ce stade : on ne demande
+    // qu'une déconnexion locale (scope "local") pour ne pas dépendre d'un
+    // appel réseau qui viserait un utilisateur déjà supprimé.
+    await supabase.auth.signOut({ scope: "local" });
+    // Vide tous les caches locaux pour repartir d'un état "installation
+    // fraîche" — sinon le prochain compte créé sur cet appareil hériterait
+    // de l'écurie, de la progression, de l'agenda ou de l'abo de l'ancien.
+    await Promise.all([
+      cancelWeeklySummary(),
+      resetOnboardingCompleted(),
+      clearHorses(),
+      clearRiderProfile(),
+      clearAgenda(),
+      clearGoals(),
+      clearWeight(),
+      // Les séances manquaient à cet appel — alors que la confirmation
+      // ci-dessus les nomme explicitement parmi ce qui « sera définitivement
+      // supprimé ». Elles survivaient donc à la suppression du compte et
+      // étaient héritées par le compte suivant créé sur cet appareil, qui les
+      // repoussait ensuite dans SON cloud (cf. audit du 2026-09-23).
+      clearSessions(),
+      clearSubscription(),
+      // Idem pour les écritures restées en attente : elles visent des lignes
+      // d'un compte qui n'existe plus, et n'ont aucune raison de partir sous
+      // l'identité du prochain. Même geste qu'au changement de compte (cf.
+      // (auth)/login.tsx).
+      clearSyncQueue(),
+      clearLocalDataOwner(),
+    ]);
+    // Photos et pièces du coffre-fort copiées sur l'appareil : les listes
+    // ci-dessus ne les référencent plus, elles restaient pourtant sur le
+    // téléphone (cf. lib/localMedia.ts).
+    purgeAccountMediaFiles();
+    router.replace("/(onboarding)/welcome");
+  }
+
   async function confirmDeleteAccount() {
     setDeletingAccount(true);
     try {
-      await deleteAccount();
-      // Le compte n'existe déjà plus côté serveur à ce stade : on ne demande
-      // qu'une déconnexion locale (scope "local") pour ne pas dépendre d'un
-      // appel réseau qui viserait un utilisateur déjà supprimé.
-      await supabase.auth.signOut({ scope: "local" });
-      // Vide tous les caches locaux pour repartir d'un état "installation
-      // fraîche" — sinon le prochain compte créé sur cet appareil hériterait
-      // de l'écurie, de la progression, de l'agenda ou de l'abo de l'ancien.
-      await Promise.all([
-        cancelWeeklySummary(),
-        resetOnboardingCompleted(),
-        clearHorses(),
-        clearRiderProfile(),
-        clearAgenda(),
-        clearGoals(),
-        clearWeight(),
-        // Les séances manquaient à cet appel — alors que la confirmation
-        // ci-dessus les nomme explicitement parmi ce qui « sera définitivement
-        // supprimé ». Elles survivaient donc à la suppression du compte et
-        // étaient héritées par le compte suivant créé sur cet appareil, qui les
-        // repoussait ensuite dans SON cloud (cf. audit du 2026-09-23).
-        clearSessions(),
-        clearSubscription(),
-        // Idem pour les écritures restées en attente : elles visent des lignes
-        // d'un compte qui n'existe plus, et n'ont aucune raison de partir sous
-        // l'identité du prochain. Même geste qu'au changement de compte (cf.
-        // (auth)/login.tsx).
-        clearSyncQueue(),
-        clearLocalDataOwner(),
-      ]);
-      router.replace("/(onboarding)/welcome");
+      // Compte « Se connecter avec Apple » : Apple exige qu'on révoque son
+      // autorisation à la suppression (cf. lib/appleAuth.ts). Refus ou échec
+      // de la feuille Apple : on supprime quand même.
+      const signedInWithApple =
+        user?.app_metadata?.provider === "apple" || !!user?.identities?.some((i) => i.provider === "apple");
+      const appleAuthorizationCode = signedInWithApple
+        ? await runNativeInteraction(getAppleAuthorizationCode).catch(() => null)
+        : null;
+      await deleteAccount({ appleAuthorizationCode });
+      await wipeLocalAccountData();
     } catch (e) {
       console.error("[profile:deleteAccount]", e);
+      // Données déjà effacées côté serveur, seule la fermeture du compte a
+      // échoué : garder le cache local montrerait une écurie et un
+      // coffre-fort qui n'existent plus nulle part, et que plus rien ne
+      // pourrait sauvegarder (cf. audit du 2026-09-30).
+      if (e instanceof AccountError && e.dataDeleted) {
+        await wipeLocalAccountData().catch(() => {});
+      }
       Alert.alert("Oups", e instanceof Error ? e.message : "Impossible de supprimer le compte pour l'instant.");
     } finally {
       setDeletingAccount(false);

@@ -8,6 +8,7 @@ import { withKeyLock } from "@/lib/keyLock";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { track } from "@/lib/analytics";
 import { invalidatePaywallOffer } from "./paywall";
+import { requestServerSubscriptionSync } from "@/lib/subscriptionSync";
 import {
   ENTITLEMENT_ID,
   Purchases,
@@ -177,6 +178,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         // il écrase l'état local sans autre question.
         if (next.status !== "free") {
           await persistLocal(next);
+          // Le serveur applique SON statut (quota de chevaux, coffre-fort…) :
+          // on s'assure qu'il voit le même que RevenueCat (cf.
+          // lib/subscriptionSync.ts). Sans attendre.
+          void requestServerSubscriptionSync();
           return;
         }
         // RevenueCat ne voit rien. Un code promo (redeemPromoCode plus bas)

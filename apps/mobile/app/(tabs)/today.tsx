@@ -36,7 +36,7 @@ import {
   type UnifiedEvent,
 } from "@/planning/unifiedEvents";
 import { buildHorseAlerts } from "@/horses/alerts";
-import { usePendingSyncCount } from "@/lib/useSyncQueue";
+import { usePendingSyncCount, useRejectedWriteCount } from "@/lib/useSyncQueue";
 import { retryPendingWrites } from "@/lib/cloudSync";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
 import { RemindersUpsellCard } from "@/subscription/RemindersUpsellCard";
@@ -139,6 +139,7 @@ export default function TodayScreen() {
   const { riderProfile } = useRiderProfile();
   // Écritures cloud en attente d'un retour du réseau (cf. lib/syncQueue.ts).
   const pendingSync = usePendingSyncCount();
+  const rejectedSync = useRejectedWriteCount();
   /** Permission de notification refusée : les rappels sont enregistrés mais
    * ne s'afficheront jamais. Cette bannière vivait dans l'écran Agenda,
    * supprimé — sans elle, plus rien ne signalait que des rappels programmés
@@ -479,6 +480,26 @@ export default function TodayScreen() {
             </Text>
             <TouchableOpacity onPress={() => retryPendingWrites().catch(() => {})} hitSlop={8}>
               <Text className="text-sm font-bold text-warning">Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        </FadeInView>
+      ) : null}
+
+      {/* Écritures REFUSÉES par le serveur (pas un problème de réseau) : dit
+          que ces saisies ne sont pas sauvegardées en ligne, au lieu de laisser
+          croire le contraire (cf. lib/rejectedWrites.ts). Renvoyées à chaque
+          relecture ; le bouton relance la relecture sans attendre. */}
+      {rejectedSync > 0 ? (
+        <FadeInView delay={56}>
+          <View className="flex-row items-center gap-2.5 rounded-card bg-danger/15 p-3.5">
+            <MaterialCommunityIcons name="cloud-alert-outline" size={18} color={colors.danger} />
+            <Text className="flex-1 text-sm text-text">
+              {rejectedSync === 1
+                ? "1 modification a été refusée par le serveur : elle n'est pas sauvegardée en ligne. Si ça persiste, contacte le support."
+                : `${rejectedSync} modifications ont été refusées par le serveur : elles ne sont pas sauvegardées en ligne. Si ça persiste, contacte le support.`}
+            </Text>
+            <TouchableOpacity onPress={() => void refreshFromCloud()} hitSlop={8}>
+              <Text className="text-sm font-bold text-danger">Réessayer</Text>
             </TouchableOpacity>
           </View>
         </FadeInView>

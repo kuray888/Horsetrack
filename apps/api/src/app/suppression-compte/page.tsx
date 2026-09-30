@@ -14,7 +14,7 @@ import { LegalPage } from "@/components/LegalPage";
  */
 export default function SuppressionComptePage() {
   return (
-    <LegalPage title="Supprimer son compte Horsetrack" updated="23 septembre 2026">
+    <LegalPage title="Supprimer son compte Horsetrack" updated="30 septembre 2026">
       <p>
         Vous pouvez supprimer votre compte Horsetrack et toutes les données associées à tout moment, de deux
         façons.
@@ -41,7 +41,10 @@ export default function SuppressionComptePage() {
       <p>
         L&apos;intégralité de votre compte et de son contenu&nbsp;: profil cavalier, chevaux, séances
         d&apos;entraînement, rendez-vous, entrées de journal, dépenses, documents du coffre-fort, objectifs, pesées
-        et partages de chevaux. La suppression est définitive&nbsp;: ces données ne peuvent pas être restaurées.
+        et partages de chevaux. Sont aussi effacés les photos et documents stockés, les données
+        d&apos;abonnement tenues par notre prestataire RevenueCat, vos données de mesure d&apos;audience (PostHog),
+        et, si vous utilisiez «&nbsp;Se connecter avec Apple&nbsp;», l&apos;autorisation accordée à Horsetrack est
+        révoquée. La suppression est définitive&nbsp;: ces données ne peuvent pas être restaurées.
       </p>
       <p>
         Aucune donnée n&apos;est conservée après la suppression, hormis ce que la loi nous impose de garder

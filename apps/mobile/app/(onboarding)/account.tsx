@@ -15,6 +15,8 @@ import { pullPendingInvites } from "@/lib/sharing";
 import { withTimeout } from "@/lib/withTimeout";
 import { track } from "@/lib/analytics";
 import { useSessions } from "@/sessions/store";
+import { useHorses } from "@/horses/store";
+import { useRiderProfile } from "@/rider/store";
 import { clearSyncQueue } from "@/lib/syncQueue";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
@@ -56,9 +58,14 @@ export default function OnboardingAccount() {
   const [resendResult, setResendResult] = useState<{ ok: boolean; message: string } | null>(null);
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   const appleAvailable = useAppleSignInAvailable();
-  // Horses/rider sont déjà écrasés par les réponses d'onboarding à l'étape
-  // paywall (cf. (onboarding)/paywall.tsx) — seuls ces trois-là ne le sont
-  // jamais et resteraient ceux d'un compte précédent sur cet appareil.
+  // Horses/rider sont écrasés par les réponses d'onboarding à l'étape
+  // paywall (cf. (onboarding)/paywall.tsx)… mais seulement sur ce chemin-là :
+  // un invité qui accepte un partage (cf. pending-invites.tsx) n'y passe
+  // jamais et gardait l'écurie — photos comprises — du compte précédent sur
+  // cet appareil, à côté du cheval partagé (cf. audit du 2026-09-30). Tout est
+  // donc purgé ici, avant qu'un seul écran d'onboarding n'ait rien collecté.
+  const { clearAll: clearHorses } = useHorses();
+  const { clearAll: clearRiderProfile } = useRiderProfile();
   const { clearAll: clearSessions } = useSessions();
   const { clearAll: clearAgenda } = useAgenda();
   const { clearAll: clearGoals } = useGoals();
@@ -135,6 +142,8 @@ export default function OnboardingAccount() {
     // continueAfterAuth, qui enchaîne seulement ensuite sur rider-level).
     if (owner !== userId) {
       await Promise.all([
+        clearHorses(),
+        clearRiderProfile(),
         clearSessions(),
         clearAgenda(),
         clearGoals(),

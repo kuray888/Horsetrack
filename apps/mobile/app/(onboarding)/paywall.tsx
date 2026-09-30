@@ -17,6 +17,7 @@ import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
 import { pullCloudData, pushRiderProfile } from "@/lib/cloudSync";
 import { pullPendingInvites } from "@/lib/sharing";
+import { requestServerSubscriptionSync } from "@/lib/subscriptionSync";
 
 /** Pivot freemium du 2026-09-03 (v2) : présente l'abonnement Premium à la fin
  * de l'onboarding, mais reste "skippable" via onSkip — contrairement à
@@ -85,6 +86,11 @@ export default function OnboardingPaywall() {
       // l'utilisateur ne réinstallait pas l'app / ne changeait pas d'appareil
       // (cf. audit du 2026-09-09).
       await pushRiderProfile(newRider).catch(() => {});
+      // L'achat vient d'avoir lieu AVANT la création de ce profil : le webhook
+      // RevenueCat a pu arriver trop tôt (il réessaie, mais au mieux dans 5
+      // min). Relecture immédiate pour que les chevaux en plus ne soient pas
+      // refusés par le quota gratuit (cf. lib/subscriptionSync.ts).
+      if (justSubscribed && computeIsActiveOrTrialing(justSubscribed)) await requestServerSubscriptionSync();
       // Le profil sportif du cheval (discipline/niveau) n'est plus demandé à
       // l'onboarding (cf. onboarding/options.ts) — un cheval hérite par défaut
       // de la discipline/du niveau déjà déclarés par le cavalier plutôt que de

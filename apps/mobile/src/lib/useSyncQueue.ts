@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { rejectedWriteCount, subscribeToRejectedWrites } from "@/lib/rejectedWrites";
 import { pendingSyncCount, subscribeToSyncQueue } from "@/lib/syncQueue";
 
 /** Nombre d'écritures cloud en attente de reprise (cf. lib/syncQueue.ts).
@@ -11,4 +12,11 @@ export function usePendingSyncCount(): number {
   const [pending, setPending] = useState(pendingSyncCount);
   useEffect(() => subscribeToSyncQueue(setPending), []);
   return pending;
+}
+
+/** Nombre d'écritures refusées par le serveur (cf. lib/rejectedWrites.ts). */
+export function useRejectedWriteCount(): number {
+  const [count, setCount] = useState(rejectedWriteCount);
+  useEffect(() => subscribeToRejectedWrites(setCount), []);
+  return count;
 }

@@ -2,6 +2,7 @@ import { File } from "expo-file-system";
 import { discardSupersededWrites, enqueueFailedWrite, flushSyncQueue, type SyncOperation } from "@/lib/syncQueue";
 import { supabase } from "@/lib/supabase";
 import { beginWrite, endWrite, recordWriteSuccess, withWriteTracking } from "@/lib/remoteIndex";
+import { clearRejectedWrite } from "@/lib/rejectedWrites";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
 import type { Appointment, CompetitionEntry, Doc, Expense, JournalEntry } from "@/agenda/store";
@@ -63,11 +64,17 @@ export async function retryPendingWrites(): Promise<void> {
   await flushSyncQueue(async (operation: SyncOperation) => {
     if (operation.op === "delete") {
       const { error } = await supabase.from(operation.table).delete().eq("id", operation.id);
-      if (!error) recordWriteSuccess(operation.table, operation.id, true);
+      if (!error) {
+        recordWriteSuccess(operation.table, operation.id, true);
+        clearRejectedWrite(operation.table, operation.id);
+      }
       return { error };
     }
     const { error } = await supabase.from(operation.table).upsert(operation.row ?? {});
-    if (!error) recordWriteSuccess(operation.table, operation.id, false);
+    if (!error) {
+      recordWriteSuccess(operation.table, operation.id, false);
+      clearRejectedWrite(operation.table, operation.id);
+    }
     return { error };
   });
 }
@@ -100,6 +107,7 @@ async function settleWrite(
 ): Promise<void> {
   if (!error) {
     recordWriteSuccess(table, id, !row);
+    clearRejectedWrite(table, id);
     // Les opérations plus anciennes sur cette même ligne sont périmées : les
     // retirer AVANT de vider la file, sinon elles écraseraient ce qu'on vient
     // d'écrire. Départ de l'écriture ≈ son `updatedAt` (posé juste avant

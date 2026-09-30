@@ -14,6 +14,7 @@ import {
 import { pullSharedHorses } from "@/lib/sharing";
 import { loadRemoteIndex } from "@/lib/remoteIndex";
 import { ensureSyncQueueLoaded } from "@/lib/syncQueue";
+import { clearRejectedWrites } from "@/lib/rejectedWrites";
 import { getLocalDataOwner } from "@/lib/deviceOwner";
 import { isOnboardingCompleted } from "@/onboarding/completion";
 import { useHorses } from "@/horses/store";
@@ -103,6 +104,10 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     const { data: after } = await supabase.auth.getSession();
     if (after.session?.user.id !== userId) return;
 
+    // Les refus notés jusqu'ici repartent de zéro : les fusions ci-dessous
+    // renvoient tout ce que le serveur n'a jamais reçu, et un refus toujours
+    // d'actualité sera noté à nouveau (cf. lib/rejectedWrites.ts).
+    clearRejectedWrites();
     const s = stores.current;
     // Chevaux : les deux listes sont nécessaires pour reconstituer l'écurie
     // (possédés + partagés) — sans l'une, une absence ne prouverait rien.

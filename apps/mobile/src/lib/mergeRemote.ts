@@ -71,6 +71,30 @@ export function mergeRemote<T extends { id: string }>(
   return { items: changed ? items : (local as T[]), added, updated, removed, changed };
 }
 
+/**
+ * Lignes locales que le serveur n'a JAMAIS reçues et que plus rien ne
+ * renverra : absentes de la relecture, jamais confirmées par le serveur
+ * (`isKnown`), ni en file de reprise ni en cours d'envoi (`isProtected`).
+ *
+ * C'est ce qui reste d'une écriture refusée comme « définitive » (RLS 42501,
+ * clé étrangère… cf. syncQueue.isPermanentError), jamais mise en file :
+ * mergeRemote la garde en local (on ne jette rien), mais personne ne la
+ * renvoyait ensuite. Cas réel (audit du 2026-09-30) : un compte « Premium
+ * offert » que le serveur croyait gratuit — ses chevaux au-delà du premier et
+ * toutes leurs séances n'ont existé que sur son téléphone, même une fois le
+ * statut serveur corrigé. À renvoyer après chaque relecture.
+ */
+export function unsyncedLocalIds<T extends { id: string }>(
+  local: readonly T[],
+  remote: readonly T[],
+  guard: SyncGuard
+): string[] {
+  const remoteIds = new Set(remote.map((r) => r.id));
+  return local
+    .filter((l) => !remoteIds.has(l.id) && !guard.isKnown(l.id) && !guard.isProtected(l.id))
+    .map((l) => l.id);
+}
+
 /** Égalité de contenu (dates comprises, via leur représentation JSON). */
 export function sameContent<T>(a: T, b: T): boolean {
   if (a === b) return true;
