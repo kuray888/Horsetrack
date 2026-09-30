@@ -2,7 +2,7 @@ import { Linking, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { PurchasesPackage } from "react-native-purchases";
 import type { BillingPeriod } from "@/subscription/store";
-import { formatStorePrice } from "@/subscription/paywallLogic";
+import { FALLBACK_PRICE, FORCE_EUR_PRICES, formatStorePrice } from "@/subscription/paywallLogic";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -214,7 +214,8 @@ export async function getStorefrontCountry(): Promise<string | null> {
  * montant qui, lui, restait celui d'une AUTRE devise si les deux
  * venaient à diverger — d'afficher un prix qui ne serait pas celui
  * réellement facturé (cf. remontée du 2026-09-28). */
-export function storePriceString(pkg: PurchasesPackage): string {
+export function storePriceString(pkg: PurchasesPackage, period: BillingPeriod): string {
+  if (FORCE_EUR_PRICES) return FALLBACK_PRICE[period].priceString;
   return formatStorePrice(pkg.product.price, pkg.product.currencyCode) ?? pkg.product.priceString;
 }
 
@@ -232,18 +233,21 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
         if (!pkg) return null;
         const intro = pkg.product.introPrice;
         const isFreeTrial = !!intro && intro.price === 0;
-        const { price, currencyCode } = pkg.product;
+        const { currencyCode } = pkg.product;
+        // Prix affiché : euros fixes (FORCE_EUR_PRICES) ou celui du store.
+        const price = FORCE_EUR_PRICES ? FALLBACK_PRICE[period].price : pkg.product.price;
+        const shownCurrency = FORCE_EUR_PRICES ? "EUR" : currencyCode;
         return [
           period,
           {
             price,
-            priceString: storePriceString(pkg),
+            priceString: storePriceString(pkg, period),
             currencyCode: currencyCode ?? null,
             storefrontCountry,
             // Équivalent mensuel arrondi au centime inférieur, comme le fait le
             // SDK (39,99 € / 12 → 3,33 €).
             pricePerMonthString:
-              formatStorePrice(period === "ANNUAL" ? Math.floor((price / 12) * 100) / 100 : price, currencyCode) ??
+              formatStorePrice(period === "ANNUAL" ? Math.floor((price / 12) * 100) / 100 : price, shownCurrency) ??
               pkg.product.pricePerMonthString ??
               null,
             trialEligible: isFreeTrial ? await isTrialEligible(period) : false,

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
-import { mergeRemote } from "@/lib/mergeRemote";
+import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushWeightMeasurement, deleteWeightMeasurementRemote } from "@/lib/cloudSync";
@@ -57,9 +57,14 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   // Fusion d'une relecture du serveur seulement une fois la lecture locale
   // terminée et réussie (cf. mergeFromCloud).
   const syncReadyRef = useRef(false);
+  // Liste courante, lue par mergeFromCloud (cf. unsyncedLocalIds).
+  const measurementsRef = useRef<WeightMeasurement[]>([]);
   useEffect(() => {
     syncReadyRef.current = loaded && !loadFailed;
   }, [loaded, loadFailed]);
+  useEffect(() => {
+    measurementsRef.current = measurements;
+  }, [measurements]);
 
   useEffect(() => {
     (async () => {
@@ -149,9 +154,14 @@ export function WeightProvider({ children }: { children: ReactNode }) {
   const mergeFromCloud = useCallback((remote: WeightMeasurement[], pullStartedAt: number) => {
     if (!syncReadyRef.current) return;
     const guard = syncGuard("horse_weight_measurements", pullStartedAt, pendingIdsFor("horse_weight_measurements"));
+    // Pesées jamais arrivées sur le serveur (refus définitif) : renvoyées.
+    const unsynced = new Set(unsyncedLocalIds(measurementsRef.current, remote, guard));
     // Persisté par l'effet d'écriture qui suit chaque changement.
     setMeasurements((list) => mergeRemote(list, remote, guard).items);
     noteRemoteSnapshot("horse_weight_measurements", remote.map((m) => m.id), pullStartedAt);
+    for (const m of measurementsRef.current) {
+      if (unsynced.has(m.id)) pushWeightMeasurement(m).catch(() => {});
+    }
   }, []);
 
   const clearAll = useCallback(async () => {

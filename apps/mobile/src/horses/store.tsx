@@ -11,7 +11,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { deleteHorseRemote, pushHorses } from "@/lib/cloudSync";
-import { mergeRemote, pickFileUrl } from "@/lib/mergeRemote";
+import { mergeRemote, pickFileUrl, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
@@ -558,9 +558,26 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
     // refusé…) : ses modifications n'existent qu'ici, on ne fusionne pas —
     // le prochain envoi réussi rétablira l'invariant, la relecture suivante
     // fusionnera.
-    if (needsFullSyncRef.current) return false;
+    //
+    // Ce renvoi n'était pourtant déclenché que par une modification : un
+    // échec restait en suspens tant que l'utilisateur ne retouchait pas son
+    // écurie. La relecture le relance elle-même.
+    if (needsFullSyncRef.current) {
+      persistRef.current?.(horsesRef.current);
+      return false;
+    }
     const remote = [...owned, ...shared].map(normalizeRemoteHorse);
     const guard = syncGuard("horses", pullStartedAt, pendingIdsFor("horses"));
+    // Chevaux possédés jamais arrivés sur le serveur (refusés par le quota
+    // alors que l'app se savait Premium, cf. persist `keepRejected` — ses 3
+    // reprises épuisées, plus rien ne les renvoyait) : push global, comme
+    // après un échec (cf. unsyncedLocalIds).
+    const ownedLocal = horsesRef.current.filter((h) => !h.sharedRole);
+    if (unsyncedLocalIds(ownedLocal, owned, guard).length > 0) {
+      needsFullSyncRef.current = true;
+      persistRef.current?.(horsesRef.current);
+      return false;
+    }
     // Champs propres à l'appareil : emoji, jours de repos (pas encore
     // synchronisés), photo locale tant que la photo distante n'a pas changé.
     const preserve = (l: Horse, r: Horse): Horse => ({

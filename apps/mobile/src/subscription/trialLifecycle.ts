@@ -73,7 +73,7 @@ async function endReminderText(state: Persisted, end: Date): Promise<{ title: st
   const pkg = await getSubscriptionPackage(period).catch(() => null);
   // Prix du store uniquement : sans lui, on n'annonce aucun montant plutôt
   // qu'un prix écrit en dur qui pourrait différer de celui facturé.
-  const priceNote = pkg ? ` (${storePriceString(pkg)} par ${period === "ANNUAL" ? "an" : "mois"})` : "";
+  const priceNote = pkg ? ` (${storePriceString(pkg, period)} par ${period === "ANNUAL" ? "an" : "mois"})` : "";
   return {
     title: `Ton essai Premium se termine le ${day}`,
     body: `Sans action de ta part, l'abonnement démarre ce jour-là${priceNote}. Pour l'arrêter : ${CANCEL_WHERE}. Si tu l'as déjà résilié, rien ne sera prélevé.`,

@@ -8,6 +8,7 @@ import { withKeyLock } from "@/lib/keyLock";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { track } from "@/lib/analytics";
 import { invalidatePaywallOffer } from "./paywall";
+import { requestServerSubscriptionSync } from "@/lib/subscriptionSync";
 import {
   ENTITLEMENT_ID,
   Purchases,
@@ -58,7 +59,7 @@ type SubscriptionContextValue = Persisted & {
    * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
   startTrial: (period: BillingPeriod) => Promise<Persisted>;
   refresh: () => Promise<void>;
-  applyCustomerInfo: (info: CustomerInfo) => Promise<void>;
+  applyCustomerInfo: (info: CustomerInfo, precomputed?: Persisted) => Promise<void>;
   /** Valide et applique un code promo — validation exclusivement côté serveur
    * (cf. apps/api/src/app/api/promo/redeem/route.ts), jamais sur la seule foi
    * de la valeur saisie ici. */
@@ -165,13 +166,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const applyCustomerInfo = useCallback(
-    async (info: CustomerInfo) => {
-      const next = await persistedFromCustomerInfo(info);
+    // `precomputed` évite de recalculer `persistedFromCustomerInfo` quand
+    // l'appelant l'a déjà fait (cf. subscribe() ci-dessous) : ce calcul peut
+    // interroger le store une seconde fois (cf. billingPeriodOfProduct) —
+    // recalculer en plus ici doublait ce coût et allongeait d'autant le
+    // "Un instant…" affiché après un achat (remontée du 2026-09-28).
+    async (info: CustomerInfo, precomputed?: Persisted) => {
+      const next = precomputed ?? (await persistedFromCustomerInfo(info));
       try {
         // Un vrai achat/essai Apple vu par RevenueCat est toujours prioritaire :
         // il écrase l'état local sans autre question.
         if (next.status !== "free") {
           await persistLocal(next);
+          // Le serveur applique SON statut (quota de chevaux, coffre-fort…) :
+          // on s'assure qu'il voit le même que RevenueCat (cf.
+          // lib/subscriptionSync.ts). Sans attendre.
+          void requestServerSubscriptionSync();
           return;
         }
         // RevenueCat ne voit rien. Un code promo (redeemPromoCode plus bas)
@@ -485,7 +495,7 @@ export function useSubscribeFlow() {
         // L'éligibilité à l'essai vient d'être consommée : l'offre en cache
         // (cf. usePaywallOffer) ne doit plus la promettre.
         invalidatePaywallOffer();
-        await applyCustomerInfo(customerInfo);
+        await applyCustomerInfo(customerInfo, persisted);
         await onSuccess(persisted);
       } catch (e) {
         if ((e as { userCancelled?: boolean })?.userCancelled) {

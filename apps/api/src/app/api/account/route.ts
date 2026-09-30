@@ -3,6 +3,9 @@ import { Prisma, db } from "@cheval/db";
 import { deleteSupabaseAuthUser, getUserIdFromRequest, removeStorageFolder } from "@/lib/supabaseAdmin";
 import { safeLine } from "@/lib/emailSafety";
 import { sendEmail } from "@/lib/resend";
+import { revokeAppleAuthorization } from "@/lib/appleRevoke";
+import { deleteRevenueCatCustomer } from "@/lib/revenuecatApi";
+import { deleteAnalyticsPerson } from "@/lib/analytics";
 
 /** Suppression de compte (exigée par la guideline App Store 5.1.1(v)) — supprime
  * d'abord les données Prisma (cascade : rider_profiles, horses, traits,
@@ -20,6 +23,15 @@ export async function DELETE(req: NextRequest) {
   // main, sinon le propriétaire du cheval garde un slot de partage occupé par
   // un compte qui n'existe plus (la limite d'1 collaborateur/cheval ne se
   // libère jamais sans ça).
+  // Code d'autorisation Apple frais, envoyé par l'app pour un compte « Se
+  // connecter avec Apple » (cf. lib/appleRevoke.ts). Facultatif : corps absent
+  // (compte email, ancienne version de l'app) = rien à révoquer.
+  const body = (await req.json().catch(() => null)) as { appleAuthorizationCode?: unknown } | null;
+  const appleAuthorizationCode =
+    typeof body?.appleAuthorizationCode === "string" && body.appleAuthorizationCode.length < 2048
+      ? body.appleAuthorizationCode
+      : null;
+
   await db.horseCollaborator.deleteMany({ where: { collaboratorUserId: userId } });
 
   // Lu avant la suppression : le cascade Horse→HorseCollaborator (cf.
@@ -64,6 +76,15 @@ export async function DELETE(req: NextRequest) {
   await removeStorageFolder("documents", userId);
   for (const h of ownedHorses) await removeStorageFolder("horse-photos", h.id);
 
+  // Données tenues par des tiers pour ce compte — même promesse « rien ne
+  // reste » que ci-dessus. Best-effort et inertes sans leurs clés (cf. chaque
+  // module) : la suppression du compte ne doit jamais en dépendre.
+  await Promise.all([
+    appleAuthorizationCode ? revokeAppleAuthorization(appleAuthorizationCode) : Promise.resolve(false),
+    deleteRevenueCatCustomer(userId),
+    deleteAnalyticsPerson(userId),
+  ]);
+
   for (const c of affectedCollaborators) {
     const horseName = safeLine(c.horse.name, 60) || "ce cheval";
     sendEmail(
@@ -77,11 +98,30 @@ export async function DELETE(req: NextRequest) {
     ).catch(() => {});
   }
 
-  const { error } = await deleteSupabaseAuthUser(userId);
-  if (error) {
-    console.error("[account:delete] échec suppression Supabase Auth", error);
+  // Quelques tentatives : à ce stade les données et les fichiers sont DÉJÀ
+  // effacés, et une nouvelle requête ne pourrait plus retrouver les chevaux
+  // pour nettoyer leurs photos (lus plus haut depuis des lignes désormais
+  // supprimées). Un échec passager ici laissait un compte vide mais ouvert,
+  // pendant que l'app gardait son cache local d'un compte qui n'existait plus
+  // côté serveur (cf. audit du 2026-09-30).
+  let authError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { error } = await deleteSupabaseAuthUser(userId);
+    authError = error;
+    if (!error) break;
+    await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+  }
+  if (authError) {
+    console.error("[account:delete] échec suppression Supabase Auth", authError);
     return NextResponse.json(
-      { error: "Tes données ont été supprimées, mais la fermeture du compte a échoué — réessaie." },
+      {
+        // Pas « réessaie » : une fois les données effacées, se reconnecter
+        // renvoie à l'onboarding (plus de profil), pas à l'écran Profil.
+        error: "Tes données ont été supprimées, mais la fermeture du compte a échoué — écris-nous pour la finaliser.",
+        // L'app vide quand même ses caches locaux : les garder ferait croire
+        // que ces données existent encore (cf. mobile lib/account.ts).
+        dataDeleted: true,
+      },
       { status: 500 }
     );
   }

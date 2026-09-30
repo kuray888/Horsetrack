@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -11,7 +12,7 @@ import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { supabase } from "@/lib/supabase";
 import { settleRemoteWrite } from "@/lib/cloudSync";
 import { noteRemoteSnapshot, syncGuard, withWriteTracking } from "@/lib/remoteIndex";
-import { mergeRemote } from "@/lib/mergeRemote";
+import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import type { RiderGoal } from "@/onboarding/store";
 
@@ -154,6 +155,11 @@ const GoalsContext = createContext<GoalsContextValue | null>(null);
 export function GoalsProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  // Liste courante, lue par mergeFromCloud (cf. unsyncedLocalIds).
+  const goalsRef = useRef<Goal[]>([]);
+  useEffect(() => {
+    goalsRef.current = goals;
+  }, [goals]);
 
   const persist = useCallback((next: Goal[]) => {
     writeJson(STORAGE_KEY, next);
@@ -231,6 +237,11 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   const mergeFromCloud = useCallback(
     (remote: Goal[], pullStartedAt: number) => {
       const guard = syncGuard("goals", pullStartedAt, pendingIdsFor("goals"));
+      // Objectifs jamais arrivés sur le serveur (refus définitif) : renvoyés.
+      for (const id of unsyncedLocalIds(goalsRef.current, remote, guard)) {
+        const goal = goalsRef.current.find((g) => g.id === id);
+        if (goal) pushGoal(goal).catch(() => {});
+      }
       setGoals((list) => {
         const result = mergeRemote(list, remote, guard);
         // Ce store persiste explicitement (pas d'effet d'écriture).

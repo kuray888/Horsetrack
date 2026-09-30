@@ -34,6 +34,44 @@ export async function captureServerEvent(
   }
 }
 
+/**
+ * Supprime la personne PostHog (et ses événements) liée à ce compte — appelée à
+ * la suppression du compte : la politique de confidentialité promet qu'il ne
+ * reste rien, or `distinct_id` = id Supabase, donc une donnée personnelle.
+ *
+ * API privée PostHog, distincte de l'ingestion : clé personnelle
+ * (`POSTHOG_PERSONAL_API_KEY`, portée « person:write ») et `POSTHOG_PROJECT_ID`,
+ * hôte `POSTHOG_API_HOST` (défaut : https://eu.posthog.com). Inerte sans elles.
+ * Best-effort, ne rejette jamais.
+ */
+export async function deleteAnalyticsPerson(distinctId: string): Promise<boolean> {
+  const key = process.env.POSTHOG_PERSONAL_API_KEY;
+  const projectId = process.env.POSTHOG_PROJECT_ID;
+  if (!key || !projectId) return false;
+  const host = (process.env.POSTHOG_API_HOST || "https://eu.posthog.com").replace(/\/$/, "");
+  const headers = { Authorization: `Bearer ${key}` };
+  try {
+    const found = await fetch(
+      `${host}/api/projects/${encodeURIComponent(projectId)}/persons/?distinct_id=${encodeURIComponent(distinctId)}`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
+    if (!found.ok) return false;
+    const { results } = (await found.json()) as { results?: { id: string }[] };
+    let ok = true;
+    for (const person of results ?? []) {
+      const res = await fetch(
+        `${host}/api/projects/${encodeURIComponent(projectId)}/persons/${encodeURIComponent(person.id)}/?delete_events=true`,
+        { method: "DELETE", headers, signal: AbortSignal.timeout(5000) }
+      );
+      ok &&= res.ok || res.status === 404;
+    }
+    return ok;
+  } catch (e) {
+    console.warn("[analytics] suppression de la personne PostHog échouée", e);
+    return false;
+  }
+}
+
 /** Nom d'événement analytics pour un événement webhook RevenueCat, ou null
  * s'il n'a pas d'intérêt pour l'entonnoir. Pur, pour être testable. */
 export function analyticsEventForRevenueCat(e: {
@@ -57,6 +95,9 @@ export function analyticsEventForRevenueCat(e: {
       return "billing_issue";
     case "PRODUCT_CHANGE":
       return "subscription_product_changed";
+    // Octroi « Premium offert » depuis le dashboard RevenueCat (ambassadeurs).
+    case "NON_RENEWING_PURCHASE":
+      return e.period_type === "PROMOTIONAL" ? "promotional_granted" : null;
     default:
       return null;
   }

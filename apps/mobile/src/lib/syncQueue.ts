@@ -1,4 +1,5 @@
 import { readJson, writeJson } from "@/lib/localStore";
+import { clearRejectedWrites, noteRejectedWrite } from "@/lib/rejectedWrites";
 import { clearRemoteIndex } from "@/lib/remoteIndex";
 
 /**
@@ -183,7 +184,11 @@ export async function enqueueFailedWrite(
   operation: Omit<SyncOperation, "attempts">,
   error?: { code?: string } | null
 ): Promise<void> {
-  if (isPermanentError(error)) return;
+  if (isPermanentError(error)) {
+    // Inutile de retenter, mais pas question de se taire : cf. rejectedWrites.
+    noteRejectedWrite(operation.table, operation.id);
+    return;
+  }
   await ensureLoaded();
   queue = mergeOperation(queue, { ...operation, attempts: 0, enqueuedAt: Date.now() });
   await persist();
@@ -250,7 +255,10 @@ export async function flushSyncQueue(
       try {
         const { error } = await send(operation);
         if (!error) continue;
-        if (isPermanentError(error)) continue;
+        if (isPermanentError(error)) {
+          noteRejectedWrite(operation.table, operation.id);
+          continue;
+        }
         // Réseau : on garde tel quel, sans consommer d'essai.
         const retry = isNetworkError(error) ? operation : keepForRetry(operation);
         if (retry) failed.push({ original: operation, retry });
@@ -302,6 +310,7 @@ export async function clearSyncQueue(): Promise<void> {
   loaded = true;
   await persist();
   // L'état de synchronisation (lignes connues du serveur, suppressions
-  // récentes) appartient lui aussi au compte précédent.
+  // récentes, refus) appartient lui aussi au compte précédent.
+  clearRejectedWrites();
   await clearRemoteIndex();
 }

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db, Prisma, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
 import { analyticsEventForRevenueCat, captureServerEvent } from "@/lib/analytics";
+import { billingPeriodFromProductId, grantFieldsForEvent } from "@/lib/revenuecatEntitlement";
+import { fetchEntitlementState, isAnonymousAppUserId, isRevenueCatApiConfigured } from "@/lib/revenuecatApi";
+import { applyEntitlementState } from "@/lib/subscriptionSync";
 
 /**
  * Entitlement RevenueCat du palier payant unique — doit correspondre
@@ -34,27 +37,24 @@ const eventSchema = z.object({
   // jour, laissant ces comptes bloqués sur "Abonnement non reconnu par le
   // serveur" malgré un entitlement actif côté RevenueCat (cf. audit du
   // 2026-09-12).
-  period_type: z.enum(["TRIAL", "INTRO", "NORMAL", "PROMOTIONAL"]).optional(),
+  //
+  // Chaîne libre plutôt qu'une énumération : RevenueCat en ajoute (ex.
+  // "PREPAID" pour les forfaits prépayés Google Play), et chaque valeur
+  // inconnue reproduisait exactement cet échec définitif.
+  period_type: z.string().optional(),
   product_id: z.string().optional(),
   expiration_at_ms: z.number().nullable().optional(),
   // Analytics uniquement (cf. lib/analytics.ts) : RENEWAL qui clôt un essai.
   is_trial_conversion: z.boolean().optional(),
   cancel_reason: z.string().optional(),
   store: z.string().optional(),
+  // TRANSFER uniquement (cf. handleTransfer) : ni app_user_id ni
+  // entitlement_ids dans ce cas, seulement les comptes d'origine/destination.
+  transferred_from: z.array(z.string()).optional(),
+  transferred_to: z.array(z.string()).optional(),
 });
 
 type RevenueCatEvent = z.infer<typeof eventSchema>;
-
-/** Best-effort : le SKU exact dépend des produits créés dans App Store Connect
- * / Play Console (pas encore le cas) — à remplacer par un mapping exact une
- * fois ces identifiants connus (cf. mobile/src/subscription/store.tsx). */
-function billingPeriodFromProductId(productId: string | undefined): "MONTHLY" | "ANNUAL" | null {
-  if (!productId) return null;
-  const id = productId.toLowerCase();
-  if (id.includes("annual") || id.includes("year")) return "ANNUAL";
-  if (id.includes("month")) return "MONTHLY";
-  return null;
-}
 
 /**
  * Webhook RevenueCat (Project Settings > Webhooks) — source de vérité pour
@@ -94,11 +94,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
+  if (event.type === "TRANSFER") return handleTransfer(event);
+
   const entitlementIds = event?.entitlement_ids ?? [];
   const hasEntitlement = entitlementIds.includes(ENTITLEMENT_ID);
 
   if (!event?.app_user_id || !hasEntitlement) {
     return NextResponse.json({ received: true });
+  }
+
+  // Octroi ou prolongation de l'accès — achat store comme octroi
+  // promotionnel (cf. lib/revenuecatEntitlement.ts GRANT_EVENT_TYPES).
+  const grantFields = grantFieldsForEvent(event);
+
+  // Un achat fait au paywall d'onboarding précède la création de la ligne
+  // rider_profiles (cf. mobile (onboarding)/paywall.tsx : subscribe() puis
+  // finish() → pushRiderProfile). Si le webhook gagne la course, l'update
+  // ci-dessous ne touchait AUCUNE ligne, l'événement était pourtant marqué
+  // traité — et l'insertion faite ensuite par l'app est forcée à EXPIRED
+  // (cf. rls.sql protect_rider_profile_entitlements) : abonné dans l'app,
+  // gratuit pour le serveur, définitivement (cf. audit du 2026-09-30).
+  // Vérifié AVANT le claim de dédoublonnage : une réponse non-2xx fait
+  // réessayer RevenueCat plus tard (5, 10, 20, 40, 80 min), le temps que
+  // l'app crée le profil.
+  if (grantFields) {
+    const profile = await db.riderProfile.findUnique({ where: { userId: event.app_user_id }, select: { id: true } });
+    if (!profile) {
+      console.warn("[revenuecat:webhook] profil absent, octroi à réessayer", event.type, event.id);
+      return NextResponse.json({ error: "Profil pas encore créé, réessaie plus tard." }, { status: 503 });
+    }
   }
 
   // RevenueCat redélivre un event tant qu'on ne répond pas 200 (timeout réseau
@@ -143,27 +167,19 @@ export async function POST(req: NextRequest) {
     ? { OR: [{ lastWebhookEventAt: null }, { lastWebhookEventAt: { lt: eventTimestamp } }] }
     : {};
 
+  if (grantFields) {
+    await db.riderProfile.updateMany({
+      where: { userId, ...orderingWhere },
+      data: {
+        revenuecatId: userId,
+        ...(tier ? { ...grantFields, subscriptionTier: tier } : {}),
+        lastWebhookEventAt: eventTimestamp ?? undefined,
+      },
+    });
+    return NextResponse.json({ received: true });
+  }
+
   switch (event.type) {
-    case "INITIAL_PURCHASE":
-    case "RENEWAL":
-    case "UNCANCELLATION":
-    case "PRODUCT_CHANGE":
-    case "SUBSCRIPTION_EXTENDED": {
-      const isTrial = event.period_type === "TRIAL";
-      const tierFields = tier
-        ? {
-            subscriptionTier: tier,
-            subscriptionStatus: isTrial ? SubscriptionStatus.TRIALING : SubscriptionStatus.ACTIVE,
-            billingPeriod: billingPeriodFromProductId(event.product_id),
-            trialEndsAt: isTrial && event.expiration_at_ms ? new Date(event.expiration_at_ms) : null,
-          }
-        : {};
-      await db.riderProfile.updateMany({
-        where: { userId, ...orderingWhere },
-        data: { revenuecatId: userId, ...tierFields, lastWebhookEventAt: eventTimestamp ?? undefined },
-      });
-      break;
-    }
     case "CANCELLATION": {
       // Une résiliation (renouvellement automatique désactivé, y compris
       // pendant l'essai) NE coupe PAS l'accès : Apple/Google le laissent
@@ -197,5 +213,55 @@ export async function POST(req: NextRequest) {
       break;
   }
 
+  return NextResponse.json({ received: true });
+}
+
+/**
+ * TRANSFER : RevenueCat a déplacé des achats d'un compte à un autre — typiquement
+ * « Restaurer les achats » sur un compte recréé avec le même identifiant Apple.
+ * L'événement ne dit ni l'entitlement ni son statut : jusqu'ici il était ignoré,
+ * et le nouveau compte restait gratuit pour le serveur alors que l'app
+ * l'affichait Premium (cf. audit du 2026-09-30). On relit donc l'état réel de
+ * chaque compte concerné chez RevenueCat.
+ *
+ * Destination sans profil (onboarding pas terminé) : 503 pour que RevenueCat
+ * réessaie. Origine : rétrogradée si elle n'a plus d'accès (cf.
+ * applyEntitlementState, qui épargne les essais par code promo).
+ */
+async function handleTransfer(event: RevenueCatEvent) {
+  if (!isRevenueCatApiConfigured()) {
+    console.warn("[revenuecat:webhook] TRANSFER ignoré : REVENUECAT_SECRET_API_KEY absente");
+    return NextResponse.json({ received: true });
+  }
+  const destinations = (event.transferred_to ?? []).filter((id) => !isAnonymousAppUserId(id));
+  const origins = (event.transferred_from ?? []).filter((id) => !isAnonymousAppUserId(id));
+
+  let retry = false;
+  for (const userId of destinations) {
+    const state = await fetchEntitlementState(userId);
+    if (!state) {
+      retry = true;
+      continue;
+    }
+    if ((await applyEntitlementState(userId, state, { allowDowngrade: false })) === "no-profile" && state.active) {
+      retry = true;
+    }
+  }
+  for (const userId of origins) {
+    // Compte d'origine supprimé : rien à rétrograder, et surtout ne pas
+    // l'interroger — GET /subscribers recréerait chez RevenueCat le client que
+    // la suppression du compte vient d'effacer.
+    const profile = await db.riderProfile.findUnique({ where: { userId }, select: { id: true } });
+    if (!profile) continue;
+    const state = await fetchEntitlementState(userId);
+    if (!state) {
+      retry = true;
+      continue;
+    }
+    await applyEntitlementState(userId, state, { allowDowngrade: true });
+  }
+  if (retry) {
+    return NextResponse.json({ error: "Transfert pas encore applicable, réessaie plus tard." }, { status: 503 });
+  }
   return NextResponse.json({ received: true });
 }

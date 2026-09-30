@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeRemote, pickFileUrl, signedUrlExpiresSoon } from "./mergeRemote";
+import { mergeRemote, pickFileUrl, signedUrlExpiresSoon, unsyncedLocalIds } from "./mergeRemote";
 import type { SyncGuard } from "./remoteIndex";
 
 type Row = { id: string; title: string; local?: string };
@@ -93,5 +93,23 @@ describe("URL signées", () => {
     expect(pickFileUrl("file:///a.jpg", "u/a.jpg", "https://nouvelle", "u/a.jpg")).toBe("file:///a.jpg");
     expect(pickFileUrl("file:///a.jpg", "u/a.jpg", "https://nouvelle", "u/b.pdf")).toBe("https://nouvelle");
     expect(pickFileUrl(null, null, null, null)).toBeNull();
+  });
+});
+
+describe("unsyncedLocalIds", () => {
+  it("désigne ce que le serveur n'a jamais reçu et que rien ne renverra", () => {
+    const local: Row[] = [
+      { id: "refusee", title: "séance refusée (42501)" },
+      { id: "synchro", title: "déjà sur le serveur" },
+      { id: "en-file", title: "attend une reprise réseau" },
+    ];
+    const remote: Row[] = [{ id: "synchro", title: "déjà sur le serveur" }];
+    expect(unsyncedLocalIds(local, remote, guard({ known: ["synchro"], protectedIds: ["en-file"] }))).toEqual(["refusee"]);
+  });
+
+  it("ne renvoie jamais une ligne connue du serveur puis supprimée ailleurs", () => {
+    // Connue puis absente : supprimée depuis un autre appareil — mergeRemote la
+    // retire, la renvoyer la ressusciterait.
+    expect(unsyncedLocalIds<Row>([{ id: "a", title: "x" }], [], guard({ known: ["a"] }))).toEqual([]);
   });
 });

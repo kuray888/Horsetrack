@@ -37,7 +37,7 @@ import { useHorses } from "@/horses/store";
 import type { Discipline } from "@/onboarding/store";
 import { track } from "@/lib/analytics";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
-import { mergeRemote, pickFileUrl } from "@/lib/mergeRemote";
+import { mergeRemote, pickFileUrl, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { cancelRemindersOf, rescheduleReminders } from "@/agenda/remoteMergeEffects";
@@ -416,6 +416,16 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     appointmentsRef.current = appointments;
     horsesRef.current = horses;
   }, [checklistTemplate, appointments, horses]);
+  // Listes courantes, lues par mergeFromCloud pour renvoyer ce que le serveur
+  // n'a jamais reçu (cf. lib/mergeRemote.ts unsyncedLocalIds).
+  const documentsRef = useRef(documents);
+  const journalRef = useRef(journal);
+  const expensesRef = useRef(expenses);
+  useEffect(() => {
+    documentsRef.current = documents;
+    journalRef.current = journal;
+    expensesRef.current = expenses;
+  }, [documents, journal, expenses]);
   const [loaded, setLoaded] = useState(false);
   /** Vrai quand au moins une des lectures n'a PAS abouti. Les écritures sont
    * alors désactivées : réécrire l'état courant (vide, faute d'avoir pu lire)
@@ -1023,6 +1033,16 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         emailReminderId: l.emailReminderId,
         nextDueNotificationId: l.nextDueNotificationId,
       });
+      // Rendez-vous jamais arrivés sur le serveur (refus définitif, cf.
+      // unsyncedLocalIds) : renvoyés, épreuves comprises, dans le même ordre
+      // qu'à la création (cf. addAppointment).
+      for (const id of unsyncedLocalIds(appointmentsRef.current, remoteAppointments, guard)) {
+        const appt = appointmentsRef.current.find((a) => a.id === id);
+        if (!appt) continue;
+        pushAppointment(appt)
+          .then(() => Promise.all(appt.competitionEntries.map((entry) => pushCompetitionEntry(appt.id, entry).catch(() => {}))))
+          .catch(() => {});
+      }
       const preview = mergeRemote(appointmentsRef.current, remoteAppointments, guard, preserve);
       if (preview.changed) {
         setAppointments((list) => mergeRemote(list, remoteAppointments, guard, preserve).items);
@@ -1043,8 +1063,20 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       const remoteDocs = remote.documents;
       const guard = syncGuard("documents", pullStartedAt, pendingIdsFor("documents"));
       const preserve = (l: Doc, r: Doc): Doc => ({ ...r, fileUri: pickFileUrl(l.fileUri, l.filePath, r.fileUri, r.filePath) });
+      const unsyncedDocs = unsyncedLocalIds(documentsRef.current, remoteDocs, guard);
       setDocuments((list) => mergeRemote(list, remoteDocs, guard, preserve).items);
       noteRemoteSnapshot("documents", remoteDocs.map((d) => d.id), pullStartedAt);
+      for (const id of unsyncedDocs) {
+        const doc = documentsRef.current.find((d) => d.id === id);
+        if (!doc) continue;
+        pushDocument(doc)
+          .then((filePath) => {
+            if (filePath && filePath !== doc.filePath) {
+              setDocuments((list) => list.map((d) => (d.id === id ? { ...d, filePath } : d)));
+            }
+          })
+          .catch(() => {});
+      }
     }
     if (remote.journal) {
       const remoteJournal = remote.journal;
@@ -1053,14 +1085,31 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         ...r,
         photoUri: pickFileUrl(l.photoUri, l.photoPath, r.photoUri, r.photoPath),
       });
+      const unsyncedJournal = unsyncedLocalIds(journalRef.current, remoteJournal, guard);
       setJournal((list) => mergeRemote(list, remoteJournal, guard, preserve).items);
       noteRemoteSnapshot("journal_entries", remoteJournal.map((j) => j.id), pullStartedAt);
+      for (const id of unsyncedJournal) {
+        const entry = journalRef.current.find((j) => j.id === id);
+        if (!entry) continue;
+        pushJournalEntry(entry)
+          .then((photoPath) => {
+            if (photoPath && photoPath !== entry.photoPath) {
+              setJournal((list) => list.map((j) => (j.id === id ? { ...j, photoPath } : j)));
+            }
+          })
+          .catch(() => {});
+      }
     }
     if (remote.expenses) {
       const remoteExpenses = remote.expenses;
       const guard = syncGuard("expenses", pullStartedAt, pendingIdsFor("expenses"));
+      const unsyncedExpenses = unsyncedLocalIds(expensesRef.current, remoteExpenses, guard);
       setExpenses((list) => mergeRemote(list, remoteExpenses, guard).items);
       noteRemoteSnapshot("expenses", remoteExpenses.map((e) => e.id), pullStartedAt);
+      for (const id of unsyncedExpenses) {
+        const expense = expensesRef.current.find((e) => e.id === id);
+        if (expense) pushExpense(expense).catch(() => {});
+      }
     }
   }, []);
 

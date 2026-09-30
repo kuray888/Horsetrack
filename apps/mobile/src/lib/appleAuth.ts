@@ -55,6 +55,23 @@ export async function signInWithApple(): Promise<AppleSignInResult> {
   return { cancelled: false, userId };
 }
 
+/**
+ * Code d'autorisation Apple frais, pour révoquer l'accès « Se connecter avec
+ * Apple » à la suppression du compte (exigence Apple, cf. api
+ * lib/appleRevoke.ts) — Supabase ne garde pas de jeton Apple réutilisable.
+ * Affiche la feuille Apple (Face ID). null si annulé ou indisponible : la
+ * suppression se fait quand même.
+ */
+export async function getAppleAuthorizationCode(): Promise<string | null> {
+  if (Platform.OS !== "ios") return null;
+  try {
+    const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+    return credential.authorizationCode ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** N'affiche le bouton Apple que sur iOS et quand l'API est réellement
  * disponible (absente en simulateur sans compte Apple configuré, iOS trop
  * ancien, etc.). */
