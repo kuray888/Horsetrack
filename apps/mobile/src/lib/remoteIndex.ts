@@ -50,11 +50,18 @@ export function rowKey(table: string, id: string): string {
   return `${table}\u0000${id}`;
 }
 
+/** Incrémenté par clearRemoteIndex (changement de compte) : une relecture du
+ * fichier encore en cours appartient au compte précédent et ne doit rien
+ * réinjecter une fois l'index vidé. */
+let generation = 0;
+
 export function loadRemoteIndex(): Promise<void> {
   if (loaded) return Promise.resolve();
   if (!loading) {
+    const startedGeneration = generation;
     loading = readJson<Persisted>(KEY, { known: {}, tombstones: {} })
       .then((data) => {
+        if (generation !== startedGeneration) return;
         // Des écritures ont pu arriver avant la fin de la lecture : on les
         // garde (elles sont plus récentes que le fichier).
         known = new Map([...Object.entries(data.known ?? {}), ...known]);
@@ -100,16 +107,27 @@ function scheduleSave(): void {
 /** Écriture immédiate, sans le délai de scheduleSave : une modification qui
  * part doit être notée sur le disque AVANT que l'utilisateur ait le temps de
  * fermer l'app. */
+let saveNowQueued = false;
+
 function saveNow(): void {
   if (!loaded) {
     void loadRemoteIndex().then(saveNow);
     return;
   }
-  if (saveTimer) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-  }
-  writeJson(KEY, snapshot()).catch(() => {});
+  // Regroupées en une écriture par tour de la boucle d'événements : une
+  // séance répétée sur un an part en dizaines d'envois d'un coup, une écriture
+  // complète du fichier par envoi bloquait inutilement l'interface. La
+  // microtâche s'exécute avant que l'app puisse être suspendue.
+  if (saveNowQueued) return;
+  saveNowQueued = true;
+  queueMicrotask(() => {
+    saveNowQueued = false;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    writeJson(KEY, snapshot()).catch(() => {});
+  });
 }
 
 /** Une écriture part (upsert ou suppression) : la fusion la protège jusqu'à
@@ -260,6 +278,8 @@ export function isHorseOnServer(horseId: string | null | undefined): boolean {
 }
 
 export async function clearRemoteIndex(): Promise<void> {
+  generation++;
+  loading = null;
   serverHorseIds = null;
   known = new Map();
   tombstones = new Map();

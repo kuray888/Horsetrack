@@ -77,6 +77,7 @@ describe("isPermanentError", () => {
   it("reconnaît un refus qui ne passera jamais", () => {
     expect(isPermanentError({ code: "42501" })).toBe(true); // RLS
     expect(isPermanentError({ code: "23503" })).toBe(true); // cheval supprimé
+    expect(isPermanentError({ code: "P0001" })).toBe(true); // refus d'un déclencheur (photo Premium)
   });
 
   it("traite tout le reste comme récupérable", () => {

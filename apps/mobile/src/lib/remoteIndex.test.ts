@@ -32,6 +32,9 @@ beforeEach(() => {
 /** Simule une fermeture puis une réouverture de l'app : la mémoire repart de
  * zéro, seul le fichier reste. */
 async function restartApp() {
+  // La sauvegarde part à la fin du tour en cours, toujours avant que l'app
+  // puisse être suspendue : on laisse ce tour se terminer.
+  await Promise.resolve();
   const saved = disk.value;
   __resetRemoteIndexForTests();
   disk.value = saved;
@@ -177,5 +180,22 @@ describe("app fermée pendant un envoi", () => {
       { id: "b", horseId: "cheval-pas-encore-envoye" },
     ];
     expect(unsyncedLocalIds(local, [], guard, (r) => r.horseId === "cheval-en-ligne")).toEqual(["a"]);
+  });
+});
+
+describe("changement de compte", () => {
+  it("une relecture du fichier en cours ne réinjecte rien après l'effacement", async () => {
+    const { clearRemoteIndex, __markUnloadedForTests } = await import("@/lib/remoteIndex");
+    // Fichier du compte précédent, avec une modification non confirmée.
+    beginWrite("training_sessions", "ancien");
+    await Promise.resolve();
+    const saved = disk.value;
+    __resetRemoteIndexForTests();
+    disk.value = saved;
+    __markUnloadedForTests();
+    const pendingLoad = loadRemoteIndex();
+    await clearRemoteIndex();
+    await pendingLoad;
+    expect(syncGuard("training_sessions", 0, none).isProtected("ancien")).toBe(false);
   });
 });

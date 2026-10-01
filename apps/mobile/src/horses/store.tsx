@@ -15,6 +15,8 @@ import { mergeRemote, pickFileUrl, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { resolveLocalFileUri } from "@/lib/imagePicker";
+import { File } from "expo-file-system";
+import { horseIdsWithUnsentPhoto } from "@/horses/photoSync";
 import { useSubscription } from "@/subscription/store";
 import { withKeyLock } from "@/lib/keyLock";
 import type {
@@ -306,9 +308,12 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
   const { isActiveOrTrialing } = useSubscription();
   const premiumRef = useRef(isActiveOrTrialing);
   const horsesRef = useRef<Horse[]>(horses);
-  const persistRef = useRef<((next: Horse[]) => Promise<void>) | null>(null);
+  const persistRef = useRef<((next: Horse[], changedIds?: string[]) => Promise<void>) | null>(null);
   const quotaRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quotaRetryAttemptsRef = useRef(0);
+  /** Chevaux dont on a déjà tenté de renvoyer la photo pendant ce lancement
+   * (cf. mergeFromCloud) : une seule tentative, jamais de boucle. */
+  const photoResentRef = useRef(new Set<string>());
   useEffect(() => {
     premiumRef.current = isActiveOrTrialing;
     horsesRef.current = horses;
@@ -577,6 +582,20 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       needsFullSyncRef.current = true;
       persistRef.current?.(horsesRef.current);
       return false;
+    }
+    // Photo jamais arrivée sur le serveur (cf. horses/photoSync.ts) : renvoyée
+    // maintenant que le cheval y est. Envoi ciblé, la fusion continue (le
+    // cheval est protégé pendant l'envoi).
+    const photoIds = horseIdsWithUnsentPhoto(ownedLocal, owned, (uri) => {
+      try {
+        return new File(uri).exists;
+      } catch {
+        return false;
+      }
+    }).filter((id) => !photoResentRef.current.has(id));
+    if (photoIds.length > 0) {
+      photoIds.forEach((id) => photoResentRef.current.add(id));
+      persistRef.current?.(horsesRef.current, photoIds);
     }
     // Champs propres à l'appareil : emoji, jours de repos (pas encore
     // synchronisés), photo locale tant que la photo distante n'a pas changé.

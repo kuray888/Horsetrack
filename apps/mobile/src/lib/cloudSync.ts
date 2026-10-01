@@ -326,12 +326,20 @@ async function pushHorsesImpl(
   const toUpsert = onlyIds ? horses.filter((h) => onlyIds.includes(h.id)) : horses;
   for (const h of toUpsert) {
     let photoPath = h.photoPath;
+    // Cheval pas encore en base : le stockage refuse sa photo (rls.sql
+    // horse_photos_insert_own exige owns_horse, donc la ligne). Elle est
+    // renvoyée juste APRÈS l'enregistrement du cheval — avant, un cheval créé
+    // avec sa photo partait sans elle, et la photo ne vivait que sur ce
+    // téléphone : perdue au changement d'appareil, à la réinstallation ou à la
+    // reconnexion (cf. audit du 2026-10-01).
+    let uploadAfterSave = false;
     if (h.photoUrl?.startsWith("file://")) {
       // Photo fraîchement choisie (jamais un chemin distant) : à uploader. En
       // cas d'échec réseau, on garde l'ancien photoPath — retenté au prochain
       // push plutôt que de perdre la référence existante.
       const uploaded = await uploadHorsePhoto(h.id, h.photoUrl);
       if (uploaded) photoPath = uploaded;
+      else uploadAfterSave = true;
     } else if (h.photoUrl === null && h.photoPath) {
       await deleteHorsePhotoRemote(h.id);
       photoPath = null;
@@ -354,6 +362,17 @@ async function pushHorsesImpl(
       isPrimary: h.isPrimary,
       updatedAt: now,
     });
+    if (!error && uploadAfterSave && h.photoUrl) {
+      const uploaded = await uploadHorsePhoto(h.id, h.photoUrl);
+      if (uploaded) {
+        const { error: photoError } = await supabase
+          .from("horses")
+          .update({ photoPath: uploaded, updatedAt: now })
+          .eq("id", h.id);
+        if (photoError) console.warn("[cloudSync] enregistrement de la photo du cheval échoué", h.id, photoError);
+        else photoPath = uploaded;
+      }
+    }
     if (!error) recordWriteSuccess("horses", h.id, false);
     if (error) {
       console.warn("[cloudSync] upsert horse échoué", h.id, error);
