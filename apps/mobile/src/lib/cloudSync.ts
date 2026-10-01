@@ -1,8 +1,27 @@
 import { File } from "expo-file-system";
-import { discardSupersededWrites, enqueueFailedWrite, flushSyncQueue, pendingIdsFor, type SyncOperation } from "@/lib/syncQueue";
+import {
+  discardSupersededWrites,
+  enqueueFailedWrite,
+  flushSyncQueue,
+  isStillQueued,
+  operationStartedAt,
+  pendingIdsFor,
+  type SyncOperation,
+} from "@/lib/syncQueue";
 import { supabase } from "@/lib/supabase";
-import { beginWrite, endWrite, recordWriteSuccess, unconfirmedDeletes, withWriteTracking } from "@/lib/remoteIndex";
+import {
+  beginWrite,
+  confirmWrite,
+  endWrite,
+  hasNewerWrite,
+  loadRemoteIndex,
+  recordWriteSuccess,
+  serializeWrite,
+  unconfirmedDeletes,
+  withWriteTracking,
+} from "@/lib/remoteIndex";
 import { clearRejectedWrite } from "@/lib/rejectedWrites";
+import { parseServerDate, parseServerDateOrNull } from "@/lib/serverDate";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
 import type { Appointment, CompetitionEntry, Doc, Expense, JournalEntry } from "@/agenda/store";
@@ -61,22 +80,61 @@ function generateId(): string {
  * une dépendance de détection de connectivité pour l'apprendre.
  */
 export async function retryPendingWrites(): Promise<void> {
-  await flushSyncQueue(async (operation: SyncOperation) => {
-    if (operation.op === "delete") {
-      const { error } = await supabase.from(operation.table).delete().eq("id", operation.id);
-      if (!error) {
-        recordWriteSuccess(operation.table, operation.id, true);
-        clearRejectedWrite(operation.table, operation.id);
-      }
-      return { error };
-    }
-    const { error } = await supabase.from(operation.table).upsert(operation.row ?? {});
-    if (!error) {
-      recordWriteSuccess(operation.table, operation.id, false);
-      clearRejectedWrite(operation.table, operation.id);
-    }
-    return { error };
+  // Les marques d'écritures non confirmées (cf. remoteIndex) décident de ce qui
+  // est périmé ici : elles doivent être relues avant toute reprise — ce n'était
+  // pas le cas de la reprise lancée dès le démarrage (cf. app/_layout.tsx).
+  await loadRemoteIndex();
+  await flushSyncQueue((operation: SyncOperation) => {
+    // Dans la file de sa ligne : jamais en même temps qu'une écriture directe
+    // de la même ligne, dont elle pourrait arriver après (cf. serializeWrite).
+    // Une épreuve passe par celle de son rendez-vous, comme ses écritures
+    // directes (cf. pushCompetitionEntry).
+    const appointmentId = parentAppointmentId(operation);
+    return appointmentId !== null
+      ? serializeWrite("appointments", appointmentId, () => replayOperation(operation, appointmentId))
+      : serializeWrite(operation.table, operation.id, () => replayOperation(operation, null));
   });
+}
+
+/** Rendez-vous d'une épreuve en file (upsert seulement : une suppression ne
+ * porte pas de ligne). */
+function parentAppointmentId(operation: SyncOperation): string | null {
+  return operation.table === "competition_entries" && typeof operation.row?.appointmentId === "string"
+    ? operation.row.appointmentId
+    : null;
+}
+
+async function replayOperation(
+  operation: SyncOperation,
+  appointmentId: string | null
+): Promise<{ error: { code?: string; message?: string } | null }> {
+  const startedAt = operationStartedAt(operation);
+  // Remplacée ou retirée pendant qu'elle attendait son tour (une écriture plus
+  // récente de la même ligne a abouti, ou a échoué et pris sa place) : périmée.
+  if (!isStillQueued(operation)) return { error: null };
+  // Une modification plus récente de la même ligne est partie depuis (et a été
+  // interrompue, ou est en cours) : cette ancienne version ne doit plus partir.
+  // Rejouée, elle écrasait la nouvelle côté serveur et effaçait sa marque —
+  // la relecture suivante remettait alors l'ancienne version à l'écran (cf.
+  // audit du 2026-10-02). Retirée de la file sans envoi : la version locale,
+  // plus récente, est renvoyée par la fusion (cf. syncGuard.needsResend,
+  // resendUnconfirmedDeletes).
+  if (
+    hasNewerWrite(operation.table, operation.id, startedAt) ||
+    (appointmentId !== null && hasNewerWrite("appointments", appointmentId, startedAt))
+  ) {
+    return { error: null };
+  }
+  const { error } =
+    operation.op === "delete"
+      ? await supabase.from(operation.table).delete().eq("id", operation.id)
+      : await supabase.from(operation.table).upsert(operation.row ?? {});
+  if (!error) {
+    recordWriteSuccess(operation.table, operation.id, operation.op === "delete", startedAt);
+    if (appointmentId !== null) confirmWrite("appointments", appointmentId, startedAt);
+    clearRejectedWrite(operation.table, operation.id);
+  }
+  return { error };
 }
 
 /**
@@ -93,9 +151,10 @@ export async function settleRemoteWrite(
   table: string,
   id: string,
   error: { code?: string; message?: string } | null,
-  row?: Record<string, unknown>
+  row?: Record<string, unknown>,
+  startedAt?: number
 ): Promise<void> {
-  return settleWrite(label, table, id, error, row);
+  return settleWrite(label, table, id, error, row, startedAt);
 }
 
 async function settleWrite(
@@ -103,23 +162,26 @@ async function settleWrite(
   table: string,
   id: string,
   error: { code?: string; message?: string } | null,
-  row?: Record<string, unknown>
+  row?: Record<string, unknown>,
+  /** Horodatage de départ de l'écriture (cf. remoteIndex.withWriteTracking). */
+  stamp?: number
 ): Promise<void> {
   if (!error) {
-    recordWriteSuccess(table, id, !row);
+    recordWriteSuccess(table, id, !row, stamp);
     clearRejectedWrite(table, id);
     // Les opérations plus anciennes sur cette même ligne sont périmées : les
     // retirer AVANT de vider la file, sinon elles écraseraient ce qu'on vient
-    // d'écrire. Départ de l'écriture ≈ son `updatedAt` (posé juste avant
-    // l'envoi) ; à défaut (suppression), maintenant.
-    const startedAt = typeof row?.updatedAt === "string" ? Date.parse(row.updatedAt) : Date.now();
-    await discardSupersededWrites({ table, id }, Number.isFinite(startedAt) ? startedAt : Date.now()).catch(() => {});
+    // d'écrire. Départ de l'écriture : son horodatage, à défaut son
+    // `updatedAt` (posé juste avant l'envoi), à défaut maintenant.
+    const fromRow = typeof row?.updatedAt === "string" ? Date.parse(row.updatedAt) : NaN;
+    const startedAt = stamp ?? (Number.isFinite(fromRow) ? fromRow : Date.now());
+    await discardSupersededWrites({ table, id }, startedAt).catch(() => {});
     // Le réseau répond : c'est le moment de rejouer ce qui attendait.
     retryPendingWrites().catch(() => {});
     return;
   }
   console.warn(`[cloudSync] ${label} échoué`, error);
-  await enqueueFailedWrite({ table, op: row ? "upsert" : "delete", id, row }, error);
+  await enqueueFailedWrite({ table, op: row ? "upsert" : "delete", id, row, startedAt: stamp }, error);
 }
 
 async function getOwnerProfile(userId: string): Promise<{ id: string; onboardingCompletedAt: string | null } | null> {
@@ -187,7 +249,7 @@ async function uploadHorsePhoto(horseId: string, localUri: string): Promise<stri
  * (best-effort). En cas d'échec réseau, la suppression de la ligne passe par
  * la file de reprise (cf. settleWrite) plutôt que d'être perdue.
  */
-async function deleteHorseRemoteImpl(horseId: string): Promise<void> {
+async function deleteHorseRemoteImpl(horseId: string, stamp?: number): Promise<void> {
   try {
     const { data: journalFiles } = await supabase.storage.from("horse-photos").list(`${horseId}/journal`, { limit: 1000 });
     const paths = [`${horseId}/photo.jpg`, ...(journalFiles ?? []).map((f) => `${horseId}/journal/${f.name}`)];
@@ -196,7 +258,7 @@ async function deleteHorseRemoteImpl(horseId: string): Promise<void> {
     // best-effort : cf. commentaire de deleteHorsePhotoRemote
   }
   const { error } = await supabase.from("horses").delete().eq("id", horseId);
-  await settleWrite("deleteHorseRemote", "horses", horseId, error);
+  await settleWrite("deleteHorseRemote", "horses", horseId, error, undefined, stamp);
 }
 
 /** Best-effort : si l'objet ne se supprime pas, RLS empêche de toute façon
@@ -537,7 +599,7 @@ export async function mapRemoteHorse(h: RemoteHorse): Promise<Horse> {
     injuries: h.horse_injuries.map((i) => ({
       id: i.id,
       type: i.type,
-      occurredAt: i.occurredAt ? new Date(i.occurredAt) : null,
+      occurredAt: parseServerDateOrNull(i.occurredAt),
       recoveryStatus: i.recoveryStatus,
       note: i.note ?? "",
     })),
@@ -602,7 +664,7 @@ async function uploadDocumentPhoto(userId: string, docId: string, localUri: stri
  * "{userId}/{docId}.jpg" est déterministe par document, un nouvel upload
  * écrase donc simplement l'ancien objet (upsert), même logique que les photos
  * de cheval (cf. uploadHorsePhoto plus haut). */
-async function pushDocumentImpl(doc: Doc): Promise<string | null> {
+async function pushDocumentImpl(doc: Doc, stamp?: number): Promise<string | null> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) return null;
@@ -641,7 +703,7 @@ async function pushDocumentImpl(doc: Doc): Promise<string | null> {
   const { error } = await supabase.from("documents").upsert(row);
   // Hors ligne : la ligne attend dans la file de reprise au lieu d'être
   // perdue (le fichier, lui, est renvoyé par retryPendingDocumentUploads).
-  await settleWrite("pushDocument", "documents", doc.id, error, row);
+  await settleWrite("pushDocument", "documents", doc.id, error, row, stamp);
   return error ? null : filePath;
 }
 
@@ -651,9 +713,9 @@ async function pushDocumentImpl(doc: Doc): Promise<string | null> {
  * chemin en supposant ".jpg" ratait la suppression Storage pour tout autre
  * type de fichier, laissant l'objet orphelin indéfiniment (la ligne DB
  * disparaît, donc plus aucune référence ne permet de le retrouver ensuite). */
-async function deleteDocumentRemoteImpl(docId: string, filePath: string | null): Promise<void> {
+async function deleteDocumentRemoteImpl(docId: string, filePath: string | null, stamp?: number): Promise<void> {
   const { error } = await supabase.from("documents").delete().eq("id", docId);
-  await settleWrite("deleteDocumentRemote", "documents", docId, error);
+  await settleWrite("deleteDocumentRemote", "documents", docId, error, undefined, stamp);
   if (!filePath) return;
   // Best-effort : si l'objet Storage ne se supprime pas, RLS empêche de
   // toute façon tout accès par un autre utilisateur — pas une fuite.
@@ -694,7 +756,7 @@ export async function pullDocuments(): Promise<Doc[] | null> {
       horseId: row.horseId ?? null,
       category: categoryFromDb(row.category),
       name: row.name,
-      date: new Date(row.date),
+      date: parseServerDate(row.date),
       fileUri,
       filePath: row.filePath ?? null,
     });
@@ -723,7 +785,7 @@ function appointmentTypeFromDb(type: string): Appointment["type"] {
 /** Pas de push si l'entrée n'est pas encore rattachée à un cheval (cf.
  * agenda/store.tsx, backfill au chargement) — rien à synchroniser tant
  * qu'aucun horseId n'est connu. */
-async function pushAppointmentImpl(appt: Appointment): Promise<void> {
+async function pushAppointmentImpl(appt: Appointment, stamp?: number): Promise<void> {
   if (!appt.horseId) return;
   const row = {
     id: appt.id,
@@ -746,7 +808,7 @@ async function pushAppointmentImpl(appt: Appointment): Promise<void> {
   const fullRow = { ...row, competitionLevel: appt.competitionLevel, endDate: appt.endDate?.toISOString() ?? null };
   const { error } = await supabase.from("appointments").upsert(fullRow);
   if (!error) {
-    await settleWrite("pushAppointment", "appointments", appt.id, null, fullRow);
+    await settleWrite("pushAppointment", "appointments", appt.id, null, fullRow, stamp);
     return;
   }
   // Colonnes `competitionLevel`/`endDate` ajoutées après coup : tant que la base
@@ -757,10 +819,10 @@ async function pushAppointmentImpl(appt: Appointment): Promise<void> {
     const { error: retryError } = await supabase.from("appointments").upsert(row);
     // En attente de reprise, c'est la ligne SANS ces colonnes qu'on garde :
     // rejouer la version complète buterait sur le même schéma non migré.
-    await settleWrite("pushAppointment", "appointments", appt.id, retryError, row);
+    await settleWrite("pushAppointment", "appointments", appt.id, retryError, row, stamp);
     return;
   }
-  await settleWrite("pushAppointment", "appointments", appt.id, error, fullRow);
+  await settleWrite("pushAppointment", "appointments", appt.id, error, fullRow, stamp);
 }
 
 /** Vrai si l'erreur PostgREST/Postgres vient de l'absence de `competitionLevel`
@@ -770,9 +832,9 @@ function isMissingAppointmentColumnError(error: { message?: string }): boolean {
   return message.includes("competitionlevel") || message.includes("enddate");
 }
 
-async function deleteAppointmentRemoteImpl(apptId: string): Promise<void> {
+async function deleteAppointmentRemoteImpl(apptId: string, stamp?: number): Promise<void> {
   const { error } = await supabase.from("appointments").delete().eq("id", apptId);
-  await settleWrite("deleteAppointmentRemote", "appointments", apptId, error);
+  await settleWrite("deleteAppointmentRemote", "appointments", apptId, error, undefined, stamp);
 }
 
 /** Restaure les rendez-vous visibles par l'utilisateur courant — possédés ET
@@ -796,7 +858,7 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
     horseId: row.horseId,
     type: appointmentTypeFromDb(row.type),
     title: row.title,
-    date: new Date(row.date),
+    date: parseServerDate(row.date),
     time: row.time,
     location: row.location,
     notes: row.notes,
@@ -811,9 +873,9 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
     dossard: row.dossard ?? null,
     professional: row.professional ?? null,
     cost: row.cost === null || row.cost === undefined ? null : Number(row.cost),
-    nextDueDate: row.nextDueDate ? new Date(row.nextDueDate) : null,
+    nextDueDate: parseServerDateOrNull(row.nextDueDate),
     competitionLevel: normalizeCompetitionLevel((row as { competitionLevel?: unknown }).competitionLevel),
-    endDate: (row as { endDate?: string | null }).endDate ? new Date((row as { endDate: string }).endDate) : null,
+    endDate: parseServerDateOrNull((row as { endDate?: string | null }).endDate),
     competitionEntries: ((row.competition_entries ?? []) as RemoteCompetitionEntry[]).map((e) => ({
       id: e.id,
       name: e.name,
@@ -833,7 +895,7 @@ type RemoteCompetitionEntry = { id: string; name: string; discipline: string; ti
 /** Une épreuve à la fois (upsert) — même logique que les documents (cf.
  * pushDocument) : pas d'opération de remplacement en masse, le volume par
  * rendez-vous reste faible. */
-async function pushCompetitionEntryImpl(appointmentId: string, entry: CompetitionEntry): Promise<void> {
+async function pushCompetitionEntryImpl(appointmentId: string, entry: CompetitionEntry, stamp?: number): Promise<void> {
   const row = {
     id: entry.id,
     appointmentId,
@@ -844,12 +906,33 @@ async function pushCompetitionEntryImpl(appointmentId: string, entry: Competitio
     updatedAt: new Date().toISOString(),
   };
   const { error } = await supabase.from("competition_entries").upsert(row);
-  await settleWrite("pushCompetitionEntry", "competition_entries", entry.id, error, row);
+  await settleWrite("pushCompetitionEntry", "competition_entries", entry.id, error, row, stamp);
+  // Confirme aussi la marque posée sur le rendez-vous (cf. pushCompetitionEntry).
+  if (!error && stamp !== undefined) confirmWrite("appointments", appointmentId, stamp);
 }
 
-export async function deleteCompetitionEntryRemote(entryId: string): Promise<void> {
-  const { error } = await supabase.from("competition_entries").delete().eq("id", entryId);
-  await settleWrite("deleteCompetitionEntryRemote", "competition_entries", entryId, error);
+/**
+ * Suppression d'une épreuve. Deux marques durables, posées avant l'envoi :
+ * - sur l'épreuve, en suppression : interrompue par une fermeture de l'app,
+ *   elle est renvoyée au lancement (cf. resendUnconfirmedDeletes) ;
+ * - sur son rendez-vous : la relecture ne remet pas l'épreuve à l'écran tant
+ *   que la suppression n'est pas confirmée.
+ * Avant, rien n'était noté : app fermée pendant l'envoi, l'épreuve revenait à
+ * la relecture suivante et restait sur le serveur (cf. audit du 2026-10-02).
+ */
+export function deleteCompetitionEntryRemote(appointmentId: string, entryId: string): Promise<void> {
+  return withWriteTracking("appointments", appointmentId, (appointmentStamp) =>
+    withWriteTracking(
+      "competition_entries",
+      entryId,
+      async (stamp) => {
+        const { error } = await supabase.from("competition_entries").delete().eq("id", entryId);
+        await settleWrite("deleteCompetitionEntryRemote", "competition_entries", entryId, error, undefined, stamp);
+        if (!error) confirmWrite("appointments", appointmentId, appointmentStamp);
+      },
+      "delete"
+    )
+  );
 }
 
 /**
@@ -912,7 +995,7 @@ async function uploadJournalPhoto(horseId: string, entryId: string, localUri: st
  * pas re-uploader la même photo à la prochaine synchro. `entry.photoUri` ne
  * vaut "file://…" QUE pour une photo locale pas encore envoyée (premier envoi
  * ou remplacement lors d'une édition, cf. updateJournalEntry). */
-async function pushJournalEntryImpl(entry: JournalEntry): Promise<string | null> {
+async function pushJournalEntryImpl(entry: JournalEntry, stamp?: number): Promise<string | null> {
   if (!entry.horseId) return null;
 
   let photoPath = entry.photoPath;
@@ -934,7 +1017,7 @@ async function pushJournalEntryImpl(entry: JournalEntry): Promise<string | null>
     updatedAt: new Date().toISOString(),
   };
   const { error } = await supabase.from("journal_entries").upsert(row);
-  await settleWrite("pushJournalEntry", "journal_entries", entry.id, error, row);
+  await settleWrite("pushJournalEntry", "journal_entries", entry.id, error, row, stamp);
   // La photo, elle, n'est pas rejouable depuis la file (l'upload Storage a
   // lieu plus haut, hors de la ligne) : on ne renvoie son chemin que si
   // l'entrée est bien partie, pour ne pas l'enregistrer localement comme
@@ -947,9 +1030,9 @@ async function pushJournalEntryImpl(entry: JournalEntry): Promise<string | null>
  * l'objet Storage ne se supprime pas, RLS empêche de toute façon tout accès
  * par un autre utilisateur que le propriétaire/un collaborateur du cheval
  * déjà supprimé, pas une fuite. */
-async function deleteJournalEntryRemoteImpl(entryId: string, horseId: string | null): Promise<void> {
+async function deleteJournalEntryRemoteImpl(entryId: string, horseId: string | null, stamp?: number): Promise<void> {
   const { error } = await supabase.from("journal_entries").delete().eq("id", entryId);
-  await settleWrite("deleteJournalEntryRemote", "journal_entries", entryId, error);
+  await settleWrite("deleteJournalEntryRemote", "journal_entries", entryId, error, undefined, stamp);
   if (horseId) {
     await supabase.storage.from("horse-photos").remove([`${horseId}/journal/${entryId}.jpg`]);
   }
@@ -973,7 +1056,7 @@ export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
       activityType: activityTypeFromDb(row.activityType),
       mood: moodFromDb(row.mood),
       notes: row.notes,
-      date: new Date(row.date),
+      date: parseServerDate(row.date),
       time: row.time,
       weather: (row.weather as JournalEntry["weather"]) ?? null,
       photoUri,
@@ -991,7 +1074,7 @@ export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
  * doit être visible par un demi-pensionnaire/coach.
  */
 
-async function pushTrainingSessionImpl(session: TrainingSession): Promise<void> {
+async function pushTrainingSessionImpl(session: TrainingSession, stamp?: number): Promise<void> {
   if (!session.horseId) return;
   const row = {
     id: session.id,
@@ -1007,12 +1090,12 @@ async function pushTrainingSessionImpl(session: TrainingSession): Promise<void> 
     updatedAt: new Date().toISOString(),
   };
   const { error } = await supabase.from("training_sessions").upsert(row);
-  await settleWrite("pushTrainingSession", "training_sessions", session.id, error, row);
+  await settleWrite("pushTrainingSession", "training_sessions", session.id, error, row, stamp);
 }
 
-async function deleteTrainingSessionRemoteImpl(sessionId: string): Promise<void> {
+async function deleteTrainingSessionRemoteImpl(sessionId: string, stamp?: number): Promise<void> {
   const { error } = await supabase.from("training_sessions").delete().eq("id", sessionId);
-  await settleWrite("deleteTrainingSessionRemote", "training_sessions", sessionId, error);
+  await settleWrite("deleteTrainingSessionRemote", "training_sessions", sessionId, error, undefined, stamp);
 }
 
 /** Restaure les séances visibles par l'utilisateur courant — possédées ET
@@ -1027,7 +1110,7 @@ export async function pullTrainingSessions(): Promise<TrainingSession[] | null> 
     horseId: row.horseId,
     activityType: (row.activityType as string).toLowerCase() as TrainingSession["activityType"],
     customActivityLabel: row.customActivityLabel ?? null,
-    date: new Date(row.date),
+    date: parseServerDate(row.date),
     time: row.time,
     durationMinutes: row.durationMinutes ?? null,
     intensity: (row.intensity as TrainingSession["intensity"]) ?? null,
@@ -1042,7 +1125,7 @@ export async function pullTrainingSessions(): Promise<TrainingSession[] | null> 
  * horses/weightStore.tsx.
  */
 
-async function pushWeightMeasurementImpl(measurement: WeightMeasurement): Promise<void> {
+async function pushWeightMeasurementImpl(measurement: WeightMeasurement, stamp?: number): Promise<void> {
   const row = {
     id: measurement.id,
     horseId: measurement.horseId,
@@ -1051,12 +1134,12 @@ async function pushWeightMeasurementImpl(measurement: WeightMeasurement): Promis
     updatedAt: new Date().toISOString(),
   };
   const { error } = await supabase.from("horse_weight_measurements").upsert(row);
-  await settleWrite("pushWeightMeasurement", "horse_weight_measurements", measurement.id, error, row);
+  await settleWrite("pushWeightMeasurement", "horse_weight_measurements", measurement.id, error, row, stamp);
 }
 
-async function deleteWeightMeasurementRemoteImpl(id: string): Promise<void> {
+async function deleteWeightMeasurementRemoteImpl(id: string, stamp?: number): Promise<void> {
   const { error } = await supabase.from("horse_weight_measurements").delete().eq("id", id);
-  await settleWrite("deleteWeightMeasurementRemote", "horse_weight_measurements", id, error);
+  await settleWrite("deleteWeightMeasurementRemote", "horse_weight_measurements", id, error, undefined, stamp);
 }
 
 export async function pullWeightMeasurements(): Promise<WeightMeasurement[] | null> {
@@ -1066,7 +1149,7 @@ export async function pullWeightMeasurements(): Promise<WeightMeasurement[] | nu
     id: row.id,
     horseId: row.horseId,
     weightKg: row.weightKg,
-    date: new Date(row.date),
+    date: parseServerDate(row.date),
   }));
 }
 
@@ -1085,7 +1168,7 @@ function expenseCategoryFromDb(category: string): Expense["category"] {
   return category.toLowerCase() as Expense["category"];
 }
 
-async function pushExpenseImpl(expense: Expense): Promise<void> {
+async function pushExpenseImpl(expense: Expense, stamp?: number): Promise<void> {
   if (!expense.horseId) return;
   const row = {
     id: expense.id,
@@ -1101,12 +1184,12 @@ async function pushExpenseImpl(expense: Expense): Promise<void> {
     updatedAt: new Date().toISOString(),
   };
   const { error } = await supabase.from("expenses").upsert(row);
-  await settleWrite("pushExpense", "expenses", expense.id, error, row);
+  await settleWrite("pushExpense", "expenses", expense.id, error, row, stamp);
 }
 
-async function deleteExpenseRemoteImpl(expenseId: string): Promise<void> {
+async function deleteExpenseRemoteImpl(expenseId: string, stamp?: number): Promise<void> {
   const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
-  await settleWrite("deleteExpenseRemote", "expenses", expenseId, error);
+  await settleWrite("deleteExpenseRemote", "expenses", expenseId, error, undefined, stamp);
 }
 
 /** Restaure les dépenses visibles par l'utilisateur courant — possédées ET
@@ -1129,7 +1212,7 @@ export async function pullExpenses(): Promise<Expense[] | null> {
     amount: Number(row.amount),
     currency: row.currency,
     category: expenseCategoryFromDb(row.category),
-    date: new Date(row.date),
+    date: parseServerDate(row.date),
     notes: row.notes,
     appointmentId: row.appointmentId ?? null,
     documentId: row.documentId ?? null,
@@ -1144,61 +1227,81 @@ export async function pullExpenses(): Promise<Expense[] | null> {
 // envoie. Chaque fonction exportée enveloppe son implémentation `…Impl`.
 
 export function pushDocument(doc: Doc) {
-  return withWriteTracking("documents", doc.id, () => pushDocumentImpl(doc));
+  return withWriteTracking("documents", doc.id, (stamp) => pushDocumentImpl(doc, stamp));
 }
 
 export function deleteDocumentRemote(docId: string, filePath: string | null) {
-  return withWriteTracking("documents", docId, () => deleteDocumentRemoteImpl(docId, filePath), "delete");
+  return withWriteTracking("documents", docId, (stamp) => deleteDocumentRemoteImpl(docId, filePath, stamp), "delete");
 }
 
 export function pushAppointment(appt: Appointment) {
-  return withWriteTracking("appointments", appt.id, () => pushAppointmentImpl(appt));
+  return withWriteTracking("appointments", appt.id, (stamp) => pushAppointmentImpl(appt, stamp));
 }
 
 export function deleteAppointmentRemote(apptId: string) {
-  return withWriteTracking("appointments", apptId, () => deleteAppointmentRemoteImpl(apptId), "delete");
+  return withWriteTracking("appointments", apptId, (stamp) => deleteAppointmentRemoteImpl(apptId, stamp), "delete");
 }
 
+/**
+ * Épreuve d'un concours : suivie sous son RENDEZ-VOUS, avec une marque durable.
+ * Les épreuves vivent dans le rendez-vous côté app ; c'est donc le rendez-vous
+ * que la relecture doit garder tel quel tant que l'épreuve n'est pas confirmée,
+ * et lui qui est renvoyé (épreuves comprises) si l'app est fermée pendant
+ * l'envoi (cf. agenda/store.tsx mergeFromCloud). Sans marque durable, une
+ * épreuve ajoutée ou un résultat saisi juste avant de quitter l'app
+ * disparaissait à la relecture suivante (cf. audit du 2026-10-02).
+ */
 export function pushCompetitionEntry(appointmentId: string, entry: CompetitionEntry) {
-  // Suivie sous son rendez-vous (cf. pendingIdsFor), sans marque durable : sa
-  // confirmation arrive au nom de l'épreuve (cf. remoteIndex.beginWrite).
-  return withWriteTracking("appointments", appointmentId, () => pushCompetitionEntryImpl(appointmentId, entry), null);
+  return withWriteTracking("appointments", appointmentId, (stamp) => pushCompetitionEntryImpl(appointmentId, entry, stamp));
+}
+
+/**
+ * Rendez-vous ET ses épreuves (création, renvoi après relecture). Tous lancés
+ * d'un coup : la file de la ligne (cf. remoteIndex.serializeWrite) les envoie
+ * dans l'ordre — le rendez-vous d'abord, que la règle RLS des épreuves exige
+ * — et la marque du rendez-vous ne tombe qu'à la confirmation de la dernière
+ * épreuve. Avant, les épreuves partaient après la réponse au rendez-vous, qui
+ * levait la marque : fermée entre les deux, l'app perdait les épreuves.
+ */
+export function pushAppointmentWithEntries(appt: Appointment): Promise<void> {
+  const writes = [pushAppointment(appt), ...appt.competitionEntries.map((entry) => pushCompetitionEntry(appt.id, entry))];
+  return Promise.all(writes.map((w) => w.catch(() => {}))).then(() => {});
 }
 
 export function pushJournalEntry(entry: JournalEntry) {
-  return withWriteTracking("journal_entries", entry.id, () => pushJournalEntryImpl(entry));
+  return withWriteTracking("journal_entries", entry.id, (stamp) => pushJournalEntryImpl(entry, stamp));
 }
 
 export function deleteJournalEntryRemote(entryId: string, horseId: string | null) {
-  return withWriteTracking("journal_entries", entryId, () => deleteJournalEntryRemoteImpl(entryId, horseId), "delete");
+  return withWriteTracking("journal_entries", entryId, (stamp) => deleteJournalEntryRemoteImpl(entryId, horseId, stamp), "delete");
 }
 
 export function pushTrainingSession(session: TrainingSession) {
-  return withWriteTracking("training_sessions", session.id, () => pushTrainingSessionImpl(session));
+  return withWriteTracking("training_sessions", session.id, (stamp) => pushTrainingSessionImpl(session, stamp));
 }
 
 export function deleteTrainingSessionRemote(sessionId: string) {
-  return withWriteTracking("training_sessions", sessionId, () => deleteTrainingSessionRemoteImpl(sessionId), "delete");
+  return withWriteTracking("training_sessions", sessionId, (stamp) => deleteTrainingSessionRemoteImpl(sessionId, stamp), "delete");
 }
 
 export function pushWeightMeasurement(measurement: WeightMeasurement) {
-  return withWriteTracking("horse_weight_measurements", measurement.id, () => pushWeightMeasurementImpl(measurement));
+  return withWriteTracking("horse_weight_measurements", measurement.id, (stamp) => pushWeightMeasurementImpl(measurement, stamp));
 }
 
 export function deleteWeightMeasurementRemote(id: string) {
-  return withWriteTracking("horse_weight_measurements", id, () => deleteWeightMeasurementRemoteImpl(id), "delete");
+  return withWriteTracking("horse_weight_measurements", id, (stamp) => deleteWeightMeasurementRemoteImpl(id, stamp), "delete");
 }
 
 export function pushExpense(expense: Expense) {
-  return withWriteTracking("expenses", expense.id, () => pushExpenseImpl(expense));
+  return withWriteTracking("expenses", expense.id, (stamp) => pushExpenseImpl(expense, stamp));
 }
 
 export function deleteExpenseRemote(expenseId: string) {
-  return withWriteTracking("expenses", expenseId, () => deleteExpenseRemoteImpl(expenseId), "delete");
+  return withWriteTracking("expenses", expenseId, (stamp) => deleteExpenseRemoteImpl(expenseId, stamp), "delete");
 }
 
 export function deleteHorseRemote(horseId: string) {
-  return withWriteTracking("horses", horseId, () => deleteHorseRemoteImpl(horseId), "delete");
+  return withWriteTracking("horses", horseId, (stamp) => deleteHorseRemoteImpl(horseId, stamp), "delete");
 }
 
 /**
@@ -1222,9 +1325,9 @@ export async function resendUnconfirmedDeletes(): Promise<void> {
         await withWriteTracking(
           table,
           id,
-          async () => {
+          async (stamp) => {
             const { error } = await supabase.from(table).delete().eq("id", id);
-            await settleWrite(`resendDelete:${table}`, table, id, error);
+            await settleWrite(`resendDelete:${table}`, table, id, error, undefined, stamp);
           },
           "delete"
         );

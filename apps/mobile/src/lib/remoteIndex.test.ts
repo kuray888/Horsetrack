@@ -14,6 +14,7 @@ const {
   __resetRemoteIndexForTests,
   beginWrite,
   endWrite,
+  hasNewerWrite,
   loadRemoteIndex,
   noteRemoteSnapshot,
   recordWriteSuccess,
@@ -81,6 +82,36 @@ describe("remoteIndex", () => {
     expect(syncGuard("t", Date.now() + 1000, none).isProtected("a")).toBe(true);
     endWrite("t", "a"); // app fermée avant la réponse à la seconde
     expect(syncGuard("t", Date.now() + 1000, none).needsResend?.("a")).toBe(true);
+  });
+
+  it("une reprise plus ancienne que la dernière modification n'en efface pas la marque", () => {
+    const old = beginWrite("t", "a"); // envoi qui échouera (mis en file)
+    endWrite("t", "a");
+    beginWrite("t", "a"); // modification suivante, interrompue par une fermeture
+    endWrite("t", "a");
+    // La reprise de la première aboutit : elle ne confirme pas la seconde.
+    recordWriteSuccess("t", "a", false, old);
+    expect(syncGuard("t", Date.now() + 1000, none).needsResend?.("a")).toBe(true);
+    expect(hasNewerWrite("t", "a", old)).toBe(true);
+  });
+
+  it("les écritures d'une même ligne partent l'une après l'autre, dans l'ordre", async () => {
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    const first = withWriteTracking("t", "a", async () => {
+      await new Promise<void>((resolve) => (releaseFirst = resolve));
+      order.push("première");
+    });
+    const second = withWriteTracking("t", "a", async () => {
+      order.push("seconde");
+    });
+    // Une autre ligne n'attend pas.
+    await withWriteTracking("t", "b", async () => {
+      order.push("autre ligne");
+    });
+    releaseFirst();
+    await Promise.all([first, second]);
+    expect(order).toEqual(["autre ligne", "première", "seconde"]);
   });
 
   it("une écriture suivie sous la clé d'une autre ligne ne laisse pas de marque", async () => {

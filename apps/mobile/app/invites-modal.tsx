@@ -6,7 +6,7 @@ import { useHorses } from "@/horses/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useWeight } from "@/horses/weightStore";
-import { pullAppointments, pullJournalEntries, pullTrainingSessions, pullWeightMeasurements } from "@/lib/cloudSync";
+import { pullAndMergeHorseData } from "@/lib/cloudRefresh";
 import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -16,9 +16,9 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
  * (onboarding)/paywall.tsx, lib/sharing.ts). */
 export default function InvitesModal() {
   const { horses, hydrateFromCloud } = useHorses();
-  const { hydrateFromCloud: hydrateSessionsFromCloud } = useSessions();
-  const { hydrateAppointmentsFromCloud, hydrateJournalFromCloud } = useAgenda();
-  const { hydrateFromCloud: hydrateWeightFromCloud } = useWeight();
+  const { mergeFromCloud: mergeSessions } = useSessions();
+  const { mergeFromCloud: mergeAgenda } = useAgenda();
+  const { mergeFromCloud: mergeWeight } = useWeight();
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -63,16 +63,7 @@ export default function InvitesModal() {
       // remonter une fausse erreur "invitation impossible à accepter" alors
       // qu'elle avait déjà réussi, ou faisait disparaître l'invite en silence
       // côté onboarding (cf. audit du 2026-09-14).
-      const [appointments, journalEntries, trainingSessions, weightMeasurements] = await Promise.all([
-        pullAppointments().catch(() => null),
-        pullJournalEntries().catch(() => null),
-        pullTrainingSessions().catch(() => null),
-        pullWeightMeasurements().catch(() => null),
-      ]);
-      if (appointments) hydrateAppointmentsFromCloud(appointments);
-      if (journalEntries) hydrateJournalFromCloud(journalEntries);
-      if (trainingSessions) hydrateSessionsFromCloud(trainingSessions);
-      if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
+      await pullAndMergeHorseData({ mergeAgenda, mergeSessions, mergeWeight });
       setInvites((list) => list.filter((i) => i.id !== invite.id));
     } catch {
       Alert.alert("Erreur", "Impossible d'accepter l'invitation pour l'instant. Réessaie plus tard.");

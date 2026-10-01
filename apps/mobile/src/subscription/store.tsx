@@ -3,6 +3,7 @@ import { Alert, AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
+import { parseServerDate } from "@/lib/serverDate";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { withKeyLock } from "@/lib/keyLock";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
@@ -155,7 +156,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const trial: Persisted = {
         status: "trialing",
         billingPeriod: null,
-        trialEndsAt: new Date(data.trialEndsAt).toISOString(),
+        // Colonne timestamp sans fuseau : lue en UTC (cf. lib/serverDate.ts).
+        trialEndsAt: parseServerDate(data.trialEndsAt).toISOString(),
       };
       // `userId` est rendu à l'appelant pour qu'il vérifie, au moment d'écrire,
       // que c'est toujours ce compte qui est connecté.

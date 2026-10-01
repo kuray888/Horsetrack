@@ -7,7 +7,7 @@ import { useRiderProfile } from "@/rider/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useWeight } from "@/horses/weightStore";
-import { pullAppointments, pullJournalEntries, pullTrainingSessions, pullWeightMeasurements } from "@/lib/cloudSync";
+import { pullAndMergeHorseData } from "@/lib/cloudRefresh";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
 
@@ -27,9 +27,9 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 export default function PendingInvitesOnboarding() {
   const { horses, hydrateFromCloud } = useHorses();
   const { riderProfile, setRiderProfile } = useRiderProfile();
-  const { hydrateFromCloud: hydrateSessionsFromCloud } = useSessions();
-  const { hydrateAppointmentsFromCloud, hydrateJournalFromCloud } = useAgenda();
-  const { hydrateFromCloud: hydrateWeightFromCloud } = useWeight();
+  const { mergeFromCloud: mergeSessions } = useSessions();
+  const { mergeFromCloud: mergeAgenda } = useAgenda();
+  const { mergeFromCloud: mergeWeight } = useWeight();
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -83,16 +83,7 @@ export default function PendingInvitesOnboarding() {
         // rejeter (createSignedUrl) si le réseau flanche, ce qui sinon ferait
         // disparaître l'invite en silence sans jamais avoir rapatrié ces
         // données (cf. audit du 2026-09-14).
-        const [appointments, journalEntries, trainingSessions, weightMeasurements] = await Promise.all([
-          pullAppointments().catch(() => null),
-          pullJournalEntries().catch(() => null),
-          pullTrainingSessions().catch(() => null),
-          pullWeightMeasurements().catch(() => null),
-        ]);
-        if (appointments) hydrateAppointmentsFromCloud(appointments);
-        if (journalEntries) hydrateJournalFromCloud(journalEntries);
-        if (trainingSessions) hydrateSessionsFromCloud(trainingSessions);
-        if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
+        await pullAndMergeHorseData({ mergeAgenda, mergeSessions, mergeWeight });
       }
       setInvites((list) => list.filter((i) => i.id !== invite.id));
     } catch {

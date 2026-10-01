@@ -197,3 +197,32 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
 export function useCloudRefresh(): CloudRefreshValue {
   return useContext(CloudRefreshContext);
 }
+
+type MergeTargets = {
+  mergeAgenda: ReturnType<typeof useAgenda>["mergeFromCloud"];
+  mergeSessions: ReturnType<typeof useSessions>["mergeFromCloud"];
+  mergeWeight: ReturnType<typeof useWeight>["mergeFromCloud"];
+};
+
+/**
+ * Rapatrie rendez-vous, journal, séances et pesées (ceux d'un cheval qu'on
+ * vient de nous partager, cf. invites-modal.tsx, (onboarding)/pending-invites.tsx)
+ * en les FUSIONNANT avec les données locales, comme la relecture régulière.
+ * Ces écrans les remplaçaient jusqu'ici par la seule version du serveur : une
+ * séance ou un rendez-vous saisi juste avant, pas encore confirmé par le
+ * serveur, disparaissait en acceptant l'invitation (cf. audit du 2026-10-02).
+ * Chaque relecture est isolée : un échec réseau sur l'une ne touche rien.
+ */
+export async function pullAndMergeHorseData({ mergeAgenda, mergeSessions, mergeWeight }: MergeTargets): Promise<void> {
+  await Promise.all([loadRemoteIndex(), ensureSyncQueueLoaded()]);
+  const pullStartedAt = Date.now();
+  const [appointments, journal, trainingSessions, weights] = await Promise.all([
+    pullAppointments().catch(() => null),
+    pullJournalEntries().catch(() => null),
+    pullTrainingSessions().catch(() => null),
+    pullWeightMeasurements().catch(() => null),
+  ]);
+  mergeAgenda({ appointments: appointments ?? undefined, journal: journal ?? undefined }, pullStartedAt);
+  if (trainingSessions) mergeSessions(trainingSessions, pullStartedAt);
+  if (weights) mergeWeight(weights, pullStartedAt);
+}

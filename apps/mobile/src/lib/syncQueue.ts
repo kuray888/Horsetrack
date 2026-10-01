@@ -38,6 +38,11 @@ export type SyncOperation = {
    * Absent des opérations enregistrées avant son ajout (traitées comme très
    * anciennes). */
   enqueuedAt?: number;
+  /** Horodatage de départ de l'écriture d'origine (cf. remoteIndex.beginWrite)
+   * — ordonne cette opération par rapport aux autres écritures de la même
+   * ligne. Absent des opérations enregistrées avant son ajout : `enqueuedAt`
+   * en tient lieu. */
+  startedAt?: number;
 };
 
 const QUEUE_KEY = "sync_queue_v1";
@@ -121,6 +126,11 @@ export function keepForRetry(operation: SyncOperation): SyncOperation | null {
 
 let queue: SyncOperation[] = [];
 let loaded = false;
+/** Lecture du fichier en cours, partagée par tous ceux qui l'attendent : deux
+ * lectures parallèles au démarrage (reprise + écriture échouée, par exemple)
+ * réaffectaient chacune `queue` à la fin de la leur, et la seconde effaçait
+ * l'opération que la première venait d'y ajouter. */
+let loading: Promise<void> | null = null;
 /** Empêche deux vidages concurrents (démarrage + retour au premier plan, par
  * exemple) de rejouer deux fois les mêmes opérations. */
 let flushing = false;
@@ -147,6 +157,14 @@ export function pendingSyncCount(): number {
   return queue.length;
 }
 
+/** L'opération est-elle toujours en file ? Faux une fois remplacée par une
+ * saisie plus récente ou retirée par une écriture réussie de la même ligne
+ * (cf. discardSupersededWrites) — ce qui peut arriver pendant qu'elle
+ * attendait son tour d'envoi (cf. remoteIndex.serializeWrite). */
+export function isStillQueued(operation: SyncOperation): boolean {
+  return queue.includes(operation);
+}
+
 /** Charge la file si besoin (avant une fusion, cf. lib/cloudRefresh.ts). */
 export async function ensureSyncQueueLoaded(): Promise<void> {
   await ensureLoaded();
@@ -170,9 +188,22 @@ export function pendingIdsFor(table: string): Set<string> {
 
 async function ensureLoaded(): Promise<void> {
   if (loaded) return;
-  queue = await readJson<SyncOperation[]>(QUEUE_KEY, []);
-  loaded = true;
-  notify();
+  if (!loading) {
+    const startedGeneration = generation;
+    loading = readJson<SyncOperation[]>(QUEUE_KEY, []).then((stored) => {
+      // File effacée pendant la lecture (changement de compte) : le fichier
+      // lu appartient au compte précédent.
+      if (generation !== startedGeneration) return;
+      queue = stored;
+      loaded = true;
+      notify();
+    });
+    // readJson ne lève pas ; par précaution, un échec ne doit pas rester mémorisé.
+    loading.catch(() => {
+      loading = null;
+    });
+  }
+  await loading;
 }
 
 async function persist(): Promise<void> {
@@ -205,7 +236,15 @@ export function withoutSuperseded(
   startedAt: number
 ): SyncOperation[] {
   const key = rowKey(target);
-  return list.filter((o) => rowKey(o) !== key || (o.enqueuedAt ?? 0) > startedAt);
+  return list.filter((o) => rowKey(o) !== key || operationStartedAt(o) > startedAt);
+}
+
+/** Moment de départ de l'écriture d'origine d'une opération en file. Une
+ * écriture plus ancienne mais dont l'ÉCHEC est arrivé après le départ d'une
+ * plus récente était mise en file avec un `enqueuedAt` postérieur, et donc
+ * gardée — puis rejouée par-dessus la version récente. */
+export function operationStartedAt(operation: SyncOperation): number {
+  return operation.startedAt ?? operation.enqueuedAt ?? 0;
 }
 
 /**
@@ -311,9 +350,18 @@ export async function clearSyncQueue(): Promise<void> {
   generation++;
   queue = [];
   loaded = true;
+  loading = null;
   await persist();
   // L'état de synchronisation (lignes connues du serveur, suppressions
   // récentes, refus) appartient lui aussi au compte précédent.
   clearRejectedWrites();
   await clearRemoteIndex();
+}
+
+/** Tests uniquement : simule un redémarrage (file à relire depuis le disque). */
+export function __resetSyncQueueForTests(): void {
+  queue = [];
+  loaded = false;
+  loading = null;
+  flushing = false;
 }

@@ -13,9 +13,17 @@ import type { SyncOperation } from "@/lib/syncQueue";
 /** Stockage local simulé (cf. lib/localStore.ts, dont la vraie implémentation
  * est testée séparément). */
 const store = new Map<string, unknown>();
+/** Durées des prochaines lectures : une vraie lecture de fichier ne se termine
+ * pas toujours dans l'ordre où elle a commencé. */
+const readDelays: Promise<void>[] = [];
 
 vi.mock("@/lib/localStore", () => ({
-  readJson: async (key: string, fallback: unknown) => store.get(key) ?? fallback,
+  readJson: async (key: string, fallback: unknown) => {
+    const value = store.get(key) ?? fallback;
+    const delay = readDelays.shift();
+    if (delay) await delay;
+    return value;
+  },
   writeJson: async (key: string, value: unknown) => {
     store.set(key, value);
     return true;
@@ -316,5 +324,26 @@ describe("coupure réseau", () => {
       await flushSyncQueue(async () => ({ error: { code: "57014", message: "canceling statement due to timeout" } }));
     }
     expect(pendingSyncCount()).toBe(0);
+  });
+});
+
+describe("chargement de la file au démarrage", () => {
+  it("deux lectures concurrentes ne perdent pas l'opération ajoutée entre-temps", async () => {
+    const { __resetSyncQueueForTests } = await import("@/lib/syncQueue");
+    store.set("sync_queue_v1", [op("training_sessions", "ancienne")]);
+    __resetSyncQueueForTests();
+    // Écriture échouée et reprise du démarrage, lancées ensemble : chacune a
+    // besoin du fichier. La lecture de la reprise se termine APRÈS que
+    // l'écriture a ajouté son opération et sauvegardé la file.
+    let finishSlowRead!: () => void;
+    readDelays.push(Promise.resolve(), new Promise((resolve) => (finishSlowRead = resolve)));
+    const enqueuing = enqueueFailedWrite({ table: "training_sessions", op: "upsert", id: "nouvelle", row: { id: "nouvelle" } });
+    const flushing = flushSyncQueue(async () => ({ error: { message: "Network request failed" } }));
+    await enqueuing;
+    finishSlowRead();
+    await flushing;
+    readDelays.length = 0;
+    expect(pendingSyncCount()).toBe(2);
+    expect((store.get("sync_queue_v1") as SyncOperation[]).map((o) => o.id).sort()).toEqual(["ancienne", "nouvelle"]);
   });
 });

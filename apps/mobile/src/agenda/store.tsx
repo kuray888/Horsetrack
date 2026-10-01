@@ -21,6 +21,7 @@ import {
   pushJournalEntry,
   deleteJournalEntryRemote,
   pushCompetitionEntry,
+  pushAppointmentWithEntries,
   deleteCompetitionEntryRemote,
   pushExpense,
   deleteExpenseRemote,
@@ -641,15 +642,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       // Épreuves saisies dans le sous-formulaire à la création (cf.
       // agenda.tsx) : chacune vit dans sa propre table côté serveur
       // (contrairement à checklist, sérialisée dans la ligne appointment),
-      // donc un push par épreuve APRÈS celui du rendez-vous parent : envoyés en
-      // parallèle, une épreuve pouvait arriver avant lui, être refusée (sa règle
-      // RLS exige que le rendez-vous existe) et ne jamais se synchroniser —
-      // avec pour seule trace un message dans les logs.
-      pushAppointment(next)
-        .then(() =>
-          Promise.all(next.competitionEntries.map((entry) => pushCompetitionEntry(next.id, entry).catch(() => {})))
-        )
-        .catch(() => {});
+      // donc un push par épreuve APRÈS celui du rendez-vous parent — sa règle
+      // RLS exige que le rendez-vous existe. L'ordre et le suivi jusqu'à la
+      // dernière épreuve sont assurés par pushAppointmentWithEntries.
+      pushAppointmentWithEntries(next).catch(() => {});
     },
     [selectedHorse]
   );
@@ -807,7 +803,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         a.id === apptId ? { ...a, competitionEntries: a.competitionEntries.filter((e) => e.id !== entryId) } : a
       )
     );
-    deleteCompetitionEntryRemote(entryId).catch(() => {});
+    deleteCompetitionEntryRemote(apptId, entryId).catch(() => {});
   }, []);
 
   const addDocument = useCallback(
@@ -1038,10 +1034,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       // qu'à la création (cf. addAppointment).
       for (const id of unsyncedLocalIds(appointmentsRef.current, remoteAppointments, guard, (a) => isHorseOnServer(a.horseId))) {
         const appt = appointmentsRef.current.find((a) => a.id === id);
-        if (!appt) continue;
-        pushAppointment(appt)
-          .then(() => Promise.all(appt.competitionEntries.map((entry) => pushCompetitionEntry(appt.id, entry).catch(() => {}))))
-          .catch(() => {});
+        if (appt) pushAppointmentWithEntries(appt).catch(() => {});
       }
       const preview = mergeRemote(appointmentsRef.current, remoteAppointments, guard, preserve);
       if (preview.changed) {

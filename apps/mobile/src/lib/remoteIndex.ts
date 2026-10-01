@@ -130,19 +130,30 @@ function saveNow(): void {
   });
 }
 
+/** Horodatage d'écriture strictement croissant : deux écritures parties dans
+ * la même milliseconde restent ordonnées. Fondé sur l'horloge, donc comparable
+ * aux marques relues du disque après un redémarrage. */
+let lastStamp = 0;
+
+function nextStamp(): number {
+  lastStamp = Math.max(Date.now(), lastStamp + 1);
+  return lastStamp;
+}
+
 /** Une écriture part (upsert ou suppression) : la fusion la protège jusqu'à
  * sa conclusion — et, si l'app est fermée avant, jusqu'à ce que le serveur
- * l'ait confirmée (cf. `unconfirmed`). */
-export function beginWrite(table: string, id: string, op: WriteKind | null = "upsert"): void {
+ * l'ait confirmée (cf. `unconfirmed`). Rend l'horodatage de l'écriture, à
+ * rendre à `recordWriteSuccess`/`confirmWrite` : seule la confirmation de la
+ * DERNIÈRE écriture partie lève la marque. */
+export function beginWrite(table: string, id: string, op: WriteKind | null = "upsert"): number {
   const key = rowKey(table, id);
   inFlight.set(key, (inFlight.get(key) ?? 0) + 1);
-  // `null` : protection pendant l'envoi seulement, sans marque durable — pour
-  // une écriture suivie sous la clé d'une AUTRE ligne (épreuve de concours
-  // suivie sous son rendez-vous) : sa confirmation, au nom de l'épreuve, ne
-  // lèverait jamais la marque du rendez-vous.
-  if (op === null) return;
-  unconfirmed.set(key, { at: Date.now(), op });
+  const stamp = nextStamp();
+  // `null` : protection pendant l'envoi seulement, sans marque durable.
+  if (op === null) return stamp;
+  unconfirmed.set(key, { at: stamp, op });
   saveNow();
+  return stamp;
 }
 
 /** Fin d'envoi (réussi ou non) : la ligne n'est plus « en vol ». */
@@ -153,23 +164,73 @@ export function endWrite(table: string, id: string): void {
   else inFlight.set(key, count);
 }
 
-/** Enveloppe une écriture : protégée par la fusion tant qu'elle est en vol. */
+/** Écritures en cours ou en attente, par ligne : chacune part quand la
+ * précédente a eu sa réponse. Lancées ensemble, deux versions d'une même
+ * ligne (trois cases de checklist cochées d'affilée, une reprise de la file
+ * pendant une nouvelle saisie…) pouvaient arriver au serveur dans le
+ * désordre : la plus ancienne, arrivée la dernière, y restait, alors que
+ * l'app tenait la ligne pour confirmée — et la relecture suivante remplaçait
+ * la saisie par cette ancienne version. */
+const chains = new Map<string, Promise<unknown>>();
+
+/** Exécute `run` après toutes les écritures déjà engagées sur cette ligne. */
+export function serializeWrite<R>(table: string, id: string, run: () => Promise<R>): Promise<R> {
+  const key = rowKey(table, id);
+  const previous = chains.get(key) ?? Promise.resolve();
+  const current = previous.then(run, run);
+  const settled = current.then(
+    () => {},
+    () => {}
+  );
+  chains.set(key, settled);
+  void settled.then(() => {
+    if (chains.get(key) === settled) chains.delete(key);
+  });
+  return current;
+}
+
+/** Enveloppe une écriture : protégée par la fusion dès son départ, envoyée
+ * après les écritures précédentes de la même ligne (cf. serializeWrite).
+ * `write` reçoit l'horodatage de l'écriture (cf. beginWrite). */
 export async function withWriteTracking<R>(
   table: string,
   id: string,
-  write: () => Promise<R>,
+  write: (stamp: number) => Promise<R>,
   op: WriteKind | null = "upsert"
 ): Promise<R> {
-  beginWrite(table, id, op);
+  const stamp = beginWrite(table, id, op);
   try {
-    return await write();
+    return await serializeWrite(table, id, () => write(stamp));
   } finally {
     endWrite(table, id);
   }
 }
 
-/** Écriture acceptée par le serveur (directe ou rejouée depuis la file). */
-export function recordWriteSuccess(table: string, id: string, deleted: boolean): void {
+/** Lève la marque « envoyée sans confirmation » d'une ligne si l'écriture
+ * confirmée (partie à `startedAt`) est au moins aussi récente qu'elle : une
+ * écriture plus récente garde sa marque jusqu'à sa propre confirmation. */
+export function confirmWrite(table: string, id: string, startedAt: number): void {
+  const key = rowKey(table, id);
+  const mark = unconfirmed.get(key);
+  if (!mark || mark.at > startedAt) return;
+  unconfirmed.delete(key);
+  scheduleSave();
+}
+
+/** Une écriture plus récente que `startedAt` a-t-elle été lancée sur cette
+ * ligne (en cours, ou partie sans confirmation avant une fermeture) ? Une
+ * reprise de la file plus ancienne ne doit alors PAS partir : elle
+ * écraserait côté serveur une saisie plus récente, que la fusion renverra
+ * elle-même (cf. syncGuard.needsResend, cloudSync.resendUnconfirmedDeletes). */
+export function hasNewerWrite(table: string, id: string, startedAt: number): boolean {
+  const mark = unconfirmed.get(rowKey(table, id));
+  return !!mark && mark.at > startedAt;
+}
+
+/** Écriture acceptée par le serveur (directe ou rejouée depuis la file).
+ * `startedAt` : horodatage de départ de cette écriture (cf. beginWrite) ;
+ * absent, seule une écriture plus récente encore en vol garde la marque. */
+export function recordWriteSuccess(table: string, id: string, deleted: boolean, startedAt?: number): void {
   const key = rowKey(table, id);
   const now = Date.now();
   if (deleted) {
@@ -179,10 +240,16 @@ export function recordWriteSuccess(table: string, id: string, deleted: boolean):
     known.set(key, now);
     tombstones.delete(key);
   }
-  // Confirmée — sauf si une écriture plus récente de la même ligne est encore
-  // en vol (elle lèvera elle-même la marque). Au plus une en vol = celle-ci,
-  // ou aucune pour une reprise depuis la file.
-  if ((inFlight.get(key) ?? 0) <= 1) unconfirmed.delete(key);
+  // Confirmée — sauf si une écriture plus récente de la même ligne est partie
+  // depuis (elle lèvera elle-même la marque). Une reprise de la file
+  // confirmait jusqu'ici n'importe quelle marque : rejouer une ancienne
+  // version effaçait la trace d'une modification plus récente jamais
+  // confirmée, que la relecture suivante remplaçait alors par cette ancienne
+  // version (cf. audit du 2026-10-02).
+  const mark = unconfirmed.get(key);
+  if (mark && (startedAt === undefined ? (inFlight.get(key) ?? 0) <= 1 : mark.at <= startedAt)) {
+    unconfirmed.delete(key);
+  }
   scheduleSave();
 }
 
