@@ -11,7 +11,7 @@ import {
 import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { supabase } from "@/lib/supabase";
 import { settleRemoteWrite } from "@/lib/cloudSync";
-import { noteRemoteSnapshot, syncGuard, withWriteTracking } from "@/lib/remoteIndex";
+import { isHorseOnServer, noteRemoteSnapshot, syncGuard, withWriteTracking } from "@/lib/remoteIndex";
 import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import type { RiderGoal } from "@/onboarding/store";
@@ -98,7 +98,7 @@ async function pushGoalImpl(goal: Goal): Promise<void> {
 }
 
 function deleteGoalRemote(id: string): Promise<void> {
-  return withWriteTracking("goals", id, () => deleteGoalRemoteImpl(id));
+  return withWriteTracking("goals", id, () => deleteGoalRemoteImpl(id), "delete");
 }
 
 async function deleteGoalRemoteImpl(id: string): Promise<void> {
@@ -238,7 +238,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
     (remote: Goal[], pullStartedAt: number) => {
       const guard = syncGuard("goals", pullStartedAt, pendingIdsFor("goals"));
       // Objectifs jamais arrivés sur le serveur (refus définitif) : renvoyés.
-      for (const id of unsyncedLocalIds(goalsRef.current, remote, guard)) {
+      for (const id of unsyncedLocalIds(goalsRef.current, remote, guard, (g) => !g.horseId || isHorseOnServer(g.horseId))) {
         const goal = goalsRef.current.find((g) => g.id === id);
         if (goal) pushGoal(goal).catch(() => {});
       }

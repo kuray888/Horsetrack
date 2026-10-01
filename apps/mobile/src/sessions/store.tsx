@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
-import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { isHorseOnServer, noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushTrainingSession, deleteTrainingSessionRemote } from "@/lib/cloudSync";
 import type { ActivityType } from "@/agenda/store";
@@ -200,7 +200,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     // Séances jamais arrivées sur le serveur (refus définitif, ex. cheval pas
     // encore créé côté serveur) : renvoyées à chaque relecture, sans quoi
     // elles n'existaient que sur ce téléphone (cf. unsyncedLocalIds).
-    const unsynced = new Set(unsyncedLocalIds(sessionsRef.current, remote, guard));
+    const unsynced = new Set(unsyncedLocalIds(sessionsRef.current, remote, guard, (s) => isHorseOnServer(s.horseId)));
     // Persisté par l'effet d'écriture qui suit chaque changement de `sessions`.
     setSessions((list) => mergeRemote(list, remote, guard).items);
     noteRemoteSnapshot("training_sessions", remote.map((s) => s.id), pullStartedAt);

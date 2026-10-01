@@ -1,7 +1,7 @@
 import { File } from "expo-file-system";
-import { discardSupersededWrites, enqueueFailedWrite, flushSyncQueue, type SyncOperation } from "@/lib/syncQueue";
+import { discardSupersededWrites, enqueueFailedWrite, flushSyncQueue, pendingIdsFor, type SyncOperation } from "@/lib/syncQueue";
 import { supabase } from "@/lib/supabase";
-import { beginWrite, endWrite, recordWriteSuccess, withWriteTracking } from "@/lib/remoteIndex";
+import { beginWrite, endWrite, recordWriteSuccess, unconfirmedDeletes, withWriteTracking } from "@/lib/remoteIndex";
 import { clearRejectedWrite } from "@/lib/rejectedWrites";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
@@ -1129,7 +1129,7 @@ export function pushDocument(doc: Doc) {
 }
 
 export function deleteDocumentRemote(docId: string, filePath: string | null) {
-  return withWriteTracking("documents", docId, () => deleteDocumentRemoteImpl(docId, filePath));
+  return withWriteTracking("documents", docId, () => deleteDocumentRemoteImpl(docId, filePath), "delete");
 }
 
 export function pushAppointment(appt: Appointment) {
@@ -1137,11 +1137,13 @@ export function pushAppointment(appt: Appointment) {
 }
 
 export function deleteAppointmentRemote(apptId: string) {
-  return withWriteTracking("appointments", apptId, () => deleteAppointmentRemoteImpl(apptId));
+  return withWriteTracking("appointments", apptId, () => deleteAppointmentRemoteImpl(apptId), "delete");
 }
 
 export function pushCompetitionEntry(appointmentId: string, entry: CompetitionEntry) {
-  return withWriteTracking("appointments", appointmentId, () => pushCompetitionEntryImpl(appointmentId, entry));
+  // Suivie sous son rendez-vous (cf. pendingIdsFor), sans marque durable : sa
+  // confirmation arrive au nom de l'épreuve (cf. remoteIndex.beginWrite).
+  return withWriteTracking("appointments", appointmentId, () => pushCompetitionEntryImpl(appointmentId, entry), null);
 }
 
 export function pushJournalEntry(entry: JournalEntry) {
@@ -1149,7 +1151,7 @@ export function pushJournalEntry(entry: JournalEntry) {
 }
 
 export function deleteJournalEntryRemote(entryId: string, horseId: string | null) {
-  return withWriteTracking("journal_entries", entryId, () => deleteJournalEntryRemoteImpl(entryId, horseId));
+  return withWriteTracking("journal_entries", entryId, () => deleteJournalEntryRemoteImpl(entryId, horseId), "delete");
 }
 
 export function pushTrainingSession(session: TrainingSession) {
@@ -1157,7 +1159,7 @@ export function pushTrainingSession(session: TrainingSession) {
 }
 
 export function deleteTrainingSessionRemote(sessionId: string) {
-  return withWriteTracking("training_sessions", sessionId, () => deleteTrainingSessionRemoteImpl(sessionId));
+  return withWriteTracking("training_sessions", sessionId, () => deleteTrainingSessionRemoteImpl(sessionId), "delete");
 }
 
 export function pushWeightMeasurement(measurement: WeightMeasurement) {
@@ -1165,7 +1167,7 @@ export function pushWeightMeasurement(measurement: WeightMeasurement) {
 }
 
 export function deleteWeightMeasurementRemote(id: string) {
-  return withWriteTracking("horse_weight_measurements", id, () => deleteWeightMeasurementRemoteImpl(id));
+  return withWriteTracking("horse_weight_measurements", id, () => deleteWeightMeasurementRemoteImpl(id), "delete");
 }
 
 export function pushExpense(expense: Expense) {
@@ -1173,11 +1175,45 @@ export function pushExpense(expense: Expense) {
 }
 
 export function deleteExpenseRemote(expenseId: string) {
-  return withWriteTracking("expenses", expenseId, () => deleteExpenseRemoteImpl(expenseId));
+  return withWriteTracking("expenses", expenseId, () => deleteExpenseRemoteImpl(expenseId), "delete");
 }
 
 export function deleteHorseRemote(horseId: string) {
-  return withWriteTracking("horses", horseId, () => deleteHorseRemoteImpl(horseId));
+  return withWriteTracking("horses", horseId, () => deleteHorseRemoteImpl(horseId), "delete");
+}
+
+/**
+ * Renvoie les suppressions parties sans confirmation (app fermée pendant
+ * l'envoi, cf. remoteIndex `unconfirmed`) : la ligne a disparu de l'appareil
+ * mais existe encore sur le serveur, donc chez la demi-pension et sur les
+ * autres appareils. Celles déjà en file de reprise sont laissées à la file.
+ * Best-effort, ne rejette jamais.
+ */
+export async function resendUnconfirmedDeletes(): Promise<void> {
+  for (const { table, id } of unconfirmedDeletes()) {
+    if (pendingIdsFor(table).has(id)) continue;
+    try {
+      if (table === "horses") {
+        await deleteHorseRemote(id);
+      } else if (table === "documents") {
+        // Le chemin du fichier n'est plus connu (la ligne a disparu d'ici) :
+        // seule la ligne est supprimée, le fichier reste inaccessible (RLS).
+        await deleteDocumentRemote(id, null);
+      } else {
+        await withWriteTracking(
+          table,
+          id,
+          async () => {
+            const { error } = await supabase.from(table).delete().eq("id", id);
+            await settleWrite(`resendDelete:${table}`, table, id, error);
+          },
+          "delete"
+        );
+      }
+    } catch (e) {
+      console.warn("[cloudSync] renvoi d'une suppression échoué", table, e);
+    }
+  }
 }
 
 /** Envoi de l'écurie, suivi cheval par cheval (cf. withWriteTracking). */

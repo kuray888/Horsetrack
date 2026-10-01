@@ -38,7 +38,7 @@ import type { Discipline } from "@/onboarding/store";
 import { track } from "@/lib/analytics";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
 import { mergeRemote, pickFileUrl, unsyncedLocalIds } from "@/lib/mergeRemote";
-import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { isHorseOnServer, noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { cancelRemindersOf, rescheduleReminders } from "@/agenda/remoteMergeEffects";
 
@@ -1036,7 +1036,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       // Rendez-vous jamais arrivés sur le serveur (refus définitif, cf.
       // unsyncedLocalIds) : renvoyés, épreuves comprises, dans le même ordre
       // qu'à la création (cf. addAppointment).
-      for (const id of unsyncedLocalIds(appointmentsRef.current, remoteAppointments, guard)) {
+      for (const id of unsyncedLocalIds(appointmentsRef.current, remoteAppointments, guard, (a) => isHorseOnServer(a.horseId))) {
         const appt = appointmentsRef.current.find((a) => a.id === id);
         if (!appt) continue;
         pushAppointment(appt)
@@ -1063,7 +1063,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       const remoteDocs = remote.documents;
       const guard = syncGuard("documents", pullStartedAt, pendingIdsFor("documents"));
       const preserve = (l: Doc, r: Doc): Doc => ({ ...r, fileUri: pickFileUrl(l.fileUri, l.filePath, r.fileUri, r.filePath) });
-      const unsyncedDocs = unsyncedLocalIds(documentsRef.current, remoteDocs, guard);
+      const unsyncedDocs = unsyncedLocalIds(documentsRef.current, remoteDocs, guard, (d) => !d.horseId || isHorseOnServer(d.horseId));
       setDocuments((list) => mergeRemote(list, remoteDocs, guard, preserve).items);
       noteRemoteSnapshot("documents", remoteDocs.map((d) => d.id), pullStartedAt);
       for (const id of unsyncedDocs) {
@@ -1085,7 +1085,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
         ...r,
         photoUri: pickFileUrl(l.photoUri, l.photoPath, r.photoUri, r.photoPath),
       });
-      const unsyncedJournal = unsyncedLocalIds(journalRef.current, remoteJournal, guard);
+      const unsyncedJournal = unsyncedLocalIds(journalRef.current, remoteJournal, guard, (j) => isHorseOnServer(j.horseId));
       setJournal((list) => mergeRemote(list, remoteJournal, guard, preserve).items);
       noteRemoteSnapshot("journal_entries", remoteJournal.map((j) => j.id), pullStartedAt);
       for (const id of unsyncedJournal) {
@@ -1103,7 +1103,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     if (remote.expenses) {
       const remoteExpenses = remote.expenses;
       const guard = syncGuard("expenses", pullStartedAt, pendingIdsFor("expenses"));
-      const unsyncedExpenses = unsyncedLocalIds(expensesRef.current, remoteExpenses, guard);
+      const unsyncedExpenses = unsyncedLocalIds(expensesRef.current, remoteExpenses, guard, (e) => isHorseOnServer(e.horseId));
       setExpenses((list) => mergeRemote(list, remoteExpenses, guard).items);
       noteRemoteSnapshot("expenses", remoteExpenses.map((e) => e.id), pullStartedAt);
       for (const id of unsyncedExpenses) {

@@ -9,10 +9,11 @@ import {
   pullJournalEntries,
   pullTrainingSessions,
   pullWeightMeasurements,
+  resendUnconfirmedDeletes,
   retryPendingWrites,
 } from "@/lib/cloudSync";
 import { pullSharedHorses } from "@/lib/sharing";
-import { loadRemoteIndex } from "@/lib/remoteIndex";
+import { loadRemoteIndex, noteServerHorses } from "@/lib/remoteIndex";
 import { ensureSyncQueueLoaded } from "@/lib/syncQueue";
 import { clearRejectedWrites } from "@/lib/rejectedWrites";
 import { getLocalDataOwner } from "@/lib/deviceOwner";
@@ -45,6 +46,8 @@ import { useGoals, pullAllGoals } from "@/goals/store";
 
 const FOREGROUND_MIN_INTERVAL_MS = 5 * 60 * 1000;
 const STARTUP_DELAY_MS = 2500;
+/** Délai avant la relecture de suivi : le temps que l'envoi de l'écurie aboutisse. */
+const FOLLOW_UP_DELAY_MS = 8000;
 
 type CloudRefreshValue = {
   /** Relit le serveur maintenant. Résout quand la fusion est faite (ou
@@ -64,6 +67,12 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
   const [refreshing, setRefreshing] = useState(false);
   const running = useRef<Promise<void> | null>(null);
   const lastRunAt = useRef(0);
+  /** Une relecture de suivi est demandée (cf. run) — bornée pour ne jamais
+   * boucler si le serveur refuse durablement un cheval. */
+  const followUp = useRef(false);
+  const followUpsLeft = useRef(3);
+  /** Dernière version de `refresh`, pour la relecture de suivi programmée. */
+  const refreshRef = useRef<(() => Promise<void>) | null>(null);
 
   // Dernières versions des stores, lues au moment de la fusion (après les
   // relectures réseau) plutôt que capturées au départ.
@@ -85,6 +94,10 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     // Envoyer d'abord ce qui attend : moins de lignes « protégées » à la
     // fusion, et le serveur relu contient déjà nos dernières écritures.
     await retryPendingWrites().catch(() => {});
+    // Suppressions interrompues par une fermeture de l'app (cf. remoteIndex
+    // `unconfirmed`) : renvoyées avant la relecture, qui sinon les ferait
+    // réapparaître ailleurs.
+    await resendUnconfirmedDeletes().catch(() => {});
 
     const pullStartedAt = Date.now();
     const safe = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
@@ -109,9 +122,16 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     // d'actualité sera noté à nouveau (cf. lib/rejectedWrites.ts).
     clearRejectedWrites();
     const s = stores.current;
+    // Chevaux présents côté serveur : une séance, un rendez-vous… n'est
+    // renvoyé que si son cheval y est (cf. remoteIndex.isHorseOnServer).
+    noteServerHorses(cloud && shared ? [...cloud.horses, ...shared].map((h) => h.id) : null);
     // Chevaux : les deux listes sont nécessaires pour reconstituer l'écurie
     // (possédés + partagés) — sans l'une, une absence ne prouverait rien.
-    if (cloud && shared) s.horses.mergeFromCloud(cloud.horses, shared, pullStartedAt);
+    const horsesMerged = cloud && shared ? s.horses.mergeFromCloud(cloud.horses, shared, pullStartedAt) : true;
+    // Écurie pas encore entièrement sur le serveur (un cheval vient d'y être
+    // renvoyé) : ce qui en dépend attend ce tour-ci, on repasse peu après
+    // plutôt qu'au prochain retour dans l'app.
+    if (!horsesMerged) followUp.current = true;
     s.agenda.mergeFromCloud(
       {
         appointments: appointments ?? undefined,
@@ -130,11 +150,18 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     if (running.current) return running.current;
     lastRunAt.current = Date.now();
     setRefreshing(true);
+    followUp.current = false;
     const current = run()
       .catch((e) => console.warn("[cloudRefresh] relecture échouée", e))
       .finally(() => {
         running.current = null;
         setRefreshing(false);
+        if (followUp.current && followUpsLeft.current > 0) {
+          followUpsLeft.current -= 1;
+          setTimeout(() => void refreshRef.current?.(), FOLLOW_UP_DELAY_MS);
+        } else if (!followUp.current) {
+          followUpsLeft.current = 3;
+        }
       });
     running.current = current;
     return current;
@@ -157,6 +184,10 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
       void refresh();
     });
     return () => sub.remove();
+  }, [refresh]);
+
+  useEffect(() => {
+    refreshRef.current = refresh;
   }, [refresh]);
 
   const value = useMemo(() => ({ refresh, refreshing }), [refresh, refreshing]);
