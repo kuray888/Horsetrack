@@ -846,11 +846,27 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
   const baseColumns =
     "id, horseId, type, title, date, time, location, notes, reminder, result, checklist, dossard, professional, cost, nextDueDate";
   const entries = "competition_entries(id, name, discipline, time, result)";
-  let { data, error } = await supabase.from("appointments").select(`${baseColumns}, competitionLevel, endDate, ${entries}`);
+  // Épreuves dans leur ordre de création, celui de l'écran. Sans ordre
+  // explicite, Postgres les rend dans un ordre quelconque — en pratique, une
+  // épreuve modifiée (heure ajoutée après coup) passait en dernier à la
+  // relecture suivante. L'identifiant départage deux créations simultanées.
+  const entriesOrder = { referencedTable: "competition_entries" };
+  let { data, error } = await supabase
+    .from("appointments")
+    .select(`${baseColumns}, competitionLevel, endDate, ${entries}`)
+    .order("createdAt", entriesOrder)
+    .order("id", entriesOrder);
   // Base pas encore migrée (cf. pushAppointment) : sans ce repli, sélectionner
   // une colonne inconnue ferait échouer TOUTE la restauration des rendez-vous.
   if (error && isMissingAppointmentColumnError(error)) {
-    ({ data, error } = await supabase.from("appointments").select(`${baseColumns}, ${entries}`));
+    const fallback = await supabase
+      .from("appointments")
+      .select(`${baseColumns}, ${entries}`)
+      .order("createdAt", entriesOrder)
+      .order("id", entriesOrder);
+    // Lignes sans niveau ni date de fin : lus plus bas comme absents.
+    data = fallback.data as typeof data;
+    error = fallback.error;
   }
   if (error || !data) return null;
   return data.map((row) => ({
@@ -880,7 +896,8 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
       id: e.id,
       name: e.name,
       discipline: e.discipline as CompetitionEntry["discipline"],
-      time: e.time,
+      // Épreuve sans heure de passage : chaîne vide (cf. agenda/competitionEntry.ts).
+      time: e.time ?? "",
       result: e.result ?? null,
     })),
   }));
@@ -890,7 +907,7 @@ function normalizeCompetitionLevel(value: unknown): Appointment["competitionLeve
   return value === "national" || value === "international" ? value : null;
 }
 
-type RemoteCompetitionEntry = { id: string; name: string; discipline: string; time: string; result: string | null };
+type RemoteCompetitionEntry = { id: string; name: string; discipline: string; time: string | null; result: string | null };
 
 /** Une épreuve à la fois (upsert) — même logique que les documents (cf.
  * pushDocument) : pas d'opération de remplacement en masse, le volume par

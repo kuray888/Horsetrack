@@ -21,7 +21,7 @@ type AppointmentHandlers = {
   onAddChecklistItem: (appt: Appointment, label: string) => void;
   onRemoveChecklistItem: (appt: Appointment, itemId: string) => void;
   onAddCompetitionEntry: (appt: Appointment, entry: Omit<CompetitionEntry, "id" | "result">) => void;
-  onUpdateCompetitionEntryResult: (appt: Appointment, entryId: string, result: string) => void;
+  onUpdateCompetitionEntry: (appt: Appointment, entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) => void;
   onDeleteCompetitionEntry: (appt: Appointment, entryId: string) => void;
 };
 
@@ -113,9 +113,7 @@ function EventCard({
       onAddChecklistItem={(label) => appointmentHandlers.onAddChecklistItem(appt, label)}
       onRemoveChecklistItem={(itemId) => appointmentHandlers.onRemoveChecklistItem(appt, itemId)}
       onAddCompetitionEntry={(entry) => appointmentHandlers.onAddCompetitionEntry(appt, entry)}
-      onUpdateCompetitionEntryResult={(entryId, result) =>
-        appointmentHandlers.onUpdateCompetitionEntryResult(appt, entryId, result)
-      }
+      onUpdateCompetitionEntry={(entryId, patch) => appointmentHandlers.onUpdateCompetitionEntry(appt, entryId, patch)}
       onDeleteCompetitionEntry={(entryId) => appointmentHandlers.onDeleteCompetitionEntry(appt, entryId)}
     />
   );

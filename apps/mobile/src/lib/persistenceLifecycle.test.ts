@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrainingSession } from "@/sessions/store";
 import type { Appointment, CompetitionEntry } from "@/agenda/store";
+import { cleanCompetitionEntry } from "@/agenda/competitionEntry";
 
 /**
  * Cycle de vie RÉEL d'une séance / d'un rendez-vous / d'un concours :
@@ -98,27 +99,56 @@ vi.mock("@/lib/supabase", () => {
     return Promise.resolve({ error: null });
   }
 
+  /** Colonnes NOT NULL sans défaut, refusées si absentes (cf. schema.prisma). */
+  const NOT_NULL: Record<string, string[]> = { competition_entries: ["name", "discipline", "time"] };
+  let createdSeq = 0;
+
   function upsert(name: string, row: Record<string, unknown>) {
+    const missing = (NOT_NULL[name] ?? []).find((column) => row[column] === null || row[column] === undefined);
+    if (missing) {
+      return Promise.resolve({ error: { code: "23502", message: `null value in column "${missing}" violates not-null constraint` } });
+    }
     return write(name, () => {
       sim.writes.push({ table: name, id: row.id as string, row: { ...row } });
-      const stored: Record<string, unknown> = { ...table(name).get(row.id as string), ...row };
+      const previous = table(name).get(row.id as string);
+      const stored: Record<string, unknown> = { createdAt: previous?.createdAt ?? ++createdSeq, ...previous, ...row };
       for (const column of TIMESTAMP_COLUMNS) {
         if (typeof stored[column] === "string") stored[column] = postgresTimestamp(stored[column] as string);
       }
+      // Postgres réécrit une ligne modifiée ailleurs dans la table : sans
+      // ORDER BY, elle revient en dernier.
+      table(name).delete(row.id as string);
       table(name).set(row.id as string, stored);
     });
   }
 
-  function select(name: string) {
+  function select(name: string, entryOrder: string[]) {
     const rows = [...table(name).values()].map((row) => ({ ...row }));
     if (name === "appointments") {
       for (const row of rows) {
-        row.competition_entries = [...table("competition_entries").values()]
-          .filter((e) => e.appointmentId === row.id)
-          .map((e) => ({ id: e.id, name: e.name, discipline: e.discipline, time: e.time, result: e.result ?? null }));
+        const entries = [...table("competition_entries").values()].filter((e) => e.appointmentId === row.id);
+        for (const column of [...entryOrder].reverse()) {
+          entries.sort((a, b) => (a[column] as number | string) < (b[column] as number | string) ? -1 : (a[column] as number | string) > (b[column] as number | string) ? 1 : 0);
+        }
+        row.competition_entries = entries.map((e) => ({ id: e.id, name: e.name, discipline: e.discipline, time: e.time, result: e.result ?? null }));
       }
     }
     return Promise.resolve({ data: rows, error: null });
+  }
+
+  /** Requête de lecture : `.order(…, { referencedTable })` trie les lignes imbriquées. */
+  function query(name: string) {
+    const entryOrder: string[] = [];
+    const builder = {
+      order(column: string, options?: { referencedTable?: string }) {
+        if (options?.referencedTable === "competition_entries") entryOrder.push(column);
+        return builder;
+      },
+      then<R>(resolve: (value: { data: Record<string, unknown>[]; error: null }) => R, reject?: (e: unknown) => R) {
+        return select(name, entryOrder).then(resolve, reject);
+      },
+    };
+    return builder;
   }
 
   return {
@@ -129,7 +159,7 @@ vi.mock("@/lib/supabase", () => {
       },
       from: (name: string) => ({
         upsert: (row: Record<string, unknown>) => upsert(name, row),
-        select: () => select(name),
+        select: () => query(name),
         delete: () => ({
           eq: (_column: string, id: string) =>
             write(name, () => {
@@ -200,8 +230,8 @@ function appointment(id: string, date: Date, patch: Partial<Appointment> = {}): 
   };
 }
 
-function entry(id: string, name: string, result: string | null = null): CompetitionEntry {
-  return { id, name, discipline: "SHOW_JUMPING", time: "09:15", result };
+function entry(id: string, name: string, result: string | null = null, time = "09:15"): CompetitionEntry {
+  return { id, name, discipline: "SHOW_JUMPING", time, result };
 }
 
 /**
@@ -271,6 +301,8 @@ class App {
   }
 
   addAppointment(a: Appointment) {
+    // Épreuves nettoyées comme par le formulaire (cf. useAppointmentForm).
+    a = { ...a, competitionEntries: a.competitionEntries.flatMap((e) => cleanCompetitionEntry(e) ?? []) };
     this.appointments = [...this.appointments, a];
     this.saveAppointments();
     this.cloud.pushAppointmentWithEntries(a).catch(() => {});
@@ -283,7 +315,9 @@ class App {
     if (updated) this.cloud.pushAppointment(updated).catch(() => {});
   }
 
-  addCompetitionEntry(apptId: string, e: CompetitionEntry) {
+  addCompetitionEntry(apptId: string, input: CompetitionEntry) {
+    const e = cleanCompetitionEntry(input);
+    if (!e) return;
     this.appointments = this.appointments.map((a) =>
       a.id === apptId ? { ...a, competitionEntries: [...a.competitionEntries, e] } : a
     );
@@ -291,14 +325,16 @@ class App {
     this.cloud.pushCompetitionEntry(apptId, e).catch(() => {});
   }
 
-  updateCompetitionEntryResult(apptId: string, entryId: string, result: string) {
+  updateCompetitionEntry(apptId: string, entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) {
     let next: CompetitionEntry | null = null;
     this.appointments = this.appointments.map((a) =>
       a.id !== apptId
         ? a
         : {
             ...a,
-            competitionEntries: a.competitionEntries.map((e) => (e.id === entryId ? (next = { ...e, result }) : e)),
+            competitionEntries: a.competitionEntries.map((e) =>
+              e.id === entryId ? ((next = cleanCompetitionEntry({ ...e, ...patch })) ?? e) : e
+            ),
           }
     );
     this.saveAppointments();
@@ -709,6 +745,90 @@ describe("concours", () => {
     expect(sim.writes).toEqual([]);
   });
 
+  describe("épreuve sans heure de passage", () => {
+    const serverEntry = (id: string) => sim.tables.get("competition_entries")?.get(id);
+
+    it("créée avec le concours sans heure : enregistrée telle quelle, aucune heure inventée", async () => {
+      const app = await App.launch();
+      app.addAppointment(
+        appointment("c1", first, {
+          type: "concours",
+          competitionEntries: [entry("e1", "Grand Prix 1m30", null, ""), entry("e2", "Vitesse", null, "  ")],
+        })
+      );
+      await settle();
+      const relaunched = await quitAndRelaunch();
+      const c1 = relaunched.appointment("c1")!;
+      expect(c1.date.getTime()).toBe(first.getTime());
+      expect(c1.competitionEntries.map((e) => [e.id, e.time])).toEqual([
+        ["e1", ""],
+        ["e2", ""],
+      ]);
+      // Côté serveur : une heure vide (colonne NOT NULL), ni null ni « 00:00 ».
+      expect(serverEntry("e1")!.time).toBe("");
+      expect(serverEntry("e2")!.time).toBe("");
+    });
+
+    it("ajoutée depuis la carte sans heure : enregistrée", async () => {
+      let app = await App.launch();
+      app.addAppointment(appointment("c1", first, { type: "concours" }));
+      await settle();
+      app = await quitAndRelaunch();
+      app.addCompetitionEntry("c1", entry("e1", "Club 2", null, ""));
+      await settle();
+      const relaunched = await quitAndRelaunch();
+      expect(relaunched.appointment("c1")!.competitionEntries.map((e) => [e.name, e.time])).toEqual([["Club 2", ""]]);
+      expect(serverEntry("e1")!.time).toBe("");
+    });
+
+    it("heure ajoutée plus tard, app fermée pendant l'envoi : l'heure tient, à l'écran comme au serveur", async () => {
+      let app = await App.launch();
+      app.addAppointment(appointment("c1", first, { type: "concours", competitionEntries: [entry("e1", "GP", null, "")] }));
+      await settle();
+      app = await quitAndRelaunch();
+      plan("competition_entries", "lost");
+      app.updateCompetitionEntry("c1", "e1", { time: "14h30" });
+      await settle();
+      const relaunched = await quitAndRelaunch();
+      expect(relaunched.appointment("c1")!.competitionEntries[0].time).toBe("14h30");
+      expect(serverEntry("e1")!.time).toBe("14h30");
+      expect(relaunched.appointment("c1")!.date.getTime()).toBe(first.getTime());
+    });
+
+    it("compléter l'heure d'une épreuve ne change pas l'ordre des épreuves", async () => {
+      let app = await App.launch();
+      app.addAppointment(
+        appointment("c1", first, {
+          type: "concours",
+          competitionEntries: [entry("e1", "Club 1", null, ""), entry("e2", "Club 2"), entry("e3", "Club 3", null, "")],
+        })
+      );
+      await settle();
+      app = await quitAndRelaunch();
+      app.updateCompetitionEntry("c1", "e1", { time: "08h00" });
+      app.updateCompetitionEntry("c1", "e3", { time: "15h00" });
+      await settle();
+      vi.advanceTimersByTime(1000); // envois confirmés et notés : rien à renvoyer au relancement
+      await settle();
+      const relaunched = await quitAndRelaunch();
+      expect(relaunched.appointment("c1")!.competitionEntries.map((e) => e.id)).toEqual(["e1", "e2", "e3"]);
+      expect((await serverAppointments())[0].competitionEntries.map((e) => e.id)).toEqual(["e1", "e2", "e3"]);
+    });
+
+    it("le nom reste obligatoire : l'effacer ne vide pas l'épreuve", async () => {
+      let app = await App.launch();
+      app.addAppointment(appointment("c1", first, { type: "concours", competitionEntries: [entry("e1", "GP", null, "")] }));
+      await settle();
+      app = await quitAndRelaunch();
+      app.updateCompetitionEntry("c1", "e1", { name: "   " });
+      app.addCompetitionEntry("c1", entry("e2", "", null, "09h00"));
+      await settle();
+      const relaunched = await quitAndRelaunch();
+      expect(relaunched.appointment("c1")!.competitionEntries.map((e) => e.name)).toEqual(["GP"]);
+      expect(serverEntry("e1")!.name).toBe("GP");
+    });
+  });
+
   async function existingConcours(): Promise<App> {
     const app = await App.launch();
     app.addAppointment(
@@ -736,7 +856,7 @@ describe("concours", () => {
   it("résultat saisi puis app fermée pendant l'envoi : gardé", async () => {
     const app = await existingConcours();
     plan("competition_entries", "lost");
-    app.updateCompetitionEntryResult("c1", "e1", "2e");
+    app.updateCompetitionEntry("c1", "e1", { result: "2e" });
     await settle();
     const relaunched = await quitAndRelaunch();
     expect(relaunched.appointment("c1")!.competitionEntries.find((e) => e.id === "e1")!.result).toBe("2e");

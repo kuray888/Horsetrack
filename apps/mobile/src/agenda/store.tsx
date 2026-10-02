@@ -42,6 +42,7 @@ import { mergeRemote, pickFileUrl, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { isHorseOnServer, noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { cancelRemindersOf, rescheduleReminders } from "@/agenda/remoteMergeEffects";
+import { cleanCompetitionEntry } from "@/agenda/competitionEntry";
 
 /**
  * Rendez-vous et documents, persistés localement (en attendant Supabase) —
@@ -338,7 +339,9 @@ type AgendaContextValue = {
   addChecklistItem: (apptId: string, label: string) => void;
   removeChecklistItem: (apptId: string, itemId: string) => void;
   addCompetitionEntry: (apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => void;
-  updateCompetitionEntryResult: (apptId: string, entryId: string, result: string) => void;
+  /** Modifie une épreuve existante : heure ajoutée après coup, nom, discipline
+   * ou résultat. Ignoré si le nom deviendrait vide (cf. cleanCompetitionEntry). */
+  updateCompetitionEntry: (apptId: string, entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) => void;
   deleteCompetitionEntry: (apptId: string, entryId: string) => void;
   /** Retourne l'id généré localement — cf. addDocument dans le provider.
    * `horseId` optionnel, même mécanisme que `addAppointment` : sinon le cheval
@@ -770,7 +773,10 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
   // CompetitionEntry, schema.prisma) — on pousse donc l'épreuve modifiée
   // individuellement (pushCompetitionEntry), jamais tout le rendez-vous.
   const addCompetitionEntry = useCallback((apptId: string, entry: Omit<CompetitionEntry, "id" | "result">) => {
-    const newEntry: CompetitionEntry = { ...entry, id: generateId("ce"), result: null };
+    // Le nom suffit, l'heure peut venir plus tard (cf. agenda/competitionEntry.ts).
+    const cleaned = cleanCompetitionEntry(entry);
+    if (!cleaned) return;
+    const newEntry: CompetitionEntry = { ...cleaned, id: generateId("ce"), result: null };
     setAppointments((list) => {
       const next = list.map((a) =>
         a.id === apptId ? { ...a, competitionEntries: [...a.competitionEntries, newEntry] } : a
@@ -780,22 +786,25 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const updateCompetitionEntryResult = useCallback((apptId: string, entryId: string, result: string) => {
-    setAppointments((list) => {
-      let nextEntry: CompetitionEntry | null = null;
-      const next = list.map((a) => {
-        if (a.id !== apptId) return a;
-        const entries = a.competitionEntries.map((e) => {
-          if (e.id !== entryId) return e;
-          nextEntry = { ...e, result };
-          return nextEntry;
+  const updateCompetitionEntry = useCallback(
+    (apptId: string, entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) => {
+      setAppointments((list) => {
+        let nextEntry: CompetitionEntry | null = null;
+        const next = list.map((a) => {
+          if (a.id !== apptId) return a;
+          const entries = a.competitionEntries.map((e) => {
+            if (e.id !== entryId) return e;
+            nextEntry = cleanCompetitionEntry({ ...e, ...patch });
+            return nextEntry ?? e;
+          });
+          return nextEntry ? { ...a, competitionEntries: entries } : a;
         });
-        return { ...a, competitionEntries: entries };
+        if (nextEntry) pushCompetitionEntry(apptId, nextEntry).catch(() => {});
+        return nextEntry ? next : list;
       });
-      if (nextEntry) pushCompetitionEntry(apptId, nextEntry).catch(() => {});
-      return next;
-    });
-  }, []);
+    },
+    []
+  );
 
   const deleteCompetitionEntry = useCallback((apptId: string, entryId: string) => {
     setAppointments((list) =>
@@ -1145,7 +1154,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addChecklistItem,
       removeChecklistItem,
       addCompetitionEntry,
-      updateCompetitionEntryResult,
+      updateCompetitionEntry,
       deleteCompetitionEntry,
       addDocument,
       updateDocument,
@@ -1183,7 +1192,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addChecklistItem,
       removeChecklistItem,
       addCompetitionEntry,
-      updateCompetitionEntryResult,
+      updateCompetitionEntry,
       deleteCompetitionEntry,
       addDocument,
       updateDocument,

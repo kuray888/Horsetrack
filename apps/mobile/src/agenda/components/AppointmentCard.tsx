@@ -7,6 +7,7 @@ import { Locked } from "@/components/Locked";
 import { ChipSelect } from "@/components/FormChips";
 import type { Appointment, CompetitionEntry } from "@/agenda/store";
 import { APPT_META, REMINDER_META, DISCIPLINE_META, formatAmount, daysUntilLabel } from "@/agenda/meta";
+import { cleanCompetitionEntry, competitionEntryTimeLabel } from "@/agenda/competitionEntry";
 import type { Discipline } from "@/onboarding/store";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -23,7 +24,7 @@ export function AppointmentCard({
   onAddChecklistItem,
   onRemoveChecklistItem,
   onAddCompetitionEntry,
-  onUpdateCompetitionEntryResult,
+  onUpdateCompetitionEntry,
   onDeleteCompetitionEntry,
 }: {
   appt: Appointment;
@@ -36,7 +37,7 @@ export function AppointmentCard({
   onAddChecklistItem: (label: string) => void;
   onRemoveChecklistItem: (itemId: string) => void;
   onAddCompetitionEntry: (entry: Omit<CompetitionEntry, "id" | "result">) => void;
-  onUpdateCompetitionEntryResult: (entryId: string, result: string) => void;
+  onUpdateCompetitionEntry: (entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) => void;
   onDeleteCompetitionEntry: (entryId: string) => void;
 }) {
   const meta = APPT_META[appt.type];
@@ -205,7 +206,7 @@ export function AppointmentCard({
                     <CompetitionEntryRow
                       key={entry.id}
                       entry={entry}
-                      onSaveResult={(result) => onUpdateCompetitionEntryResult(entry.id, result)}
+                      onUpdate={(patch) => onUpdateCompetitionEntry(entry.id, patch)}
                       onDelete={() => onDeleteCompetitionEntry(entry.id)}
                     />
                   ))}
@@ -275,35 +276,59 @@ export function AppointmentCard({
 
 function CompetitionEntryRow({
   entry,
-  onSaveResult,
+  onUpdate,
   onDelete,
 }: {
   entry: CompetitionEntry;
-  onSaveResult: (result: string) => void;
+  onUpdate: (patch: Partial<Omit<CompetitionEntry, "id">>) => void;
   onDelete: () => void;
 }) {
+  const [editingEntry, setEditingEntry] = useState(false);
   const [editingResult, setEditingResult] = useState(false);
   const [draftResult, setDraftResult] = useState(entry.result ?? "");
   const meta = DISCIPLINE_META[entry.discipline];
 
   function handleSave() {
     if (!draftResult.trim()) return;
-    onSaveResult(draftResult.trim());
+    onUpdate({ result: draftResult.trim() });
     setEditingResult(false);
+  }
+
+  if (editingEntry) {
+    return (
+      <CompetitionEntryEditor
+        initial={entry}
+        submitLabel="Enregistrer"
+        onSubmit={(fields) => {
+          onUpdate(fields);
+          setEditingEntry(false);
+        }}
+        onCancel={() => setEditingEntry(false)}
+      />
+    );
   }
 
   return (
     <View className="gap-1.5 rounded-card border border-border p-3">
       <View className="flex-row items-center justify-between gap-2">
-        <View className="flex-1 gap-0.5">
+        {/* Toute la ligne ouvre la modification : l'heure de passage arrive
+            souvent après l'inscription à l'épreuve. */}
+        <TouchableOpacity
+          onPress={() => setEditingEntry(true)}
+          activeOpacity={0.7}
+          className="flex-1 gap-0.5"
+          accessibilityRole="button"
+          accessibilityLabel={`Modifier l'épreuve ${entry.name}`}
+        >
           <Text className="text-sm font-semibold text-text">{entry.name}</Text>
           <View className="flex-row items-center gap-1">
             <MaterialCommunityIcons name={meta.icon.name} size={12} color={meta.icon.color} />
             <Text className="text-xs text-muted">
-              {meta.label} · {entry.time}
+              {meta.label} · {competitionEntryTimeLabel(entry.time)}
             </Text>
           </View>
-        </View>
+          <Text className="text-xs font-semibold text-accent">{entry.time ? "Modifier" : "+ Ajouter l'heure"}</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} hitSlop={8} activeOpacity={0.7}>
           <Text className="text-sm text-muted">✕</Text>
         </TouchableOpacity>
@@ -344,32 +369,23 @@ function CompetitionEntryRow({
   );
 }
 
-function AddCompetitionEntryForm({ onAdd }: { onAdd: (entry: Omit<CompetitionEntry, "id" | "result">) => void }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [discipline, setDiscipline] = useState<Discipline>("SHOW_JUMPING");
-  const [time, setTime] = useState("");
-
-  function handleAdd() {
-    if (!name.trim() || !time.trim()) return;
-    onAdd({ name: name.trim(), discipline, time: time.trim() });
-    setName("");
-    setDiscipline("SHOW_JUMPING");
-    setTime("");
-    setOpen(false);
-  }
-
-  if (!open) {
-    return (
-      <TouchableOpacity
-        onPress={() => setOpen(true)}
-        activeOpacity={0.8}
-        className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-2.5"
-      >
-        <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
-      </TouchableOpacity>
-    );
-  }
+/** Nom, discipline et heure d'une épreuve — partagé entre l'ajout et la
+ * modification. Seul le nom est requis (cf. agenda/competitionEntry.ts). */
+function CompetitionEntryEditor({
+  initial,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  initial?: Pick<CompetitionEntry, "name" | "discipline" | "time">;
+  submitLabel: string;
+  onSubmit: (entry: Omit<CompetitionEntry, "id" | "result">) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [discipline, setDiscipline] = useState<Discipline>(initial?.discipline ?? "SHOW_JUMPING");
+  const [time, setTime] = useState(initial?.time ?? "");
+  const cleaned = cleanCompetitionEntry({ name, discipline, time });
 
   return (
     <View className="gap-2 rounded-card border border-border p-3">
@@ -388,26 +404,56 @@ function AddCompetitionEntryForm({ onAdd }: { onAdd: (entry: Omit<CompetitionEnt
         value={discipline}
         onChange={setDiscipline}
       />
-      <TextInput className={INPUT} placeholder="Heure de l'épreuve (ex : 09h15)" value={time} onChangeText={setTime} />
+      <TextInput
+        className={INPUT}
+        placeholder="Heure de passage (facultatif, ex : 09h15)"
+        value={time}
+        onChangeText={setTime}
+      />
       <View className="flex-row gap-2">
         <TouchableOpacity
-          onPress={() => setOpen(false)}
+          onPress={onCancel}
           activeOpacity={0.8}
           className="flex-1 items-center rounded-card border border-border p-2.5"
         >
           <Text className="text-sm font-semibold text-muted">Annuler</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={handleAdd}
-          disabled={!name.trim() || !time.trim()}
+          onPress={() => cleaned && onSubmit(cleaned)}
+          disabled={!cleaned}
           activeOpacity={0.85}
-          className={`flex-1 items-center rounded-card p-2.5 ${name.trim() && time.trim() ? "bg-primary" : "border border-border"}`}
+          className={`flex-1 items-center rounded-card p-2.5 ${cleaned ? "bg-primary" : "border border-border"}`}
         >
-          <Text className={`text-sm font-bold ${name.trim() && time.trim() ? "text-on-primary" : "text-muted"}`}>
-            Ajouter
-          </Text>
+          <Text className={`text-sm font-bold ${cleaned ? "text-on-primary" : "text-muted"}`}>{submitLabel}</Text>
         </TouchableOpacity>
       </View>
     </View>
+  );
+}
+
+function AddCompetitionEntryForm({ onAdd }: { onAdd: (entry: Omit<CompetitionEntry, "id" | "result">) => void }) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <TouchableOpacity
+        onPress={() => setOpen(true)}
+        activeOpacity={0.8}
+        className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-2.5"
+      >
+        <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <CompetitionEntryEditor
+      submitLabel="Ajouter"
+      onSubmit={(entry) => {
+        onAdd(entry);
+        setOpen(false);
+      }}
+      onCancel={() => setOpen(false)}
+    />
   );
 }

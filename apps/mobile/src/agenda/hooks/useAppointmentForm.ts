@@ -28,6 +28,7 @@ import {
   type CompetitionLevel,
 } from "@/agenda/store";
 import { newDraftEntryId } from "@/agenda/meta";
+import { cleanCompetitionEntry } from "@/agenda/competitionEntry";
 import { appointmentReminderContent, nextDueReminderContent } from "@/agenda/reminderContent";
 import { track } from "@/lib/analytics";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
@@ -436,7 +437,9 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
               // nisant l'app du serveur.
               competitionEntries:
                 isConcours && isActiveOrTrialing
-                  ? apptForm.competitionEntries.filter((e) => e.name.trim() && e.time.trim())
+                  ? // Le nom suffit : une épreuve sans heure était jusqu'ici jetée
+                    // sans un mot (cf. agenda/competitionEntry.ts).
+                    apptForm.competitionEntries.flatMap((e) => cleanCompetitionEntry(e) ?? [])
                   : [],
             });
           }

@@ -345,7 +345,7 @@ export default function PlanningScreen() {
     addChecklistItem,
     removeChecklistItem,
     addCompetitionEntry,
-    updateCompetitionEntryResult,
+    updateCompetitionEntry,
     deleteCompetitionEntry,
     addExpense,
     updateExpense,
@@ -606,8 +606,8 @@ export default function PlanningScreen() {
     onAddChecklistItem: (a: Appointment, label: string) => addChecklistItem(a.id, label),
     onRemoveChecklistItem: (a: Appointment, itemId: string) => removeChecklistItem(a.id, itemId),
     onAddCompetitionEntry: (a: Appointment, entry: Omit<CompetitionEntry, "id" | "result">) => addCompetitionEntry(a.id, entry),
-    onUpdateCompetitionEntryResult: (a: Appointment, entryId: string, result: string) =>
-      updateCompetitionEntryResult(a.id, entryId, result),
+    onUpdateCompetitionEntry: (a: Appointment, entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) =>
+      updateCompetitionEntry(a.id, entryId, patch),
     onDeleteCompetitionEntry: (a: Appointment, entryId: string) => deleteCompetitionEntry(a.id, entryId),
   };
 

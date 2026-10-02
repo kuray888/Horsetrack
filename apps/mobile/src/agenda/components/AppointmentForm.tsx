@@ -349,7 +349,7 @@ export function AppointmentForm({
                       />
                       <TextInput
                         className={INPUT}
-                        placeholder="Heure de l'épreuve (ex : 09h15)"
+                        placeholder="Heure de passage (facultatif, ex : 09h15)"
                         value={entry.time}
                         onChangeText={(time) => onUpdateEntry(entry.id, { time })}
                       />
