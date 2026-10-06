@@ -1,0 +1,177 @@
+.stories {
+  position: relative;
+  margin-top: calc(var(--section-y) * -0.45);
+}
+
+/* Coupe uniquement à l'horizontale : les captures glissent depuis le côté
+ * en apparaissant, sans jamais créer de défilement latéral sur mobile. */
+.story {
+  padding-block: clamp(48px, 7vw, 96px);
+  overflow-x: clip;
+}
+
+.story:first-child {
+  padding-top: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 44px;
+  align-items: center;
+}
+
+.copy {
+  display: grid;
+  justify-items: start;
+  gap: 20px;
+  max-width: 540px;
+}
+
+.bullets {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 0;
+}
+
+.bullets li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: -1px;
+  border-radius: 50%;
+  background: var(--sky-soft);
+  color: var(--blue-text);
+}
+
+/* ——— Capture ——— */
+
+.visual {
+  --phone-h: clamp(440px, 118vw, 560px);
+  --tint: var(--sky-soft);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: calc(var(--phone-h) + 20px);
+}
+
+.copper {
+  --tint: #f4e4da;
+}
+
+.sky {
+  --tint: #dcecf8;
+}
+
+.blue {
+  --tint: #e3edf6;
+}
+
+/* Fond arrondi incliné, rappel des cartes de l'app. */
+.backdrop {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  width: min(86%, 440px);
+  height: 74%;
+  translate: -50% 0;
+  rotate: -4deg;
+  border-radius: var(--radius-xl);
+  background: var(--tint);
+}
+
+.reverse .backdrop {
+  rotate: 4deg;
+}
+
+.phone {
+  position: relative;
+  height: var(--phone-h);
+}
+
+.phone img {
+  height: 100%;
+  width: auto;
+  max-width: none;
+}
+
+/* Deux téléphones côte à côte (section « Vos chevaux »). */
+.duo {
+  --phone-h: clamp(360px, 92vw, 520px);
+}
+
+.duo0 {
+  z-index: 2;
+  margin-right: -5%;
+  rotate: -4deg;
+}
+
+.duo1 {
+  z-index: 1;
+  margin-left: -5%;
+  translate: 0 -6%;
+  rotate: 4deg;
+}
+
+/* Léger décalage vertical lié au scroll (navigateurs qui le gèrent). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .phone {
+      animation: drift linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+
+    .duo1 {
+      animation-name: drift-far;
+    }
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translateY(36px);
+  }
+  to {
+    transform: translateY(-36px);
+  }
+}
+
+@keyframes drift-far {
+  from {
+    transform: translateY(70px);
+  }
+  to {
+    transform: translateY(-50px);
+  }
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(40px, 6vw, 96px);
+  }
+
+  .reverse .copy {
+    order: 2;
+  }
+
+  .visual {
+    --phone-h: clamp(520px, 46vw, 620px);
+  }
+
+  .duo {
+    --phone-h: clamp(460px, 40vw, 560px);
+  }
+}

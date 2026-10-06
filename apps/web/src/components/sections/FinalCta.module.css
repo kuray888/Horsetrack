@@ -1,0 +1,86 @@
+.section {
+  padding-block: clamp(40px, 6vw, 80px) var(--section-y);
+}
+
+/* Bandeau bleu à filet cuivre des visuels App Store, en carte. */
+.card {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(90% 90% at 100% 100%, rgba(163, 206, 241, 0.35), transparent 60%),
+    var(--blue-band);
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 10px;
+  background: var(--copper);
+}
+
+.copy {
+  display: grid;
+  justify-items: start;
+  gap: 20px;
+  padding: clamp(36px, 6vw, 72px) clamp(24px, 5vw, 64px) 8px;
+}
+
+.copy h2 {
+  max-width: 14ch;
+}
+
+.copy p {
+  max-width: 460px;
+  font-size: clamp(1.04rem, 0.98rem + 0.3vw, 1.18rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 340px;
+  margin-top: 24px;
+}
+
+/* Le téléphone sort par le bas de la carte. */
+.visual img {
+  height: 560px;
+  width: auto;
+  max-width: none;
+  rotate: -6deg;
+}
+
+.card :focus-visible {
+  outline-color: #fff;
+}
+
+@media (min-width: 900px) {
+  .card {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: center;
+    min-height: 460px;
+  }
+
+  .copy {
+    padding-bottom: clamp(48px, 6vw, 72px);
+  }
+
+  .visual {
+    align-self: stretch;
+    height: auto;
+    margin-top: 0;
+  }
+
+  .visual img {
+    position: absolute;
+    top: 44px;
+    height: 600px;
+  }
+}

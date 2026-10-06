@@ -1,0 +1,28 @@
+{
+  "name": "@cheval/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3002",
+    "build": "next build",
+    "start": "next start --port 3002",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "assets:screens": "node scripts/extract-screens.mjs",
+    "assets:icons": "node scripts/build-icons.mjs"
+  },
+  "dependencies": {
+    "next": "^15.5.25",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@types/node": "^22.10.10",
+    "@types/react": "^19.0.8",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.5.25",
+    "sharp": "^0.35.4",
+    "typescript": "^5.7.3"
+  }
+}

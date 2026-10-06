@@ -1,0 +1,22 @@
+.page {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  max-width: calc(680px + 2 * var(--gutter));
+  padding-block: clamp(64px, 12vw, 140px);
+  text-align: center;
+}
+
+.icon {
+  color: var(--blue-display);
+  rotate: 180deg;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+}
