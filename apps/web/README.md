@@ -40,6 +40,10 @@ Nouveau projet Vercel sur ce dépôt, **Root Directory : `apps/web`**
 (framework Next.js détecté), variable `SITE_URL` = le domaine définitif, puis
 rattacher le domaine. Le projet existant de l'API n'est pas concerné.
 
+`apps/web/vercel.json` fixe l'installation et le build du site : sans lui,
+Vercel applique au projet le `vercel.json` de la racine du dépôt, qui est
+celui de l'API (il construirait l'API à la place du site).
+
 ## Où modifier quoi
 
 - `src/content/site.ts` : liens, prix, éditeur/hébergeur, navigation.
