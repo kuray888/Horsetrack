@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Animated, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useSessions, type TrainingSession } from "@/sessions/store";
+import { hapticSuccess, hapticTap } from "@/lib/haptics";
+import { animateNextLayout, prefersReducedMotion } from "@/lib/motion";
+import { sessionDoneMessage, weekProgress } from "@/lib/progress";
+import { computeMilestones, newlyUnlocked } from "@/horses/milestones";
+import { useHorses } from "@/horses/store";
+import { track } from "@/lib/analytics";
+import { t } from "@/i18n";
 
 /** Combien de temps l'invite reste à l'écran. Assez pour être vue et
  * comprise, assez peu pour ne pas encombrer un écran qu'on parcourt. */
@@ -28,12 +35,20 @@ export function useSessionDonePrompt() {
 
   useEffect(() => {
     if (!prompted) return;
-    const timer = setTimeout(() => setPrompted(null), PROMPT_MS);
+    const timer = setTimeout(() => {
+      animateNextLayout();
+      setPrompted(null);
+    }, PROMPT_MS);
     return () => clearTimeout(timer);
   }, [prompted]);
 
   /** À appeler à la place de `toggleCompleted` partout où une séance se coche. */
   function toggleSessionDone(session: TrainingSession) {
+    // Cocher est LE geste quotidien de l'app : il doit se sentir. Décocher
+    // reste discret.
+    if (session.completed) hapticTap();
+    else hapticSuccess();
+    animateNextLayout();
     toggleCompleted(session.id);
     // `session.completed` est l'état AVANT bascule : on ne propose un mot que
     // quand la séance vient d'être marquée faite.
@@ -52,12 +67,59 @@ export function SessionDonePrompt({
   session: TrainingSession | null;
   onDismiss: () => void;
 }) {
-  const colors = useThemeColors();
   if (!session) return null;
+  // Remonté à chaque nouvelle séance cochée (`key`) : la coche rejoue son
+  // animation au lieu de rester figée d'une séance à l'autre.
+  return <SessionDoneBanner key={session.id} session={session} onDismiss={onDismiss} />;
+}
+
+function SessionDoneBanner({ session, onDismiss }: { session: TrainingSession; onDismiss: () => void }) {
+  const colors = useThemeColors();
+  const { sessions } = useSessions();
+  // Lu dans le store (déjà à jour) plutôt que sur `session`, qui est l'état
+  // d'avant la bascule.
+  const { horses } = useHorses();
+  const progress = sessionDoneMessage(weekProgress(sessions, session.horseId, session.date));
+  // Badge obtenu grâce à CETTE séance (10 séances, 10 heures…) : il passe avant
+  // le message de la semaine. Calculé une fois, au montage du bandeau.
+  const [milestone] = useState(() => {
+    if (!session.horseId) return null;
+    const before = sessions.map((s) => (s.id === session.id ? { ...s, completed: false } : s));
+    const unlocked = newlyUnlocked(
+      computeMilestones({ horseId: session.horseId, sessions: before }),
+      computeMilestones({ horseId: session.horseId, sessions })
+    )[0];
+    return unlocked ?? null;
+  });
+  const horseName = horses.find((h) => h.id === session.horseId)?.name;
+  useEffect(() => {
+    if (milestone) track("milestone_unlocked", { milestone: milestone.id });
+  }, [milestone]);
+  const text = milestone
+    ? t("Nouveau badge{v} : {v2} {emoji}", { v: horseName ? ` avec ${horseName}` : "", v2: milestone.title.toLowerCase(), emoji: milestone.emoji })
+    : progress.text;
+  const weekComplete = !!milestone || progress.weekComplete;
+  const [scale] = useState(() => new Animated.Value(prefersReducedMotion() ? 1 : 0.4));
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 16 }).start();
+  }, [scale]);
+
   return (
-    <View className="flex-row items-center gap-2.5 rounded-card bg-success/15 p-3.5">
-      <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} />
-      <Text className="flex-1 text-sm text-text">Séance faite. Un mot dessus ?</Text>
+    <View
+      className={`flex-row items-center gap-2.5 rounded-card p-3.5 ${weekComplete ? "bg-success/25" : "bg-success/15"}`}
+      accessibilityLiveRegion="polite"
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        {weekComplete ? (
+          <Text className="text-lg">{milestone ? "🏅" : "🎉"}</Text>
+        ) : (
+          <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+        )}
+      </Animated.View>
+      <Text className={`flex-1 text-sm text-text ${weekComplete ? "font-semibold" : ""}`}>
+        {text} {t(" Un mot dessus ?")}
+      </Text>
       <TouchableOpacity
         onPress={() => {
           onDismiss();
@@ -66,7 +128,7 @@ export function SessionDonePrompt({
         hitSlop={8}
         accessibilityRole="button"
       >
-        <Text className="text-sm font-bold text-success">Écrire</Text>
+        <Text className="text-sm font-bold text-success">{t("Écrire")}</Text>
       </TouchableOpacity>
     </View>
   );

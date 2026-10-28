@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, ReactNode } from "react";
-import { Alert, AppState } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
@@ -8,6 +8,7 @@ import { safeJsonParse } from "@/lib/safeJsonParse";
 import { withKeyLock } from "@/lib/keyLock";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { track } from "@/lib/analytics";
+import { appStoreOfferCodeUrl } from "@/lib/links";
 import { invalidatePaywallOffer } from "./paywall";
 import { requestServerSubscriptionSync } from "@/lib/subscriptionSync";
 import {
@@ -27,6 +28,9 @@ import {
   maxHorses,
 } from "./logic";
 import type { SubscriptionStatus, BillingPeriod, Persisted } from "./logic";
+import { isStoreRedeemUrl } from "./paywallLogic";
+import { t } from "@/i18n";
+import { getPromoContext, notePromoCodeResult, promoAnalyticsProps } from "@/subscription/promoContext";
 
 /**
  * Entitlement d'abonnement, global à l'app. Pilote le gating de toute l'app
@@ -64,11 +68,18 @@ type SubscriptionContextValue = Persisted & {
   /** Valide et applique un code promo — validation exclusivement côté serveur
    * (cf. apps/api/src/app/api/promo/redeem/route.ts), jamais sur la seule foi
    * de la valeur saisie ici. */
-  redeemPromoCode: (code: string) => Promise<{ ok: boolean; message: string }>;
+  redeemPromoCode: (code: string) => Promise<PromoRedeemResult>;
   /** Efface l'état d'abonnement local + déconnecte RevenueCat (cf. suppression
    * de compte dans Profil). */
   clearAll: () => Promise<void>;
 };
+
+/** Résultat d'un code promo, tel que décidé par le serveur. `redeemUrl` :
+ * remise sur l'abonnement à confirmer sur la feuille officielle de l'App
+ * Store / Google Play (c'est elle qui affiche le prix et facture).
+ * `storeFallbackUrl` : code inconnu de Horsetrack — peut-être un code d'offre
+ * généré par Apple, à proposer de saisir directement sur l'App Store. */
+export type PromoRedeemResult = { ok: boolean; message: string; redeemUrl?: string; storeFallbackUrl?: string };
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
@@ -339,26 +350,33 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   /** Le serveur seul décide de la validité/durée (cf. sa doc) — ce client se
    * contente d'envoyer le code saisi et d'appliquer le résultat renvoyé
    * (trialEndsAt), jamais une valeur devinée ou calculée ici. */
-  const redeemPromoCode = useCallback(async (code: string): Promise<{ ok: boolean; message: string }> => {
+  const redeemPromoCode = useCallback(async (code: string): Promise<PromoRedeemResult> => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
-    if (!token) return { ok: false, message: "Connecte-toi pour utiliser un code promo." };
+    if (!token) return { ok: false, message: t("Connecte-toi pour utiliser un code promo.") };
     track("promo_code_submitted");
     try {
       const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/promo/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, platform: Platform.OS === "android" ? "android" : "ios" }),
       });
       const json = await res.json().catch(() => null);
-      track("promo_code_result", { ok: res.ok, applied: !!json?.applied });
-      if (!res.ok) return { ok: false, message: json?.error ?? "Ce code promo n'est pas valide." };
+      // Adresse de rédemption acceptée seulement si elle mène bien au store
+      // officiel (défense en profondeur : jamais une adresse arbitraire).
+      const redeemUrl = typeof json?.redeemUrl === "string" && isStoreRedeemUrl(json.redeemUrl) ? json.redeemUrl : undefined;
+      track("promo_code_result", { ok: res.ok, applied: !!json?.applied, store_offer: !!redeemUrl });
+      notePromoCodeResult(code, !res.ok ? "invalid" : redeemUrl ? "store_offer" : json?.applied ? "applied" : "accepted");
+      if (!res.ok) {
+        const storeFallbackUrl = json?.unknown && Platform.OS === "ios" ? (appStoreOfferCodeUrl(code) ?? undefined) : undefined;
+        return { ok: false, message: json?.error ?? t("Ce code promo n'est pas valide."), storeFallbackUrl };
+      }
       if (json.applied && json.trialEndsAt) {
         await persistLocal({ status: "trialing", billingPeriod: null, trialEndsAt: json.trialEndsAt });
       }
-      return { ok: true, message: json.message ?? "Code appliqué !" };
+      return { ok: true, message: json.message ?? t("Code appliqué !"), redeemUrl };
     } catch {
-      return { ok: false, message: "Impossible de vérifier ce code pour le moment." };
+      return { ok: false, message: t("Impossible de vérifier ce code pour le moment.") };
     }
   }, [persistLocal]);
 
@@ -438,7 +456,7 @@ export function useSubscribeFlow() {
       placement: string = "unknown"
     ) => {
       setSubmitting(true);
-      track("purchase_started", { period, placement });
+      track("purchase_started", { period, placement, ...promoAnalyticsProps(getPromoContext()) });
       try {
         if (!isPurchasesAvailable()) {
           // La simulation locale (30 jours de Premium accordés sans aucun
@@ -460,14 +478,14 @@ export function useSubscribeFlow() {
           // Premium que le serveur ne reconnaîtra jamais.
           if (__DEV__) {
             const persisted = await startTrial(period);
-            track("purchase_completed", { period, placement, status: persisted.status, simulated: true });
+            track("purchase_completed", { period, placement, status: persisted.status, simulated: true, ...promoAnalyticsProps(getPromoContext()) });
             await onSuccess(persisted);
             return;
           }
           track("purchase_failed", { period, placement, reason: "purchases_unavailable" });
           Alert.alert(
-            "Abonnement indisponible",
-            "L'abonnement n'est pas disponible sur cet appareil pour le moment. Vérifie ta connexion et réessaie — si le problème persiste, réessaie un peu plus tard."
+            t("Abonnement indisponible"),
+            t("L'abonnement n'est pas disponible sur cet appareil pour le moment. Vérifie ta connexion et réessaie — si le problème persiste, réessaie un peu plus tard.")
           );
           return;
         }
@@ -475,7 +493,7 @@ export function useSubscribeFlow() {
         const pkg = await getSubscriptionPackage(period);
         if (!pkg) {
           track("purchase_failed", { period, placement, reason: "package_missing" });
-          Alert.alert("Indisponible", "Cette offre n'est pas encore configurée. Réessaie plus tard.");
+          Alert.alert(t("Indisponible"), t("Cette offre n'est pas encore configurée. Réessaie plus tard."));
           return;
         }
         // Non-null : isPurchasesAvailable() a déjà été vérifié plus haut dans ce bloc.
@@ -493,7 +511,7 @@ export function useSubscribeFlow() {
         // pendant l'onboarding supprimés juste après un abonnement Premium
         // réussi, car maxHorses() lisait encore l'état pré-achat.
         const persisted = await persistedFromCustomerInfo(customerInfo);
-        track("purchase_completed", { period, placement, status: persisted.status });
+        track("purchase_completed", { period, placement, status: persisted.status, ...promoAnalyticsProps(getPromoContext()) });
         // L'éligibilité à l'essai vient d'être consommée : l'offre en cache
         // (cf. usePaywallOffer) ne doit plus la promettre.
         invalidatePaywallOffer();
@@ -506,8 +524,8 @@ export function useSubscribeFlow() {
         }
         track("purchase_failed", { period, placement, reason: "store_error" });
         Alert.alert(
-          "Oups",
-          "Impossible de finaliser l'achat. Vérifie ta connexion et réessaie — si le problème persiste, la boutique est peut-être temporairement indisponible."
+          t("Oups"),
+          t("Impossible de finaliser l'achat. Vérifie ta connexion et réessaie — si le problème persiste, la boutique est peut-être temporairement indisponible.")
         );
       } finally {
         if (mountedRef.current) setSubmitting(false);
@@ -519,7 +537,7 @@ export function useSubscribeFlow() {
   const restore = useCallback(async () => {
     track("restore_tapped");
     if (!isPurchasesAvailable()) {
-      Alert.alert("Indisponible", "La restauration des achats sera possible une fois les abonnements activés.");
+      Alert.alert(t("Indisponible"), t("La restauration des achats sera possible une fois les abonnements activés."));
       return;
     }
     setRestoring(true);
@@ -531,9 +549,9 @@ export function useSubscribeFlow() {
       const hasEntitlement = !!info.entitlements.active[ENTITLEMENT_ID];
       track("restore_completed", { restored: hasEntitlement });
       invalidatePaywallOffer();
-      Alert.alert(hasEntitlement ? "Abonnement restauré" : "Rien à restaurer", hasEntitlement ? "" : "Aucun achat actif trouvé pour ce compte.");
+      Alert.alert(hasEntitlement ? t("Abonnement restauré") : t("Rien à restaurer"), hasEntitlement ? "" : t("Aucun achat actif trouvé pour ce compte."));
     } catch {
-      Alert.alert("Oups", "Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie.");
+      Alert.alert(t("Oups"), t("Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie."));
     } finally {
       if (mountedRef.current) setRestoring(false);
     }

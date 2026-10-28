@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { OnboardingShell, SingleSelect } from "@/components/onboarding";
 import { BreedField } from "@/components/BreedField";
 import { CoatField } from "@/components/CoatField";
@@ -10,6 +10,7 @@ import { useOnboarding } from "@/onboarding/store";
 import { HORSE_SEXES, TOTAL_STEPS } from "@/onboarding/options";
 import { chooseAndPersistImage } from "@/lib/imagePicker";
 import { colors } from "@/theme/colors";
+import { t as tr } from "@/i18n";
 
 const INPUT =
   "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -28,8 +29,8 @@ export default function HorseBasics() {
     <OnboardingShell
       step={3}
       total={TOTAL_STEPS}
-      title="Présente-nous ton cheval"
-      subtitle="Le nom suffit pour commencer — tu pourras compléter sa fiche plus tard."
+      title={tr("Présente-nous ton cheval")}
+      subtitle={tr("Le nom suffit pour commencer — tu pourras compléter sa fiche plus tard.")}
       ctaDisabled={editingHorse.name.trim().length === 0}
       onNext={() => router.push("/(onboarding)/horses")}
     >
@@ -39,7 +40,7 @@ export default function HorseBasics() {
           onPress={pickPhoto}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Choisir une photo du cheval"
+          accessibilityLabel={tr("Choisir une photo du cheval")}
           className="h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-dashed border-border bg-surface"
         >
           {editingHorse.photoUrl ? (
@@ -49,24 +50,24 @@ export default function HorseBasics() {
           )}
         </TouchableOpacity>
         <Text className="mt-2 text-xs text-muted">
-          {editingHorse.photoUrl ? "Changer la photo" : "Ajouter une photo"}
+          {editingHorse.photoUrl ? tr("Changer la photo") : tr("Ajouter une photo")}
         </Text>
       </View>
 
-      <Field label="Nom du cheval">
+      <Field label={tr("Nom du cheval")}>
         <TextInput
           className={INPUT}
-          placeholder="Ex : Quabar des Monts"
+          placeholder={tr("Ex : Quabar des Monts")}
           value={editingHorse.name}
           onChangeText={(name) => updateEditingHorse({ name })}
           autoCapitalize="words"
         />
       </Field>
 
-      <Field label="Année de naissance">
+      <Field label={tr("Année de naissance")}>
         <TextInput
           className={INPUT}
-          placeholder={`Ex : ${currentYear - 8}`}
+          placeholder={tr("Ex : {v}", { v: currentYear - 8 })}
           keyboardType="number-pad"
           maxLength={4}
           value={editingHorse.birthYear ? String(editingHorse.birthYear) : ""}
@@ -77,7 +78,7 @@ export default function HorseBasics() {
         />
       </Field>
 
-      <Field label="Sexe">
+      <Field label={tr("Sexe")}>
         <SingleSelect
           options={HORSE_SEXES}
           value={editingHorse.sex}
@@ -90,10 +91,10 @@ export default function HorseBasics() {
 
       <View className="flex-row gap-3">
         <View className="flex-1">
-          <Field label="Taille au garrot (cm)">
+          <Field label={tr("Taille au garrot (cm)")}>
             <TextInput
               className={INPUT}
-              placeholder="Ex : 165"
+              placeholder={tr("Ex : 165")}
               keyboardType="number-pad"
               maxLength={3}
               value={editingHorse.heightCm ? String(editingHorse.heightCm) : ""}
@@ -105,10 +106,10 @@ export default function HorseBasics() {
           </Field>
         </View>
         <View className="flex-1">
-          <Field label="Poids (kg)">
+          <Field label={tr("Poids (kg)")}>
             <TextInput
               className={INPUT}
-              placeholder="Ex : 550"
+              placeholder={tr("Ex : 550")}
               keyboardType="number-pad"
               maxLength={4}
               value={editingHorse.weightKg ? String(editingHorse.weightKg) : ""}

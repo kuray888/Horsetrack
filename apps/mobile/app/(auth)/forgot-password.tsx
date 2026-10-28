@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Alert, Image, Text, TextInput, View } from "react-native";
+import { Alert, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
+import { BrandMark } from "@/components/BrandMark";
+import { t } from "@/i18n";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -22,8 +24,8 @@ export default function ForgotPasswordScreen() {
       // Même message succès ou échec côté Supabase (y compris email inconnu en
       // base) : ne jamais laisser deviner si un email existe ou non.
       Alert.alert(
-        "Vérifie tes emails",
-        "Si un compte existe avec cette adresse, un lien de réinitialisation vient de t'être envoyé."
+        t("Vérifie tes emails"),
+        t("Si un compte existe avec cette adresse, un lien de réinitialisation vient de t'être envoyé.")
       );
       if (!error) router.back();
     } catch (e) {
@@ -31,8 +33,8 @@ export default function ForgotPasswordScreen() {
       // cf. login.tsx) : ne pas laisser le bouton bloqué sur "Envoi..." ni
       // planter l'app (cf. audit du 2026-09-08).
       Alert.alert(
-        "Erreur",
-        e instanceof Error ? e.message : "Impossible d'envoyer le lien pour l'instant. Vérifie ta connexion et réessaie."
+        t("Erreur"),
+        e instanceof Error ? e.message : t("Impossible d'envoyer le lien pour l'instant. Vérifie ta connexion et réessaie.")
       );
     } finally {
       setLoading(false);
@@ -42,19 +44,15 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-8">
-        <Image
-          source={require("../../assets/logo-mark.png")}
-          style={{ width: 72, height: 72, alignSelf: "center" }}
-          resizeMode="contain"
-        />
+        <BrandMark size={72} style={{ alignSelf: "center" }} />
         <View className="gap-2">
-          <Text className="text-2xl font-display tracking-tight text-text">Mot de passe oublié</Text>
+          <Text className="text-2xl font-display tracking-tight text-text">{t("Mot de passe oublié")}</Text>
           <Text className="text-base text-muted">
-            Indique ton email, on t&apos;envoie un lien pour le réinitialiser.
+            {t("Indique ton email, on t'envoie un lien pour le réinitialiser.")}
           </Text>
         </View>
 
-        <Field label="Email">
+        <Field label={t("Email")}>
           <TextInput
             className={INPUT}
             placeholder="toi@exemple.com"
@@ -70,7 +68,7 @@ export default function ForgotPasswordScreen() {
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
-          label={loading ? "Envoi..." : "Envoyer le lien"}
+          label={loading ? "Envoi..." : t("Envoyer le lien")}
           disabled={loading || !email.trim()}
           onPress={sendResetLink}
         />

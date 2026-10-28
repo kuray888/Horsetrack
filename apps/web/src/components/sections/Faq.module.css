@@ -1,0 +1,143 @@
+.grid {
+  display: grid;
+  gap: 40px;
+}
+
+.head {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 20px;
+}
+
+.contact {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  max-width: 420px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.contact a {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.contactIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--sky-soft);
+  color: var(--ink-2);
+}
+
+.contactTitle {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.item {
+  border-radius: var(--radius);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.item[open] {
+  border-color: rgba(50, 149, 230, 0.35);
+  box-shadow: var(--shadow-sm);
+}
+
+.item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius);
+}
+
+.item summary::-webkit-details-marker {
+  display: none;
+}
+
+.item summary h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.12rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--sky-soft);
+  color: var(--ink-2);
+  transition:
+    transform 0.35s var(--ease-out),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.item[open] .toggle {
+  transform: rotate(45deg);
+  background: var(--ink);
+  color: #fff;
+}
+
+.item p {
+  padding: 0 22px 22px;
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+
+/* Ouverture animée là où le navigateur sait animer <details>. */
+@supports selector(::details-content) {
+  @media (prefers-reduced-motion: no-preference) {
+    .item::details-content {
+      height: 0;
+      overflow: clip;
+      transition:
+        height 0.4s var(--ease-out),
+        content-visibility 0.4s allow-discrete;
+    }
+
+    .item[open]::details-content {
+      height: auto;
+    }
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(40px, 6vw, 88px);
+  }
+
+  .head {
+    position: sticky;
+    top: calc(var(--header-h) + 32px);
+  }
+}

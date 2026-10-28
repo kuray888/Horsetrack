@@ -1,0 +1,30 @@
+.badge {
+  display: inline-block;
+  line-height: 0;
+  border-radius: 11px;
+  transition:
+    transform 0.25s var(--ease-out),
+    box-shadow 0.25s var(--ease-out);
+  box-shadow: 0 10px 24px -12px rgba(8, 31, 56, 0.55);
+}
+
+.badge img {
+  width: auto;
+}
+
+.md img {
+  height: 50px;
+}
+
+.lg img {
+  height: 56px;
+}
+
+.badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -12px rgba(8, 31, 56, 0.6);
+}
+
+.badge:active {
+  transform: translateY(0);
+}

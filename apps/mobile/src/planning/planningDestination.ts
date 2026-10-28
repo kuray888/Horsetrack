@@ -39,3 +39,25 @@ export function isNewPlanningDestination(
 ): boolean {
   return nextFilterParam !== prevFilterParam && PLANNING_FILTER_VALUES.includes(nextFilterParam as PlanningFilterValue);
 }
+
+/**
+ * Formulaires que le Planning sait ouvrir à l'arrivée (`?openForm=…&ts=…`).
+ * Le Planning a tous les formulaires d'ajout (séance, rendez-vous, dépense,
+ * souvenir) : un écran qui n'en a pas un — Journal, Chevaux — y envoie le
+ * choix fait dans la feuille d'ajout (cf. components/QuickAddSheet.tsx), pour
+ * que le « + » propose partout la même chose sans dupliquer de formulaire.
+ */
+export type PlanningOpenForm = "session" | "soin" | "rendezvous" | "concours" | "depense" | "journal";
+
+const OPEN_FORMS: PlanningOpenForm[] = ["session", "soin", "rendezvous", "concours", "depense", "journal"];
+
+export function parseOpenForm(value: string | undefined): PlanningOpenForm | null {
+  return OPEN_FORMS.includes(value as PlanningOpenForm) ? (value as PlanningOpenForm) : null;
+}
+
+/** Choix de la feuille d'ajout → formulaire du Planning ; null pour ce qui
+ * n'en est pas un (séance en direct, nouveau cheval : écrans à part). */
+export function openFormForQuickAdd(option: string): PlanningOpenForm | null {
+  if (option === "seance") return "session";
+  return option === "session" ? null : parseOpenForm(option);
+}

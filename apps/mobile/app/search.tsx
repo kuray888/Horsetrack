@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { colors } from "@/theme/colors";
@@ -11,6 +11,7 @@ import { useAgenda, ACTIVITY_META } from "@/agenda/store";
 import { APPT_META, DOC_META, EXPENSE_META, formatAmount } from "@/agenda/meta";
 import { formatDate } from "@/lib/dateFormat";
 import { MIN_QUERY_LENGTH, searchEntries, type SearchKind, type SearchResult } from "@/search/search";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -19,11 +20,11 @@ const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-t
  * et la couleur qu'il a déjà dans le reste de l'app — un résultat de
  * recherche doit ressembler à ce qu'on retrouvera en y allant. */
 const KIND_META: Record<SearchKind, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
-  session: { label: "Séance", icon: "horse-variant" },
-  appointment: { label: "Rendez-vous", icon: "calendar-blank-outline" },
-  journal: { label: "Journal", icon: "notebook-outline" },
-  expense: { label: "Dépense", icon: "wallet-outline" },
-  document: { label: "Document", icon: "folder-outline" },
+  session: { label: t("Séance"), icon: "horse-variant" },
+  appointment: { label: t("Rendez-vous"), icon: "calendar-blank-outline" },
+  journal: { label: t("Journal"), icon: "notebook-outline" },
+  expense: { label: t("Dépense"), icon: "wallet-outline" },
+  document: { label: t("Document"), icon: "folder-outline" },
 };
 
 /**
@@ -111,14 +112,18 @@ export default function SearchScreen() {
    * dans la fiche de leur cheval ; sans cheval rattaché (entrée ancienne),
    * on ne peut pas y aller — on laisse alors le résultat non cliquable
    * plutôt que d'ouvrir un écran au hasard. */
+  // Vers un onglet : `dismissTo`, jamais `push`. La recherche est une fenêtre
+  // empilée au-dessus des onglets, et `push` y empilait une SECONDE instance
+  // des onglets — le crash documenté dans horses/horseHubNavigation.test.ts.
+  // `dismissTo` ferme la recherche et revient sur les onglets existants.
   function destinationFor(result: SearchResult): (() => void) | null {
     switch (result.kind) {
       case "session":
-        return () => router.push("/(tabs)/planning?filter=session");
+        return () => router.dismissTo("/(tabs)/planning?filter=session");
       case "appointment":
-        return () => router.push("/(tabs)/planning");
+        return () => router.dismissTo("/(tabs)/planning");
       case "journal":
-        return () => router.push(result.horseId ? `/(tabs)/journal?horse=${result.horseId}` : "/(tabs)/journal");
+        return () => router.dismissTo(result.horseId ? `/(tabs)/journal?horse=${result.horseId}` : "/(tabs)/journal");
       case "expense":
         return result.horseId ? () => router.push(`/horse/${result.horseId}/budget`) : null;
       case "document":
@@ -130,8 +135,8 @@ export default function SearchScreen() {
     <Screen>
       <FadeInView>
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-display tracking-tight text-text">Rechercher</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+          <Text className="text-2xl font-display tracking-tight text-text">{t("Rechercher")}</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
             <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -140,7 +145,7 @@ export default function SearchScreen() {
       <FadeInView delay={40}>
         <TextInput
           className={INPUT}
-          placeholder="Vaccin, maréchal, facture, une note…"
+          placeholder={t("Vaccin, maréchal, facture, une note…")}
           value={query}
           onChangeText={setQuery}
           autoFocus
@@ -157,7 +162,7 @@ export default function SearchScreen() {
               <MaterialCommunityIcons name="magnify" size={22} color={colors.textMuted} />
             </View>
             <Text className="text-center text-sm text-muted">
-              Cherche dans les séances, rendez-vous, entrées de journal, dépenses et documents — de tous tes chevaux.
+              {t("Cherche dans les séances, rendez-vous, entrées de journal, dépenses et documents — de tous tes chevaux.")}
             </Text>
           </View>
         </FadeInView>
@@ -165,7 +170,7 @@ export default function SearchScreen() {
         <FadeInView delay={80}>
           <View className={`${CARD} items-center gap-2`}>
             <Text className="text-center text-sm text-muted">
-              Rien ne correspond à « {query.trim()} ». Essaie un mot plus court, ou le nom du professionnel.
+              {t("Rien ne correspond à « ")}{query.trim()} {t(" ». Essaie un mot plus court, ou le nom du professionnel.")}
             </Text>
           </View>
         </FadeInView>

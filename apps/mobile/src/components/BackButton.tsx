@@ -1,7 +1,8 @@
 import { TouchableOpacity } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { t } from "@/i18n";
 
 /** Chevron de retour réutilisable pour les écrans poussés (push, pas modale)
  * qui n'ont pas de header natif (cf. app/_layout.tsx, headerShown: false
@@ -22,7 +23,7 @@ export function BackButton({ onPress }: { onPress?: () => void }) {
     <TouchableOpacity
       onPress={onPress ?? (() => router.back())}
       hitSlop={12}
-      accessibilityLabel="Retour"
+      accessibilityLabel={t("Retour")}
       accessibilityRole="button"
       className="-ml-2 h-9 w-9 items-center justify-center"
     >

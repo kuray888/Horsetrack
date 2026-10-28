@@ -29,3 +29,31 @@ jobs:
             echo "Request failed with HTTP $status"
             exit 1
           fi
+      # Sécurité en balade : téléphone muet depuis 15 min, balades oubliées,
+      # purge (cf. apps/api/src/app/api/cron/ride-safety/route.ts). Étape à part :
+      # son échec ne doit pas masquer celui, ou la réussite, des rappels.
+      - name: Call /api/cron/ride-safety
+        if: always()
+        run: |
+          status=$(curl -s -o /tmp/body.txt -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "$API_BASE_URL/api/cron/ride-safety")
+          cat /tmp/body.txt
+          if [ "$status" -ge 300 ]; then
+            echo "Request failed with HTTP $status"
+            exit 1
+          fi
+      # Coach : envoi et relève des résumés du mois en lot (Batch API), cf.
+      # apps/api/src/app/api/cron/coach-summaries/route.ts. Sans effet tant
+      # que COACH_ENABLED n'est pas à 1 sur Vercel.
+      - name: Call /api/cron/coach-summaries
+        if: always()
+        run: |
+          status=$(curl -s -o /tmp/body.txt -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "$API_BASE_URL/api/cron/coach-summaries")
+          cat /tmp/body.txt
+          if [ "$status" -ge 300 ]; then
+            echo "Request failed with HTTP $status"
+            exit 1
+          fi

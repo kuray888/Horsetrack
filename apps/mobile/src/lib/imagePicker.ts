@@ -4,6 +4,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import { buildPdf, parseImageForPdf, sniffImageKind, type PdfPageImage } from "@/lib/pdfBuilder";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
+import { t } from "@/i18n";
 
 /** Demande l'accès à la photothèque ; explique comment le rétablir si
  * l'utilisateur l'a refusé définitivement. Renvoie false si l'accès manque. */
@@ -17,11 +18,11 @@ async function ensurePhotoLibraryAccess(): Promise<boolean> {
   // audit technique pré-V1 §6).
   if (!canAskAgain) {
     Alert.alert(
-      "Accès aux photos refusé",
-      "Autorise Horsetrack à accéder à tes photos dans les réglages de ton téléphone pour ajouter une image.",
+      t("Accès aux photos refusé"),
+      t("Autorise Horsetrack à accéder à tes photos dans les réglages de ton téléphone pour ajouter une image."),
       [
-        { text: "Annuler", style: "cancel" },
-        { text: "Ouvrir les réglages", onPress: () => Linking.openSettings() },
+        { text: t("Annuler"), style: "cancel" },
+        { text: t("Ouvrir les réglages"), onPress: () => Linking.openSettings() },
       ]
     );
   }
@@ -35,11 +36,11 @@ async function ensureCameraAccess(): Promise<boolean> {
   if (status === "granted") return true;
   if (!canAskAgain) {
     Alert.alert(
-      "Accès à l'appareil photo refusé",
-      "Autorise Horsetrack à utiliser l'appareil photo dans les réglages de ton téléphone.",
+      t("Accès à l'appareil photo refusé"),
+      t("Autorise Horsetrack à utiliser l'appareil photo dans les réglages de ton téléphone."),
       [
-        { text: "Annuler", style: "cancel" },
-        { text: "Ouvrir les réglages", onPress: () => Linking.openSettings() },
+        { text: t("Annuler"), style: "cancel" },
+        { text: t("Ouvrir les réglages"), onPress: () => Linking.openSettings() },
       ]
     );
   }
@@ -75,13 +76,13 @@ function chooseAmong(title: string, options: string[]): Promise<number | null> {
   return new Promise((resolve) => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
-        { title, options: [...options, "Annuler"], cancelButtonIndex: options.length },
+        { title, options: [...options, t("Annuler")], cancelButtonIndex: options.length },
         (index) => resolve(index === options.length ? null : index)
       );
       return;
     }
     const buttons = options.slice(0, 3).map((text, i) => ({ text, onPress: () => resolve(i) }));
-    if (buttons.length < 3) buttons.push({ text: "Annuler", onPress: () => resolve(null) });
+    if (buttons.length < 3) buttons.push({ text: t("Annuler"), onPress: () => resolve(null) });
     Alert.alert(title, undefined, buttons, { cancelable: true, onDismiss: () => resolve(null) });
   });
 }
@@ -92,7 +93,7 @@ function chooseAmong(title: string, options: string[]): Promise<number | null> {
  * ou null si annulé/refusé).
  */
 export async function chooseAndPersistImage(options: { crop?: boolean } = {}): Promise<string | null> {
-  const choice = await chooseAmong("Ajouter une photo", ["Prendre une photo", "Choisir dans Photos"]);
+  const choice = await chooseAmong(t("Ajouter une photo"), [t("Prendre une photo"), t("Choisir dans Photos")]);
   if (choice === null) return null;
   if (choice === 1) return pickAndPersistImage(options);
   try {
@@ -156,6 +157,47 @@ export async function pickAndPersistImage(options: { crop?: boolean } = {}): Pro
     return dest.uri;
   } catch {
     // Best-effort : cf. audit crash SecureStore/modules natifs du 2026-09-08.
+    return null;
+  }
+}
+
+/** Vidéo d'un souvenir (Premium) : 60 s au plus, qualité moyenne (quelques
+ * Mo par minute), recadrable dans le sélecteur. Copiée dans Documents comme
+ * les photos, pour survivre aux mises à jour de l'app. */
+export const MAX_VIDEO_SECONDS = 60;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+
+export async function pickAndPersistVideo(): Promise<string | null> {
+  try {
+    if (!(await runNativeInteraction(ensurePhotoLibraryAccess))) return null;
+    const result = await runNativeInteraction(() =>
+      ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        allowsEditing: true,
+        videoMaxDuration: MAX_VIDEO_SECONDS,
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+        videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
+      })
+    );
+    if (result.canceled || !result.assets[0]) return null;
+    const asset = result.assets[0];
+    if (asset.duration && asset.duration / 1000 > MAX_VIDEO_SECONDS + 1) {
+      Alert.alert(t("Vidéo trop longue"), t("Garde une vidéo de 60 secondes au plus : coupe-la dans le sélecteur."));
+      return null;
+    }
+    const source = new File(asset.uri);
+    if (source.size && source.size > MAX_VIDEO_BYTES) {
+      Alert.alert(t("Vidéo trop lourde"), t("Cette vidéo dépasse 50 Mo. Choisis-en une plus courte."));
+      return null;
+    }
+    const dest = new File(Paths.document, `journal-video-${Date.now()}.mp4`);
+    try {
+      source.copy(dest);
+    } catch {
+      return null;
+    }
+    return dest.uri;
+  } catch {
     return null;
   }
 }
@@ -253,10 +295,8 @@ async function pickDocumentPhotos(): Promise<string | null> {
   // savoir est pire qu'un refus explicite.
   if (unsupported > 0) {
     Alert.alert(
-      "Certaines images ne peuvent pas être regroupées",
-      `${unsupported} image${unsupported > 1 ? "s" : ""} sur ${result.assets.length} ${
-        unsupported > 1 ? "sont" : "est"
-      } dans un format non pris en charge (capture d'écran avec transparence, par exemple). Choisis plutôt des photos, ou joins un fichier PDF.`
+      t("Certaines images ne peuvent pas être regroupées"),
+      t("{unsupported} image{v} sur {length} {v2} dans un format non pris en charge (capture d'écran avec transparence, par exemple). Choisis plutôt des photos, ou joins un fichier PDF.", { unsupported: unsupported, v: unsupported > 1 ? "s" : "", length: result.assets.length, v2: unsupported > 1 ? "sont" : "est" })
     );
     return null;
   }
@@ -268,8 +308,8 @@ async function pickDocumentPhotos(): Promise<string | null> {
   const pdf = buildPdf(pages);
   if (pdf.length > MAX_DOCUMENT_BYTES) {
     Alert.alert(
-      "Document trop volumineux",
-      `Ces ${pages.length} pages dépassent 25 Mo une fois regroupées. Sélectionne moins de pages, quitte à créer un second document.`
+      t("Document trop volumineux"),
+      t("Ces {length} pages dépassent 25 Mo une fois regroupées. Sélectionne moins de pages, quitte à créer un second document.", { length: pages.length })
     );
     return null;
   }
@@ -292,7 +332,7 @@ async function pickDocumentFile(): Promise<string | null> {
 
   const asset = result.assets[0];
   if (asset.size != null && asset.size > MAX_DOCUMENT_BYTES) {
-    Alert.alert("Fichier trop volumineux", "Ce fichier dépasse 25 Mo. Choisis-en un plus léger.");
+    Alert.alert(t("Fichier trop volumineux"), t("Ce fichier dépasse 25 Mo. Choisis-en un plus léger."));
     return null;
   }
   return persistDocumentCopy(asset.uri, documentExtension(asset.name ?? asset.uri, asset.mimeType));
@@ -315,7 +355,7 @@ export async function pickAndPersistDocument(source: DocumentSource): Promise<st
       source === "photos" ? pickDocumentPhotos() : pickDocumentFile()
     );
   } catch {
-    Alert.alert("Impossible d'ajouter ce document", "Une erreur est survenue. Réessaie, ou choisis un autre fichier.");
+    Alert.alert(t("Impossible d'ajouter ce document"), t("Une erreur est survenue. Réessaie, ou choisis un autre fichier."));
     return null;
   }
 }
@@ -331,10 +371,10 @@ export async function pickAndPersistDocument(source: DocumentSource): Promise<st
  * l'app Photos.
  */
 export async function chooseAndPickDocument(): Promise<string | null> {
-  const choice = await chooseAmong("Joindre un document", [
-    "Prendre une photo",
-    "Photos (plusieurs pages possibles)",
-    "Fichier PDF ou image",
+  const choice = await chooseAmong(t("Joindre un document"), [
+    t("Prendre une photo"),
+    t("Photos (plusieurs pages possibles)"),
+    t("Fichier PDF ou image"),
   ]);
   if (choice === null) return null;
   if (choice === 1) return pickAndPersistDocument("photos");
@@ -342,7 +382,7 @@ export async function chooseAndPickDocument(): Promise<string | null> {
   try {
     return await runNativeInteraction(() => takePhoto(false, "document"));
   } catch {
-    Alert.alert("Impossible d'ajouter ce document", "Une erreur est survenue. Réessaie, ou choisis une photo existante.");
+    Alert.alert(t("Impossible d'ajouter ce document"), t("Une erreur est survenue. Réessaie, ou choisis une photo existante."));
     return null;
   }
 }

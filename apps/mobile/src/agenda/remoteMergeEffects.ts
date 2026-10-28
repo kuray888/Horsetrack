@@ -1,6 +1,7 @@
 import { cancelReminder, computeReminderTrigger, scheduleReminder } from "@/lib/notifications";
 import { cancelEmailReminder, scheduleEmailReminder } from "@/lib/emailReminders";
 import { appointmentReminderContent, nextDueReminderContent } from "@/agenda/reminderContent";
+import { appointmentReminderUrl, nextDueReminderUrl } from "@/lib/notificationLinks";
 import type { Appointment } from "@/agenda/store";
 
 /**
@@ -60,7 +61,14 @@ export async function rescheduleReminders(
   if (trigger) {
     const content = appointmentReminderContent(after.title, after.date, after.time, after.location, horseName);
     [reminderNotificationId, emailReminderId] = await Promise.all([
-      before.reminderNotificationId ? scheduleReminder(content.title, content.body, trigger).catch(() => null) : null,
+      before.reminderNotificationId
+        ? scheduleReminder(
+            content.title,
+            content.body,
+            trigger,
+            appointmentReminderUrl(after.type, after.horseId)
+          ).catch(() => null)
+        : null,
       before.emailReminderId ? scheduleEmailReminder(trigger, content.title, content.body) : null,
     ]);
   }
@@ -69,7 +77,12 @@ export async function rescheduleReminders(
   if (before.nextDueNotificationId && after.nextDueDate) {
     const content = nextDueReminderContent(after.type, after.title, after.nextDueDate, horseName);
     if (content.trigger) {
-      nextDueNotificationId = await scheduleReminder(content.title, content.body, content.trigger).catch(() => null);
+      nextDueNotificationId = await scheduleReminder(
+        content.title,
+        content.body,
+        content.trigger,
+        nextDueReminderUrl(after.horseId)
+      ).catch(() => null);
     }
   }
   return { reminderNotificationId, emailReminderId, nextDueNotificationId };

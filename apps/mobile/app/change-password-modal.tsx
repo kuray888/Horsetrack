@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { colors } from "@/theme/colors";
+import { t } from "@/i18n";
 
 function PasswordField({
   label,
@@ -117,7 +118,7 @@ export default function ChangePasswordModal() {
     try {
       if (hasPassword) {
         if (!email) {
-          Alert.alert("Erreur", "Impossible de vérifier ton compte pour l'instant. Reconnecte-toi et réessaie.");
+          Alert.alert(t("Erreur"), t("Impossible de vérifier ton compte pour l'instant. Reconnecte-toi et réessaie."));
           return;
         }
         const { error: reauthError } = await supabase.auth.signInWithPassword({
@@ -126,12 +127,12 @@ export default function ChangePasswordModal() {
         });
         if (reauthError) {
           if (isInvalidCredentialsError(reauthError.message)) {
-            Alert.alert("Erreur", "Le mot de passe actuel est incorrect.");
+            Alert.alert(t("Erreur"), t("Le mot de passe actuel est incorrect."));
           } else if (isSessionMissingError(reauthError.message)) {
-            Alert.alert("Session expirée", "Reconnecte-toi pour changer ton mot de passe.");
+            Alert.alert(t("Session expirée"), t("Reconnecte-toi pour changer ton mot de passe."));
             router.replace("/(auth)/login");
           } else {
-            Alert.alert("Erreur", translateAuthError(reauthError.message));
+            Alert.alert(t("Erreur"), translateAuthError(reauthError.message));
           }
           return;
         }
@@ -140,24 +141,24 @@ export default function ChangePasswordModal() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
         if (isSessionMissingError(error.message)) {
-          Alert.alert("Session expirée", "Reconnecte-toi pour changer ton mot de passe.");
+          Alert.alert(t("Session expirée"), t("Reconnecte-toi pour changer ton mot de passe."));
           router.replace("/(auth)/login");
         } else if (isWeakPasswordError(error.message)) {
-          Alert.alert("Mot de passe trop faible", "Choisis un mot de passe plus long ou plus complexe.");
+          Alert.alert(t("Mot de passe trop faible"), t("Choisis un mot de passe plus long ou plus complexe."));
         } else {
-          Alert.alert("Erreur", translateAuthError(error.message));
+          Alert.alert(t("Erreur"), translateAuthError(error.message));
         }
         return;
       }
 
-      Alert.alert("Mot de passe modifié", "Ton mot de passe a bien été mis à jour.");
+      Alert.alert(t("Mot de passe modifié"), t("Ton mot de passe a bien été mis à jour."));
       router.back();
     } catch (e) {
       Alert.alert(
-        "Erreur",
+        t("Erreur"),
         e instanceof Error
           ? translateAuthError(e.message)
-          : "Impossible de mettre à jour le mot de passe pour l'instant. Vérifie ta connexion et réessaie."
+          : t("Impossible de mettre à jour le mot de passe pour l'instant. Vérifie ta connexion et réessaie.")
       );
     } finally {
       setLoading(false);
@@ -167,8 +168,8 @@ export default function ChangePasswordModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="text-2xl font-display tracking-tight text-text">Changer le mot de passe</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+        <Text className="text-2xl font-display tracking-tight text-text">{t("Changer le mot de passe")}</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
           <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>
       </View>
@@ -182,45 +183,44 @@ export default function ChangePasswordModal() {
           <View className="gap-5 px-5 pt-6">
             {hasPassword ? (
               <PasswordField
-                label="Mot de passe actuel"
+                label={t("Mot de passe actuel")}
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
-                placeholder="Ton mot de passe actuel"
+                placeholder={t("Ton mot de passe actuel")}
                 visible={showCurrent}
                 onToggleVisible={() => setShowCurrent((v) => !v)}
                 autoComplete="current-password"
               />
             ) : (
               <Text className="text-sm text-muted">
-                Ton compte est connecté avec Apple — définis ci-dessous un mot de passe pour pouvoir aussi te
-                connecter avec ton email.
+                {t("Ton compte est connecté avec Apple — définis ci-dessous un mot de passe pour pouvoir aussi te connecter avec ton email.")}
               </Text>
             )}
 
             <PasswordField
-              label="Nouveau mot de passe"
+              label={t("Nouveau mot de passe")}
               value={password}
               onChangeText={setPassword}
-              placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
+              placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
               visible={showNew}
               onToggleVisible={() => setShowNew((v) => !v)}
               autoComplete="new-password"
             />
             {passwordTooShort ? (
-              <Text className="-mt-3 text-xs text-danger">Au moins {MIN_PASSWORD_LENGTH} caractères.</Text>
+              <Text className="-mt-3 text-xs text-danger">{t("Au moins ")}{MIN_PASSWORD_LENGTH} {t(" caractères.")}</Text>
             ) : null}
 
             <PasswordField
-              label="Confirmer le mot de passe"
+              label={t("Confirmer le mot de passe")}
               value={confirm}
               onChangeText={setConfirm}
-              placeholder="Retape ton nouveau mot de passe"
+              placeholder={t("Retape ton nouveau mot de passe")}
               visible={showConfirm}
               onToggleVisible={() => setShowConfirm((v) => !v)}
               autoComplete="new-password"
             />
             {mismatch ? (
-              <Text className="-mt-3 text-xs text-danger">Les mots de passe ne correspondent pas.</Text>
+              <Text className="-mt-3 text-xs text-danger">{t("Les mots de passe ne correspondent pas.")}</Text>
             ) : null}
 
             {hasPassword ? (
@@ -230,14 +230,14 @@ export default function ChangePasswordModal() {
                 hitSlop={8}
                 className="self-start"
               >
-                <Text className="text-sm font-semibold text-accent">Mot de passe oublié ?</Text>
+                <Text className="text-sm font-semibold text-accent">{t("Mot de passe oublié ?")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
 
           <View className="px-5 pb-2 pt-6">
             <PrimaryButton
-              label={loading ? "Enregistrement..." : "Enregistrer"}
+              label={loading ? "Enregistrement..." : t("Enregistrer")}
               disabled={!canSave}
               onPress={submit}
             />

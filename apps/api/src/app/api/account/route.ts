@@ -33,6 +33,9 @@ export async function DELETE(req: NextRequest) {
       : null;
 
   await db.horseCollaborator.deleteMany({ where: { collaboratorUserId: userId } });
+  // Parrainage : les lignes qui nomment ce compte (comme filleul ou parrain)
+  // n'ont pas de clé étrangère, donc pas de cascade.
+  await db.referralUse.deleteMany({ where: { OR: [{ refereeUserId: userId }, { referrerUserId: userId }] } });
 
   // Lu avant la suppression : le cascade Horse→HorseCollaborator (cf.
   // schema.prisma) va couper l'accès de tout collaborateur ACCEPTED sur un

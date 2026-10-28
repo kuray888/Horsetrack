@@ -19,6 +19,15 @@ model User {
   sessions       Session[]
   riderProfile   RiderProfile?
   emailReminders EmailReminder[]
+  rideShares     RideShare[]
+  referralCode   ReferralCode?
+  contacts       RiderContact[]
+  coachCalls       CoachCall[]
+  coachSuggestions CoachSuggestion[]
+  coachSummaries   CoachSummary[]
+  horseComments    HorseComment[]
+  horseReactions   HorseReaction[]
+  pushTokens       PushToken[]
 
   @@map("users")
 }
@@ -83,17 +92,38 @@ model RiderProfile {
 /// statut ou un produit RevenueCat : un code valide prolonge simplement
 /// `trialEndsAt`, exactement comme le ferait un essai gratuit normal.
 model PromoCode {
-  id             String    @id @default(cuid())
+  id                String             @id @default(cuid())
   /// Toujours en majuscules côté serveur (normalisé à la validation).
-  code           String    @unique
-  description    String?
-  /// Durée de l'accès Premium accordé, en jours.
-  premiumDays    Int
-  active         Boolean   @default(true)
-  expiresAt      DateTime?
+  code              String             @unique
+  description       String?
+  /// Ce que le code déclenche (cf. PromoKind). Défaut = comportement d'origine.
+  kind              PromoKind          @default(PREMIUM_DAYS)
+  /// Durée de l'accès Premium accordé, en jours (PREMIUM_DAYS uniquement ;
+  /// 0 pour un STORE_OFFER).
+  premiumDays       Int                @default(0)
+  /// STORE_OFFER : code d'offre réellement saisi dans l'App Store (code
+  /// personnalisé créé dans App Store Connect). Null = identique à `code`.
+  storeOfferCode    String?
+  /// STORE_OFFER : description de la remise configurée dans App Store Connect
+  /// (suivi admin uniquement). Le prix facturé est TOUJOURS celui affiché par
+  /// la feuille Apple, jamais une valeur calculée par l'app ou le serveur.
+  discountType      PromoDiscountType?
+  /// Pourcentage (PERCENT), montant en centimes (AMOUNT) ou nombre de mois
+  /// (FREE_PERIOD).
+  discountValue     Int?
+  active            Boolean            @default(true)
+  /// Avant cette date, le code est refusé (« pas encore valable »).
+  startsAt          DateTime?
+  expiresAt         DateTime?
   /// Nombre total de rédemptions autorisées, tous utilisateurs confondus.
   /// Null = illimité.
-  maxRedemptions Int?
+  maxRedemptions    Int?
+  /// Qui peut utiliser le code (cf. PromoEligibility).
+  eligibility       PromoEligibility   @default(ANYONE)
+  /// Réservé aux comptes créés il y a au plus N jours. Null = sans condition.
+  maxAccountAgeDays Int?
+  /// Regroupement libre pour le suivi (ex. « salon-equita-2026 »).
+  campaign          String?
 
   redemptions PromoCodeRedemption[]
 
@@ -101,6 +131,37 @@ model PromoCode {
   updatedAt DateTime @updatedAt
 
   @@map("promo_codes")
+}
+
+/// PREMIUM_DAYS : accès Premium offert N jours, appliqué par notre serveur
+/// (mécanisme d'essai existant). STORE_OFFER : remise sur l'abonnement
+/// (% , montant, mois offerts) — appliquée UNIQUEMENT par Apple/Google via un
+/// code d'offre store : notre serveur vérifie les conditions puis renvoie
+/// l'adresse de rédemption du store, il ne touche jamais au prix.
+enum PromoKind {
+  PREMIUM_DAYS
+  STORE_OFFER
+
+  @@map("promo_kind")
+}
+
+enum PromoDiscountType {
+  PERCENT
+  AMOUNT
+  FREE_PERIOD
+
+  @@map("promo_discount_type")
+}
+
+enum PromoEligibility {
+  /// Tout compte connecté.
+  ANYONE
+  /// Comptes qui n'ont jamais eu d'abonnement store (revenuecatId absent).
+  NEVER_SUBSCRIBED
+  /// Anciens abonnés dont l'abonnement est terminé (reconquête).
+  LAPSED_SUBSCRIBERS
+
+  @@map("promo_eligibility")
 }
 
 /// Une rédemption par (code, cavalier) — empêche un même compte de réutiliser
@@ -112,11 +173,29 @@ model PromoCodeRedemption {
   riderId     String
   rider       RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
 
+  /// Ce qui s'est passé pour ce compte (cf. PromoRedemptionStatus).
+  status      PromoRedemptionStatus @default(APPLIED)
+  /// Achat store fait avec ce code, vu par le webhook RevenueCat (offer_code).
+  convertedAt DateTime?
+
   redeemedAt DateTime @default(now())
 
   @@unique([promoCodeId, riderId])
   @@index([riderId])
   @@map("promo_code_redemptions")
+}
+
+enum PromoRedemptionStatus {
+  /// Jours Premium accordés.
+  APPLIED
+  /// Compte déjà Premium : code enregistré sans effet.
+  ALREADY_PREMIUM
+  /// Envoyé vers la feuille de rédemption du store, achat non encore vu.
+  STORE_REDIRECTED
+  /// Achat store confirmé avec ce code (webhook RevenueCat).
+  CONVERTED
+
+  @@map("promo_redemption_status")
 }
 
 /// Cheval — N par cavalier (multi-cheval natif et illimité).
@@ -161,6 +240,12 @@ model Horse {
   expenses           Expense[]
   documents          Document[]
   weightMeasurements HorseWeightMeasurement[]
+  sessionRides       TrainingSessionRide[]
+  details            HorseDetails?
+  coachSuggestions   CoachSuggestion[]
+  coachSummaries     CoachSummary[]
+  comments           HorseComment[]
+  reactions          HorseReaction[]
 
   @@index([ownerId])
   @@map("horses")
@@ -296,22 +381,22 @@ model Appointment {
   horseId String
   horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
 
-  type      AppointmentType
-  title     String
-  date      DateTime
-  time      String
-  location  String
-  notes     String
+  type             AppointmentType
+  title            String
+  date             DateTime
+  time             String
+  location         String
+  notes            String
   /// "none"/"1h"/"1d"/"1w" — 4 valeurs fixes, pas besoin d'un enum dédié.
-  reminder  String
+  reminder         String
   /// Résultat saisi après l'épreuve (concours uniquement).
-  result    String?
+  result           String?
   /// Checklist de préparation (concours uniquement), sérialisée en JSON —
   /// volume/complexité trop faible pour justifier une table dédiée.
-  checklist Json?
+  checklist        Json?
   /// Numéro de dossard (concours uniquement) — un dossard par cheval par
   /// concours, pas par épreuve.
-  dossard   String?
+  dossard          String?
   /// "national" | "international" (concours uniquement) — deux valeurs fixes,
   /// pas besoin d'un enum dédié (même choix que `reminder`).
   competitionLevel String?
@@ -373,6 +458,8 @@ model JournalEntry {
   horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
 
   activityType ActivityType
+  /// Type précis hors enum (cf. activityKinds.ts).
+  activityKind String?
   mood         Mood
   notes        String
   date         DateTime
@@ -387,6 +474,8 @@ model JournalEntry {
   /// (cf. lib/cloudSync.ts). Une seule photo par entrée pour V1, pas de
   /// galerie. Null tant qu'aucune photo n'a été ajoutée.
   photoPath    String?
+  /// Vidéo du souvenir (Premium) : "{horseId}/journal/{id}.mp4".
+  videoPath    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -413,6 +502,8 @@ model TrainingSession {
   /// filtrage/les statistiques ; l'affichage préfère ce libellé quand il est
   /// renseigné (cf. SessionCard.tsx). Null pour toute séance standard.
   customActivityLabel String?
+  /// Type précis quand il n'existe pas dans l'enum (cf. activityKinds.ts).
+  activityKind        String?
   date                DateTime
   time                String
   durationMinutes     Int?
@@ -426,11 +517,46 @@ model TrainingSession {
   /// simple "fait / pas fait".
   completed           Boolean      @default(false)
 
+  ride TrainingSessionRide?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([horseId])
   @@map("training_sessions")
+}
+
+/// Parcours d'une séance enregistrée en direct (chrono, GPS, allures
+/// estimées) — une ligne par séance, id = id de la séance. Table séparée de
+/// training_sessions : la synchro d'une séance ne dépend jamais de celle de
+/// son parcours (cf. apps/mobile/src/lib/cloudSync.ts).
+model TrainingSessionRide {
+  id        String          @id
+  sessionId String          @unique
+  session   TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  horseId   String
+  horse     Horse           @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  distanceMeters  Int      @default(0)
+  walkSeconds     Int      @default(0)
+  trotSeconds     Int      @default(0)
+  canterSeconds   Int      @default(0)
+  haltSeconds     Int      @default(0)
+  maxSpeedKmh     Float    @default(0)
+  avgSpeedKmh     Float    @default(0)
+  /// Faux pour une séance chronométrée sans GPS (manège couvert).
+  gps             Boolean  @default(true)
+  /// Polyligne encodée (cf. apps/mobile/src/rides/rideMath.ts).
+  route           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@map("training_session_rides")
 }
 
 /// Dépense liée à un cheval — même logique de rattachement/partage que
@@ -777,4 +903,243 @@ model EmailReminder {
   @@index([userId])
   @@index([sendAt, sentAt])
   @@map("email_reminders")
+}
+
+/// Sécurité en balade (Premium) : position partagée avec des proches pendant
+/// une séance en direct, et alerte quand le cavalier ne bouge plus. Réservée à
+/// l'API (RLS sans policy). L'id est le jeton du lien de suivi /suivi/<id>.
+/// Seule la dernière position est gardée.
+model RideShare {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  riderName String
+  horseName String
+  /// [{ name, email }] — 1 à 3 proches.
+  contacts  Json
+  /// ACTIVE, ALERT (alerte envoyée), ENDED.
+  status    String @default("ACTIVE")
+
+  startedAt        DateTime  @default(now())
+  lastLat          Float?
+  lastLng          Float?
+  lastAccuracy     Float?
+  lastPointAt      DateTime?
+  alertSentAt      DateTime?
+  staleAlertSentAt DateTime?
+  endedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("ride_shares")
+}
+
+/// Parrainage : un code par cavalier (cf. apps/api/src/lib/referrals.ts).
+/// Réservé à l'API (RLS sans policy).
+model ReferralCode {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code   String @unique
+
+  createdAt DateTime @default(now())
+
+  @@map("referral_codes")
+}
+
+/// Un filleul (une ligne par compte parrainé). `rewardedAt` : mois offert au
+/// parrain au premier paiement du filleul (webhook RevenueCat).
+model ReferralUse {
+  refereeUserId  String    @id
+  referrerUserId String
+  code           String
+  rewardedAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([referrerUserId])
+  @@map("referral_uses")
+}
+
+/// Identité, alimentation et demi-pension d'un cheval (cf.
+/// apps/mobile/src/extras/model.ts) — une ligne par cheval.
+model HorseDetails {
+  horseId     String @id
+  horse       Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  identity    Json   @default("{}")
+  feeding     Json   @default("{}")
+  partnership Json   @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("horse_details")
+}
+
+/// Carnet de contacts du cavalier (véto, maréchal…).
+model RiderContact {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  role   String @default("autre")
+  phone  String @default("")
+  email  String @default("")
+  notes  String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("rider_contacts")
+}
+
+// --- Bloc C (cf. bloc-c-2026-10-28.sql) -------------------------------------
+
+/// Journal des appels au coach IA (cf. apps/api/src/lib/coach) : tokens,
+/// coût estimé, issue — jamais le contenu. Sert aussi aux quotas et au
+/// plafond de dépense mensuel. Réservé à l'API (RLS sans policy).
+model CoachCall {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// suggestion, question, summary.
+  kind   String
+  model  String
+  /// ok, fallback, medical, refusal, error, cached.
+  status String
+
+  inputTokens      Int     @default(0)
+  outputTokens     Int     @default(0)
+  cacheReadTokens  Int     @default(0)
+  cacheWriteTokens Int     @default(0)
+  /// Coût estimé en millionièmes de dollar.
+  costMicros       Int     @default(0)
+  errorCode        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("coach_calls")
+}
+
+/// « Ta prochaine séance » du jour, une par cheval et par jour : relue au
+/// lieu de rappeler le coach (quota, coût). Réservé à l'API.
+model CoachSuggestion {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  horseId String
+  horse   Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  /// AAAA-MM-JJ (jour du téléphone).
+  day     String
+  result  Json
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, horseId, day])
+  @@map("coach_suggestions")
+}
+
+/// Résumé du mois, calculé en lot (Batch API). Les faits envoyés sont
+/// effacés dès le résumé obtenu. Réservé à l'API.
+model CoachSummary {
+  id      String  @id @default(cuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  horseId String
+  horse   Horse   @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  /// AAAA-MM.
+  month   String
+  lang    String  @default("fr")
+  /// PENDING, SUBMITTED, DONE, FAILED.
+  status  String  @default("PENDING")
+  facts   Json?
+  batchId String?
+  summary String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, horseId, month])
+  @@index([status])
+  @@map("coach_summaries")
+}
+
+/// Fil privé d'un cheval : commentaire sur une séance ou un souvenir, entre
+/// le propriétaire et les personnes avec qui il est partagé (RLS
+/// can_access_horse). `authorRole` est posé par la base (trigger), jamais
+/// par l'app.
+model HorseComment {
+  id           String @id
+  horseId      String
+  horse        Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  authorUserId String
+  author       User   @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  /// OWNER, DEMI_PENSION, COACH, RIDER, GROOM.
+  authorRole   String @default("OWNER")
+  /// session, journal.
+  targetType   String
+  targetId     String
+  body         String
+
+  createdAt DateTime @default(now())
+
+  reports CommentReport[]
+
+  @@index([horseId, targetType, targetId])
+  @@map("horse_comments")
+}
+
+/// Réaction (emoji d'une liste fermée) sur une séance ou un souvenir.
+model HorseReaction {
+  id         String @id
+  horseId    String
+  horse      Horse  @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType String
+  targetId   String
+  emoji      String
+
+  createdAt DateTime @default(now())
+
+  @@unique([targetType, targetId, userId, emoji])
+  @@index([horseId])
+  @@map("horse_reactions")
+}
+
+/// Signalement d'un commentaire, traité depuis la console /admin.
+model CommentReport {
+  id             String       @id @default(cuid())
+  commentId      String
+  comment        HorseComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporterUserId String
+  reason         String       @default("")
+  resolvedAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, reporterUserId])
+  @@map("comment_reports")
+}
+
+/// Jeton de notification push (Expo) d'un appareil.
+model PushToken {
+  token    String @id
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform String
+  /// Langue de l'app sur cet appareil : celle de la notification.
+  lang     String @default("fr")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("push_tokens")
 }

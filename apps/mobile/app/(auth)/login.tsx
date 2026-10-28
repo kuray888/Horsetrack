@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { clearExtras, refreshExtras } from "@/extras/store";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -32,6 +33,10 @@ import { useGoals, pullAllGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
 import { markAllKnown } from "@/lib/remoteIndex";
 import { useSubscription } from "@/subscription/store";
+import { BrandMark } from "@/components/BrandMark";
+import { t as tr } from "@/i18n";
+import { GOOGLE_AUTH_ENABLED, signInWithGoogle } from "@/lib/googleAuth";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -73,7 +78,7 @@ export default function LoginScreen() {
   // tout ce qui suit (biométrie, restauration cloud) est identique ensuite.
   async function afterSuccessfulAuth(userId: string | undefined) {
     if (await isBiometricLockEnabled()) {
-      const confirmed = await authenticateWithBiometrics("Confirmer avec Face ID");
+      const confirmed = await authenticateWithBiometrics(tr("Confirmer avec Face ID"));
       if (!confirmed) {
         setLoading(false);
         // Avant : déconnexion + alerte simple sans aucune issue — si la
@@ -84,12 +89,12 @@ export default function LoginScreen() {
         // connexion déjà obtenue (mot de passe/Apple déjà validé) au lieu de
         // forcer une reconnexion.
         Alert.alert(
-          "Confirmation impossible",
-          "Ton identité n'a pas pu être confirmée (Face ID/Touch ID indisponible ou refusé). Tu peux réessayer, ou désactiver le verrouillage biométrique.",
+          tr("Confirmation impossible"),
+          tr("Ton identité n'a pas pu être confirmée (Face ID/Touch ID indisponible ou refusé). Tu peux réessayer, ou désactiver le verrouillage biométrique."),
           [
-            { text: "Réessayer", style: "cancel", onPress: () => supabase.auth.signOut() },
+            { text: tr("Réessayer"), style: "cancel", onPress: () => supabase.auth.signOut() },
             {
-              text: "Désactiver le verrouillage",
+              text: tr("Désactiver le verrouillage"),
               style: "destructive",
               onPress: async () => {
                 await setBiometricLockEnabled(false);
@@ -122,6 +127,7 @@ export default function LoginScreen() {
           clearAgenda(),
           clearGoals(),
           clearWeight(),
+          clearExtras(),
           clearSubscription(),
           // Les écritures restées en attente appartiennent au compte
           // précédent : les rejouer sous l'identité du nouveau les enverrait
@@ -134,7 +140,7 @@ export default function LoginScreen() {
           const cloudData = await withTimeout(
             pullCloudData(),
             15000,
-            "La restauration de tes données prend plus de temps que prévu — vérifie ta connexion et réessaie."
+            tr("La restauration de tes données prend plus de temps que prévu — vérifie ta connexion et réessaie.")
           );
           if (cloudData) {
             // Best-effort, ne lèvent jamais : cf. lib/cloudSync.ts et
@@ -167,6 +173,8 @@ export default function LoginScreen() {
             if (expenses) hydrateExpensesFromCloud(expenses);
             if (goals) hydrateGoalsFromCloud(goals);
             if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
+            // Identité, alimentation, contacts : relus à part (cf. extras/store.ts).
+            void refreshExtras(Date.now()).catch(() => {});
             // Tout ce qui vient d'être restauré existe côté serveur : une
             // suppression faite ailleurs avant la première relecture doit
             // pouvoir se propager (cf. lib/remoteIndex.ts, lib/cloudRefresh.tsx).
@@ -194,8 +202,8 @@ export default function LoginScreen() {
             ].filter((v) => v === null).length;
             if (failedCount > 0) {
               Alert.alert(
-                "Restauration partielle",
-                "Certaines données n'ont pas pu être récupérées à cause d'une connexion instable — rien n'est perdu côté serveur, réessaie en te déconnectant puis reconnectant une fois le réseau meilleur."
+                tr("Restauration partielle"),
+                tr("Certaines données n'ont pas pu être récupérées à cause d'une connexion instable — rien n'est perdu côté serveur, réessaie en te déconnectant puis reconnectant une fois le réseau meilleur.")
               );
             }
 
@@ -211,8 +219,8 @@ export default function LoginScreen() {
           setLoading(false);
           await supabase.auth.signOut();
           Alert.alert(
-            "Connexion impossible",
-            "Impossible de récupérer tes données pour l'instant. Vérifie ta connexion et réessaie."
+            tr("Connexion impossible"),
+            tr("Impossible de récupérer tes données pour l'instant. Vérifie ta connexion et réessaie.")
           );
           return;
         }
@@ -233,8 +241,8 @@ export default function LoginScreen() {
   async function resendConfirmationEmail() {
     const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
     Alert.alert(
-      error ? "Erreur" : "Email envoyé",
-      error ? translateAuthError(error.message) : "Un nouveau lien de confirmation vient de t'être envoyé."
+      error ? tr("Erreur") : tr("Email envoyé"),
+      error ? translateAuthError(error.message) : tr("Un nouveau lien de confirmation vient de t'être envoyé.")
     );
   }
 
@@ -244,7 +252,7 @@ export default function LoginScreen() {
       const { data, error } = await withTimeout(
         supabase.auth.signInWithPassword({ email: email.trim(), password }),
         12000,
-        "Ça prend plus de temps que prévu — vérifie ta connexion et réessaie."
+        tr("Ça prend plus de temps que prévu — vérifie ta connexion et réessaie.")
       );
 
       if (error) {
@@ -253,13 +261,13 @@ export default function LoginScreen() {
         // oublié" n'est pas garanti de fonctionner non plus (cf. audit
         // pré-publication).
         if (error.message.toLowerCase().includes("email not confirmed")) {
-          Alert.alert("Email non confirmé", translateAuthError(error.message), [
+          Alert.alert(tr("Email non confirmé"), translateAuthError(error.message), [
             { text: "OK", style: "cancel" },
-            { text: "Renvoyer l'email", onPress: resendConfirmationEmail },
+            { text: tr("Renvoyer l'email"), onPress: resendConfirmationEmail },
           ]);
           return;
         }
-        Alert.alert("Erreur", translateAuthError(error.message));
+        Alert.alert(tr("Erreur"), translateAuthError(error.message));
         return;
       }
 
@@ -281,8 +289,8 @@ export default function LoginScreen() {
       // cause que le bouton "Création..." bloqué à l'inscription (cf.
       // (onboarding)/account.tsx, audit du 2026-09-06).
       Alert.alert(
-        "Erreur",
-        e instanceof Error ? translateAuthError(e.message) : "Connexion impossible pour l'instant. Vérifie ta connexion et réessaie."
+        tr("Erreur"),
+        e instanceof Error ? translateAuthError(e.message) : tr("Connexion impossible pour l'instant. Vérifie ta connexion et réessaie.")
       );
     } finally {
       setLoading(false);
@@ -314,26 +322,40 @@ export default function LoginScreen() {
       await afterSuccessfulAuth(result.userId);
     } catch (e) {
       setLoading(false);
-      Alert.alert("Erreur", e instanceof Error ? translateAuthError(e.message) : "Connexion avec Apple impossible.");
+      Alert.alert(tr("Erreur"), e instanceof Error ? translateAuthError(e.message) : tr("Connexion avec Apple impossible."));
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const result = await signInWithGoogle();
+      if (result.cancelled) {
+        setLoading(false);
+        return;
+      }
+      // Même pause que pour Apple : la feuille du navigateur finit de se fermer.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await afterSuccessfulAuth(result.userId);
+    } catch (e) {
+      setLoading(false);
+      Alert.alert(tr("Erreur"), e instanceof Error ? translateAuthError(e.message) : tr("Connexion avec Google impossible."));
     }
   }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 gap-5 px-5 pt-8">
-        <Image
-          source={require("../../assets/logo-mark.png")}
-          style={{ width: 72, height: 72, alignSelf: "center" }}
-          resizeMode="contain"
-        />
+        <BrandMark size={72} style={{ alignSelf: "center" }} />
         <View className="gap-2">
           <Text className="text-2xl font-display tracking-tight text-text">
-            Connecte-toi à ton compte
+            {tr("Connecte-toi à ton compte")}
           </Text>
-          <Text className="text-base text-muted">Retrouve ton planning et ton suivi.</Text>
+          <Text className="text-base text-muted">{tr("Retrouve ton planning et ton suivi.")}</Text>
         </View>
 
-        <Field label="Email">
+        <Field label={tr("Email")}>
           <TextInput
             className={INPUT}
             placeholder="toi@exemple.com"
@@ -343,26 +365,29 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoComplete="email"
             textContentType="emailAddress"
+            testID="login-email"
           />
         </Field>
 
-        <Field label="Mot de passe">
+        <Field label={tr("Mot de passe")}>
           <PasswordInput
-            placeholder="Ton mot de passe"
+            placeholder={tr("Ton mot de passe")}
             value={password}
             onChangeText={setPassword}
             autoComplete="current-password"
+            testID="login-password"
           />
         </Field>
 
         <TouchableOpacity onPress={() => router.push("/(auth)/forgot-password")} className="self-end">
-          <Text className="text-sm font-semibold text-accent">Mot de passe oublié ?</Text>
+          <Text className="text-sm font-semibold text-accent">{tr("Mot de passe oublié ?")}</Text>
         </TouchableOpacity>
       </View>
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
-          label={loading ? "Connexion..." : "Se connecter"}
+          testID="login-submit"
+          label={loading ? tr("Connexion…") : tr("Se connecter")}
           disabled={loading || !email.trim() || !password}
           onPress={signIn}
         />
@@ -370,7 +395,7 @@ export default function LoginScreen() {
           <>
             <View className="flex-row items-center gap-3">
               <View className="h-px flex-1 bg-border" />
-              <Text className="text-xs text-muted">ou</Text>
+              <Text className="text-xs text-muted">{tr("ou")}</Text>
               <View className="h-px flex-1 bg-border" />
             </View>
             {/* pointerEvents plutôt qu'une prop `disabled` : ce composant natif n'en
@@ -387,9 +412,21 @@ export default function LoginScreen() {
             </View>
           </>
         ) : null}
+        {GOOGLE_AUTH_ENABLED ? (
+          <>
+            {!appleAvailable ? (
+              <View className="flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text className="text-xs text-muted">{tr("ou")}</Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+            ) : null}
+            <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} />
+          </>
+        ) : null}
         <TouchableOpacity onPress={() => router.push("/(onboarding)/welcome")}>
           <Text className="text-center text-sm font-semibold text-accent">
-            Pas encore de compte ? S&apos;inscrire
+            {tr("Pas encore de compte ? S'inscrire")}
           </Text>
         </TouchableOpacity>
       </View>

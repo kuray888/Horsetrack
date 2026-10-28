@@ -1,5 +1,6 @@
 import { Linking, Platform } from "react-native";
 import Constants from "expo-constants";
+import { t } from "@/i18n";
 
 /**
  * Liens sortants de l'app (téléchargement, support, avis App Store).
@@ -38,9 +39,9 @@ export async function openWriteReview(): Promise<void> {
  * système) — rien de personnel au-delà de ce que l'utilisateur écrit. */
 export async function openSupportEmail(): Promise<boolean> {
   const version = Constants.expoConfig?.version ?? "?";
-  const subject = encodeURIComponent("Horsetrack — une question");
+  const subject = encodeURIComponent(t("Horsetrack — une question"));
   const body = encodeURIComponent(
-    `\n\n\n—\nHorsetrack ${version} · ${Platform.OS === "ios" ? "iOS" : "Android"} ${String(Platform.Version)}`
+    t("\n\n\n—\nHorsetrack {version} · {v} {String}", { version: version, v: Platform.OS === "ios" ? "iOS" : "Android", String: String(Platform.Version) })
   );
   const url = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
   try {
@@ -50,3 +51,13 @@ export async function openSupportEmail(): Promise<boolean> {
     return false;
   }
 }
+
+/** Feuille officielle de rédemption d'un code d'offre App Store, code
+ * prérempli — le prix remisé y est affiché et facturé par Apple. null si
+ * l'identifiant App Store n'est pas configuré. */
+export function appStoreOfferCodeUrl(code: string): string | null {
+  if (!APP_STORE_ID) return null;
+  const c = encodeURIComponent(code.replace(/\s+/g, "").toUpperCase());
+  return `https://apps.apple.com/redeem?ctx=offercodes&id=${APP_STORE_ID}&code=${c}`;
+}
+

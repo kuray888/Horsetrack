@@ -1,4 +1,5 @@
 import type { CompetitionEntry } from "@/agenda/store";
+import { t } from "@/i18n";
 
 /**
  * Règles d'une épreuve de concours, partagées par les deux formulaires (création
@@ -26,5 +27,5 @@ export function cleanCompetitionEntry<T extends EntryFields>(entry: T): T | null
 
 /** Texte de l'heure à afficher : l'heure saisie, ou « heure à venir ». */
 export function competitionEntryTimeLabel(time: string | null | undefined): string {
-  return time?.trim() || "heure à venir";
+  return time?.trim() || t("heure à venir");
 }

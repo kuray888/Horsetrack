@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
@@ -11,6 +11,7 @@ import { useAgenda, type Doc } from "@/agenda/store";
 import { DocumentForm } from "@/agenda/components/DocumentForm";
 import { DocumentCard } from "@/agenda/components/DocumentCard";
 import { useDocumentForm } from "@/agenda/hooks/useDocumentForm";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -63,7 +64,7 @@ export default function HorseDocumentsScreen() {
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
             <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
-            <Text className="text-sm text-muted">Ce cheval est introuvable.</Text>
+            <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
           </View>
         </FadeInView>
       </Screen>
@@ -78,11 +79,11 @@ export default function HorseDocumentsScreen() {
 
   function confirmDeleteDocument(doc: Doc) {
     Alert.alert(
-      `Supprimer « ${doc.name} » ?`,
-      "Ce document sera définitivement supprimé et ne pourra pas être récupéré.",
+      t("Supprimer « {name} » ?", { name: doc.name }),
+      t("Ce document sera définitivement supprimé et ne pourra pas être récupéré."),
       [
-        { text: "Annuler", style: "cancel" },
-        { text: "Supprimer", style: "destructive", onPress: () => deleteDocument(doc.id) },
+        { text: t("Annuler"), style: "cancel" },
+        { text: t("Supprimer"), style: "destructive", onPress: () => deleteDocument(doc.id) },
       ]
     );
   }
@@ -93,13 +94,13 @@ export default function HorseDocumentsScreen() {
         <FadeInView>
           <View className="flex-row items-center justify-between">
             <View className="flex-1 gap-0.5 pr-3">
-              <Text className="text-2xl font-display tracking-tight text-text">Documents</Text>
-              <Text className="text-sm text-muted">Coffre-fort numérique de {horse.name}</Text>
+              <Text className="text-2xl font-display tracking-tight text-text">{t("Documents")}</Text>
+              <Text className="text-sm text-muted">{t("Coffre-fort numérique de ")}{horse.name}</Text>
             </View>
             <TouchableOpacity
               onPress={() => router.back()}
               hitSlop={12}
-              accessibilityLabel="Fermer"
+              accessibilityLabel={t("Fermer")}
               accessibilityRole="button"
             >
               <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
@@ -127,12 +128,11 @@ export default function HorseDocumentsScreen() {
                 <MaterialCommunityIcons name="folder-outline" size={22} color={colors.textMuted} />
               </View>
               <Text className="text-center text-sm text-muted">
-                Aucun document pour l&apos;instant. Carnet de vaccination, licence, factures : rangés ici, ils restent
-                consultables même sans réseau.
+                {t("Aucun document pour l'instant. Carnet de vaccination, licence, factures : rangés ici, ils restent consultables même sans réseau.")}
               </Text>
               {!showDocForm ? (
                 <TouchableOpacity onPress={() => setShowDocForm(true)} activeOpacity={0.7}>
-                  <Text className="text-sm font-semibold text-accent">Ajouter un document</Text>
+                  <Text className="text-sm font-semibold text-accent">{t("Ajouter un document")}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>

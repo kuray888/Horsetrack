@@ -2,13 +2,14 @@ import { ReactNode, useEffect, useState } from "react";
 import { Animated, View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { usePressScale } from "@/hooks/usePressScale";
 import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { colors } from "@/theme/colors";
 import type { Option } from "@/onboarding/options";
 import { track } from "@/lib/analytics";
+import { t } from "@/i18n";
 
 /** Barre de progression fine en haut de chaque étape — le remplissage est
  * animé (au lieu de sauter directement à la valeur cible) plutôt que statique,
@@ -42,7 +43,7 @@ export function OnboardingShell({
   title,
   subtitle,
   children,
-  ctaLabel = "Continuer",
+  ctaLabel = t("Continuer"),
   ctaDisabled = false,
   onNext,
   canGoBack = true,
@@ -104,10 +105,13 @@ export function PrimaryButton({
   label,
   onPress,
   disabled = false,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** Repère des tests de bout en bout (cf. apps/mobile/.maestro). */
+  testID?: string;
 }) {
   const { scale, onPressIn, onPressOut } = usePressScale();
   return (
@@ -118,6 +122,9 @@ export function PrimaryButton({
         onPressOut={onPressOut}
         disabled={disabled}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        testID={testID}
         className={`items-center rounded-card p-4 ${disabled ? "bg-border" : "bg-primary"}`}
       >
         <Text
@@ -242,7 +249,8 @@ export function MultiSelectChips({
               <Text
                 className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}
               >
-                {opt}
+                {/* Valeur enregistrée telle quelle, traduite à l'affichage. */}
+                {t(opt)}
               </Text>
             </TouchableOpacity>
           );
@@ -253,7 +261,7 @@ export function MultiSelectChips({
         <View className="flex-row items-center gap-2">
           <TextInput
             className="flex-1 rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-text"
-            placeholder="Autre (préciser)…"
+            placeholder={t("Autre (préciser)…")}
             value={customInput}
             onChangeText={setCustomInput}
             onSubmitEditing={addCustom}

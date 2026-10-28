@@ -1,0 +1,23 @@
+# Compte GRATUIT : le paywall s'ouvre, montre les deux formules et se ferme
+# sans rien acheter — l'app reste gratuite.
+appId: com.horsetrack.app
+tags:
+  - account
+env:
+  EMAIL: ${FREE_EMAIL}
+  PASSWORD: ${FREE_PASSWORD}
+---
+- runFlow: subflows/login.yaml
+- runFlow: subflows/open-paywall.yaml
+- tapOn:
+    id: "paywall-plan-monthly"
+- tapOn:
+    id: "paywall-plan-annual"
+- tapOn:
+    id: "paywall-close"
+- assertNotVisible:
+    id: "paywall-cta"
+- assertNotVisible:
+    id: "premium-welcome-title"
+- assertVisible:
+    id: "profile-premium"

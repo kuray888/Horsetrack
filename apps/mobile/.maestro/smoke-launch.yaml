@@ -1,0 +1,23 @@
+# Démarrage à neuf : accueil, puis écran de connexion. Ne crée AUCUN compte
+# et n'a besoin d'aucun identifiant — à lancer à chaque build.
+appId: com.horsetrack.app
+tags:
+  - smoke
+---
+- runFlow: subflows/launch.yaml
+- assertVisible:
+    id: "welcome-start"
+- tapOn:
+    id: "welcome-start"
+- scrollUntilVisible:
+    element:
+      id: "account-go-login"
+    direction: DOWN
+- tapOn:
+    id: "account-go-login"
+- assertVisible:
+    id: "login-email"
+- assertVisible:
+    id: "login-password"
+- assertVisible:
+    id: "login-submit"

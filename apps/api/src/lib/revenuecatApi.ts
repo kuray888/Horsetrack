@@ -119,3 +119,45 @@ export async function deleteRevenueCatCustomer(appUserId: string): Promise<boole
     return false;
   }
 }
+
+/** Fin de l'accès Premium en cours (null si aucun, undefined si illisible). */
+export async function fetchEntitlementExpiry(appUserId: string): Promise<Date | null | undefined> {
+  const key = secretKey();
+  if (!key || isAnonymousAppUserId(appUserId)) return undefined;
+  try {
+    const res = await fetch(`${API}/subscribers/${encodeURIComponent(appUserId)}`, {
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return undefined;
+    const payload = (await res.json()) as SubscriberPayload;
+    const ent = payload.subscriber?.entitlements?.[ENTITLEMENT_ID];
+    const expires = ent?.expires_date ? new Date(ent.expires_date) : null;
+    return expires && expires.getTime() > Date.now() ? expires : null;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Accès Premium offert jusqu'à `endTime` (octroi promotionnel RevenueCat,
+ * aucun paiement) — récompense de parrainage (cf. lib/referrals.ts). */
+export async function grantPromotionalUntil(appUserId: string, endTime: Date): Promise<boolean> {
+  const key = secretKey();
+  if (!key || isAnonymousAppUserId(appUserId)) return false;
+  try {
+    const res = await fetch(
+      `${API}/subscribers/${encodeURIComponent(appUserId)}/entitlements/${ENTITLEMENT_ID}/promotional`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ end_time_ms: endTime.getTime() }),
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (!res.ok) console.warn("[revenuecat:api] octroi promotionnel refusé", res.status);
+    return res.ok;
+  } catch (e) {
+    console.warn("[revenuecat:api] octroi promotionnel échoué", e);
+    return false;
+  }
+}

@@ -2,6 +2,8 @@ import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
+import { WEEKLY_SUMMARY_URL } from "@/lib/notificationLinks";
+import { t } from "@/i18n";
 
 const WEEKLY_SUMMARY_KEY = "weekly_summary_notif_v1";
 
@@ -82,7 +84,7 @@ const CHANNEL_ID = "default";
 async function ensureAndroidChannel() {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: "Rappels",
+    name: t("Rappels"),
     importance: Notifications.AndroidImportance.HIGH,
   });
 }
@@ -104,12 +106,19 @@ export async function pendingReminderCount(): Promise<number> {
 }
 
 /** Programme un rappel local ; retourne l'id (à conserver pour pouvoir l'annuler), ou null si non programmé. */
-export async function scheduleReminder(title: string, body: string, trigger: Date): Promise<string | null> {
+export async function scheduleReminder(
+  title: string,
+  body: string,
+  trigger: Date,
+  /** Écran à ouvrir quand on touche la notification (cf.
+   * lib/notificationLinks.ts et components/NotificationRouter.tsx). */
+  url?: string
+): Promise<string | null> {
   const granted = await ensureNotificationPermission();
   if (!granted) return null;
   await ensureAndroidChannel();
   return Notifications.scheduleNotificationAsync({
-    content: { title, body },
+    content: { title, body, data: url ? { url } : {} },
     // `channelId` est ignoré sur iOS (cf. les types d'expo-notifications) et
     // décisif sur Android : cf. le commentaire de CHANNEL_ID plus haut.
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger, channelId: CHANNEL_ID },
@@ -196,24 +205,20 @@ export async function scheduleWeeklySummary(
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     let suffix: string;
     if (total === 0) {
-      suffix = "Pas de séance prévue cette semaine.";
+      suffix = t("Pas de séance prévue cette semaine.");
     } else if (done === total) {
-      suffix = "Semaine parfaite — exceptionnel ! 🎉";
+      suffix = t("Semaine parfaite — exceptionnel ! 🎉");
     } else if (pct >= 60) {
-      suffix = "Super semaine, continue comme ça ! ⭐";
+      suffix = t("Super semaine, continue comme ça ! ⭐");
     } else if (done > 0) {
-      suffix = "Tu peux encore finir en beauté 💪";
+      suffix = t("Tu peux encore finir en beauté 💪");
     } else {
-      suffix = "La semaine n'est pas finie, à toi de jouer ! 🏇";
+      suffix = t("La semaine n'est pas finie, à toi de jouer ! 🏇");
     }
 
     const body = total > 0 ? `${done}/${total} séances — ${suffix}` : suffix;
 
-    const id = await scheduleReminder(
-      `Bilan de la semaine avec ${horseName}`,
-      body,
-      trigger
-    );
+    const id = await scheduleReminder(t("Bilan de la semaine avec {horseName}", { horseName: horseName }), body, trigger, WEEKLY_SUMMARY_URL);
 
     if (id) {
       await SecureStore.setItemAsync(WEEKLY_SUMMARY_KEY, JSON.stringify({ id, weekStart, done, total, horseName }));
@@ -247,5 +252,38 @@ export async function cancelWeeklySummary(): Promise<void> {
     await SecureStore.deleteItemAsync(WEEKLY_SUMMARY_KEY);
   } catch {
     // Best-effort : voir cancelReminder ci-dessus.
+  }
+}
+
+/**
+ * Rappel de séance (cf. sessions/SessionReminders.tsx) : porte la catégorie
+ * qui affiche « C'est fait » et « Reporter à demain » sous la notification.
+ *
+ * Ne DEMANDE jamais la permission, contrairement à scheduleReminder : ces
+ * rappels se programment d'eux-mêmes à chaque changement de séance, et une
+ * demande système surgirait alors sans que l'utilisateur ait rien demandé.
+ * L'appelant vérifie d'abord que les notifications sont autorisées.
+ */
+export async function scheduleSessionReminderNotification(reminder: {
+  sessionId: string;
+  title: string;
+  body: string;
+  trigger: Date;
+  category: string;
+  url: string;
+}): Promise<string | null> {
+  try {
+    await ensureAndroidChannel();
+    return await Notifications.scheduleNotificationAsync({
+      content: {
+        title: reminder.title,
+        body: reminder.body,
+        categoryIdentifier: reminder.category,
+        data: { url: reminder.url, sessionId: reminder.sessionId },
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminder.trigger, channelId: CHANNEL_ID },
+    });
+  } catch {
+    return null;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { clearExtras } from "@/extras/store";
 import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -22,6 +23,9 @@ import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
 import { useSubscription } from "@/subscription/store";
+import { t } from "@/i18n";
+import { GOOGLE_AUTH_ENABLED, signInWithGoogle } from "@/lib/googleAuth";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -148,6 +152,7 @@ export default function OnboardingAccount() {
         clearAgenda(),
         clearGoals(),
         clearWeight(),
+        clearExtras(),
         clearSubscription(),
         // Écritures en attente d'un autre compte : elles ne doivent pas partir
         // sous cette identité-ci (cf. lib/syncQueue.ts).
@@ -167,7 +172,21 @@ export default function OnboardingAccount() {
       await afterAccountObtained(result.userId);
       await continueAfterAuth();
     } catch (e) {
-      Alert.alert("Erreur", e instanceof Error ? e.message : "Connexion avec Apple impossible.");
+      Alert.alert(t("Erreur"), e instanceof Error ? e.message : t("Connexion avec Apple impossible."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setLoading(true);
+    try {
+      const result = await signInWithGoogle();
+      if (result.cancelled) return;
+      await afterAccountObtained(result.userId);
+      await continueAfterAuth();
+    } catch (e) {
+      Alert.alert(t("Erreur"), e instanceof Error ? e.message : t("Connexion avec Google impossible."));
     } finally {
       setLoading(false);
     }
@@ -177,12 +196,12 @@ export default function OnboardingAccount() {
    * qu'une inscription qui ne peut pas aboutir. */
   function promptExistingAccount() {
     Alert.alert(
-      "Un compte existe déjà",
-      `Un compte Horsetrack existe déjà avec l'adresse ${email.trim()}. Tu ne peux pas en créer un deuxième : connecte-toi (ou utilise « Mot de passe oublié ? »).`,
+      t("Un compte existe déjà"),
+      t("Un compte Horsetrack existe déjà avec l'adresse {v}. Tu ne peux pas en créer un deuxième : connecte-toi (ou utilise « Mot de passe oublié ? »).", { v: email.trim() }),
       [
-        { text: "Annuler", style: "cancel" },
+        { text: t("Annuler"), style: "cancel" },
         {
-          text: "Se connecter",
+          text: t("Se connecter"),
           onPress: () => router.replace({ pathname: "/(auth)/login", params: { email: email.trim() } }),
         },
       ]
@@ -191,7 +210,7 @@ export default function OnboardingAccount() {
 
   async function createAccount() {
     if (password !== confirmPassword) {
-      Alert.alert("Erreur", "Les deux mots de passe ne correspondent pas.");
+      Alert.alert(t("Erreur"), t("Les deux mots de passe ne correspondent pas."));
       return;
     }
     setLoading(true);
@@ -212,7 +231,7 @@ export default function OnboardingAccount() {
       const { data, error } = await withTimeout(
         supabase.auth.signUp({ email: email.trim(), password }),
         12000,
-        "Ça prend plus de temps que prévu — vérifie ta connexion et réessaie."
+        t("Ça prend plus de temps que prévu — vérifie ta connexion et réessaie.")
       );
 
       if (error) {
@@ -220,7 +239,7 @@ export default function OnboardingAccount() {
           promptExistingAccount();
           return;
         }
-        Alert.alert("Erreur", translateAuthError(error.message));
+        Alert.alert(t("Erreur"), translateAuthError(error.message));
         return;
       }
 
@@ -258,8 +277,8 @@ export default function OnboardingAccount() {
       // comme `{ error }`) atterrissait ici sans jamais réinitialiser
       // `loading` — cause du bouton "Création..." bloqué indéfiniment.
       Alert.alert(
-        "Erreur",
-        e instanceof Error ? e.message : "Impossible de créer le compte pour l'instant. Vérifie ta connexion et réessaie."
+        t("Erreur"),
+        e instanceof Error ? e.message : t("Impossible de créer le compte pour l'instant. Vérifie ta connexion et réessaie.")
       );
     } finally {
       setLoading(false);
@@ -285,10 +304,10 @@ export default function OnboardingAccount() {
       if (error && isEmailNotConfirmedError(error.message)) {
         setNotConfirmedYet(true);
       } else if (error) {
-        Alert.alert("Erreur", error.message);
+        Alert.alert(t("Erreur"), error.message);
       }
     } catch (e) {
-      Alert.alert("Erreur", e instanceof Error ? e.message : "Impossible de vérifier pour l'instant. Vérifie ta connexion et réessaie.");
+      Alert.alert(t("Erreur"), e instanceof Error ? e.message : t("Impossible de vérifier pour l'instant. Vérifie ta connexion et réessaie."));
     } finally {
       setCheckingConfirmation(false);
     }
@@ -303,13 +322,13 @@ export default function OnboardingAccount() {
       if (error) {
         setResendResult({ ok: false, message: error.message });
       } else {
-        setResendResult({ ok: true, message: "Un nouvel e-mail de confirmation a été envoyé." });
+        setResendResult({ ok: true, message: t("Un nouvel e-mail de confirmation a été envoyé.") });
         setResendCooldown(RESEND_COOLDOWN_SECONDS);
       }
     } catch (e) {
       setResendResult({
         ok: false,
-        message: e instanceof Error ? e.message : "Impossible d'envoyer l'e-mail pour l'instant.",
+        message: e instanceof Error ? e.message : t("Impossible d'envoyer l'e-mail pour l'instant."),
       });
     } finally {
       setResending(false);
@@ -340,21 +359,21 @@ export default function OnboardingAccount() {
       <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
         <View className="flex-1 gap-5 px-5 pt-8">
           <View className="gap-2">
-            <Text className="text-2xl font-display tracking-tight text-text">Vérifie ton adresse e-mail</Text>
+            <Text className="text-2xl font-display tracking-tight text-text">{t("Vérifie ton adresse e-mail")}</Text>
             <Text className="text-base text-muted">
-              Un e-mail de confirmation vient de t&apos;être envoyé à{" "}
+              {t("Un e-mail de confirmation vient de t'être envoyé à")}{" "}
               <Text className="font-semibold text-text">{email.trim()}</Text>.
             </Text>
             <Text className="text-base text-muted">
-              Vérifie ta boîte de réception (et tes spams) et clique sur le lien pour activer ton compte.
+              {t("Vérifie ta boîte de réception (et tes spams) et clique sur le lien pour activer ton compte.")}
             </Text>
           </View>
 
           {notConfirmedYet ? (
             <View className="rounded-card border border-warning bg-highlight/40 p-4">
-              <Text className="text-sm font-semibold text-text">Ton adresse e-mail n&apos;est pas encore vérifiée.</Text>
+              <Text className="text-sm font-semibold text-text">{t("Ton adresse e-mail n'est pas encore vérifiée.")}</Text>
               <Text className="mt-1 text-sm text-muted">
-                Clique sur le lien reçu par e-mail, puis réessaie.
+                {t("Clique sur le lien reçu par e-mail, puis réessaie.")}
               </Text>
             </View>
           ) : null}
@@ -368,7 +387,7 @@ export default function OnboardingAccount() {
 
         <View className="gap-3 px-5 pb-2 pt-3">
           <PrimaryButton
-            label={checkingConfirmation ? "Vérification..." : "J'ai vérifié mon e-mail"}
+            label={checkingConfirmation ? t("Vérification...") : t("J'ai vérifié mon e-mail")}
             disabled={checkingConfirmation}
             onPress={checkEmailConfirmed}
           />
@@ -377,15 +396,15 @@ export default function OnboardingAccount() {
               {resending
                 ? "Envoi..."
                 : resendCooldown > 0
-                  ? `Renvoyer l'e-mail (${resendCooldown}s)`
-                  : "Renvoyer l'e-mail"}
+                  ? t("Renvoyer l'e-mail ({resendCooldown}s)", { resendCooldown: resendCooldown })
+                  : t("Renvoyer l'e-mail")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={editEmail} hitSlop={8}>
-            <Text className="text-center text-sm font-semibold text-accent">Modifier mon adresse e-mail</Text>
+            <Text className="text-center text-sm font-semibold text-accent">{t("Modifier mon adresse e-mail")}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.replace("/(auth)/login")} hitSlop={8}>
-            <Text className="text-center text-sm font-semibold text-muted">Retour à la connexion</Text>
+            <Text className="text-center text-sm font-semibold text-muted">{t("Retour à la connexion")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -397,14 +416,14 @@ export default function OnboardingAccount() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-display tracking-tight text-text">
-            Crée ton compte Horsetrack
+            {t("Crée ton compte Horsetrack")}
           </Text>
           <Text className="text-base text-muted">
-            On personnalise ton profil juste après.
+            {t("On personnalise ton profil juste après.")}
           </Text>
         </View>
 
-        <Field label="Email">
+        <Field label={t("Email")}>
           <TextInput
             className={INPUT}
             placeholder="toi@exemple.com"
@@ -415,31 +434,31 @@ export default function OnboardingAccount() {
           />
         </Field>
 
-        <Field label="Mot de passe">
+        <Field label={t("Mot de passe")}>
           <PasswordInput
-            placeholder={`${MIN_PASSWORD_LENGTH} caractères minimum`}
+            placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
             value={password}
             onChangeText={setPassword}
             autoComplete="new-password"
           />
         </Field>
 
-        <Field label="Confirmer le mot de passe">
+        <Field label={t("Confirmer le mot de passe")}>
           <PasswordInput
-            placeholder="Retape ton mot de passe"
+            placeholder={t("Retape ton mot de passe")}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             autoComplete="new-password"
           />
           {passwordsMismatch ? (
-            <Text className="text-xs text-red-500">Les mots de passe ne correspondent pas.</Text>
+            <Text className="text-xs text-red-500">{t("Les mots de passe ne correspondent pas.")}</Text>
           ) : null}
         </Field>
       </View>
 
       <View className="gap-3 px-5 pb-2 pt-3">
         <PrimaryButton
-          label={loading ? "Création..." : "Créer mon compte"}
+          label={loading ? t("Création...") : t("Créer mon compte")}
           disabled={loading || !email.trim() || password.length < MIN_PASSWORD_LENGTH || password !== confirmPassword}
           onPress={createAccount}
         />
@@ -447,7 +466,7 @@ export default function OnboardingAccount() {
           <>
             <View className="flex-row items-center gap-3">
               <View className="h-px flex-1 bg-border" />
-              <Text className="text-xs text-muted">ou</Text>
+              <Text className="text-xs text-muted">{t("ou")}</Text>
               <View className="h-px flex-1 bg-border" />
             </View>
             <AppleAuthentication.AppleAuthenticationButton
@@ -459,9 +478,21 @@ export default function OnboardingAccount() {
             />
           </>
         ) : null}
-        <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
+        {GOOGLE_AUTH_ENABLED ? (
+          <>
+            {!appleAvailable ? (
+              <View className="flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text className="text-xs text-muted">{t("ou")}</Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+            ) : null}
+            <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} />
+          </>
+        ) : null}
+        <TouchableOpacity testID="account-go-login" accessibilityRole="button" onPress={() => router.replace("/(auth)/login")}>
           <Text className="text-center text-sm font-semibold text-accent">
-            Déjà un compte ? Se connecter
+            {t("Déjà un compte ? Se connecter")}
           </Text>
         </TouchableOpacity>
       </View>

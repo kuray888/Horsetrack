@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Share, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Platform, Share, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { FadeInView } from "@/components/FadeInView";
@@ -17,7 +17,7 @@ import { useSubscription } from "@/subscription/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda, daysFromNow, type Appointment, type ExpenseCategory } from "@/agenda/store";
 import { computeSessionStats } from "@/sessions/stats";
-import { formatDuration, formatDate } from "@/lib/dateFormat";
+import { formatDuration, formatDate, WEEK_DAYS_FULL } from "@/lib/dateFormat";
 import {
   APPT_META,
   daysUntilLabel,
@@ -30,6 +30,7 @@ import { ActivityFeed } from "@/agenda/components/ActivityFeed";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { HorseModuleCard } from "@/horses/components/HorseModuleCard";
 import { HorseBanner } from "@/horses/components/HorseBanner";
+import { HorseMilestonesCard } from "@/horses/components/HorseMilestonesCard";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
@@ -37,6 +38,10 @@ import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
 import { ExpenseForm } from "@/agenda/components/ExpenseForm";
 import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { JournalForm } from "@/agenda/components/JournalForm";
+import { t } from "@/i18n";
+import { useHorseDetails } from "@/extras/store";
+import { hasFeeding, hasIdentity, hasPartnership } from "@/extras/model";
+import { featuredReviewYear } from "@/review/yearReview";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -63,7 +68,10 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
  */
 export function HorseHub({ horseId, inTab = false }: { horseId: string | undefined; inTab?: boolean }) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const id = horseId;
+  // Identité et alimentation (cf. extras/store.ts), avant tout retour anticipé.
+  const details = useHorseDetails(horseId);
   const { horses, selectHorse, syncFailed, retrySync } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
   const { sessions } = useSessions();
@@ -173,7 +181,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
             <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
-            <Text className="text-sm text-muted">Ce cheval est introuvable.</Text>
+            <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
           </View>
         </FadeInView>
       </Screen>
@@ -221,42 +229,76 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
 
   // — Modules —
   const nextDue = findNextDue(appointments, horse.id, today);
-  const santeValue = nextDue ? `${APPT_META[nextDue.type].label} ${daysUntilLabel(nextDue.nextDueDate!)}` : "Aucune échéance";
+  const santeValue = nextDue ? `${APPT_META[nextDue.type].label} ${daysUntilLabel(nextDue.nextDueDate!)}` : t("Aucune échéance");
 
   const stats = computeSessionStats(horseSessions, new Date(2000, 0, 1), new Date());
   const entrainementValue =
     stats.sessionCount > 0
-      ? `${stats.sessionCount} séance${stats.sessionCount > 1 ? "s" : ""} · ${formatDuration(stats.totalMinutes)}`
-      : "Aucune séance faite";
+      ? t("{sessionCount} séance{v} · {formatDuration}", { sessionCount: stats.sessionCount, v: stats.sessionCount > 1 ? "s" : "", formatDuration: formatDuration(stats.totalMinutes) })
+      : t("Aucune séance faite");
 
   const nextCompetition = findNextCompetition(appointments, horse.id, today);
   const concoursValue = nextCompetition
-    ? `${nextCompetition.title || "Concours"} · ${formatDate(nextCompetition.date)}`
-    : "Aucun concours prévu";
+    ? `${nextCompetition.title || t("Concours")} · ${formatDate(nextCompetition.date)}`
+    : t("Aucun concours prévu");
 
-  const journalValue = horseJournal.length > 0 ? `${horseJournal.length} souvenir${horseJournal.length > 1 ? "s" : ""}` : "Aucun souvenir";
+  const journalValue = horseJournal.length > 0 ? (horseJournal.length > 1 ? t("{n} souvenirs", { n: horseJournal.length }) : t("1 souvenir")) : t("Aucun souvenir");
 
   const now = new Date();
   const monthTotal = horseExpenses
     .filter((e) => e.date.getFullYear() === now.getFullYear() && e.date.getMonth() === now.getMonth())
     .reduce((sum, e) => sum + e.amount, 0);
-  const budgetValue = monthTotal > 0 ? `${formatAmount(monthTotal, "EUR")} ce mois` : "Rien ce mois-ci";
+  const budgetValue = monthTotal > 0 ? t("{formatAmount} ce mois", { formatAmount: formatAmount(monthTotal, "EUR") }) : t("Rien ce mois-ci");
 
   const documentsValue =
-    horseDocuments.length > 0 ? `${horseDocuments.length} document${horseDocuments.length > 1 ? "s" : ""}` : "Aucun document";
+    horseDocuments.length > 0 ? t("{length} document{v}", { length: horseDocuments.length, v: horseDocuments.length > 1 ? "s" : "" }) : t("Aucun document");
 
   const horseMeasurements = measurements.filter((m) => m.horseId === horse.id).sort((a, b) => b.date.getTime() - a.date.getTime());
   const previousMeasurement = horseMeasurements[1] ?? null;
   const weightTrend = previousMeasurement ? horseMeasurements[0].weightKg - previousMeasurement.weightKg : null;
   const weightValue = horse.weightKg
-    ? `${horse.weightKg} kg${weightTrend ? ` · ${weightTrend > 0 ? "+" : ""}${weightTrend} kg` : ""}`
-    : "Aucune mesure";
+    ? t("{weightKg} kg{v}", { weightKg: horse.weightKg, v: weightTrend ? ` · ${weightTrend > 0 ? "+" : ""}${weightTrend} kg` : "" })
+    : t("Aucune mesure");
+
+  const identityValue = details && hasIdentity(details.identity)
+    ? details.identity.sire.trim()
+      ? t("SIRE {sire}", { sire: details.identity.sire.trim().toUpperCase() })
+      : details.identity.stable.trim() || t("Renseignée")
+    : t("SIRE, puce, assurance, écurie");
+  const firstMeal = details?.feeding.meals.find((m) => m.ration.trim());
+  const feedingValue = details && hasFeeding(details.feeding)
+    ? firstMeal
+      ? `${firstMeal.label} : ${firstMeal.ration}`
+      : t("Ration renseignée")
+    : t("Ration, foin, compléments");
+
+  const partnership = details?.partnership;
+  const partnershipValue =
+    partnership && hasPartnership(partnership)
+      ? [partnership.riderName.trim(), partnership.days.map((d) => WEEK_DAYS_FULL[d - 1].slice(0, 3).toLowerCase()).join(", ")]
+          .filter(Boolean)
+          .join(" · ")
+      : t("Jours de monte, participation aux frais");
+
+  // Bilan de l'année : celle qui se termine en décembre / début janvier,
+  // sinon l'année en cours (cf. review/yearReview.ts).
+  const reviewYear = featuredReviewYear(new Date()) ?? new Date().getFullYear();
 
   const activityEntries = buildActivityEntries(horse.id, { sessions, appointments, journal, expenses });
+
+  const thisHorseId = horse.id;
 
   function handleQuickAdd(option: QuickAddOption) {
     setQuickAddVisible(false);
     switch (option) {
+      case "direct":
+        // Écran modal, pas un onglet : il se pousse par-dessus la fiche. Ce
+        // choix de la feuille ne faisait rien ici (cas absent).
+        router.push({ pathname: "/ride", params: { horseId: thisHorseId } });
+        return;
+      case "cheval":
+        router.push("/add-horse-modal");
+        return;
       case "seance":
         // ?openForm=session ouvre directement le formulaire de création dans
         // Planning. `focusThisHorse` d'abord (même raison que les cartes de
@@ -304,10 +346,10 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           <View className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5">
             <MaterialCommunityIcons name="cloud-off-outline" size={18} color={colors.warning} />
             <Text className="flex-1 text-sm text-text">
-              Certaines modifications ne sont pas encore synchronisées.
+              {t("Certaines modifications ne sont pas encore synchronisées.")}
             </Text>
-            <TouchableOpacity onPress={() => retrySync()} hitSlop={8}>
-              <Text className="text-sm font-bold text-warning">Réessayer</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={() => retrySync()} hitSlop={8}>
+              <Text className="text-sm font-bold text-warning">{t("Réessayer")}</Text>
             </TouchableOpacity>
           </View>
         </FadeInView>
@@ -320,51 +362,62 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         />
       </FadeInView>
 
-      {isOwner ? (
-        <FadeInView delay={40}>
-          <View className="flex-row gap-2">
-            <TouchableOpacity
-              onPress={() => router.push(`/edit-horse-modal?id=${horse.id}`)}
-              activeOpacity={0.8}
-              className="flex-1 items-center rounded-card border border-border p-3"
-            >
-              <Text className="text-sm font-semibold text-text">Modifier</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+      {/* Actions de la fiche. « Modifier » faisait doublon avec le crayon de
+          la bannière : sa place revient à l'action la plus fréquente,
+          planifier une séance — utile aussi pour un cheval partagé, d'où
+          cette rangée affichée à tous (Partager et Fiche restent au
+          propriétaire). */}
+      <FadeInView delay={40}>
+        <View className="flex-row gap-2">
+          <TouchableOpacity accessibilityRole="button"
+            onPress={() => handleQuickAdd("seance")}
+            activeOpacity={0.8}
+            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card bg-primary p-3"
+          >
+            <MaterialCommunityIcons name="calendar-plus" size={16} color={colors.textOnPrimary} />
+            <Text className="text-sm font-bold text-on-primary">{t("Planifier")}</Text>
+          </TouchableOpacity>
+          {isOwner ? (
+            <TouchableOpacity accessibilityRole="button"
               onPress={() => router.push(`/share-horse-modal?horseId=${horse.id}`)}
               activeOpacity={0.8}
-              className="flex-1 items-center rounded-card border border-border p-3"
+              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
             >
-              <Text className="text-sm font-semibold text-text">Partager</Text>
+              <MaterialCommunityIcons name="account-multiple-plus-outline" size={16} color={colors.text} />
+              <Text className="text-sm font-semibold text-text">{t("Partager")}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
+          ) : null}
+          {isOwner ? (
+            <TouchableOpacity accessibilityRole="button"
               onPress={() => Share.share({ message: buildHorseShareText(horse, DOWNLOAD_URL) }).catch(() => {})}
               activeOpacity={0.8}
-              className="flex-1 items-center rounded-card border border-border p-3"
+              accessibilityLabel={t("Envoyer la fiche du cheval")}
+              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
             >
-              <Text className="text-sm font-semibold text-text">Fiche</Text>
+              <MaterialCommunityIcons name="export-variant" size={16} color={colors.text} />
+              <Text className="text-sm font-semibold text-text">{t("Fiche")}</Text>
             </TouchableOpacity>
-          </View>
-        </FadeInView>
-      ) : null}
+          ) : null}
+        </View>
+      </FadeInView>
 
       {horseGoal ? (
         <FadeInView delay={60}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             activeOpacity={0.85}
             onPress={() => router.push(`/goal-modal?id=${horseGoal.id}`)}
             className={`${CARD} gap-1`}
           >
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="target" size={16} color={colors.accent} />
-              <Text className="text-xs font-bold uppercase tracking-wide text-accent">Objectif</Text>
+              <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Objectif")}</Text>
             </View>
             <Text className="text-base font-bold text-text">{horseGoal.title}</Text>
             <View className="mt-1 flex-row items-center justify-between">
               <Text className="text-sm text-muted">
-                {horseGoal.targetDate ? formatDate(horseGoal.targetDate) : "Sans échéance"}
+                {horseGoal.targetDate ? formatDate(horseGoal.targetDate) : t("Sans échéance")}
               </Text>
-              <Text className="text-sm font-semibold text-accent">Voir l&apos;objectif</Text>
+              <Text className="text-sm font-semibold text-accent">{t("Voir l'objectif")}</Text>
             </View>
           </TouchableOpacity>
         </FadeInView>
@@ -374,7 +427,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <HorseModuleCard
           icon="heart-pulse"
           iconColor={colors.warning}
-          title="Santé"
+          title={t("Santé")}
           value={santeValue}
           onPress={() => router.push(`/horse/${horse.id}/sante`)}
         />
@@ -383,7 +436,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <HorseModuleCard
           icon="chart-line"
           iconColor={colors.primary}
-          title="Entraînement"
+          title={t("Entraînement")}
           value={entrainementValue}
           // Navigation directe vers la destination finale (cf. audit crash du
           // 2026-09-05, round 2) — l'ancien écran intermédiaire
@@ -413,7 +466,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <HorseModuleCard
           icon="trophy-outline"
           iconColor={colors.accent}
-          title="Concours"
+          title={t("Concours")}
           value={concoursValue}
           onPress={() => {
             focusThisHorse();
@@ -425,7 +478,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <HorseModuleCard
           icon="notebook-outline"
           iconColor={colors.primary}
-          title="Journal"
+          title={t("Journal")}
           value={journalValue}
           onPress={() => {
             focusThisHorse();
@@ -437,7 +490,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <HorseModuleCard
           icon="wallet-outline"
           iconColor={colors.success}
-          title="Budget"
+          title={t("Budget")}
           value={budgetValue}
           // Sous-écran de CETTE fiche, comme Santé et Poids : plus besoin
           // de passer par l'ancien onglet Agenda, ni de changer le cheval
@@ -449,7 +502,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <HorseModuleCard
           icon="folder-outline"
           iconColor={colors.primary}
-          title="Documents"
+          title={t("Documents")}
           value={documentsValue}
           onPress={() => router.push(`/horse/${horse.id}/documents`)}
         />
@@ -458,9 +511,69 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <HorseModuleCard
           icon="scale-bathroom"
           iconColor={colors.accent}
-          title="Poids"
+          title={t("Poids")}
           value={weightValue}
           onPress={() => router.push(`/horse/${horse.id}/poids`)}
+        />
+      </FadeInView>
+      <FadeInView delay={194}>
+        <HorseModuleCard
+          icon="party-popper"
+          iconColor={colors.accent}
+          title={t("Bilan {year}", { year: reviewYear })}
+          value={t("Ton année avec {name}, à partager", { name: horse.name })}
+          onPress={() => router.push(`/horse/${horse.id}/annee?year=${reviewYear}`)}
+        />
+      </FadeInView>
+      {horse.sharedRole === null ? (
+        <FadeInView delay={195}>
+          <HorseModuleCard
+            icon="account-heart-outline"
+            iconColor={colors.accent}
+            title={t("Demi-pension")}
+            value={partnershipValue}
+            onPress={() => router.push(`/horse/${horse.id}/demi-pension`)}
+          />
+        </FadeInView>
+      ) : null}
+      <FadeInView delay={196}>
+        <HorseModuleCard
+          icon="food-apple-outline"
+          iconColor={colors.success}
+          title={t("Alimentation")}
+          value={feedingValue}
+          onPress={() => router.push(`/horse/${horse.id}/alimentation`)}
+        />
+      </FadeInView>
+      <FadeInView delay={198}>
+        <HorseModuleCard
+          icon="card-account-details-outline"
+          iconColor={colors.primary}
+          title={t("Identité")}
+          value={identityValue}
+          onPress={() => router.push(`/horse/${horse.id}/identite`)}
+        />
+      </FadeInView>
+      {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}
+      <FadeInView delay={199}>
+        <HorseModuleCard
+          icon="message-text-outline"
+          iconColor={colors.accent}
+          title={t("Fil")}
+          value={t("Commentaires et réactions de ceux qui le suivent")}
+          onPress={() => router.push(`/horse/${horse.id}/fil`)}
+        />
+      </FadeInView>
+
+      {/* Badges du couple : des faits réels (heures, régularité, concours,
+          soins), jamais des points pour avoir ouvert l'app. */}
+      <FadeInView delay={200}>
+        <HorseMilestonesCard
+          horseId={horse.id}
+          horseName={horse.name}
+          sessions={sessions}
+          appointments={appointments}
+          journal={journal}
         />
       </FadeInView>
 
@@ -525,9 +638,9 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
 
       <FadeInView delay={220}>
         <View className="mt-1 flex-row items-center justify-between">
-          <Text className="text-xl font-bold text-text">Activité récente</Text>
-          <TouchableOpacity onPress={() => router.push(`/horse/${horse.id}/historique`)}>
-            <Text className="text-sm font-semibold text-accent">Voir tout</Text>
+          <Text className="text-xl font-bold text-text">{t("Activité récente")}</Text>
+          <TouchableOpacity accessibilityRole="button" onPress={() => router.push(`/horse/${horse.id}/historique`)}>
+            <Text className="text-sm font-semibold text-accent">{t("Voir tout")}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
@@ -535,7 +648,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <ActivityFeed
           entries={activityEntries}
           limit={6}
-          emptyMessage={`Rien à afficher pour l'instant : les séances, soins, entrées de journal et dépenses passées de ${horse.name} apparaîtront ici.`}
+          emptyMessage={t("Rien à afficher pour l'instant : les séances, soins, entrées de journal et dépenses passées de {name} apparaîtront ici.", { name: horse.name })}
         />
       </FadeInView>
       {/* « Ajouter un cheval » vit normalement dans la liste des chevaux,
@@ -544,13 +657,13 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           d'atteindre le paywall qui va avec. */}
       {inTab ? (
         <FadeInView delay={250}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             activeOpacity={0.8}
             onPress={() => router.push("/add-horse-modal")}
             className="mt-1 flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
           >
             <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
-            <Text className="text-base font-semibold text-primary">Ajouter un cheval</Text>
+            <Text className="text-base font-semibold text-primary">{t("Ajouter un cheval")}</Text>
           </TouchableOpacity>
         </FadeInView>
       ) : null}
@@ -569,15 +682,25 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
     <TouchableOpacity
       onPress={() => setQuickAddVisible(true)}
       activeOpacity={0.85}
-      accessibilityLabel="Ajouter"
+      accessibilityLabel={t("Ajouter")}
       accessibilityRole="button"
       className={`absolute right-5 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-card ${
         inTab ? "bottom-20" : "bottom-6"
       }`}
+      // Sous la barre native d'iOS, l'écran d'onglet s'étend jusqu'en bas
+      // et sa marge de sécurité inclut la barre elle-même (cf.
+      // app/(tabs)/_layout.tsx) : on se cale dessus plutôt que sur une
+      // hauteur supposée, qui varie (iOS 26 réduit la barre au défilement).
+      style={inTab && Platform.OS === "ios" ? { bottom: insets.bottom + 16 } : undefined}
     >
       <MaterialCommunityIcons name="plus" size={26} color={colors.textOnPrimary} />
     </TouchableOpacity>
-    <QuickAddSheet visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} onSelect={handleQuickAdd} />
+    <QuickAddSheet
+      visible={quickAddVisible}
+      withHorse={inTab}
+      onClose={() => setQuickAddVisible(false)}
+      onSelect={handleQuickAdd}
+    />
     <PickerOverlaySlot />
     </SafeAreaView>
   );

@@ -3,6 +3,7 @@ import { findNextDue, findNextCompetition } from "@/agenda/upcoming";
 import type { Appointment } from "@/agenda/store";
 import { recoveryAlertMessage } from "@/horses/injuries";
 import type { Horse } from "@/horses/store";
+import { t } from "@/i18n";
 
 export type HorseAlert = {
   horseId: string;
@@ -44,7 +45,7 @@ export function buildHorseAlerts(horses: Horse[], appointments: Appointment[], t
     if (nextCompetition) {
       const d = daysUntil(today, nextCompetition.date);
       if (d <= CONCOURS_WINDOW_DAYS) {
-        candidates.push({ kind: "concours", daysUntil: d, message: `Concours ${daysUntilLabel(nextCompetition.date)}` });
+        candidates.push({ kind: "concours", daysUntil: d, message: t("Concours {daysUntilLabel}", { daysUntilLabel: daysUntilLabel(nextCompetition.date) }) });
       }
     }
 

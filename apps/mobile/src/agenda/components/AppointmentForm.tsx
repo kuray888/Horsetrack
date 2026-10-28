@@ -26,6 +26,11 @@ import { defaultInternationalEnd } from "@/planning/eventSpan";
 import { APPT_META, HEALTH_APPT_TYPES, REMINDER_META, DISCIPLINE_META } from "@/agenda/meta";
 import type { AppointmentFormValue } from "@/agenda/hooks/useAppointmentForm";
 import type { Discipline } from "@/onboarding/store";
+import { animateNextLayout } from "@/lib/motion";
+import { isSameDate } from "@/lib/dateFormat";
+import { applyNextDueShortcut, nextDueShortcuts } from "@/agenda/nextDue";
+import { t } from "@/i18n";
+import { ContactShortcuts } from "@/extras/ContactShortcuts";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -98,7 +103,7 @@ export function AppointmentForm({
   }
 
   if (!show) {
-    return <AddToggle label="Ajouter un rendez-vous" onPress={onOpen} color={colors.primary} />;
+    return <AddToggle label={t("Ajouter un rendez-vous")} onPress={onOpen} color={colors.primary} />;
   }
 
   const isConcours = form.type === "concours";
@@ -129,11 +134,11 @@ export function AppointmentForm({
    * un rappel) qui partiraient sinon sans avoir été montrées (cf.
    * components/FormDetails.tsx). */
   const detailsSummary = [
-    form.time.trim() || "sans heure",
-    `rappel ${REMINDER_META[form.reminder].label.toLowerCase()}`,
-    form.location.trim() ? "lieu renseigné" : null,
+    form.time.trim() || t("sans heure"),
+    t("rappel {v}", { v: REMINDER_META[form.reminder].label.toLowerCase() }),
+    form.location.trim() ? t("lieu renseigné") : null,
     form.cost.trim() ? `${form.cost.trim()} €` : null,
-    !editingApptId && form.type !== "concours" && form.recurrence.mode === "custom" ? "répété" : null,
+    !editingApptId && form.type !== "concours" && form.recurrence.mode === "custom" ? t("répété") : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -141,10 +146,10 @@ export function AppointmentForm({
   return (
     <View className={`${CARD} gap-3`}>
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
-        {editingApptId ? "Modifier le rendez-vous" : "Nouveau rendez-vous"}
+        {editingApptId ? t("Modifier le rendez-vous") : t("Nouveau rendez-vous")}
       </Text>
       {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
-      <Field label="Type de rendez-vous">
+      <Field label={t("Type de rendez-vous")}>
         <ChipSelect
           options={Object.entries(APPT_META).map(([value, meta]) => ({
             value: value as AppointmentType,
@@ -163,16 +168,16 @@ export function AppointmentForm({
           onChange={(horseIds) => setForm((f) => ({ ...f, horseIds }))}
         />
       ) : null}
-      <Field label="Titre">
+      <Field label={t("Titre")}>
         <TextInput
           className={INPUT}
-          placeholder="Ex : Vaccin annuel"
+          placeholder={t("Ex : Vaccin annuel")}
           value={form.title}
           onChangeText={(title) => setForm((f) => ({ ...f, title }))}
         />
       </Field>
       <DatePickerField
-        label={isInternational ? "Premier jour" : "Date"}
+        label={isInternational ? t("Premier jour") : t("Date")}
         value={form.date}
         onChange={(date) =>
           setForm((f) => ({
@@ -190,11 +195,11 @@ export function AppointmentForm({
       />
       {isConcours ? (
         <>
-          <Field label="Niveau du concours">
+          <Field label={t("Niveau du concours")}>
             <ChipSelect
               options={[
-                { value: "national" as CompetitionLevel, label: "National", icon: { name: "flag-outline", color: colors.textMuted } },
-                { value: "international" as CompetitionLevel, label: "International", icon: { name: "earth", color: colors.textMuted } },
+                { value: "national" as CompetitionLevel, label: t("National"), icon: { name: "flag-outline", color: colors.textMuted } },
+                { value: "international" as CompetitionLevel, label: t("International"), icon: { name: "earth", color: colors.textMuted } },
               ]}
               value={form.competitionLevel}
               onChange={(competitionLevel) =>
@@ -213,42 +218,48 @@ export function AppointmentForm({
           </Field>
           {isInternational ? (
             <DatePickerField
-              label="Dernier jour du concours"
+              label={t("Dernier jour du concours")}
               value={form.endDate}
               onChange={(endDate) => setForm((f) => ({ ...f, endDate }))}
             />
           ) : null}
           {isInternational && form.date && form.endDate && form.endDate <= form.date ? (
             <Text className="text-xs text-danger">
-              Le dernier jour doit être après le premier : sinon le concours sera enregistré sur un seul jour.
+              {t("Le dernier jour doit être après le premier : sinon le concours sera enregistré sur un seul jour.")}
             </Text>
           ) : null}
         </>
       ) : null}
       <FormDetails open={showDetails} onToggle={() => setShowDetails((v) => !v)} summary={detailsSummary}>
-      <TimePickerField label="Heure" value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
-      <Field label="Lieu (optionnel)">
+      <TimePickerField label={t("Heure")} value={form.time} onChange={(time) => setForm((f) => ({ ...f, time }))} />
+      <Field label={t("Lieu (optionnel)")}>
         <TextInput
           className={INPUT}
-          placeholder="Ex : Clinique équine du Val"
+          placeholder={t("Ex : Clinique équine du Val")}
           value={form.location}
           onChangeText={(location) => setForm((f) => ({ ...f, location }))}
         />
       </Field>
       {HEALTH_APPT_TYPES.includes(form.type) ? (
         <>
-          <Field label="Professionnel (optionnel)">
+          <Field label={t("Professionnel (optionnel)")}>
             <TextInput
               className={INPUT}
-              placeholder="Ex : Dr Martin"
+              placeholder={t("Ex : Dr Martin")}
               value={form.professional}
               onChangeText={(professional) => setForm((f) => ({ ...f, professional }))}
             />
+            {/* Raccourci depuis le carnet de contacts (cf. app/contacts.tsx). */}
+            <ContactShortcuts
+              type={form.type}
+              selected={form.professional}
+              onPick={(name) => setForm((f) => ({ ...f, professional: name }))}
+            />
           </Field>
-          <Field label="Coût (€, optionnel)">
+          <Field label={t("Coût (€, optionnel)")}>
             <TextInput
               className={INPUT}
-              placeholder="Ex : 65"
+              placeholder={t("Ex : 65")}
               value={form.cost}
               onChangeText={(cost) => setForm((f) => ({ ...f, cost }))}
               keyboardType="decimal-pad"
@@ -267,19 +278,48 @@ export function AppointmentForm({
             noun="rendez-vous"
           />
           <DatePickerField
-            label="Prochaine échéance (optionnel)"
+            label={t("Prochaine échéance (optionnel)")}
             value={form.nextDueDate}
             onChange={(nextDueDate) => setForm((f) => ({ ...f, nextDueDate }))}
           />
+          {/* Raccourcis à partir de la date du rendez-vous : la prochaine
+              échéance est le champ le plus souvent laissé vide, faute de
+              vouloir chercher une date dans un calendrier. */}
+          {form.date && nextDueShortcuts(form.type).length > 0 ? (
+            <View className="-mt-1 flex-row flex-wrap items-center gap-2">
+              <Text className="text-xs text-muted">{t("Dans")}</Text>
+              {nextDueShortcuts(form.type).map((shortcut) => {
+                const target = applyNextDueShortcut(form.date!, shortcut);
+                const selected = !!form.nextDueDate && isSameDate(form.nextDueDate, target);
+                return (
+                  <TouchableOpacity
+                    key={shortcut.label}
+                    onPress={() => setForm((f) => ({ ...f, nextDueDate: selected ? null : target }))}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={t("Prochaine échéance dans {label}", { label: shortcut.label })}
+                    className={`rounded-full border px-3 py-1.5 ${
+                      selected ? "border-primary bg-highlight" : "border-border bg-surface"
+                    }`}
+                  >
+                    <Text className={`text-xs font-semibold ${selected ? "text-primary" : "text-text"}`}>
+                      {shortcut.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
         </>
       ) : null}
       <Locked
-        message="Reçois une notification avant ce rendez-vous"
+        message={t("Reçois une notification avant ce rendez-vous")}
         placement="reminders"
         feature="appointment_reminder"
         unlocked={reminderUnlocked}
       >
-        <Field label="Rappel">
+        <Field label={t("Rappel")}>
           <ChipSelect
             options={Object.entries(REMINDER_META).map(([value, meta]) => ({
               value: value as ReminderOption,
@@ -291,7 +331,7 @@ export function AppointmentForm({
           />
           {reminderUnlocked && !isActiveOrTrialing ? (
             <Text className="text-xs text-muted">
-              Rappel offert : un rappel à la fois en version gratuite, illimités avec Premium.
+              {t("Rappel offert : un rappel à la fois en version gratuite, illimités avec Premium.")}
             </Text>
           ) : null}
         </Field>
@@ -303,13 +343,13 @@ export function AppointmentForm({
         <>
           {targetHorseCount > 1 ? (
             <Text className="text-xs text-muted">
-              Le dossard est propre à chaque cheval : renseigne-le ensuite concours par concours (Modifier).
+              {t("Le dossard est propre à chaque cheval : renseigne-le ensuite concours par concours (Modifier).")}
             </Text>
           ) : (
-            <Field label="Dossard (optionnel)">
+            <Field label={t("Dossard (optionnel)")}>
               <TextInput
                 className={INPUT}
-                placeholder="Ex : 142"
+                placeholder={t("Ex : 142")}
                 value={form.dossard}
                 onChangeText={(dossard) => setForm((f) => ({ ...f, dossard }))}
                 keyboardType="number-pad"
@@ -322,15 +362,15 @@ export function AppointmentForm({
               ne les prend pas en compte — la modification disparaissait en silence. */}
           {editingApptId ? null : (
             <>
-              <Locked message="Détaille chaque épreuve : horaires, résultats" placement="competitions" feature="competition_detail">
+              <Locked message={t("Détaille chaque épreuve : horaires, résultats")} placement="competitions" feature="competition_detail">
                 <View className="gap-2">
-                  <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Épreuves</Text>
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Épreuves")}</Text>
                   {form.competitionEntries.map((entry) => (
                     <View key={entry.id} className="gap-2 rounded-card border border-border p-3">
                       <View className="flex-row items-center gap-2">
                         <TextInput
                           className={`${INPUT} flex-1`}
-                          placeholder="Ex : Épreuve club 2 — 1m10"
+                          placeholder={t("Ex : Épreuve club 2 — 1m10")}
                           value={entry.name}
                           onChangeText={(name) => onUpdateEntry(entry.id, { name })}
                         />
@@ -349,7 +389,7 @@ export function AppointmentForm({
                       />
                       <TextInput
                         className={INPUT}
-                        placeholder="Heure de passage (facultatif, ex : 09h15)"
+                        placeholder={t("Heure de passage (facultatif, ex : 09h15)")}
                         value={entry.time}
                         onChangeText={(time) => onUpdateEntry(entry.id, { time })}
                       />
@@ -360,7 +400,7 @@ export function AppointmentForm({
                     activeOpacity={0.8}
                     className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-3"
                   >
-                    <Text className="text-sm font-semibold text-accent">＋ Ajouter une épreuve</Text>
+                    <Text className="text-sm font-semibold text-accent">{t("＋ Ajouter une épreuve")}</Text>
                   </TouchableOpacity>
                 </View>
               </Locked>
@@ -371,23 +411,26 @@ export function AppointmentForm({
       </FormDetails>
       {overLimit ? (
         <Text className="text-xs text-danger">
-          {`${createCount} rendez-vous d'un coup, c'est trop (maximum ${MAX_ENTRIES_PER_SUBMIT}) : chacun programme un rappel. Réduis la répétition ou le nombre de chevaux.`}
+          {t("{createCount} rendez-vous d'un coup, c'est trop (maximum {MAX_ENTRIES_PER_SUBMIT}) : chacun programme un rappel. Réduis la répétition ou le nombre de chevaux.", { createCount: createCount, MAX_ENTRIES_PER_SUBMIT: MAX_ENTRIES_PER_SUBMIT })}
         </Text>
       ) : null}
       <View className="flex-row gap-2">
-        <TouchableOpacity onPress={onCancel} className="flex-1 items-center rounded-card border border-border p-4">
-          <Text className="text-base font-semibold text-muted">Annuler</Text>
+        <TouchableOpacity onPress={() => {
+          animateNextLayout();
+          onCancel();
+        }} className="flex-1 items-center rounded-card border border-border p-4">
+          <Text className="text-base font-semibold text-muted">{t("Annuler")}</Text>
         </TouchableOpacity>
         <View className="flex-1">
           <PrimaryButton
             label={
               submitting
-                ? "Un instant…"
+                ? t("Un instant…")
                 : editingApptId
-                  ? "Enregistrer"
+                  ? t("Enregistrer")
                   : createCount > 1
-                    ? `Ajouter (×${createCount})`
-                    : "Ajouter"
+                    ? t("Ajouter (×{createCount})", { createCount: createCount })
+                    : t("Ajouter")
             }
             disabled={!form.title.trim() || !form.date || submitting || overLimit || missingHorseChoice}
             onPress={onSubmit}

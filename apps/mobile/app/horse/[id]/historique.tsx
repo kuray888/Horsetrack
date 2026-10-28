@@ -8,6 +8,7 @@ import { useAgenda } from "@/agenda/store";
 import { useSessions } from "@/sessions/store";
 import { buildActivityEntries } from "@/agenda/activity";
 import { ActivityFeed } from "@/agenda/components/ActivityFeed";
+import { t } from "@/i18n";
 
 /**
  * Historique complet du cheval — version non modale de horse-history-modal.tsx,
@@ -29,18 +30,16 @@ export default function HorseHistoriqueScreen() {
         <View className="gap-1">
           <View className="flex-row items-center gap-1">
             <BackButton />
-            <Text className="text-3xl font-display tracking-tight text-text">Historique</Text>
+            <Text className="text-3xl font-display tracking-tight text-text">{t("Historique")}</Text>
           </View>
-          <Text className="text-base text-muted">La vie de {horse?.name ?? "ce cheval"}, en un coup d&apos;œil</Text>
+          <Text className="text-base text-muted">{t("La vie de ")}{horse?.name ?? t("ce cheval")}{t(", en un coup d'œil")}</Text>
         </View>
       </FadeInView>
 
       <FadeInView delay={80}>
         <ActivityFeed
           entries={entries}
-          emptyMessage={`Rien à afficher pour l'instant : les séances, soins, entrées de journal et dépenses passées de ${
-            horse?.name ?? "ce cheval"
-          } apparaîtront ici.`}
+          emptyMessage={t("Rien à afficher pour l'instant : les séances, soins, entrées de journal et dépenses passées de {v} apparaîtront ici.", { v: horse?.name ?? "ce cheval" })}
         />
       </FadeInView>
     </Screen>

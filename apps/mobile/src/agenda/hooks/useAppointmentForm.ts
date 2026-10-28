@@ -30,9 +30,11 @@ import {
 import { newDraftEntryId } from "@/agenda/meta";
 import { cleanCompetitionEntry } from "@/agenda/competitionEntry";
 import { appointmentReminderContent, nextDueReminderContent } from "@/agenda/reminderContent";
+import { appointmentReminderUrl, nextDueReminderUrl } from "@/lib/notificationLinks";
 import { track } from "@/lib/analytics";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
 import { hasFreeReminderSlot } from "@/subscription/paywallLogic";
+import { t, localDecimal } from "@/i18n";
 
 const emptyApptForm = {
   type: "veto" as AppointmentType,
@@ -151,7 +153,7 @@ export function useAppointmentForm({
       competitionLevel: appt.competitionLevel ?? "national",
       endDate: appt.endDate,
       professional: appt.professional ?? "",
-      cost: appt.cost !== null ? String(appt.cost).replace(".", ",") : "",
+      cost: appt.cost !== null ? localDecimal(String(appt.cost)) : "",
       nextDueDate: appt.nextDueDate,
       recurrence: NEVER_RECURRENCE,
       horseIds: [],
@@ -185,7 +187,8 @@ export function useAppointmentForm({
     time: string,
     location: string,
     reminder: ReminderOption,
-    horseName: string | null
+    horseName: string | null,
+    horseId: string | null
   ): Promise<{ reminderNotificationId: string | null; emailReminderId: string | null }> {
     const trigger = computeReminderTrigger(date, time, reminder);
     const content = appointmentReminderContent(title, date, time, location, horseName);
@@ -195,7 +198,12 @@ export function useAppointmentForm({
     // e-mail sont indépendants : lancés ensemble plutôt qu'à la suite, ce qui
     // divise à peu près par deux le temps d'une création pour plusieurs chevaux
     // (un appel réseau par entrée).
-    const pushPromise = scheduleReminder(content.title, content.body, trigger).catch(() => null);
+    const pushPromise = scheduleReminder(
+      content.title,
+      content.body,
+      trigger,
+      appointmentReminderUrl(apptForm.type, horseId)
+    ).catch(() => null);
     // Le rappel offert en gratuit est une notification seulement : l'e-mail
     // reste Premium (l'API le refuse de toute façon, cf. /api/email-reminders).
     const [reminderNotificationId, emailReminderId] = await Promise.all([
@@ -215,13 +223,14 @@ export function useAppointmentForm({
     apptType: AppointmentType,
     title: string,
     nextDueDate: Date,
-    horseName: string | null
+    horseName: string | null,
+    horseId: string | null
   ): Promise<string | null> {
     if (!isActiveOrTrialing) return null;
     const content = nextDueReminderContent(apptType, title, nextDueDate, horseName);
     if (!content.trigger) return null;
     try {
-      return await scheduleReminder(content.title, content.body, content.trigger);
+      return await scheduleReminder(content.title, content.body, content.trigger, nextDueReminderUrl(horseId));
     } catch {
       return null;
     }
@@ -234,7 +243,7 @@ export function useAppointmentForm({
 function confirmAsync(title: string, message: string, confirmLabel: string): Promise<boolean> {
   return new Promise((resolve) => {
     Alert.alert(title, message, [
-      { text: "Annuler", style: "cancel", onPress: () => resolve(false) },
+      { text: t("Annuler"), style: "cancel", onPress: () => resolve(false) },
       { text: confirmLabel, onPress: () => resolve(true) },
     ]);
   });
@@ -293,10 +302,11 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
           time,
           location,
           reminder,
-          editingHorseName
+          editingHorseName,
+          editing.horseId
         );
         const nextDueNotificationId = nextDueDate
-          ? await scheduleNextDueReminder(apptForm.type, title, nextDueDate, editingHorseName)
+          ? await scheduleNextDueReminder(apptForm.type, title, nextDueDate, editingHorseName, editing.horseId)
           : null;
         updateAppointment(editing.id, {
           type: apptForm.type,
@@ -342,7 +352,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
         // aucun cheval n'est visé tant que rien n'est coché, et créer sur le
         // seul cheval actif serait précisément le raccourci qu'on refuse.
         if (needsExplicitHorseChoice(apptForm.horseIds, selectableHorses, fallbackIds)) {
-          Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer ce rendez-vous.");
+          Alert.alert(t("Pour quel cheval ?"), t("Choisis au moins un cheval avant d'enregistrer ce rendez-vous."));
           return;
         }
         // Le dossard est propre à chaque cheval : le recopier sur toutes les
@@ -353,8 +363,8 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
         // AppointmentForm) : une notification locale ET un e-mail par entrée.
         if (targetHorseIds.length * occurrenceDates.length > MAX_ENTRIES_PER_SUBMIT) {
           Alert.alert(
-            "Trop de rendez-vous d'un coup",
-            `Une création est limitée à ${MAX_ENTRIES_PER_SUBMIT} rendez-vous (chevaux × répétitions). Réduis la répétition ou le nombre de chevaux.`
+            t("Trop de rendez-vous d'un coup"),
+            t("Une création est limitée à {MAX_ENTRIES_PER_SUBMIT} rendez-vous (chevaux × répétitions). Réduis la répétition ou le nombre de chevaux.", { MAX_ENTRIES_PER_SUBMIT: MAX_ENTRIES_PER_SUBMIT })
           );
           return;
         }
@@ -370,7 +380,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
           const remindersToSchedule =
             targetHorseIds.length * occurrenceDates.length + (nextDueDate ? targetHorseIds.length : 0);
           const warning = reminderBudgetWarning(await pendingReminderCount(), remindersToSchedule);
-          if (warning && !(await confirmAsync("Beaucoup de rappels programmés", warning, "Créer quand même"))) {
+          if (warning && !(await confirmAsync(t("Beaucoup de rappels programmés"), warning, t("Créer quand même")))) {
             return;
           }
         }
@@ -399,7 +409,8 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
               time,
               location,
               entryReminder,
-              targetHorseName
+              targetHorseName,
+              targetHorseId
             );
             // La prochaine échéance de soin ne s'applique qu'à la première
             // occurrence — la dupliquer sur chaque semaine répétée n'aurait pas
@@ -408,7 +419,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
             // ne dit rien de celui de l'autre.
             const occurrenceNextDueDate = i === 0 ? nextDueDate : null;
             const nextDueNotificationId = occurrenceNextDueDate
-              ? await scheduleNextDueReminder(apptForm.type, title, occurrenceNextDueDate, targetHorseName)
+              ? await scheduleNextDueReminder(apptForm.type, title, occurrenceNextDueDate, targetHorseName, targetHorseId)
               : null;
             addAppointment({
               horseId: targetHorseId,
@@ -447,7 +458,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
         // Un rendez-vous créé pour un cheval que la liste de cet écran
         // n'affiche pas semblerait perdu : on le dit (cf. hiddenTargetsMessage).
         hiddenNames = targetsOutsideView(targetHorseIds, visibleHorseIds ?? fallbackIds).map(
-          (id) => horseNameFor(id) ?? "un autre cheval"
+          (id) => horseNameFor(id) ?? t("un autre cheval")
         );
       }
       // Activation Premium (cf. subscription/trialLifecycle.ts) + analytics.
@@ -463,7 +474,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
     } finally {
       setSubmittingAppt(false);
     }
-    if (hiddenNames.length > 0) Alert.alert("Rendez-vous enregistré", hiddenTargetsMessage(hiddenNames));
+    if (hiddenNames.length > 0) Alert.alert(t("Rendez-vous enregistré"), hiddenTargetsMessage(hiddenNames));
   }
 
   function addApptFormEntry() {

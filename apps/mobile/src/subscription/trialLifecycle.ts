@@ -8,6 +8,7 @@ import { getSubscriptionPackage, storePriceString } from "@/lib/revenuecat";
 import { track } from "@/lib/analytics";
 import { computeIsActiveOrTrialing, type Persisted } from "./logic";
 import { formatDayMonth, trialReminderDate } from "./paywallLogic";
+import { t } from "@/i18n";
 
 /**
  * Tient la promesse du paywall (« on te prévient avant la fin de l'essai ») et
@@ -43,7 +44,7 @@ type Stored = {
   activated: boolean;
 };
 
-const CANCEL_WHERE = Platform.OS === "ios" ? "Réglages > Abonnements" : "Google Play > Abonnements";
+const CANCEL_WHERE = Platform.OS === "ios" ? t("Réglages > Abonnements") : t("Google Play > Abonnements");
 
 async function read(): Promise<Stored | null> {
   const raw = await SecureStore.getItemAsync(KEY);
@@ -65,18 +66,18 @@ async function endReminderText(state: Persisted, end: Date): Promise<{ title: st
   // store derrière, donc aucun prélèvement à annoncer.
   if (state.billingPeriod === null) {
     return {
-      title: `Ton essai Premium offert se termine le ${day}`,
-      body: "Pour garder tous tes chevaux, rappels et documents, passe à Premium depuis ton profil. Sinon, tu repasses en version gratuite et tes données restent conservées.",
+      title: t("Ton essai Premium offert se termine le {day}", { day: day }),
+      body: t("Pour garder tous tes chevaux, rappels et documents, passe à Premium depuis ton profil. Sinon, tu repasses en version gratuite et tes données restent conservées."),
     };
   }
   const period = state.billingPeriod;
   const pkg = await getSubscriptionPackage(period).catch(() => null);
   // Prix du store uniquement : sans lui, on n'annonce aucun montant plutôt
   // qu'un prix écrit en dur qui pourrait différer de celui facturé.
-  const priceNote = pkg ? ` (${storePriceString(pkg, period)} par ${period === "ANNUAL" ? "an" : "mois"})` : "";
+  const priceNote = pkg ? t(" ({storePriceString} par {v})", { storePriceString: storePriceString(pkg, period), v: period === "ANNUAL" ? "an" : "mois" }) : "";
   return {
-    title: `Ton essai Premium se termine le ${day}`,
-    body: `Sans action de ta part, l'abonnement démarre ce jour-là${priceNote}. Pour l'arrêter : ${CANCEL_WHERE}. Si tu l'as déjà résilié, rien ne sera prélevé.`,
+    title: t("Ton essai Premium se termine le {day}", { day: day }),
+    body: t("Sans action de ta part, l'abonnement démarre ce jour-là{priceNote}. Pour l'arrêter : {CANCEL_WHERE}. Si tu l'as déjà résilié, rien ne sera prélevé.", { priceNote: priceNote, CANCEL_WHERE: CANCEL_WHERE }),
   };
 }
 
@@ -116,8 +117,8 @@ async function scheduleMissing(state: Persisted, s: Stored): Promise<Stored> {
     const at = nudgeDate(new Date(next.firstSeenAt), now);
     if (at) {
       next.nudgeId = await scheduleReminder(
-        "Premium : ton premier rappel santé",
-        "Ajoute un rappel à ton prochain rendez-vous véto ou maréchal : HorseTrack te préviendra à temps.",
+        t("Premium : ton premier rappel santé"),
+        t("Ajoute un rappel à ton prochain rendez-vous véto ou maréchal : HorseTrack te préviendra à temps."),
         at
       ).catch(() => null);
     }

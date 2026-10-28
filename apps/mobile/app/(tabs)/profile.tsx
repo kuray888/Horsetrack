@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
+import { clearExtras } from "@/extras/store";
 import { Alert, Linking, Platform, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import Constants from "expo-constants";
 import type { User } from "@supabase/supabase-js";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { supabase } from "@/lib/supabase";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { useSubscription } from "@/subscription/store";
 import { openPaywall } from "@/subscription/paywall";
+import { unregisterPushToken } from "@/lib/pushRegistration";
 import { formatFullDate } from "@/subscription/paywallLogic";
 import { openManageSubscriptions } from "@/lib/revenuecat";
 import { track } from "@/lib/analytics";
 import { DOWNLOAD_URL, SUPPORT_EMAIL, canOpenWriteReview, openSupportEmail, openWriteReview } from "@/lib/links";
 import { useThemeColors, useTheme } from "@/theme/ThemeProvider";
-import { THEME_ORDER, THEME_LABELS, PALETTES } from "@/theme/palettes";
+import { THEME_ORDER, THEME_LABELS, paletteFor } from "@/theme/palettes";
 import {
   isBiometricsAvailable,
   authenticateWithBiometrics,
@@ -23,6 +25,7 @@ import {
   setBiometricLockEnabled,
 } from "@/lib/biometrics";
 import { cancelWeeklySummary, ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
+import { getSessionRemindersEnabled, setSessionRemindersEnabled } from "@/sessions/SessionReminders";
 import { AccountError, deleteAccount } from "@/lib/account";
 import { getAppleAuthorizationCode } from "@/lib/appleAuth";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
@@ -39,6 +42,9 @@ import { useWeight } from "@/horses/weightStore";
 import { useSessions } from "@/sessions/store";
 import { clearSyncQueue } from "@/lib/syncQueue";
 import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
+import { lazyTab } from "@/components/LazyTab";
+import { exportAllData } from "@/export/exportAllData";
+import { t as tr } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -128,9 +134,9 @@ function LinkRow({
   );
 }
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const colors = useThemeColors();
-  const { themeId, setThemeId } = useTheme();
+  const { themeId, setThemeId, scheme, appearance, setAppearance } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const subscription = useSubscription();
   const {
@@ -144,15 +150,27 @@ export default function ProfileScreen() {
   } = subscription;
   const { horses, clearAll: clearHorses } = useHorses();
   const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
-  const { clearAll: clearAgenda } = useAgenda();
+  const { appointments, journal, expenses, documents, clearAll: clearAgenda } = useAgenda();
   const { goals, clearAll: clearGoals } = useGoals();
-  const { clearAll: clearWeight } = useWeight();
-  const { clearAll: clearSessions } = useSessions();
+  const { measurements, clearAll: clearWeight } = useWeight();
+  const { sessions, clearAll: clearSessions } = useSessions();
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportAllData({ horses, sessions, appointments, journal, expenses, weights: measurements, documents, goals });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
-  const [bioLabel, setBioLabel] = useState("Biométrie");
+  const [sessionRemindersOn, setSessionRemindersOn] = useState(true);
+  const [bioLabel, setBioLabel] = useState(tr("Biométrie"));
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
@@ -160,9 +178,10 @@ export default function ProfileScreen() {
     getNotificationStatus().then(setNotifEnabled).catch(() => {});
     isBiometricsAvailable().then(setBioAvailable).catch(() => {});
     getBiometricType()
-      .then((t) => setBioLabel(t === "face" ? "Face ID" : t === "fingerprint" ? "Empreinte digitale" : "Biométrie"))
+      .then((t) => setBioLabel(t === "face" ? tr("Face ID") : t === "fingerprint" ? tr("Empreinte digitale") : tr("Biométrie")))
       .catch(() => {});
     isBiometricLockEnabled().then(setBioEnabled).catch(() => {});
+    getSessionRemindersEnabled().then(setSessionRemindersOn).catch(() => {});
   }, []);
 
   async function handleToggleNotif(next: boolean) {
@@ -174,11 +193,11 @@ export default function ProfileScreen() {
       // l'interrupteur revenait sur « off » sans explication.
       if (!granted) {
         Alert.alert(
-          "Notifications désactivées",
-          "Active-les dans les réglages de ton téléphone pour recevoir tes rappels et ton bilan du dimanche.",
+          tr("Notifications désactivées"),
+          tr("Active-les dans les réglages de ton téléphone pour recevoir tes rappels et ton bilan du dimanche."),
           [
-            { text: "Plus tard", style: "cancel" },
-            { text: "Ouvrir les réglages", onPress: () => Linking.openSettings().catch(() => {}) },
+            { text: tr("Plus tard"), style: "cancel" },
+            { text: tr("Ouvrir les réglages"), onPress: () => Linking.openSettings().catch(() => {}) },
           ]
         );
       }
@@ -190,7 +209,7 @@ export default function ProfileScreen() {
   async function handleToggleBiometrics(next: boolean) {
     try {
       if (next) {
-        const ok = await authenticateWithBiometrics("Active le verrouillage biométrique de Horsetrack");
+        const ok = await authenticateWithBiometrics(tr("Active le verrouillage biométrique de Horsetrack"));
         if (!ok) return;
       }
       await setBiometricLockEnabled(next);
@@ -203,6 +222,7 @@ export default function ProfileScreen() {
   async function signOut() {
     try {
       await cancelWeeklySummary();
+      await unregisterPushToken().catch(() => {});
       await supabase.auth.signOut();
     } catch {
       // Best-effort : on déconnecte quand même localement plutôt que de
@@ -216,23 +236,21 @@ export default function ProfileScreen() {
     // Supprimer le compte n'arrête PAS l'abonnement : il est facturé par
     // Apple/Google, pas par nous. Sans ce rappel, un abonné qui supprime son
     // compte continuait d'être prélevé sans plus avoir accès à rien.
-    const storeSubscription = storeManaged && status !== "trialing" ? "ton abonnement" : storeManaged ? "ton essai" : null;
+    const storeSubscription = storeManaged && status !== "trialing" ? tr("ton abonnement") : storeManaged ? tr("ton essai") : null;
     Alert.alert(
-      "Supprimer ton compte ?",
+      tr("Supprimer ton compte ?"),
       [
-        "Toutes tes données (profil, chevaux, séances, rendez-vous, documents) seront définitivement supprimées. Cette action est irréversible.",
+        tr("Toutes tes données (profil, chevaux, séances, rendez-vous, documents) seront définitivement supprimées. Cette action est irréversible."),
         storeSubscription
-          ? `\nImportant : supprimer ton compte n'arrête pas ${storeSubscription}. Pour ne plus être prélevé, résilie-le d'abord dans ${
-              Platform.OS === "ios" ? "Réglages > Abonnements" : "Google Play > Abonnements"
-            }.`
+          ? tr("\nImportant : supprimer ton compte n'arrête pas {storeSubscription}. Pour ne plus être prélevé, résilie-le d'abord dans {v}.", { storeSubscription: storeSubscription, v: Platform.OS === "ios" ? "Réglages > Abonnements" : "Google Play > Abonnements" })
           : "",
       ].join(""),
       [
-        { text: "Annuler", style: "cancel" },
+        { text: tr("Annuler"), style: "cancel" },
         ...(storeSubscription
-          ? [{ text: "Gérer l'abonnement", onPress: () => void openManageSubscriptions() }]
+          ? [{ text: tr("Gérer l'abonnement"), onPress: () => void openManageSubscriptions() }]
           : []),
-        { text: "Supprimer", style: "destructive" as const, onPress: confirmDeleteAccount },
+        { text: tr("Supprimer"), style: "destructive" as const, onPress: confirmDeleteAccount },
       ]
     );
   }
@@ -255,6 +273,7 @@ export default function ProfileScreen() {
       clearAgenda(),
       clearGoals(),
       clearWeight(),
+      clearExtras(),
       // Les séances manquaient à cet appel — alors que la confirmation
       // ci-dessus les nomme explicitement parmi ce qui « sera définitivement
       // supprimé ». Elles survivaient donc à la suppression du compte et
@@ -298,7 +317,7 @@ export default function ProfileScreen() {
       if (e instanceof AccountError && e.dataDeleted) {
         await wipeLocalAccountData().catch(() => {});
       }
-      Alert.alert("Oups", e instanceof Error ? e.message : "Impossible de supprimer le compte pour l'instant.");
+      Alert.alert(tr("Oups"), e instanceof Error ? e.message : tr("Impossible de supprimer le compte pour l'instant."));
     } finally {
       setDeletingAccount(false);
     }
@@ -310,13 +329,13 @@ export default function ProfileScreen() {
 
   function subscriptionLabel(): string {
     if (subLoading) return "Chargement…";
-    if (promotional && isActiveOrTrialing) return "Premium offert";
-    if (status === "active") return `Premium · ${billingPeriod === "ANNUAL" ? "annuel" : "mensuel"}`;
+    if (promotional && isActiveOrTrialing) return tr("Premium offert");
+    if (status === "active") return tr("Premium · {v}", { v: billingPeriod === "ANNUAL" ? "annuel" : "mensuel" });
     if (status === "trialing") {
       const days = daysUntil(trialEndsAt);
-      return `Essai Premium · ${days} jour${days !== 1 ? "s" : ""} restant${days !== 1 ? "s" : ""}`;
+      return tr("Essai Premium · {days} jour{v} restant{v2}", { days: days, v: days !== 1 ? "s" : "", v2: days !== 1 ? "s" : "" });
     }
-    return "Palier gratuit";
+    return tr("Palier gratuit");
   }
 
   return (
@@ -330,8 +349,8 @@ export default function ProfileScreen() {
             </Text>
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="text-2xl font-display tracking-tight text-text">Mon profil</Text>
-            <Text className="text-sm text-muted">{user?.email ?? "Non connecté"}</Text>
+            <Text className="text-2xl font-display tracking-tight text-text">{tr("Mon profil")}</Text>
+            <Text className="text-sm text-muted">{user?.email ?? tr("Non connecté")}</Text>
           </View>
         </View>
       </FadeInView>
@@ -357,12 +376,12 @@ export default function ProfileScreen() {
             </Text>
             <Text className={`text-xs ${isActiveOrTrialing ? "text-on-primary/80" : "text-muted"}`}>
               {isActiveOrTrialing && status === "trialing" && trialEndsAt
-                ? `Fin de l'essai le ${formatFullDate(new Date(trialEndsAt))}`
+                ? tr("Fin de l'essai le {formatFullDate}", { formatFullDate: formatFullDate(new Date(trialEndsAt)) })
                 : isActiveOrTrialing && promotional
-                  ? "Offert par Horsetrack — aucun paiement"
+                  ? tr("Offert par Horsetrack — aucun paiement")
                   : isActiveOrTrialing
-                  ? "Profite de toutes les fonctionnalités Premium"
-                  : "1 cheval, planning et agenda gratuits — passe à Premium pour plus"}
+                  ? tr("Profite de toutes les fonctionnalités Premium")
+                  : tr("1 cheval, planning et agenda gratuits — passe à Premium pour plus")}
             </Text>
           </View>
           {/* Toujours le paywall : on y voit les formules et c'est le choix
@@ -379,9 +398,11 @@ export default function ProfileScreen() {
               openPaywall(isActiveOrTrialing && status === "trialing" ? "trial_ending" : "profile");
             }}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            testID="profile-premium"
           >
             <Text className={`text-sm font-bold ${isActiveOrTrialing ? "text-on-primary" : "text-accent"}`}>
-              {storeManaged ? "Gérer" : isActiveOrTrialing ? "Garder Premium" : "Voir Premium"}
+              {storeManaged ? tr("Gérer") : isActiveOrTrialing ? tr("Garder Premium") : tr("Voir Premium")}
             </Text>
           </TouchableOpacity>
           )}
@@ -391,31 +412,31 @@ export default function ProfileScreen() {
       {/* Profil cavalier */}
       <FadeInView delay={260}>
         <View className="flex-row items-center justify-between">
-          <SectionTitle>Mon profil cavalier</SectionTitle>
+          <SectionTitle>{tr("Mon profil cavalier")}</SectionTitle>
           <TouchableOpacity activeOpacity={0.7} onPress={() => router.push("/edit-rider-modal")}>
-            <Text className="text-sm font-semibold text-accent">Modifier</Text>
+            <Text className="text-sm font-semibold text-accent">{tr("Modifier")}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
 
       <FadeInView delay={300}>
         <View className={CARD}>
-          <InfoRow label="Niveau" value={labelOf(RIDER_LEVELS, riderProfile.level)} />
-          <InfoRow label="Discipline principale" value={labelOf(DISCIPLINES, riderProfile.mainDiscipline)} />
+          <InfoRow label={tr("Niveau")} value={labelOf(RIDER_LEVELS, riderProfile.level)} />
+          <InfoRow label={tr("Discipline principale")} value={labelOf(DISCIPLINES, riderProfile.mainDiscipline)} />
           {/* Plus demandés à l'inscription : affichés une fois renseignés
               (bouton « Modifier » ci-dessus). */}
           {riderProfile.rideFrequency ? (
-            <InfoRow label="Fréquence de monte" value={labelOf(RIDE_FREQUENCIES, riderProfile.rideFrequency)} />
+            <InfoRow label={tr("Fréquence de monte")} value={labelOf(RIDE_FREQUENCIES, riderProfile.rideFrequency)} />
           ) : null}
           {riderProfile.primaryGoal ? (
-            <InfoRow label="Objectif principal" value={labelOf(RIDER_GOALS, riderProfile.primaryGoal)} />
+            <InfoRow label={tr("Objectif principal")} value={labelOf(RIDER_GOALS, riderProfile.primaryGoal)} />
           ) : null}
         </View>
       </FadeInView>
 
       {/* Mes objectifs */}
       <FadeInView delay={330}>
-        <SectionTitle>Mes objectifs</SectionTitle>
+        <SectionTitle>{tr("Mes objectifs")}</SectionTitle>
       </FadeInView>
 
       <FadeInView delay={360}>
@@ -425,7 +446,7 @@ export default function ProfileScreen() {
               <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
                 <MaterialCommunityIcons name="flag-outline" size={22} color={colors.textMuted} />
               </View>
-              <Text className="text-sm text-muted">Aucun objectif pour l&apos;instant.</Text>
+              <Text className="text-sm text-muted">{tr("Aucun objectif pour l'instant.")}</Text>
             </View>
           ) : (
             goals
@@ -463,23 +484,48 @@ export default function ProfileScreen() {
             className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
           >
             <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
-            <Text className="text-base font-semibold text-primary">Ajouter un objectif</Text>
+            <Text className="text-base font-semibold text-primary">{tr("Ajouter un objectif")}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
 
       {/* Apparence */}
       <FadeInView delay={400}>
-        <SectionTitle>Apparence</SectionTitle>
+        <SectionTitle>{tr("Apparence")}</SectionTitle>
       </FadeInView>
 
       <FadeInView delay={410}>
         <View className={`${CARD} gap-3`}>
-          <Text className="text-sm text-muted">Choisis la palette de couleur de l&apos;app.</Text>
+          {/* Mode clair / sombre. « Automatique » suit le réglage de l'iPhone,
+              y compris son passage en sombre le soir. */}
+          <View className="flex-row gap-1 rounded-full bg-background p-1">
+            {(
+              [
+                { value: "system", label: tr("Automatique") },
+                { value: "light", label: tr("Clair") },
+                { value: "dark", label: tr("Sombre") },
+              ] as const
+            ).map((opt) => {
+              const selected = appearance === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => setAppearance(opt.value)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  className={`flex-1 items-center rounded-full py-2 ${selected ? "bg-primary" : ""}`}
+                >
+                  <Text className={`text-sm font-semibold ${selected ? "text-on-primary" : "text-muted"}`}>{opt.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text className="text-sm text-muted">{tr("Choisis la palette de couleur de l'app.")}</Text>
           <View className="flex-row flex-wrap gap-3">
             {THEME_ORDER.map((id) => {
               const selected = id === themeId;
-              const swatch = PALETTES[id];
+              const swatch = paletteFor(id, scheme);
               return (
                 <TouchableOpacity
                   key={id}
@@ -512,27 +558,43 @@ export default function ProfileScreen() {
 
       {/* Réglages */}
       <FadeInView delay={420}>
-        <SectionTitle>Réglages</SectionTitle>
+        <SectionTitle>{tr("Réglages")}</SectionTitle>
       </FadeInView>
 
       <FadeInView delay={460}>
         <View className={CARD}>
           <SettingRow
             icon="bell-outline"
-            label="Notifications"
-            description={notifEnabled ? "Activées dans les réglages système" : "Pour les rappels de rendez-vous"}
+            label={tr("Notifications")}
+            description={notifEnabled ? tr("Activées dans les réglages système") : tr("Pour les rappels de rendez-vous")}
             value={notifEnabled}
             disabled={notifEnabled}
             onValueChange={handleToggleNotif}
           />
           <View className="border-t border-border" />
           <SettingRow
+            icon="calendar-clock"
+            label={tr("Rappels de séance")}
+            description={
+              notifEnabled
+                ? tr("1 h avant chaque séance prévue, avec « C'est fait » et « Reporter à demain »")
+                : tr("Active d'abord les notifications ci-dessus")
+            }
+            value={sessionRemindersOn && notifEnabled}
+            disabled={!notifEnabled}
+            onValueChange={(next) => {
+              setSessionRemindersOn(next);
+              setSessionRemindersEnabled(next).catch(() => {});
+            }}
+          />
+          <View className="border-t border-border" />
+          <SettingRow
             icon="shield-lock-outline"
-            label={`Verrouillage ${bioLabel}`}
+            label={tr("Verrouillage {bioLabel}", { bioLabel: bioLabel })}
             description={
               bioAvailable
-                ? "Demande une vérification à l'ouverture de l'app"
-                : "Indisponible sur cet appareil"
+                ? tr("Demande une vérification à l'ouverture de l'app")
+                : tr("Indisponible sur cet appareil")
             }
             value={bioEnabled}
             disabled={!bioAvailable}
@@ -558,19 +620,19 @@ export default function ProfileScreen() {
                 formatTrace(report),
                 "",
                 ...summarizeTrace(report),
-                ...summarizeTrace(report, "écriture "),
+                ...summarizeTrace(report, tr("écriture ")),
               ].join("\n");
               // Journalisé en plus de l'alerte : le texte complet reste
               // copiable depuis le terminal, là où une alerte iOS finirait par
               // tronquer un rapport devenu long.
               console.log(`[démarrage] mesures (origine : premier module JS)\n${texte}`);
-              Alert.alert("Mesures de démarrage", texte);
+              Alert.alert(tr("Mesures de démarrage"), texte);
             }}
           >
             <MaterialCommunityIcons name="timer-outline" size={22} color={colors.textMuted} />
             <View className="flex-1">
-              <Text className="text-base font-semibold text-text">Mesures de démarrage</Text>
-              <Text className="text-xs text-muted">Visible en développement seulement</Text>
+              <Text className="text-base font-semibold text-text">{tr("Mesures de démarrage")}</Text>
+              <Text className="text-xs text-muted">{tr("Visible en développement seulement")}</Text>
             </View>
           </TouchableOpacity>
         </FadeInView>
@@ -580,42 +642,61 @@ export default function ProfileScreen() {
           plutôt que de laisser une note basse sur l'App Store ; un utilisateur
           content a de quoi recommander l'app à son écurie. */}
       <FadeInView delay={495}>
-        <SectionTitle>Horsetrack</SectionTitle>
+        <SectionTitle>{tr("Horsetrack")}</SectionTitle>
       </FadeInView>
 
       <FadeInView delay={498}>
         <View className={CARD}>
           <LinkRow
             icon="lifebuoy"
-            label="Contacter le support"
-            description="Une question, un souci, une idée ? On répond vite."
+            label={tr("Contacter le support")}
+            description={tr("Une question, un souci, une idée ? On répond vite.")}
             onPress={async () => {
               track("support_contacted");
               const opened = await openSupportEmail();
-              if (!opened) Alert.alert("Nous écrire", `Écris-nous à ${SUPPORT_EMAIL}`);
+              if (!opened) Alert.alert(tr("Nous écrire"), tr("Écris-nous à {SUPPORT_EMAIL}", { SUPPORT_EMAIL: SUPPORT_EMAIL }));
             }}
           />
           <View className="border-t border-border" />
           <LinkRow
+            icon="gift-outline"
+            label={tr("Parrainer un ami")}
+            description={tr("Un mois de Premium offert quand ton ami s'abonne")}
+            onPress={() => router.push("/referral")}
+          />
+          <View className="border-t border-border" />
+          <LinkRow
             icon="account-heart-outline"
-            label="Recommander Horsetrack"
-            description="À ta DP, ton coach, ton écurie"
+            label={tr("Recommander Horsetrack")}
+            description={tr("À ta DP, ton coach, ton écurie")}
             onPress={() => {
               track("app_recommended");
               Share.share({
-                message: `J'utilise Horsetrack pour suivre mon cheval : planning, soins, concours et budget au même endroit.${
-                  DOWNLOAD_URL ? `\n${DOWNLOAD_URL}` : ""
-                }`,
+                message: tr("J'utilise Horsetrack pour suivre mon cheval : planning, soins, concours et budget au même endroit.{v}", { v: DOWNLOAD_URL ? `\n${DOWNLOAD_URL}` : "" }),
               }).catch(() => {});
             }}
+          />
+          <View className="border-t border-border" />
+          <LinkRow
+            icon="card-account-phone-outline"
+            label={tr("Mes contacts")}
+            description={tr("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}
+            onPress={() => router.push("/contacts")}
+          />
+          <View className="border-t border-border" />
+          <LinkRow
+            icon="tray-arrow-down"
+            label={exporting ? tr("Préparation de l'export…") : tr("Exporter mes données")}
+            description={tr("Chevaux, séances, soins, journal, dépenses… en fichiers Excel")}
+            onPress={() => void handleExport()}
           />
           {canOpenWriteReview() ? (
             <>
               <View className="border-t border-border" />
               <LinkRow
                 icon="star-outline"
-                label="Noter Horsetrack"
-                description="Ton avis aide d'autres cavaliers à nous trouver"
+                label={tr("Noter Horsetrack")}
+                description={tr("Ton avis aide d'autres cavaliers à nous trouver")}
                 onPress={() => void openWriteReview()}
               />
             </>
@@ -625,7 +706,7 @@ export default function ProfileScreen() {
 
       {/* Compte */}
       <FadeInView delay={500}>
-        <SectionTitle>Compte</SectionTitle>
+        <SectionTitle>{tr("Compte")}</SectionTitle>
       </FadeInView>
 
       <FadeInView delay={540}>
@@ -635,7 +716,7 @@ export default function ProfileScreen() {
             onPress={() => router.push("/change-password-modal")}
             activeOpacity={0.85}
           >
-            <Text className="font-semibold text-text">Changer le mot de passe</Text>
+            <Text className="font-semibold text-text">{tr("Changer le mot de passe")}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -643,7 +724,7 @@ export default function ProfileScreen() {
             onPress={signOut}
             activeOpacity={0.85}
           >
-            <Text className="font-semibold text-text">Se déconnecter</Text>
+            <Text className="font-semibold text-text">{tr("Se déconnecter")}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -653,15 +734,17 @@ export default function ProfileScreen() {
             activeOpacity={0.85}
           >
             <Text className="font-semibold text-danger">
-              {deletingAccount ? "Suppression…" : "Supprimer mon compte"}
+              {deletingAccount ? "Suppression…" : tr("Supprimer mon compte")}
             </Text>
           </TouchableOpacity>
         </View>
       </FadeInView>
 
       <FadeInView delay={580}>
-        <Text className="pt-2 text-center text-xs text-muted">Horsetrack · v{Constants.expoConfig?.version ?? "—"}</Text>
+        <Text className="pt-2 text-center text-xs text-muted">{tr("Horsetrack · v")}{Constants.expoConfig?.version ?? "—"}</Text>
       </FadeInView>
     </Screen>
   );
 }
+
+export default lazyTab(ProfileScreen);

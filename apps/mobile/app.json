@@ -14,7 +14,21 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDevelopmentRegion": "fr",
-        "CFBundleLocalizations": ["fr"]
+        "CFBundleLocalizations": [
+          "fr",
+          "en"
+        ],
+        "NSCalendarsUsageDescription": "Horsetrack ajoute à ton calendrier les rendez-vous et concours que tu choisis.",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "Horsetrack ajoute à ton calendrier les rendez-vous et concours que tu choisis.",
+        "NSCalendarsFullAccessUsageDescription": "Horsetrack ajoute à ton calendrier les rendez-vous et concours que tu choisis.",
+        "NSRemindersUsageDescription": "Horsetrack n'utilise pas tes rappels.",
+        "NSRemindersFullAccessUsageDescription": "Horsetrack n'utilise pas tes rappels."
+      },
+      "appleTeamId": "FLGK6A7S8X",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.horsetrack.app"
+        ]
       }
     },
     "android": {
@@ -69,14 +83,23 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Horsetrack utilise ta position approximative pour afficher la météo des prochains jours et l'enregistrer sur ton journal de travail."
+          "locationWhenInUsePermission": "Horsetrack utilise ta position pour la météo, et pour enregistrer le parcours de tes séances en direct (distance, allures, tracé), y compris écran verrouillé.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "Horsetrack utilise ta position pour la météo, et pour enregistrer le parcours de tes séances en direct (distance, allures, tracé), y compris écran verrouillé.",
+          "locationAlwaysPermission": "Horsetrack utilise ta position pour la météo, et pour enregistrer le parcours de tes séances en direct (distance, allures, tracé), y compris écran verrouillé.",
+          "motionUsagePermission": "Horsetrack n'utilise pas les données de mouvement de ton téléphone."
         }
       ],
       "expo-build-properties",
       "expo-status-bar",
       "@sentry/react-native",
       "expo-image",
-      "expo-sharing"
+      "expo-sharing",
+      "@bacons/apple-targets",
+      "expo-video",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -87,6 +110,10 @@
         "projectId": "2c10e0d8-3180-4faa-a194-97be4ca3cfbe"
       }
     },
-    "owner": "batyeooo"
+    "owner": "batyeooo",
+    "locales": {
+      "fr": "./locales/fr.json",
+      "en": "./locales/en.json"
+    }
   }
 }

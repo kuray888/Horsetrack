@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Field } from "@/components/Field";
 import { usePickerOverlay } from "@/components/PickerOverlay";
+import { t } from "@/i18n";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 15, 30, 45];
@@ -60,7 +61,7 @@ export function TimePickerField({
                 className={`items-center rounded-card py-2 ${h === hour ? "bg-highlight" : ""}`}
               >
                 <Text className={`text-base ${h === hour ? "font-bold text-primary" : "text-text"}`}>
-                  {String(h).padStart(2, "0")} h
+                  {String(h).padStart(2, "0")} {t(" h")}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -74,7 +75,7 @@ export function TimePickerField({
                 className={`items-center rounded-card py-2 ${m === minute ? "bg-highlight" : ""}`}
               >
                 <Text className={`text-base ${m === minute ? "font-bold text-primary" : "text-text"}`}>
-                  {String(m).padStart(2, "0")} min
+                  {String(m).padStart(2, "0")} {t(" min")}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -88,7 +89,7 @@ export function TimePickerField({
           activeOpacity={0.85}
           className="items-center rounded-card bg-primary p-4"
         >
-          <Text className="text-base font-bold text-on-primary">Valider</Text>
+          <Text className="text-base font-bold text-on-primary">{t("Valider")}</Text>
         </TouchableOpacity>
       </TouchableOpacity>,
       () => setOpen(false)
@@ -105,7 +106,7 @@ export function TimePickerField({
         className="rounded-card border border-border bg-surface p-4"
       >
         <Text className={value ? "text-base text-text" : "text-base text-muted"}>
-          {value || "Sélectionner une heure"}
+          {value || t("Sélectionner une heure")}
         </Text>
       </TouchableOpacity>
     </Field>

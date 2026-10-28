@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Alert } from "react-native";
 import { clearLastCrash, getLastCrash } from "@/lib/crashLog";
+import { t, LOCALE } from "@/i18n";
 
 /**
  * Affiche une seule fois, au lancement, le dernier plantage JS enregistré
@@ -19,8 +20,8 @@ export function LastCrashNotice() {
       // les toutes premières lignes d'une stack Hermes.
       const stackPreview = crash.stack ? `\n\n${crash.stack.slice(0, 600)}` : "";
       Alert.alert(
-        "Dernier plantage détecté",
-        `${crash.isFatal ? "Fatal" : "Rendu"} · ${new Date(crash.at).toLocaleString("fr-FR")}\n\n${crash.message}${stackPreview}`,
+        t("Dernier plantage détecté"),
+        `${crash.isFatal ? t("Fatal") : t("Rendu")} · ${new Date(crash.at).toLocaleString(LOCALE)}\n\n${crash.message}${stackPreview}`,
         [{ text: "OK", onPress: () => clearLastCrash() }]
       );
     });

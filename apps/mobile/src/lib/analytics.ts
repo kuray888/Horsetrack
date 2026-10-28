@@ -46,6 +46,21 @@ export type AnalyticsEvent =
   | "restore_completed"
   | "promo_code_submitted"
   | "promo_code_result"
+  | "promo_store_redeem_opened"
+  | "winback_offer_viewed"
+  | "winback_offer_tapped"
+  | "winback_offer_dismissed"
+  // Coach IA
+  | "coach_session_planned"
+  | "coach_question_asked"
+  | "coach_summary_viewed"
+  // Fil privé d'un cheval
+  | "comment_posted"
+  | "comment_reported"
+  | "reaction_added"
+  // Bibliothèque d'exercices
+  | "exercise_added_to_session"
+  | "exercise_favorited"
   | "manage_subscription_opened"
   // Après achat
   | "premium_welcome_viewed"
@@ -61,13 +76,34 @@ export type AnalyticsEvent =
   | "share_invite_message_opened"
   | "horse_shared"
   | "monthly_recap_shared"
+  | "milestone_shared"
+  | "milestone_unlocked"
   | "app_recommended"
   | "review_prompt_requested"
   | "support_contacted"
+  | "data_exported"
+  | "year_review_shared"
+  | "referral_shared"
+  | "referral_claimed"
+  | "calendar_event_added"
   | "first_steps_action"
   | "first_steps_dismissed"
   | "notification_permission_result"
-  | "competition_detailed";
+  | "competition_detailed"
+  // Séance en direct (chrono, GPS) et sécurité en balade
+  | "ride_started"
+  | "ride_saved"
+  | "ride_discarded"
+  | "ride_safety_started"
+  | "ride_safety_check"
+  | "ride_safety_alert_sent"
+  // Rappels
+  | "notification_opened"
+  | "session_reminder_action"
+  // Usage (rétention : J1/J7/J30 se calculent sur app_opened dans PostHog)
+  | "app_opened"
+  | "session_created"
+  | "session_completed";
 
 type Props = Record<string, string | number | boolean | null | undefined>;
 
@@ -186,9 +222,13 @@ export function startAnalytics(): void {
     if (event === "SIGNED_IN" && session?.user) void identify(session.user.id).catch(() => {});
     else if (event === "SIGNED_OUT") void reset();
   });
+  // Ouverture de l'app (lancement, puis chaque retour au premier plan) : la
+  // base des courbes de rétention. Sans clé PostHog, track() ne fait rien.
+  track("app_opened", { cold: true });
   if (!enabled()) return;
   setInterval(() => void flush(), FLUSH_INTERVAL_MS);
   AppState.addEventListener("change", (state) => {
-    if (state !== "active") void flush();
+    if (state === "active") track("app_opened", { cold: false });
+    else void flush();
   });
 }

@@ -26,6 +26,7 @@ import {
   pushExpense,
   deleteExpenseRemote,
   retryPendingDocumentUploads,
+  retryPendingJournalUploads,
 } from "@/lib/cloudSync";
 import {
   DEFAULT_CHECKLIST_LABELS,
@@ -43,6 +44,11 @@ import { isHorseOnServer, noteRemoteSnapshot, syncGuard } from "@/lib/remoteInde
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { cancelRemindersOf, rescheduleReminders } from "@/agenda/remoteMergeEffects";
 import { cleanCompetitionEntry } from "@/agenda/competitionEntry";
+import { hasUnsentJournalMedia, mergeJournalVideo } from "@/agenda/journalMedia";
+import { mergeActivityType } from "@/agenda/activityKinds";
+import { columnCaughtUp, columnState } from "@/lib/schemaGaps";
+import { t } from "@/i18n";
+import type { ActivityType } from "@/agenda/activityKinds";
 
 /**
  * Rendez-vous et documents, persistés localement (en attendant Supabase) —
@@ -62,7 +68,7 @@ export type AppointmentType =
   | "concours"
   | "autre";
 export type DocumentCategory = "facture" | "rapport" | "ordonnance" | "autre";
-export type ActivityType = "dressage" | "cso" | "balade" | "longe" | "repos";
+export type { ActivityType } from "@/agenda/activityKinds";
 export type ExpenseCategory =
   | "veto"
   | "marechal"
@@ -104,11 +110,17 @@ export const ACTIVITY_META: Record<
   ActivityType,
   { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; tint: string; chip: string; tag: string }
 > = {
-  dressage: { label: "Dressage", icon: "horse-variant", tint: colors.primary, chip: "bg-primary/15", tag: "text-primary" },
+  dressage: { label: t("Dressage"), icon: "horse-variant", tint: colors.primary, chip: "bg-primary/15", tag: "text-primary" },
   cso: { label: "CSO", icon: "flag-checkered", tint: colors.accent, chip: "bg-accent/15", tag: "text-accent" },
-  balade: { label: "Balade", icon: "walk", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
-  longe: { label: "Longe", icon: "sync", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
-  repos: { label: "Repos", icon: "sleep", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },
+  balade: { label: t("Balade"), icon: "walk", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
+  longe: { label: t("Longe"), icon: "sync", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
+  repos: { label: t("Repos"), icon: "sleep", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },
+  travail_a_pied: { label: t("Travail à pied"), icon: "foot-print", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
+  liberte: { label: t("Liberté"), icon: "horse", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
+  cross: { label: t("Cross / complet"), icon: "pine-tree", tint: colors.accent, chip: "bg-accent/15", tag: "text-accent" },
+  endurance: { label: t("Endurance"), icon: "map-marker-distance", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
+  trec: { label: "TREC", icon: "compass-outline", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
+  pansage: { label: t("Pansage / soins"), icon: "brush", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },
 };
 
 /** Anciennement défini dans progress/store.tsx (système de badges/XP, retiré
@@ -181,6 +193,14 @@ export type NewAppointment = Omit<
   endDate?: Date | null;
 };
 
+/** Chemins Storage reportés après un envoi (cf. lib/cloudSync.ts pushJournalEntry). */
+function sentPaths(sent: { photoPath: string | null; videoPath: string | null }) {
+  return {
+    ...(sent.photoPath ? { photoPath: sent.photoPath } : {}),
+    ...(sent.videoPath ? { videoPath: sent.videoPath } : {}),
+  };
+}
+
 export type Doc = {
   id: string;
   /** Cheval concerné — même rôle que Appointment.horseId (rattaché au cheval
@@ -235,6 +255,11 @@ export type JournalEntry = {
    * directement par le formulaire. Null tant que pas encore synchronisé (ou
    * pas de photo). */
   photoPath: string | null;
+  /** Vidéo du souvenir (Premium, 60 s au plus) : même cycle que la photo —
+   * URI locale tant qu'elle n'est pas envoyée, puis URL signée relue du
+   * serveur. Chemin Storage : "{horseId}/journal/{id}.mp4". */
+  videoUri?: string | null;
+  videoPath?: string | null;
 };
 
 /**
@@ -361,9 +386,12 @@ type AgendaContextValue = {
    * (cf. implémentation dans le provider) — permet à un appelant qui connaît
    * déjà le bon cheval (ex: Journal global filtré) de l'imposer explicitement. */
   addJournalEntry: (
-    entry: Omit<JournalEntry, "id" | "horseId" | "photoPath"> & { horseId?: string | null }
+    entry: Omit<JournalEntry, "id" | "horseId" | "photoPath" | "videoPath"> & { horseId?: string | null }
   ) => void;
-  updateJournalEntry: (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath">>) => void;
+  updateJournalEntry: (
+    entryId: string,
+    patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath" | "videoPath">>
+  ) => void;
   deleteJournalEntry: (entryId: string) => void;
   /** `horseId` optionnel — même rôle que dans `addAppointment` ci-dessus. */
   addExpense: (expense: NewExpense & { horseId?: string | null }) => void;
@@ -526,6 +554,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
               // lib/imagePicker.ts resolveLocalFileUri) — même souci que
               // Horse.photoUrl (cf. audit du 2026-09-09).
               photoUri: resolveLocalFileUri(j.photoUri ?? null),
+              videoUri: resolveLocalFileUri(j.videoUri ?? null),
+              videoPath: j.videoPath ?? null,
               photoPath: j.photoPath ?? null,
             }))
           );
@@ -585,6 +615,22 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {});
   }, [loaded, documents]);
+
+  // Même reprise pour les photos et vidéos de souvenirs (cf.
+  // agenda/journalMedia.ts hasUnsentJournalMedia).
+  const journalUploadRetryDone = useRef(false);
+  useEffect(() => {
+    if (!loaded || journalUploadRetryDone.current) return;
+    journalUploadRetryDone.current = true;
+    if (!journal.some(hasUnsentJournalMedia)) return;
+    retryPendingJournalUploads(journal)
+      .then((done) => {
+        if (done.length === 0) return;
+        const byId = new Map(done.map((d) => [d.id, d]));
+        setJournal((list) => list.map((j) => (byId.has(j.id) ? { ...j, ...sentPaths(byId.get(j.id)!) } : j)));
+      })
+      .catch(() => {});
+  }, [loaded, journal]);
 
   // Persiste à chaque changement, une fois le chargement initial terminé
   // (sinon on écraserait les données sauvegardées avec les mocks par défaut).
@@ -899,20 +945,20 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     // global filtré sur un cheval précis, (tabs)/journal.tsx) sans qu'il y
     // ait deux sources de vérité : c'est toujours soit un choix explicite de
     // l'appelant, soit le même fallback qu'avant.
-    (entry: Omit<JournalEntry, "id" | "horseId" | "photoPath"> & { horseId?: string | null }) => {
+    (entry: Omit<JournalEntry, "id" | "horseId" | "photoPath" | "videoPath"> & { horseId?: string | null }) => {
       const { horseId: explicitHorseId, ...rest } = entry;
       const horseId = explicitHorseId !== undefined ? explicitHorseId : (selectedHorse?.id ?? null);
       const id = generateId("j");
-      const next: JournalEntry = { ...rest, id, horseId, photoPath: null };
+      const next: JournalEntry = { ...rest, id, horseId, photoPath: null, videoPath: null };
       setJournal((list) => [...list, next]);
       // Best-effort, jamais bloquant : cf. lib/cloudSync.ts. Le photoPath
       // résultant est reporté localement pour ne pas re-uploader la même
       // photo à la prochaine synchro (cf. pushJournalEntry), même logique que
       // addDocument.
       pushJournalEntry(next)
-        .then((photoPath) => {
-          if (photoPath) {
-            setJournal((list) => list.map((j) => (j.id === id ? { ...j, photoPath } : j)));
+        .then((sent) => {
+          if (sent && (sent.photoPath || sent.videoPath)) {
+            setJournal((list) => list.map((j) => (j.id === id ? { ...j, ...sentPaths(sent) } : j)));
           }
         })
         .catch(() => {});
@@ -925,7 +971,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
    * cf. useJournalForm : corriger une entrée passée ne doit pas réécrire
    * un relevé météo qui n'a plus de sens rétroactivement. */
   const updateJournalEntry = useCallback(
-    (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath">>) => {
+    (entryId: string, patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath" | "videoPath">>) => {
       setJournal((list) => {
         const next = list.map((j) => (j.id === entryId ? { ...j, ...patch } : j));
         const updated = next.find((j) => j.id === entryId);
@@ -933,9 +979,9 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
           // Photo remplacée réenvoyée par pushJournalEntry, photoPath reporté
           // localement une fois la synchro terminée — même logique que updateDocument.
           pushJournalEntry(updated)
-            .then((photoPath) => {
-              if (photoPath && photoPath !== updated.photoPath) {
-                setJournal((list) => list.map((j) => (j.id === entryId ? { ...j, photoPath } : j)));
+            .then((sent) => {
+              if (sent && (sent.photoPath !== updated.photoPath || sent.videoPath !== (updated.videoPath ?? null))) {
+                setJournal((list) => list.map((j) => (j.id === entryId ? { ...j, ...sentPaths(sent) } : j)));
               }
             })
             .catch(() => {});
@@ -1083,24 +1129,49 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     if (remote.journal) {
       const remoteJournal = remote.journal;
       const guard = syncGuard("journal_entries", pullStartedAt, pendingIdsFor("journal_entries"));
-      const preserve = (l: JournalEntry, r: JournalEntry): JournalEntry => ({
-        ...r,
-        photoUri: pickFileUrl(l.photoUri, l.photoPath, r.photoUri, r.photoPath),
-      });
-      const unsyncedJournal = unsyncedLocalIds(journalRef.current, remoteJournal, guard, (j) => isHorseOnServer(j.horseId));
+      // Colonnes ajoutées par le SQL du 27 octobre : absentes, ou tout juste
+      // créées (cf. lib/schemaGaps.ts) — le type précis et la vidéo locale
+      // sont alors gardés, et la ligne renvoyée.
+      const kindState = columnState("journal_entries", "activityKind");
+      const videoState = columnState("journal_entries", "videoPath");
+      const mergeEntry = (l: JournalEntry, r: JournalEntry) => {
+        const activity = mergeActivityType(l.activityType, r.activityType, kindState);
+        const { resend: videoResend, ...video } = mergeJournalVideo(l, r, videoState);
+        const entry: JournalEntry = {
+          ...r,
+          activityType: activity.type,
+          photoUri: pickFileUrl(l.photoUri, l.photoPath, r.photoUri, r.photoPath),
+          ...video,
+        };
+        return { entry, resend: activity.resend || videoResend };
+      };
+      const preserve = (l: JournalEntry, r: JournalEntry): JournalEntry => mergeEntry(l, r).entry;
+      const unsyncedJournal = new Set(unsyncedLocalIds(journalRef.current, remoteJournal, guard, (j) => isHorseOnServer(j.horseId)));
       setJournal((list) => mergeRemote(list, remoteJournal, guard, preserve).items);
       noteRemoteSnapshot("journal_entries", remoteJournal.map((j) => j.id), pullStartedAt);
-      for (const id of unsyncedJournal) {
-        const entry = journalRef.current.find((j) => j.id === id);
-        if (!entry) continue;
+      const remoteJournalById = new Map(remoteJournal.map((j) => [j.id, j]));
+      const toSend: JournalEntry[] = [];
+      for (const local of journalRef.current) {
+        if (unsyncedJournal.has(local.id)) {
+          toSend.push(local);
+          continue;
+        }
+        const fromServer = remoteJournalById.get(local.id);
+        if (!fromServer || guard.isProtected(local.id)) continue;
+        const merged = mergeEntry(local, fromServer);
+        if (merged.resend) toSend.push(merged.entry);
+      }
+      for (const entry of toSend) {
         pushJournalEntry(entry)
-          .then((photoPath) => {
-            if (photoPath && photoPath !== entry.photoPath) {
-              setJournal((list) => list.map((j) => (j.id === id ? { ...j, photoPath } : j)));
+          .then((sent) => {
+            if (sent && (sent.photoPath !== entry.photoPath || sent.videoPath !== (entry.videoPath ?? null))) {
+              setJournal((list) => list.map((j) => (j.id === entry.id ? { ...j, ...sentPaths(sent) } : j)));
             }
           })
           .catch(() => {});
       }
+      if (kindState === "catching_up") columnCaughtUp("journal_entries", "activityKind");
+      if (videoState === "catching_up") columnCaughtUp("journal_entries", "videoPath");
     }
     if (remote.expenses) {
       const remoteExpenses = remote.expenses;

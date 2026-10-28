@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { DropdownField } from "@/components/DropdownField";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Field } from "@/components/Field";
@@ -8,6 +8,7 @@ import { INJURY_TYPES, OTHER_OPTION, RECOVERY_STATUSES } from "@/onboarding/opti
 import { formatDate } from "@/lib/dateFormat";
 import { colors } from "@/theme/colors";
 import type { HorseRecoveryStatus } from "@/onboarding/store";
+import { t } from "@/i18n";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -75,19 +76,19 @@ export function InjuryHistoryField({
 
   return (
     <View className="gap-3">
-      <Text className="text-sm font-semibold text-muted">Historique de blessures</Text>
+      <Text className="text-sm font-semibold text-muted">{t("Historique de blessures")}</Text>
 
-      {injuries.length === 0 && readOnly ? <Text className="text-sm text-muted">Aucune blessure enregistrée.</Text> : null}
+      {injuries.length === 0 && readOnly ? <Text className="text-sm text-muted">{t("Aucune blessure enregistrée.")}</Text> : null}
 
       {injuries.map((injury) => (
         <View key={injury.key} className="gap-1 rounded-card border border-border bg-surface p-4">
           <View className="flex-row items-start justify-between">
-            <Text className="flex-1 text-base font-bold text-text">{injury.type}</Text>
+            <Text className="flex-1 text-base font-bold text-text">{t(injury.type)}</Text>
             {readOnly ? null : (
               <TouchableOpacity
                 onPress={() => onRemove(injury.key)}
                 hitSlop={8}
-                accessibilityLabel={`Retirer ${injury.type}`}
+                accessibilityLabel={t("Retirer {type}", { type: t(injury.type) })}
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons name="close" size={16} color={colors.danger} accessibilityElementsHidden />
@@ -95,7 +96,7 @@ export function InjuryHistoryField({
             )}
           </View>
           <Text className="text-sm text-muted">
-            {injury.occurredAt ? formatDate(injury.occurredAt) : "Date non précisée"} ·{" "}
+            {injury.occurredAt ? formatDate(injury.occurredAt) : t("Date non précisée")} ·{" "}
             {recoveryLabel(injury.recoveryStatus)}
           </Text>
           {injury.note ? <Text className="text-sm text-text">{injury.note}</Text> : null}
@@ -105,11 +106,11 @@ export function InjuryHistoryField({
               hitSlop={8}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={`Marquer ${injury.type} comme rétablie`}
+              accessibilityLabel={t("Marquer {type} comme rétablie", { type: t(injury.type) })}
               className="mt-1 flex-row items-center gap-1.5 self-start"
             >
               <MaterialCommunityIcons name="check-circle-outline" size={15} color={colors.success} />
-              <Text className="text-sm font-semibold text-success">Marquer comme rétablie</Text>
+              <Text className="text-sm font-semibold text-success">{t("Marquer comme rétablie")}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -118,35 +119,35 @@ export function InjuryHistoryField({
       {readOnly ? null : formOpen ? (
         <View className="gap-4 rounded-card border border-dashed border-primary p-4">
           <DropdownField
-            label="Type de blessure"
+            label={t("Type de blessure")}
             options={INJURY_TYPES}
             value={type}
             onChange={setType}
-            placeholder="Sélectionner un type"
+            placeholder={t("Sélectionner un type")}
           />
           {type === OTHER_OPTION ? (
             <TextInput
               className={INPUT}
-              placeholder="Précise le type de blessure"
+              placeholder={t("Précise le type de blessure")}
               value={customType}
               onChangeText={setCustomType}
             />
           ) : null}
 
-          <DatePickerField label="Date approximative (optionnel)" value={occurredAt} onChange={setOccurredAt} />
+          <DatePickerField label={t("Date approximative (optionnel)")} value={occurredAt} onChange={setOccurredAt} />
 
           <DropdownField
-            label="État de récupération"
+            label={t("État de récupération")}
             options={RECOVERY_STATUSES}
             value={recoveryStatus}
             onChange={setRecoveryStatus}
-            placeholder="Sélectionner un état"
+            placeholder={t("Sélectionner un état")}
           />
 
-          <Field label="Note (optionnel)">
+          <Field label={t("Note (optionnel)")}>
             <TextInput
               className={INPUT}
-              placeholder="Détails utiles à garder en tête"
+              placeholder={t("Détails utiles à garder en tête")}
               value={note}
               onChangeText={setNote}
               multiline
@@ -161,7 +162,7 @@ export function InjuryHistoryField({
               activeOpacity={0.8}
               className="flex-1 items-center rounded-card border border-border p-3.5"
             >
-              <Text className="text-sm font-semibold text-muted">Annuler</Text>
+              <Text className="text-sm font-semibold text-muted">{t("Annuler")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={saveInjury}
@@ -170,7 +171,7 @@ export function InjuryHistoryField({
               className={`flex-1 items-center rounded-card p-3.5 ${canSave ? "bg-primary" : "bg-border"}`}
             >
               <Text className={`text-sm font-bold ${canSave ? "text-on-primary" : "text-muted"}`}>
-                Ajouter à l&apos;historique
+                {t("Ajouter à l'historique")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -182,7 +183,7 @@ export function InjuryHistoryField({
           className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
         >
           <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
-          <Text className="text-base font-semibold text-primary">Ajouter une blessure passée</Text>
+          <Text className="text-base font-semibold text-primary">{t("Ajouter une blessure passée")}</Text>
         </TouchableOpacity>
       )}
     </View>

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { refreshExtras } from "@/extras/store";
 import { AppState } from "react-native";
 import { supabase } from "@/lib/supabase";
 import {
@@ -144,6 +145,9 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     if (trainingSessions) s.sessions.mergeFromCloud(trainingSessions, pullStartedAt);
     if (weights) s.weight.mergeFromCloud(weights, pullStartedAt);
     if (goalList) s.goals.mergeFromCloud(goalList, pullStartedAt);
+    // Identité, alimentation, contacts (cf. extras/store.ts) : relus à part,
+    // un échec n'empêche rien d'autre.
+    await refreshExtras(pullStartedAt).catch(() => {});
   }, []);
 
   const refresh = useCallback((): Promise<void> => {

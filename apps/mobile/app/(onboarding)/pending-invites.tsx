@@ -10,6 +10,7 @@ import { useWeight } from "@/horses/weightStore";
 import { pullAndMergeHorseData } from "@/lib/cloudRefresh";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -104,25 +105,24 @@ export default function PendingInvitesOnboarding() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-display tracking-tight text-text">
-            {invites.length > 1 ? "Invitations en attente" : "Invitation en attente"}
+            {invites.length > 1 ? t("Invitations en attente") : t("Invitation en attente")}
           </Text>
           <Text className="text-base text-muted">
-            Quelqu&apos;un t&apos;a invité·e à suivre son cheval sur Horsetrack.
+            {t("Quelqu'un t'a invité·e à suivre son cheval sur Horsetrack.")}
           </Text>
         </View>
 
         {invites.map((invite) => (
           <View key={invite.id} className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
-              Tu es invité·e à accéder à la fiche de <Text className="font-bold">{invite.horseName}</Text> (planning,
-              santé, journal, budget) en tant que <Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
+              {t("Tu es invité·e à accéder à la fiche de ")}<Text className="font-bold">{invite.horseName}</Text> {t(" (planning, santé, journal, budget) en tant que ")}<Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
             </Text>
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => handleLater(invite.id)}
                 className="flex-1 items-center rounded-card border border-border p-3"
               >
-                <Text className="text-sm font-semibold text-muted">Plus tard</Text>
+                <Text className="text-sm font-semibold text-muted">{t("Plus tard")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleAccept(invite)}
@@ -131,7 +131,7 @@ export default function PendingInvitesOnboarding() {
                 className="flex-1 items-center rounded-card bg-primary p-3"
               >
                 <Text className="text-sm font-bold text-on-primary">
-                  {acceptingId === invite.id ? "…" : "Accepter"}
+                  {acceptingId === invite.id ? "…" : t("Accepter")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -140,7 +140,7 @@ export default function PendingInvitesOnboarding() {
 
         <TouchableOpacity onPress={continueToOwnProfile} hitSlop={8}>
           <Text className="text-center text-sm font-semibold text-accent">
-            Configurer mon propre profil à la place
+            {t("Configurer mon propre profil à la place")}
           </Text>
         </TouchableOpacity>
       </View>

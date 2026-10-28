@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 /**
  * Checklist type des concours : une liste de libellés que le cavalier édite une
  * fois et qui s'applique à tous ses concours à venir (et sert de départ aux
@@ -15,15 +17,15 @@ export type ChecklistItemLike = { id: string; label: string; checked: boolean };
 /** Liste d'origine, celle que recevait tout concours avant l'existence de la
  * checklist type. */
 export const DEFAULT_CHECKLIST_LABELS: readonly string[] = [
-  "Papiers d'identité du cheval (passeport)",
-  "Carnet de vaccination à jour",
-  "Licence FFE / engagement",
-  "Matériel de pansage",
-  "Tapis de selle + couvertures",
-  "Protections (guêtres, cloches)",
-  "Casque",
-  "Gilet de protection",
-  "Eau et nourriture pour la journée",
+  t("Papiers d'identité du cheval (passeport)"),
+  t("Carnet de vaccination à jour"),
+  t("Licence FFE / engagement"),
+  t("Matériel de pansage"),
+  t("Tapis de selle + couvertures"),
+  t("Protections (guêtres, cloches)"),
+  t("Casque"),
+  t("Gilet de protection"),
+  t("Eau et nourriture pour la journée"),
 ];
 
 /** Plafond d'éléments : la liste est recopiée dans chaque concours à venir et

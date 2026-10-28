@@ -11,6 +11,7 @@ import type {
   HorseWorkload,
   HorseRecoveryStatus,
 } from "./store";
+import { t } from "@/i18n";
 
 /** Nombre d'étapes affichant la barre de progression (welcome/building/paywall
  * exclus) : niveau, discipline, cheval, chevaux. Fréquence et objectif ne sont
@@ -35,50 +36,50 @@ export type Option<T extends string> = { value: T; label: string; icon?: OptionI
 // redemandée, pas les Galops détaillés. Ne pas confondre avec HorseLevel.CLUB
 // (niveau du CHEVAL), qui reste un enum distinct.
 export const RIDER_LEVELS: Option<RiderLevel>[] = [
-  { value: "BEGINNER", label: "Débutant" },
-  { value: "AMATEUR", label: "Amateur" },
-  { value: "PRO", label: "Professionnel" },
-  { value: "GALOP_1_4", label: "Poney / Club" },
+  { value: "BEGINNER", label: t("Débutant") },
+  { value: "AMATEUR", label: t("Amateur") },
+  { value: "PRO", label: t("Professionnel") },
+  { value: "GALOP_1_4", label: t("Poney / Club") },
 ];
 
 export const RIDE_FREQUENCIES: Option<RideFrequency>[] = [
-  { value: "DAILY", label: "Tous les jours", icon: { name: "calendar-month-outline", color: colors.primary } },
-  { value: "SEVERAL_PER_WEEK", label: "Plusieurs fois par semaine", icon: { name: "horse-variant", color: colors.accent } },
-  { value: "WEEKEND", label: "Le week-end", icon: { name: "weather-sunny", color: colors.warning } },
-  { value: "OCCASIONAL", label: "De temps en temps", icon: { name: "leaf", color: colors.success } },
+  { value: "DAILY", label: t("Tous les jours"), icon: { name: "calendar-month-outline", color: colors.primary } },
+  { value: "SEVERAL_PER_WEEK", label: t("Plusieurs fois par semaine"), icon: { name: "horse-variant", color: colors.accent } },
+  { value: "WEEKEND", label: t("Le week-end"), icon: { name: "weather-sunny", color: colors.warning } },
+  { value: "OCCASIONAL", label: t("De temps en temps"), icon: { name: "leaf", color: colors.success } },
 ];
 
 export const DISCIPLINES: Option<Discipline>[] = [
-  { value: "SHOW_JUMPING", label: "Saut d'obstacles (CSO)", icon: { name: "flag-checkered", color: colors.accent } },
-  { value: "HUNTER", label: "Hunter", icon: { name: "leaf-circle-outline", color: colors.primary } },
-  { value: "DRESSAGE", label: "Dressage", icon: { name: "target", color: colors.primary } },
-  { value: "EVENTING", label: "Concours complet", icon: { name: "medal-outline", color: colors.accent } },
-  { value: "WESTERN", label: "Western", icon: { name: "horseshoe", color: colors.warning } },
-  { value: "ENDURANCE", label: "Endurance", icon: { name: "compass-outline", color: colors.success } },
-  { value: "ATTELAGE", label: "Attelage", icon: { name: "cart-variant", color: colors.warning } },
-  { value: "LEISURE", label: "Loisir / Balade", icon: { name: "pine-tree", color: colors.success } },
-  { value: "ETHOLOGY", label: "Éthologie", icon: { name: "handshake-outline", color: colors.accent } },
+  { value: "SHOW_JUMPING", label: t("Saut d'obstacles (CSO)"), icon: { name: "flag-checkered", color: colors.accent } },
+  { value: "HUNTER", label: t("Hunter"), icon: { name: "leaf-circle-outline", color: colors.primary } },
+  { value: "DRESSAGE", label: t("Dressage"), icon: { name: "target", color: colors.primary } },
+  { value: "EVENTING", label: t("Concours complet"), icon: { name: "medal-outline", color: colors.accent } },
+  { value: "WESTERN", label: t("Western"), icon: { name: "horseshoe", color: colors.warning } },
+  { value: "ENDURANCE", label: t("Endurance"), icon: { name: "compass-outline", color: colors.success } },
+  { value: "ATTELAGE", label: t("Attelage"), icon: { name: "cart-variant", color: colors.warning } },
+  { value: "LEISURE", label: t("Loisir / Balade"), icon: { name: "pine-tree", color: colors.success } },
+  { value: "ETHOLOGY", label: t("Éthologie"), icon: { name: "handshake-outline", color: colors.accent } },
 ];
 
 export const RIDER_GOALS: Option<RiderGoal>[] = [
-  { value: "COMPETE", label: "Progresser en concours", icon: { name: "trophy-outline", color: colors.accent } },
-  { value: "BONDING", label: "Renforcer notre complicité", icon: { name: "heart-outline", color: colors.danger } },
-  { value: "FITNESS", label: "Remettre mon cheval en forme", icon: { name: "dumbbell", color: colors.primary } },
-  { value: "EVENT_PREP", label: "Préparer un événement précis", icon: { name: "calendar-check-outline", color: colors.accent } },
-  { value: "CONFIDENCE", label: "Reprendre confiance", icon: { name: "star-outline", color: colors.warning } },
+  { value: "COMPETE", label: t("Progresser en concours"), icon: { name: "trophy-outline", color: colors.accent } },
+  { value: "BONDING", label: t("Renforcer notre complicité"), icon: { name: "heart-outline", color: colors.danger } },
+  { value: "FITNESS", label: t("Remettre mon cheval en forme"), icon: { name: "dumbbell", color: colors.primary } },
+  { value: "EVENT_PREP", label: t("Préparer un événement précis"), icon: { name: "calendar-check-outline", color: colors.accent } },
+  { value: "CONFIDENCE", label: t("Reprendre confiance"), icon: { name: "star-outline", color: colors.warning } },
 ];
 
 export const HORSE_SEXES: Option<HorseSex>[] = [
-  { value: "GELDING", label: "Hongre" },
-  { value: "MARE", label: "Jument" },
-  { value: "STALLION", label: "Entier" },
+  { value: "GELDING", label: t("Hongre") },
+  { value: "MARE", label: t("Jument") },
+  { value: "STALLION", label: t("Entier") },
 ];
 
 export const HORSE_LEVELS: Option<HorseLevel>[] = [
-  { value: "UNTRAINED", label: "Débourré / vert" },
-  { value: "CLUB", label: "Niveau club" },
-  { value: "AMATEUR", label: "Amateur" },
-  { value: "PRO", label: "Professionnel" },
+  { value: "UNTRAINED", label: t("Débourré / vert") },
+  { value: "CLUB", label: t("Niveau club") },
+  { value: "AMATEUR", label: t("Amateur") },
+  { value: "PRO", label: t("Professionnel") },
 ];
 
 /** Le profil sportif du cheval (discipline/niveau) n'est plus demandé à
@@ -113,54 +114,54 @@ export const HORSE_TRAITS: string[] = [
 
 /** Races courantes proposées en dropdown — `OTHER_OPTION` ouvre un champ libre. */
 export const HORSE_BREEDS: { value: string; label: string }[] = [
-  { value: "Selle Français", label: "Selle Français" },
-  { value: "Pur-sang anglais", label: "Pur-sang anglais" },
+  { value: "Selle Français", label: t("Selle Français") },
+  { value: "Pur-sang anglais", label: t("Pur-sang anglais") },
   { value: "Anglo-arabe", label: "Anglo-arabe" },
-  { value: "KWPN", label: "KWPN (Hollandais)" },
-  { value: "Hanovrien", label: "Hanovrien" },
-  { value: "Lusitanien", label: "Lusitanien" },
-  { value: "Pure race espagnole", label: "Pure race espagnole (PRE)" },
-  { value: "Frison", label: "Frison" },
-  { value: "Quarter Horse", label: "Quarter Horse" },
-  { value: "Camargue", label: "Camargue" },
-  { value: "Comtois", label: "Comtois" },
-  { value: "Trait", label: "Cheval de trait" },
-  { value: "Connemara", label: "Connemara" },
-  { value: "Welsh", label: "Welsh" },
-  { value: "Shetland", label: "Shetland" },
-  { value: "Arabe", label: "Pur-sang arabe" },
-  { value: OTHER_OPTION, label: "Autre / je ne sais pas" },
+  { value: "KWPN", label: t("KWPN (Hollandais)") },
+  { value: "Hanovrien", label: t("Hanovrien") },
+  { value: "Lusitanien", label: t("Lusitanien") },
+  { value: "Pure race espagnole", label: t("Pure race espagnole (PRE)") },
+  { value: "Frison", label: t("Frison") },
+  { value: "Quarter Horse", label: t("Quarter Horse") },
+  { value: "Camargue", label: t("Camargue") },
+  { value: "Comtois", label: t("Comtois") },
+  { value: "Trait", label: t("Cheval de trait") },
+  { value: "Connemara", label: t("Connemara") },
+  { value: "Welsh", label: t("Welsh") },
+  { value: "Shetland", label: t("Shetland") },
+  { value: "Arabe", label: t("Pur-sang arabe") },
+  { value: OTHER_OPTION, label: t("Autre / je ne sais pas") },
 ];
 
 /** Robes courantes proposées en dropdown — `OTHER_OPTION` ouvre un champ libre,
  * même pattern que HORSE_BREEDS ci-dessus (cf. CoatField). */
 export const HORSE_COATS: { value: string; label: string }[] = [
-  { value: "Bai", label: "Bai" },
-  { value: "Alezan", label: "Alezan" },
-  { value: "Noir", label: "Noir" },
-  { value: "Gris", label: "Gris" },
-  { value: "Isabelle", label: "Isabelle" },
-  { value: "Palomino", label: "Palomino" },
-  { value: "Pie", label: "Pie" },
-  { value: "Rouan", label: "Rouan" },
-  { value: "Aubère", label: "Aubère" },
-  { value: "Louvet", label: "Louvet" },
-  { value: OTHER_OPTION, label: "Autre / je ne sais pas" },
+  { value: "Bai", label: t("Bai") },
+  { value: "Alezan", label: t("Alezan") },
+  { value: "Noir", label: t("Noir") },
+  { value: "Gris", label: t("Gris") },
+  { value: "Isabelle", label: t("Isabelle") },
+  { value: "Palomino", label: t("Palomino") },
+  { value: "Pie", label: t("Pie") },
+  { value: "Rouan", label: t("Rouan") },
+  { value: "Aubère", label: t("Aubère") },
+  { value: "Louvet", label: t("Louvet") },
+  { value: OTHER_OPTION, label: t("Autre / je ne sais pas") },
 ];
 
 export const HORSE_FITNESS_LEVELS: Option<HorseFitnessLevel>[] = [
-  { value: "RESTING", label: "Au repos", icon: { name: "weather-night", color: colors.textMuted } },
-  { value: "REOPENING", label: "Reprise en main", icon: { name: "sprout-outline", color: colors.success } },
-  { value: "GOOD", label: "Bonne forme", icon: { name: "thumb-up-outline", color: colors.primary } },
-  { value: "PEAK", label: "Forme optimale / compétition", icon: { name: "fire", color: colors.warning } },
+  { value: "RESTING", label: t("Au repos"), icon: { name: "weather-night", color: colors.textMuted } },
+  { value: "REOPENING", label: t("Reprise en main"), icon: { name: "sprout-outline", color: colors.success } },
+  { value: "GOOD", label: t("Bonne forme"), icon: { name: "thumb-up-outline", color: colors.primary } },
+  { value: "PEAK", label: t("Forme optimale / compétition"), icon: { name: "fire", color: colors.warning } },
 ];
 
 export const HORSE_WORKLOADS: Option<HorseWorkload>[] = [
-  { value: "NONE", label: "Aucun travail actuellement" },
-  { value: "ONE_TO_TWO", label: "1-2 jours / semaine" },
-  { value: "THREE_TO_FOUR", label: "3-4 jours / semaine" },
-  { value: "FIVE_TO_SIX", label: "5-6 jours / semaine" },
-  { value: "DAILY", label: "Tous les jours" },
+  { value: "NONE", label: t("Aucun travail actuellement") },
+  { value: "ONE_TO_TWO", label: t("1-2 jours / semaine") },
+  { value: "THREE_TO_FOUR", label: t("3-4 jours / semaine") },
+  { value: "FIVE_TO_SIX", label: t("5-6 jours / semaine") },
+  { value: "DAILY", label: t("Tous les jours") },
 ];
 
 /** Activités proposées pour les jours sans séance — multi-select avec "Autre"
@@ -208,19 +209,19 @@ export const HEALTH_CONDITIONS: string[] = [
 
 /** Types de blessures suggérés pour l'historique — `OTHER_OPTION` réutilisé comme sentinelle "Autre". */
 export const INJURY_TYPES: { value: string; label: string }[] = [
-  { value: "Tendinite", label: "Tendinite" },
-  { value: "Entorse", label: "Entorse" },
-  { value: "Fracture", label: "Fracture" },
-  { value: "Fourbure", label: "Fourbure" },
-  { value: "Colique", label: "Colique" },
-  { value: "Problème de dos", label: "Problème de dos" },
-  { value: "Problème respiratoire", label: "Problème respiratoire" },
-  { value: "Plaie / blessure superficielle", label: "Plaie / blessure superficielle" },
-  { value: OTHER_OPTION, label: "Autre" },
+  { value: "Tendinite", label: t("Tendinite") },
+  { value: "Entorse", label: t("Entorse") },
+  { value: "Fracture", label: t("Fracture") },
+  { value: "Fourbure", label: t("Fourbure") },
+  { value: "Colique", label: t("Colique") },
+  { value: "Problème de dos", label: t("Problème de dos") },
+  { value: "Problème respiratoire", label: t("Problème respiratoire") },
+  { value: "Plaie / blessure superficielle", label: t("Plaie / blessure superficielle") },
+  { value: OTHER_OPTION, label: t("Autre") },
 ];
 
 export const RECOVERY_STATUSES: Option<HorseRecoveryStatus>[] = [
-  { value: "RECOVERED", label: "Complètement rétabli" },
-  { value: "IN_PROGRESS", label: "Récupération en cours" },
-  { value: "ONGOING", label: "Séquelle à surveiller" },
+  { value: "RECOVERED", label: t("Complètement rétabli") },
+  { value: "IN_PROGRESS", label: t("Récupération en cours") },
+  { value: "ONGOING", label: t("Séquelle à surveiller") },
 ];

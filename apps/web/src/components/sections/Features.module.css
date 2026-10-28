@@ -1,0 +1,92 @@
+.grid {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+/* Mobile : pastille à gauche du titre, pour des cartes plus compactes. */
+.card {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 8px;
+  padding: 22px 20px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    border-color 0.35s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+  border-color: rgba(50, 149, 230, 0.35);
+}
+
+/* Pastille ronde bleu clair, comme les icônes de la fiche cheval dans l'app. */
+.icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--sky-soft);
+  color: var(--ink-2);
+  transition:
+    transform 0.4s var(--ease-out),
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.card:hover .icon {
+  transform: rotate(-8deg) scale(1.06);
+  background: var(--ink-2);
+  color: #fff;
+}
+
+.card h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+.card p {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    align-items: start;
+    row-gap: 10px;
+    padding: 26px 24px 28px;
+  }
+
+  .icon {
+    margin-bottom: 8px;
+  }
+}
+
+@media (min-width: 1060px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+  }
+}

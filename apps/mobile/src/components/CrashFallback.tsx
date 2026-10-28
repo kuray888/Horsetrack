@@ -1,5 +1,6 @@
 import { Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { t } from "@/i18n";
 
 /**
  * Filet de sécurité affiché à la place d'un plantage complet de l'app quand
@@ -13,12 +14,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export function CrashFallback({ resetError }: { error: unknown; resetError: () => void }) {
   return (
     <SafeAreaView className="flex-1 items-center justify-center gap-4 bg-background px-8">
-      <Text className="text-center text-2xl font-display tracking-tight text-text">Oups, un problème est survenu</Text>
+      <Text className="text-center text-2xl font-display tracking-tight text-text">{t("Oups, un problème est survenu")}</Text>
       <Text className="text-center text-base text-muted">
-        Une erreur inattendue a interrompu l&apos;affichage. Réessaie — si le problème persiste, redémarre l&apos;application.
+        {t("Une erreur inattendue a interrompu l'affichage. Réessaie — si le problème persiste, redémarre l'application.")}
       </Text>
       <TouchableOpacity onPress={resetError} className="mt-2 rounded-card bg-primary px-6 py-3" activeOpacity={0.85}>
-        <Text className="text-base font-bold text-on-primary">Réessayer</Text>
+        <Text className="text-base font-bold text-on-primary">{t("Réessayer")}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

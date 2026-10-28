@@ -26,6 +26,11 @@ import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
 import type { Appointment, CompetitionEntry, Doc, Expense, JournalEntry } from "@/agenda/store";
 import type { TrainingSession } from "@/sessions/store";
+import type { SessionRide } from "@/rides/types";
+import { activityFromServer, activityToServer } from "@/agenda/activityKinds";
+import type { Contact, HorseDetails } from "@/extras/model";
+import { noteColumnsRead } from "@/lib/schemaGaps";
+import { hasUnsentJournalMedia } from "@/agenda/journalMedia";
 import type { WeightMeasurement } from "@/horses/weightStore";
 
 /**
@@ -969,12 +974,70 @@ export async function retryPendingDocumentUploads(docs: Doc[]): Promise<{ id: st
   return done;
 }
 
-function activityTypeToDb(type: JournalEntry["activityType"]): string {
-  return type.toUpperCase();
+/**
+ * Reprise des photos et vidéos de souvenirs jamais envoyées (cf.
+ * agenda/journalMedia.ts hasUnsentJournalMedia), même principe que
+ * retryPendingDocumentUploads. Renvoie les chemins obtenus, à reporter dans
+ * l'état local.
+ */
+export async function retryPendingJournalUploads(
+  entries: JournalEntry[]
+): Promise<{ id: string; photoPath: string | null; videoPath: string | null }[]> {
+  const done: { id: string; photoPath: string | null; videoPath: string | null }[] = [];
+  for (const entry of entries.filter(hasUnsentJournalMedia)) {
+    const sent = await pushJournalEntry(entry).catch(() => null);
+    if (sent) done.push({ id: entry.id, ...sent });
+  }
+  return done;
 }
 
-function activityTypeFromDb(type: string): JournalEntry["activityType"] {
-  return type.toLowerCase() as JournalEntry["activityType"];
+/**
+ * Colonnes ajoutées après coup (activityKind, videoPath…) : tant que la base
+ * n'a pas reçu le SQL correspondant, un upsert qui les contient serait refusé
+ * en entier, et la ligne ne se synchroniserait plus du tout. On retente alors
+ * sans elles : le reste est sauvegardé, seules ces colonnes attendent — même
+ * principe que pushAppointment (competitionLevel/endDate).
+ */
+function mentionsColumn(error: { message?: string } | null, columns: string[]): boolean {
+  const message = (error?.message ?? "").toLowerCase();
+  return columns.some((c) => message.includes(c.toLowerCase()));
+}
+
+async function upsertWithOptionalColumns(
+  label: string,
+  table: string,
+  id: string,
+  row: Record<string, unknown>,
+  optional: string[],
+  stamp?: number
+): Promise<{ message?: string } | null> {
+  const { error } = await supabase.from(table).upsert(row);
+  if (error && mentionsColumn(error, optional)) {
+    const base = Object.fromEntries(Object.entries(row).filter(([k]) => !optional.includes(k)));
+    const { error: retryError } = await supabase.from(table).upsert(base);
+    // En attente, c'est la ligne SANS ces colonnes qu'on garde : rejouer la
+    // version complète buterait sur le même schéma.
+    await settleWrite(label, table, id, retryError, base, stamp);
+    return retryError;
+  }
+  await settleWrite(label, table, id, error, row, stamp);
+  return error;
+}
+
+/** Lecture avec colonnes optionnelles, repli sans elles si la base ne les a
+ * pas. Ce qui a été vu est noté (cf. lib/schemaGaps.ts) : les lignes écrites
+ * sans ces colonnes seront rattrapées une fois le SQL exécuté. */
+async function selectWithOptionalColumns<T>(table: string, base: string, optional: string[]): Promise<T[] | null> {
+  const full = await supabase.from(table).select([base, ...optional].join(", "));
+  if (!full.error && full.data) {
+    await noteColumnsRead(table, optional, true);
+    return full.data as T[];
+  }
+  if (!mentionsColumn(full.error, optional)) return null;
+  const fallback = await supabase.from(table).select(base);
+  if (fallback.error || !fallback.data) return null;
+  await noteColumnsRead(table, optional, false);
+  return fallback.data as T[];
 }
 
 function moodToDb(mood: JournalEntry["mood"]): string {
@@ -1006,13 +1069,32 @@ async function uploadJournalPhoto(horseId: string, entryId: string, localUri: st
   }
 }
 
-/** Upload la photo (si locale) puis upsert la ligne — même logique que
- * pushDocument : retourne le `photoPath` résultant, à reporter localement par
+/** Vidéo d'un souvenir (Premium) : même bucket et même règle d'accès que la
+ * photo (sous-dossier "journal/", réservé au Premium, cf. rls.sql). */
+async function uploadJournalVideo(horseId: string, entryId: string, localUri: string): Promise<string | null> {
+  try {
+    const bytes = await new File(localUri).bytes();
+    const path = `${horseId}/journal/${entryId}.mp4`;
+    const { error } = await supabase.storage.from("horse-photos").upload(path, bytes, {
+      contentType: "video/mp4",
+      upsert: true,
+    });
+    return error ? null : path;
+  } catch {
+    return null;
+  }
+}
+
+/** Upload la photo et la vidéo (si locales) puis upsert la ligne — même logique que
+ * pushDocument : retourne les chemins `photoPath`/`videoPath` résultants, à reporter localement par
  * l'appelant (cf. agenda/store.tsx addJournalEntry/updateJournalEntry) pour ne
  * pas re-uploader la même photo à la prochaine synchro. `entry.photoUri` ne
  * vaut "file://…" QUE pour une photo locale pas encore envoyée (premier envoi
  * ou remplacement lors d'une édition, cf. updateJournalEntry). */
-async function pushJournalEntryImpl(entry: JournalEntry, stamp?: number): Promise<string | null> {
+async function pushJournalEntryImpl(
+  entry: JournalEntry,
+  stamp?: number
+): Promise<{ photoPath: string | null; videoPath: string | null } | null> {
   if (!entry.horseId) return null;
 
   let photoPath = entry.photoPath;
@@ -1020,26 +1102,42 @@ async function pushJournalEntryImpl(entry: JournalEntry, stamp?: number): Promis
     const uploaded = await uploadJournalPhoto(entry.horseId, entry.id, entry.photoUri);
     if (uploaded) photoPath = uploaded;
   }
+  let videoPath = entry.videoPath ?? null;
+  if (entry.videoUri?.startsWith("file://")) {
+    const uploaded = await uploadJournalVideo(entry.horseId, entry.id, entry.videoUri);
+    if (uploaded) videoPath = uploaded;
+  } else if (!entry.videoUri && videoPath) {
+    // Vidéo retirée du souvenir : supprimée du serveur aussi.
+    await supabase.storage.from("horse-photos").remove([videoPath]).catch(() => {});
+    videoPath = null;
+  }
 
   const row = {
     id: entry.id,
     horseId: entry.horseId,
-    activityType: activityTypeToDb(entry.activityType),
+    ...activityToServer(entry.activityType),
     mood: moodToDb(entry.mood),
     notes: entry.notes,
     date: entry.date.toISOString(),
     time: entry.time,
     weather: entry.weather,
     photoPath,
+    videoPath,
     updatedAt: new Date().toISOString(),
   };
-  const { error } = await supabase.from("journal_entries").upsert(row);
-  await settleWrite("pushJournalEntry", "journal_entries", entry.id, error, row, stamp);
+  const error = await upsertWithOptionalColumns(
+    "pushJournalEntry",
+    "journal_entries",
+    entry.id,
+    row,
+    ["activityKind", "videoPath"],
+    stamp
+  );
   // La photo, elle, n'est pas rejouable depuis la file (l'upload Storage a
   // lieu plus haut, hors de la ligne) : on ne renvoie son chemin que si
   // l'entrée est bien partie, pour ne pas l'enregistrer localement comme
   // synchronisée alors qu'elle ne l'est pas.
-  return error ? null : photoPath;
+  return error ? null : { photoPath, videoPath };
 }
 
 /** `horseId` nécessaire pour supprimer aussi la photo distante (cf. ci-dessus,
@@ -1051,26 +1149,44 @@ async function deleteJournalEntryRemoteImpl(entryId: string, horseId: string | n
   const { error } = await supabase.from("journal_entries").delete().eq("id", entryId);
   await settleWrite("deleteJournalEntryRemote", "journal_entries", entryId, error, undefined, stamp);
   if (horseId) {
-    await supabase.storage.from("horse-photos").remove([`${horseId}/journal/${entryId}.jpg`]);
+    await supabase.storage
+      .from("horse-photos")
+      .remove([`${horseId}/journal/${entryId}.jpg`, `${horseId}/journal/${entryId}.mp4`]);
   }
 }
 
+type JournalRow = {
+  id: string;
+  horseId: string;
+  activityType: string;
+  activityKind?: string | null;
+  mood: string;
+  notes: string;
+  date: string;
+  time: string;
+  weather: unknown;
+  photoPath: string | null;
+  videoPath?: string | null;
+};
+
 export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
-  const { data, error } = await supabase
-    .from("journal_entries")
-    .select("id, horseId, activityType, mood, notes, date, time, weather, photoPath");
-  if (error || !data) return null;
+  const data = await selectWithOptionalColumns<JournalRow>(
+    "journal_entries",
+    "id, horseId, activityType, mood, notes, date, time, weather, photoPath",
+    ["activityKind", "videoPath"]
+  );
+  if (!data) return null;
   const entries: JournalEntry[] = [];
   const signedPhotos = await signPaths(
     "horse-photos",
-    data.map((row) => row.photoPath).filter((p): p is string => !!p)
+    data.flatMap((row) => [row.photoPath, row.videoPath ?? null]).filter((p): p is string => !!p)
   );
   for (const row of data) {
     const photoUri = row.photoPath ? (signedPhotos.get(row.photoPath) ?? null) : null;
     entries.push({
       id: row.id,
       horseId: row.horseId,
-      activityType: activityTypeFromDb(row.activityType),
+      activityType: activityFromServer(row.activityType, row.activityKind),
       mood: moodFromDb(row.mood),
       notes: row.notes,
       date: parseServerDate(row.date),
@@ -1078,6 +1194,10 @@ export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
       weather: (row.weather as JournalEntry["weather"]) ?? null,
       photoUri,
       photoPath: row.photoPath ?? null,
+      // undefined (et non null) quand la colonne manque : « inconnu », pas
+      // « sans vidéo » (cf. agenda/store.tsx, fusion du journal).
+      videoUri: row.videoPath === undefined ? undefined : row.videoPath ? (signedPhotos.get(row.videoPath) ?? null) : null,
+      videoPath: row.videoPath === undefined ? undefined : row.videoPath,
     });
   }
   return entries;
@@ -1096,7 +1216,7 @@ async function pushTrainingSessionImpl(session: TrainingSession, stamp?: number)
   const row = {
     id: session.id,
     horseId: session.horseId,
-    activityType: session.activityType.toUpperCase(),
+    ...activityToServer(session.activityType),
     customActivityLabel: session.customActivityLabel,
     date: session.date.toISOString(),
     time: session.time,
@@ -1106,8 +1226,7 @@ async function pushTrainingSessionImpl(session: TrainingSession, stamp?: number)
     completed: session.completed,
     updatedAt: new Date().toISOString(),
   };
-  const { error } = await supabase.from("training_sessions").upsert(row);
-  await settleWrite("pushTrainingSession", "training_sessions", session.id, error, row, stamp);
+  await upsertWithOptionalColumns("pushTrainingSession", "training_sessions", session.id, row, ["activityKind"], stamp);
 }
 
 async function deleteTrainingSessionRemoteImpl(sessionId: string, stamp?: number): Promise<void> {
@@ -1115,17 +1234,114 @@ async function deleteTrainingSessionRemoteImpl(sessionId: string, stamp?: number
   await settleWrite("deleteTrainingSessionRemote", "training_sessions", sessionId, error, undefined, stamp);
 }
 
-/** Restaure les séances visibles par l'utilisateur courant — possédées ET
- * partagées (géré entièrement par RLS, cf. pullAppointments ci-dessus). */
-export async function pullTrainingSessions(): Promise<TrainingSession[] | null> {
+/**
+ * Parcours d'une séance enregistrée en direct — table à part
+ * (training_session_rides), pour que la synchro des séances ne dépende jamais
+ * de celle des parcours : tant que la table manque (SQL pas encore exécuté),
+ * l'écriture échoue et attend dans la file, la séance, elle, est arrivée.
+ */
+async function pushSessionRideImpl(sessionId: string, horseId: string, ride: SessionRide, stamp?: number): Promise<void> {
+  const row = {
+    id: sessionId,
+    sessionId,
+    horseId,
+    startedAt: ride.startedAt.toISOString(),
+    endedAt: ride.endedAt.toISOString(),
+    durationSeconds: ride.durationSeconds,
+    distanceMeters: ride.distanceMeters,
+    walkSeconds: ride.walkSeconds,
+    trotSeconds: ride.trotSeconds,
+    canterSeconds: ride.canterSeconds,
+    haltSeconds: ride.haltSeconds,
+    maxSpeedKmh: ride.maxSpeedKmh,
+    avgSpeedKmh: ride.avgSpeedKmh,
+    gps: ride.gps,
+    route: ride.route,
+    updatedAt: new Date().toISOString(),
+  };
+  const { error } = await supabase.from("training_session_rides").upsert(row);
+  await settleWrite("pushSessionRide", "training_session_rides", sessionId, error, row, stamp);
+}
+
+type RideRow = {
+  sessionId: string;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  distanceMeters: number;
+  walkSeconds: number;
+  trotSeconds: number;
+  canterSeconds: number;
+  haltSeconds: number;
+  maxSpeedKmh: number;
+  avgSpeedKmh: number;
+  gps: boolean;
+  route: string | null;
+};
+
+/** Parcours visibles (mêmes règles de partage que les séances), par séance ;
+ * null si la lecture échoue (table absente comprise). */
+async function pullSessionRides(): Promise<Map<string, SessionRide> | null> {
   const { data, error } = await supabase
-    .from("training_sessions")
-    .select("id, horseId, activityType, customActivityLabel, date, time, durationMinutes, intensity, notes, completed");
+    .from("training_session_rides")
+    .select(
+      "sessionId, startedAt, endedAt, durationSeconds, distanceMeters, walkSeconds, trotSeconds, canterSeconds, haltSeconds, maxSpeedKmh, avgSpeedKmh, gps, route"
+    );
   if (error || !data) return null;
+  return new Map(
+    (data as RideRow[]).map((row) => [
+      row.sessionId,
+      {
+        startedAt: new Date(row.startedAt),
+        endedAt: new Date(row.endedAt),
+        durationSeconds: row.durationSeconds,
+        distanceMeters: row.distanceMeters,
+        walkSeconds: row.walkSeconds,
+        trotSeconds: row.trotSeconds,
+        canterSeconds: row.canterSeconds,
+        haltSeconds: row.haltSeconds,
+        maxSpeedKmh: row.maxSpeedKmh,
+        avgSpeedKmh: row.avgSpeedKmh,
+        gps: row.gps,
+        route: row.route ?? null,
+      },
+    ])
+  );
+}
+
+/** Restaure les séances visibles par l'utilisateur courant — possédées ET
+ * partagées (géré entièrement par RLS, cf. pullAppointments ci-dessus).
+ * Chaque séance porte son parcours (`ride`) : null s'il n'y en a pas,
+ * undefined si les parcours n'ont pas pu être lus (cf. keepLocalRide). */
+type SessionRow = {
+  id: string;
+  horseId: string;
+  activityType: string;
+  activityKind?: string | null;
+  customActivityLabel: string | null;
+  date: string;
+  time: string;
+  durationMinutes: number | null;
+  intensity: string | null;
+  notes: string;
+  completed: boolean;
+};
+
+export async function pullTrainingSessions(): Promise<TrainingSession[] | null> {
+  const [data, rides] = await Promise.all([
+    selectWithOptionalColumns<SessionRow>(
+      "training_sessions",
+      "id, horseId, activityType, customActivityLabel, date, time, durationMinutes, intensity, notes, completed",
+      ["activityKind"]
+    ),
+    pullSessionRides().catch(() => null),
+  ]);
+  if (!data) return null;
   return data.map((row) => ({
+    ride: rides ? (rides.get(row.id) ?? null) : undefined,
     id: row.id,
     horseId: row.horseId,
-    activityType: (row.activityType as string).toLowerCase() as TrainingSession["activityType"],
+    activityType: activityFromServer(row.activityType, row.activityKind),
     customActivityLabel: row.customActivityLabel ?? null,
     date: parseServerDate(row.date),
     time: row.time,
@@ -1238,9 +1454,7 @@ export async function pullExpenses(): Promise<Expense[] | null> {
 }
 
 // Écritures suivies (cf. lib/remoteIndex.ts) : tant qu'une écriture est en
-
 // vol, une relecture du serveur ne doit pas écraser la version locale qu'elle
-
 // envoie. Chaque fonction exportée enveloppe son implémentation `…Impl`.
 
 export function pushDocument(doc: Doc) {
@@ -1295,6 +1509,70 @@ export function deleteJournalEntryRemote(entryId: string, horseId: string | null
 
 export function pushTrainingSession(session: TrainingSession) {
   return withWriteTracking("training_sessions", session.id, (stamp) => pushTrainingSessionImpl(session, stamp));
+}
+
+/**
+ * Fiche complémentaire d'un cheval (identité, alimentation) : une ligne par
+ * cheval, même portée de partage que ses séances (cf. extras/model.ts).
+ */
+async function pushHorseDetailsImpl(details: HorseDetails, stamp?: number): Promise<void> {
+  const row = {
+    horseId: details.horseId,
+    identity: details.identity,
+    feeding: details.feeding,
+    partnership: details.partnership,
+    updatedAt: details.updatedAt,
+  };
+  await upsertWithOptionalColumns("pushHorseDetails", "horse_details", details.horseId, row, ["partnership"], stamp);
+}
+
+export function pushHorseDetails(details: HorseDetails) {
+  return withWriteTracking("horse_details", details.horseId, (stamp) => pushHorseDetailsImpl(details, stamp));
+}
+
+/** Lignes brutes, relues par extras/store.ts (normalizeDetails). null si
+ * la lecture échoue — table absente comprise. */
+type HorseDetailsRow = { horseId: string; identity: unknown; feeding: unknown; partnership?: unknown; updatedAt: string };
+
+export async function pullHorseDetails(): Promise<HorseDetailsRow[] | null> {
+  return selectWithOptionalColumns<HorseDetailsRow>("horse_details", "horseId, identity, feeding, updatedAt", ["partnership"]);
+}
+
+/** Carnet de contacts : personnel au cavalier (RLS userId = auth.uid()). */
+async function pushContactImpl(contact: Contact, stamp?: number): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
+  if (!userId) return;
+  const row = { ...contact, userId };
+  const { error } = await supabase.from("rider_contacts").upsert(row);
+  await settleWrite("pushContact", "rider_contacts", contact.id, error, row, stamp);
+}
+
+export function pushContact(contact: Contact) {
+  return withWriteTracking("rider_contacts", contact.id, (stamp) => pushContactImpl(contact, stamp));
+}
+
+async function deleteContactRemoteImpl(id: string, stamp?: number): Promise<void> {
+  const { error } = await supabase.from("rider_contacts").delete().eq("id", id);
+  await settleWrite("deleteContactRemote", "rider_contacts", id, error, undefined, stamp);
+}
+
+export function deleteContactRemote(id: string) {
+  return withWriteTracking("rider_contacts", id, (stamp) => deleteContactRemoteImpl(id, stamp), "delete");
+}
+
+export async function pullContacts(): Promise<Contact[] | null> {
+  const { data, error } = await supabase
+    .from("rider_contacts")
+    .select("id, name, role, phone, email, notes, updatedAt");
+  if (error || !data) return null;
+  return data as Contact[];
+}
+
+export function pushSessionRide(sessionId: string, horseId: string, ride: SessionRide) {
+  return withWriteTracking("training_session_rides", sessionId, (stamp) =>
+    pushSessionRideImpl(sessionId, horseId, ride, stamp)
+  );
 }
 
 export function deleteTrainingSessionRemote(sessionId: string) {

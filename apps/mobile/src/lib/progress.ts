@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 /**
  * Indicateurs de progression (série de semaines actives, bilan du mois) —
  * logique pure, testable sans runtime natif. Volontairement sobres : on
@@ -92,8 +94,8 @@ export function shouldShowMonthlyRecap(recap: MonthlyRecap, now: Date = new Date
 }
 
 const MONTH_NAMES = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+  t("Janvier"), t("Février"), t("Mars"), t("Avril"), t("Mai"), t("Juin"),
+  t("Juillet"), t("Août"), t("Septembre"), t("Octobre"), t("Novembre"), t("Décembre"),
 ];
 
 export function monthName(month: number): string {
@@ -111,11 +113,11 @@ export function recapLines(recap: MonthlyRecap): string[] {
     const hours = Math.floor(recap.totalMinutes / 60);
     const mins = recap.totalMinutes % 60;
     const duration =
-      recap.totalMinutes > 0 ? ` (${hours > 0 ? `${hours} h${mins > 0 ? ` ${mins}` : ""}` : `${mins} min`})` : "";
-    lines.push(`${plural(recap.sessionsDone, "séance", "séances")}${duration}`);
+      recap.totalMinutes > 0 ? ` (${hours > 0 ? t("{hours} h{v}", { hours: hours, v: mins > 0 ? ` ${mins}` : "" }) : t("{mins} min", { mins: mins })})` : "";
+    lines.push(`${plural(recap.sessionsDone, t("séance"), t("séances"))}${duration}`);
   }
   if (recap.competitions > 0) lines.push(plural(recap.competitions, "concours", "concours"));
-  if (recap.healthCare > 0) lines.push(plural(recap.healthCare, "soin suivi", "soins suivis"));
+  if (recap.healthCare > 0) lines.push(plural(recap.healthCare, t("soin suivi"), t("soins suivis")));
   return lines;
 }
 
@@ -123,9 +125,38 @@ export function recapLines(recap: MonthlyRecap): string[] {
 export function recapShareText(recap: MonthlyRecap, horseName: string, downloadUrl: string | null): string {
   const lines = recapLines(recap).map((l) => `• ${l}`);
   return [
-    `${monthName(recap.month)} avec ${horseName} 🐴`,
+    t("{monthName} avec {horseName} 🐴", { monthName: monthName(recap.month), horseName: horseName }),
     ...lines,
     "",
-    downloadUrl ? `Suivi avec Horsetrack : ${downloadUrl}` : "Suivi avec Horsetrack",
+    downloadUrl ? t("Suivi avec Horsetrack : {downloadUrl}", { downloadUrl: downloadUrl }) : t("Suivi avec Horsetrack"),
   ].join("\n");
+}
+
+/** Séances de la semaine (lundi → dimanche) qui contient `date`, pour un
+ * cheval : combien sont faites, sur combien au total. */
+export function weekProgress(
+  sessions: SessionLike[],
+  horseId: string | null,
+  date: Date
+): { done: number; total: number } {
+  const start = weekStart(date).getTime();
+  const end = start + 7 * DAY_MS;
+  const week = sessions.filter((s) => s.horseId === horseId && s.date.getTime() >= start && s.date.getTime() < end);
+  return { done: week.filter((s) => s.completed).length, total: week.length };
+}
+
+/** Message affiché juste après avoir coché une séance. La semaine bouclée
+ * (tout ce qui était prévu est fait, au moins deux séances) se fête ; le
+ * reste du temps, on donne simplement où on en est. */
+export function sessionDoneMessage({ done, total }: { done: number; total: number }): {
+  text: string;
+  weekComplete: boolean;
+} {
+  if (total >= 2 && done === total) {
+    return { text: t("Semaine bouclée : {done} séances sur {total}, bravo !", { done: done, total: total }), weekComplete: true };
+  }
+  if (total >= 2) {
+    return { text: t("Séance faite · {done}/{total} cette semaine.", { done: done, total: total }), weekComplete: false };
+  }
+  return { text: t("Séance faite."), weekComplete: false };
 }

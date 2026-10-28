@@ -1,0 +1,91 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--header-h);
+  background: rgba(249, 247, 242, 0.82);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid transparent;
+}
+
+/* L'ombre apparaît en défilant, sans JS, là où le navigateur sait lier une
+ * animation au scroll ; ailleurs l'en-tête reste simplement translucide. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .header {
+      animation: header-solid linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 140px;
+    }
+  }
+}
+
+@keyframes header-solid {
+  to {
+    background: rgba(249, 247, 242, 0.94);
+    border-bottom-color: rgba(8, 31, 56, 0.08);
+    box-shadow: 0 10px 30px -18px rgba(8, 31, 56, 0.35);
+  }
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: 100%;
+}
+
+.nav {
+  display: none;
+}
+
+.nav ul {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+}
+
+.nav a {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 0.2s ease;
+}
+
+.nav a:hover {
+  background: rgba(8, 31, 56, 0.06);
+}
+
+.cta {
+  min-height: 42px;
+  padding: 9px 18px;
+}
+
+@media (min-width: 900px) {
+  .nav {
+    display: block;
+  }
+}
+
+/* Très petits écrans (iPhone SE 1re génération) : bouton plus compact pour
+ * que logo et bouton tiennent sur une ligne. */
+@media (max-width: 379px) {
+  .inner {
+    gap: 12px;
+  }
+
+  .cta {
+    padding-inline: 14px;
+    font-size: 0.88rem;
+  }
+
+  .cta svg {
+    display: none;
+  }
+}

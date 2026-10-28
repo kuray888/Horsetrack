@@ -3,6 +3,7 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { Field } from "@/components/Field";
 import { usePickerOverlay } from "@/components/PickerOverlay";
 import { MONTHS, DAY_LABELS, formatDate } from "@/lib/dateFormat";
+import { t } from "@/i18n";
 
 /**
  * Mini calendrier maison (calque plein écran + grille de jours, cf.
@@ -133,7 +134,7 @@ export function DatePickerField({
         className="rounded-card border border-border bg-surface p-4"
       >
         <Text className={value ? "text-base text-text" : "text-base text-muted"}>
-          {value ? formatDate(value) : "Sélectionner une date"}
+          {value ? formatDate(value) : t("Sélectionner une date")}
         </Text>
       </TouchableOpacity>
     </Field>

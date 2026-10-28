@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -6,6 +7,7 @@ import { PaywallView } from "@/components/PaywallView";
 import { useSubscribeFlow, useSubscription, computeIsActiveOrTrialing, type BillingPeriod } from "@/subscription/store";
 import { parsePlacement } from "@/subscription/paywallLogic";
 import { useHorses } from "@/horses/store";
+import { t } from "@/i18n";
 
 /** Paywall plein écran de l'app, ouvert par openPaywall() (cf.
  * subscription/paywall.ts) avec son contexte dans `from` — et, quand il porte
@@ -20,6 +22,19 @@ export default function AppPaywall() {
   // paywall montre la formule actuelle au lieu de proposer de s'abonner.
   const currentPeriod =
     isActiveOrTrialing && (status === "active" || billingPeriod !== null) ? billingPeriod : null;
+
+  // Remise sur l'abonnement confirmée sur la feuille de l'App Store (code
+  // d'offre) : au retour dans l'app, l'abonnement est relu (cf.
+  // SubscriptionProvider, retour au premier plan) — dès qu'il est actif, même
+  // écran de bienvenue qu'après un achat fait ici. Limité à ce cas : l'achat
+  // classique gère déjà sa propre navigation (onSubscribe).
+  const awaitingStoreOffer = useRef(false);
+  useEffect(() => {
+    if (awaitingStoreOffer.current && isActiveOrTrialing && !promotional) {
+      awaitingStoreOffer.current = false;
+      router.replace("/premium-welcome");
+    }
+  }, [isActiveOrTrialing, promotional]);
 
   const horse = (params.horseId ? horses.find((h) => h.id === params.horseId) : null) ?? selectedHorse;
   const horseNames = horse?.name ? [horse.name] : [];
@@ -45,12 +60,12 @@ export default function AppPaywall() {
     return (
       <SafeAreaView className="flex-1 justify-center gap-5 bg-background px-6" edges={["top", "bottom"]}>
         <View className="gap-2">
-          <Text className="text-2xl font-display tracking-tight text-text">Tu as déjà Premium</Text>
+          <Text className="text-2xl font-display tracking-tight text-text">{t("Tu as déjà Premium")}</Text>
           <Text className="text-base text-muted">
-            Ton accès Premium t&apos;est offert par Horsetrack : toutes les fonctionnalités sont débloquées, sans aucun paiement.
+            {t("Ton accès Premium t'est offert par Horsetrack : toutes les fonctionnalités sont débloquées, sans aucun paiement.")}
           </Text>
         </View>
-        <PrimaryButton label="Fermer" onPress={() => router.back()} />
+        <PrimaryButton label={t("Fermer")} onPress={() => router.back()} />
       </SafeAreaView>
     );
   }
@@ -63,6 +78,9 @@ export default function AppPaywall() {
       onClose={() => router.back()}
       onRestore={restore}
       onRedeemPromoCode={redeemPromoCode}
+      onStoreOfferOpened={() => {
+        awaitingStoreOffer.current = true;
+      }}
       submitting={submitting}
       restoring={restoring}
       currentPeriod={currentPeriod}

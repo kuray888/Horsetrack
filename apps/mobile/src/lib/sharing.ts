@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { mapRemoteHorse, type RemoteHorse } from "@/lib/cloudSync";
 import type { Horse } from "@/horses/store";
+import { t } from "@/i18n";
 
 export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM";
 /** "duplicate"/"quota"/"not_premium" distinguent les causes réelles d'un
@@ -20,15 +21,15 @@ export type CollaboratorStatus = "PENDING" | "ACCEPTED";
  * copies avaient déjà divergé). */
 export const ROLE_LABEL: Record<CollaboratorRole, string> = {
   DEMI_PENSION: "Demi-pension",
-  COACH: "Coach / enseignant",
-  RIDER: "Cavalière / cavalier",
-  GROOM: "Groom / palefrenier",
+  COACH: t("Coach / enseignant"),
+  RIDER: t("Cavalière / cavalier"),
+  GROOM: t("Groom / palefrenier"),
 };
 
 export const ROLE_LABEL_SHORT: Record<CollaboratorRole, string> = {
   DEMI_PENSION: "demi-pension",
   COACH: "coach",
-  RIDER: "cavalière/cavalier",
+  RIDER: t("cavalière/cavalier"),
   GROOM: "groom",
 };
 
@@ -193,7 +194,7 @@ export async function pullPendingInvites(): Promise<PendingInvite[]> {
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,
-    horseName: (row.horses as unknown as { name: string } | null)?.name ?? "ce cheval",
+    horseName: (row.horses as unknown as { name: string } | null)?.name ?? t("ce cheval"),
     role: row.role,
   }));
 }

@@ -1,7 +1,7 @@
 import { Alert, Linking, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
@@ -9,6 +9,8 @@ import { Locked } from "@/components/Locked";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import type { Doc } from "@/agenda/store";
 import { DOC_META } from "@/agenda/meta";
+import { animateNextLayout } from "@/lib/motion";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -37,7 +39,7 @@ async function openDocument(fileUri: string, mimeType: string) {
     if (await Sharing.isAvailableAsync()) {
       await runNativeInteraction(() => Sharing.shareAsync(fileUri, { mimeType }));
     } else {
-      Alert.alert("Impossible d'ouvrir", "Aucune application disponible pour afficher ce document.");
+      Alert.alert(t("Impossible d'ouvrir"), t("Aucune application disponible pour afficher ce document."));
     }
     return;
   }
@@ -64,7 +66,10 @@ export function DocumentCard({
 }) {
   const meta = DOC_META[doc.category];
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onToggleExpand} className={CARD}>
+    <TouchableOpacity activeOpacity={0.85} onPress={() => {
+      animateNextLayout();
+      onToggleExpand();
+    }} className={CARD}>
       <View className="flex-row items-center gap-3">
         <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
           <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
@@ -85,14 +90,14 @@ export function DocumentCard({
               className="flex-row items-center justify-center gap-2 rounded-card border border-border p-4"
             >
               <MaterialCommunityIcons name="file-pdf-box" size={20} color={colors.danger} />
-              <Text className="text-sm font-semibold text-accent">Consulter le PDF</Text>
+              <Text className="text-sm font-semibold text-accent">{t("Consulter le PDF")}</Text>
             </TouchableOpacity>
           ) : doc.fileUri ? (
             <TouchableOpacity
               onPress={() => openPhoto(doc.fileUri!, doc.name)}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Ouvrir le document en grand"
+              accessibilityLabel={t("Ouvrir le document en grand")}
               className="gap-2"
             >
               <Image
@@ -100,12 +105,12 @@ export function DocumentCard({
                 style={{ width: "100%", height: 260, borderRadius: 20 }}
                 contentFit="contain"
               />
-              <Text className="text-center text-xs font-semibold text-accent">Toucher pour ouvrir en grand</Text>
+              <Text className="text-center text-xs font-semibold text-accent">{t("Toucher pour ouvrir en grand")}</Text>
             </TouchableOpacity>
           ) : (
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="paperclip" size={15} color={colors.textMuted} />
-              <Text className="text-sm text-muted">Aucun fichier joint</Text>
+              <Text className="text-sm text-muted">{t("Aucun fichier joint")}</Text>
             </View>
           )}
           {/* Modifier/supprimer un document existant est écrit côté serveur (RLS
@@ -114,13 +119,13 @@ export function DocumentCard({
               voyait son "Modifier"/"Supprimer" mettre à jour l'affichage local
               en silence pendant que le serveur rejetait l'écriture, cf. audit
               pré-publication. */}
-          <Locked message="Tes documents restent consultables. Pour les modifier ou les supprimer, Premium doit être actif." placement="vault" feature="document_manage">
+          <Locked message={t("Tes documents restent consultables. Pour les modifier ou les supprimer, Premium doit être actif.")} placement="vault" feature="document_manage">
             <View className="mt-1 flex-row items-center gap-4">
               <TouchableOpacity onPress={onEdit} activeOpacity={0.7}>
-                <Text className="text-sm font-semibold text-accent">Modifier</Text>
+                <Text className="text-sm font-semibold text-accent">{t("Modifier")}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={onDelete} activeOpacity={0.7}>
-                <Text className="text-sm font-semibold text-danger">Supprimer ce document</Text>
+                <Text className="text-sm font-semibold text-danger">{t("Supprimer ce document")}</Text>
               </TouchableOpacity>
             </View>
           </Locked>

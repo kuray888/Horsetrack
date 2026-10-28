@@ -4,6 +4,7 @@
  * vitest sans runtime natif, comme ./logic.ts.
  */
 import type { BillingPeriod } from "./logic";
+import { LANG, LOCALE, t as tr } from "@/i18n";
 
 /** D'où le paywall a été ouvert — pilote le titre, l'ordre des bénéfices et
  * la propriété `placement` des événements analytics. */
@@ -17,7 +18,9 @@ export type PaywallPlacement =
   | "budget"
   | "journal_photo"
   | "profile"
-  | "trial_ending";
+  | "trial_ending"
+  | "ride_safety"
+  | "coach";
 
 export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "onboarding",
@@ -30,6 +33,8 @@ export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "journal_photo",
   "profile",
   "trial_ending",
+  "ride_safety",
+  "coach",
 ];
 
 export function parsePlacement(value: unknown): PaywallPlacement {
@@ -38,18 +43,20 @@ export function parsePlacement(value: unknown): PaywallPlacement {
     : "profile";
 }
 
-export type BenefitId = "horses" | "reminders" | "vault" | "sharing" | "competitions" | "budget";
+export type BenefitId = "horses" | "reminders" | "vault" | "sharing" | "competitions" | "budget" | "safety" | "coach";
 
 export const BENEFITS: Record<BenefitId, { icon: string; text: string }> = {
-  horses: { icon: "horse-variant", text: "Tous tes chevaux, sans limite" },
-  reminders: { icon: "bell-ring-outline", text: "Un rappel avant chaque soin : véto, maréchal, vaccins, dentiste" },
-  vault: { icon: "folder-lock-outline", text: "Tous tes papiers rangés : ordonnances, factures, carnet de santé" },
-  sharing: { icon: "account-multiple-outline", text: "Partage avec ta demi-pension, ton coach ou ton groom" },
-  competitions: { icon: "trophy-outline", text: "Concours détaillés, épreuve par épreuve" },
-  budget: { icon: "cash-multiple", text: "Budget complet : payé, à régler, répartition" },
+  horses: { icon: "horse-variant", text: tr("Tous tes chevaux, sans limite") },
+  reminders: { icon: "bell-ring-outline", text: tr("Un rappel avant chaque soin : véto, maréchal, vaccins, dentiste") },
+  vault: { icon: "folder-lock-outline", text: tr("Tous tes papiers rangés : ordonnances, factures, carnet de santé") },
+  sharing: { icon: "account-multiple-outline", text: tr("Partage avec ta demi-pension, ton coach ou ton groom") },
+  competitions: { icon: "trophy-outline", text: tr("Concours détaillés, épreuve par épreuve") },
+  budget: { icon: "cash-multiple", text: tr("Budget complet : payé, à régler, répartition") },
+  safety: { icon: "shield-account-outline", text: tr("Sécurité en balade : tes proches suivent ta position et sont prévenus si tu ne bouges plus") },
+  coach: { icon: "lightbulb-on-outline", text: tr("Ton coach : la prochaine séance expliquée, tes questions sur ton cheval, le résumé du mois") },
 };
 
-const DEFAULT_BENEFIT_ORDER: BenefitId[] = ["horses", "reminders", "vault", "sharing", "competitions", "budget"];
+const DEFAULT_BENEFIT_ORDER: BenefitId[] = ["horses", "reminders", "coach", "vault", "sharing", "competitions", "budget", "safety"];
 
 /** Bénéfice à remonter en tête selon le contexte d'ouverture. */
 const LEAD_BENEFIT: Partial<Record<PaywallPlacement, BenefitId>> = {
@@ -60,6 +67,8 @@ const LEAD_BENEFIT: Partial<Record<PaywallPlacement, BenefitId>> = {
   competitions: "competitions",
   budget: "budget",
   journal_photo: "vault",
+  ride_safety: "safety",
+  coach: "coach",
 };
 
 /** Bénéfices affichés, celui du contexte en premier. `count` limite la liste
@@ -76,76 +85,89 @@ export type PaywallCopy = { icon: string; title: string; subtitle: string };
  * connus à ce stade (brouillon d'onboarding, ou cheval concerné dans l'app). */
 export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = []): PaywallCopy {
   const names = horseNames.map((n) => n.trim()).filter(Boolean);
-  const first = names[0] ?? "ton cheval";
+  const first = names[0] ?? tr("ton cheval");
   switch (placement) {
     case "onboarding":
       if (names.length >= 2) {
         return {
           icon: "horse-variant",
-          title: `Garde ${joinNames(names)} dans ton écurie.`,
-          subtitle: "La version gratuite suit 1 cheval. Premium les suit tous, sans limite.",
+          title: tr("Garde {joinNames} dans ton écurie.", { joinNames: joinNames(names) }),
+          subtitle: tr("La version gratuite suit 1 cheval. Premium les suit tous, sans limite."),
         };
       }
       return {
         icon: "bell-ring-outline",
-        title: `Ne rate plus aucun soin de ${first}.`,
+        title: tr("Ne rate plus aucun soin de {first}.", { first: first }),
         subtitle:
-          "Vaccins, maréchal, véto : HorseTrack te prévient à temps et garde tous ses papiers au même endroit.",
+          tr("Vaccins, maréchal, véto : HorseTrack te prévient à temps et garde tous ses papiers au même endroit."),
       };
     case "horses":
       return {
         icon: "horse-variant",
-        title: "Toute ton écurie, au même endroit.",
-        subtitle: "Ajoute autant de chevaux que tu veux, chacun avec son planning, sa santé et son budget.",
+        title: tr("Toute ton écurie, au même endroit."),
+        subtitle: tr("Ajoute autant de chevaux que tu veux, chacun avec son planning, sa santé et son budget."),
       };
     case "reminders":
       return {
         icon: "bell-ring-outline",
-        title: "Laisse HorseTrack se souvenir du prochain rendez-vous.",
-        subtitle: "Une notification avant chaque véto, maréchal, vaccin ou dentiste.",
+        title: tr("Laisse HorseTrack se souvenir du prochain rendez-vous."),
+        subtitle: tr("Une notification avant chaque véto, maréchal, vaccin ou dentiste."),
       };
     case "vault":
       return {
         icon: "folder-lock-outline",
-        title: "Ordonnances, factures, carnet : tout est rangé.",
-        subtitle: "Retrouve n'importe quel papier en deux secondes, même à l'écurie.",
+        title: tr("Ordonnances, factures, carnet : tout est rangé."),
+        subtitle: tr("Retrouve n'importe quel papier en deux secondes, même à l'écurie."),
       };
     case "sharing":
       return {
         icon: "account-multiple-outline",
-        title: `Partage ${names.length ? first : "ton cheval"} avec ta demi-pension.`,
-        subtitle: "Ta DP, ton coach ou ton groom retrouvent son planning, ses soins et ses rendez-vous.",
+        title: tr("Partage {v} avec ta demi-pension.", { v: names.length ? first : "ton cheval" }),
+        subtitle: tr("Ta DP, ton coach ou ton groom retrouvent son planning, ses soins et ses rendez-vous."),
       };
     case "competitions":
       return {
         icon: "trophy-outline",
-        title: "Prépare chaque épreuve de tes concours.",
-        subtitle: "Horaires, épreuves et résultats, épreuve par épreuve.",
+        title: tr("Prépare chaque épreuve de tes concours."),
+        subtitle: tr("Horaires, épreuves et résultats, épreuve par épreuve."),
       };
     case "budget":
       return {
         icon: "cash-multiple",
-        title: `Sache exactement ce que ${first} te coûte.`,
-        subtitle: "Ce qui est payé, ce qui reste à régler, et où part ton budget.",
+        title: tr("Sache exactement ce que {first} te coûte.", { first: first }),
+        subtitle: tr("Ce qui est payé, ce qui reste à régler, et où part ton budget."),
       };
     case "journal_photo":
       return {
         icon: "camera-outline",
-        title: "Garde la photo de chaque séance.",
-        subtitle: "Revois ses progrès mois après mois.",
+        title: tr("Garde la photo de chaque séance."),
+        subtitle: tr("Revois ses progrès mois après mois."),
       };
     case "trial_ending":
       return {
         icon: "star-outline",
-        title: "Garde Premium après ton essai.",
-        subtitle: "Tes chevaux, rappels et documents restent exactement comme tu les as laissés.",
+        title: tr("Garde Premium après ton essai."),
+        subtitle: tr("Tes chevaux, rappels et documents restent exactement comme tu les as laissés."),
+      };
+    case "coach":
+      return {
+        icon: "lightbulb-on-outline",
+        title: tr("Un coach qui connaît ton cheval."),
+        subtitle: tr("Il choisit la prochaine séance d'après ses dernières semaines, sa santé et tes concours, répond à tes questions sur son carnet et résume chaque mois."),
+      };
+    case "ride_safety":
+      return {
+        icon: "shield-account-outline",
+        title: tr("Pars en balade, tes proches veillent."),
+        subtitle:
+          tr("Ils suivent ta position pendant la séance, et sont prévenus par email si tu ne bouges plus ou si ton téléphone ne répond plus."),
       };
     case "profile":
     default:
       return {
         icon: "star-outline",
-        title: "Tout HorseTrack, pour toute ton écurie.",
-        subtitle: "Rappels, documents, partage et chevaux illimités.",
+        title: tr("Tout HorseTrack, pour toute ton écurie."),
+        subtitle: tr("Rappels, documents, partage et chevaux illimités."),
       };
   }
 }
@@ -153,9 +175,9 @@ export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = 
 /** « A », « A et B », « A, B et C » ; au-delà de 3 : « A, B et 2 autres ». */
 export function joinNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? "";
-  if (names.length === 2) return `${names[0]} et ${names[1]}`;
-  if (names.length === 3) return `${names[0]}, ${names[1]} et ${names[2]}`;
-  return `${names[0]}, ${names[1]} et ${names.length - 2} autres`;
+  if (names.length === 2) return tr("{v} et {v2}", { v: names[0], v2: names[1] });
+  if (names.length === 3) return tr("{v}, {v2} et {v3}", { v: names[0], v2: names[1], v3: names[2] });
+  return tr("{v}, {v2} et {v3} autres", { v: names[0], v2: names[1], v3: names.length - 2 });
 }
 
 // --- Prix -------------------------------------------------------------------
@@ -190,7 +212,7 @@ export const PERIOD_SUFFIX: Record<BillingPeriod, string> = { MONTHLY: "/mois", 
 export function formatStorePrice(amount: number, currencyCode: string | null | undefined): string | null {
   if (!currencyCode || !Number.isFinite(amount)) return null;
   try {
-    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: currencyCode }).format(amount);
+    return new Intl.NumberFormat(LOCALE, { style: "currency", currency: currencyCode }).format(amount);
   } catch {
     return null;
   }
@@ -222,13 +244,13 @@ export function trialDurationLabel(t: TrialPeriod): string {
   const plural = t.count > 1;
   switch (t.unit) {
     case "DAY":
-      return `${t.count} jour${plural ? "s" : ""}`;
+      return tr("{count} jour{v}", { count: t.count, v: plural ? "s" : "" });
     case "WEEK":
-      return `${t.count} semaine${plural ? "s" : ""}`;
+      return tr("{count} semaine{v}", { count: t.count, v: plural ? "s" : "" });
     case "MONTH":
-      return `${t.count} mois`;
+      return tr("{count} mois", { count: t.count });
     case "YEAR":
-      return `${t.count} an${plural ? "s" : ""}`;
+      return tr("{count} an{v}", { count: t.count, v: plural ? "s" : "" });
   }
 }
 
@@ -267,20 +289,22 @@ export function trialReminderDate(end: Date, now: Date = new Date()): Date | nul
 
 // Noms de mois écrits en dur plutôt que toLocaleDateString, comme
 // lib/dateFormat.ts : rendu identique quel que soit le support Intl du moteur JS.
-const MONTHS_LONG = [
-  "janvier", "février", "mars", "avril", "mai", "juin",
-  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-];
+const MONTHS_LONG =
+  LANG === "fr"
+    ? ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+    : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+const dayNumber = (d: Date) => (LANG === "fr" && d.getDate() === 1 ? "1er" : String(d.getDate()));
 
 /** « 25 octobre » (ou « 25 octobre 2027 » si ce n'est pas l'année en cours). */
 export function formatDayMonth(d: Date, now: Date = new Date()): string {
-  const base = `${d.getDate() === 1 ? "1er" : d.getDate()} ${MONTHS_LONG[d.getMonth()]}`;
+  const base = `${dayNumber(d)} ${MONTHS_LONG[d.getMonth()]}`;
   return d.getFullYear() === now.getFullYear() ? base : `${base} ${d.getFullYear()}`;
 }
 
 /** « 25 octobre 2026 ». */
 export function formatFullDate(d: Date): string {
-  return `${d.getDate() === 1 ? "1er" : d.getDate()} ${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
+  return `${dayNumber(d)} ${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 // --- Relance douce (carte Accueil) -----------------------------------------
@@ -325,4 +349,13 @@ export function hasFreeReminderSlot(
     (a) => a.id !== editingId && !!a.reminderNotificationId && a.date >= startOfToday
   ).length;
   return active < FREE_ACTIVE_REMINDERS;
+}
+
+// --- Codes promo ------------------------------------------------------------
+
+/** Vrai seulement pour une adresse https de rédemption App Store / Google
+ * Play — les seules qu'un code promo peut faire ouvrir (défense en
+ * profondeur : une réponse serveur ne fait jamais ouvrir autre chose). */
+export function isStoreRedeemUrl(url: string): boolean {
+  return /^https:\/\/(apps\.apple\.com|play\.google\.com)\/redeem\?/.test(url);
 }

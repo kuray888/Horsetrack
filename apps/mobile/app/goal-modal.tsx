@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -13,6 +13,7 @@ import { colors } from "@/theme/colors";
 import type { RiderGoal } from "@/onboarding/store";
 import { useGoals } from "@/goals/store";
 import { useHorses } from "@/horses/store";
+import { t } from "@/i18n";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -27,7 +28,7 @@ type TypeSelection = RiderGoal | typeof OTHER_OPTION;
 
 const TYPE_OPTIONS: { value: TypeSelection; label: string }[] = [
   ...RIDER_GOALS,
-  { value: OTHER_OPTION, label: "Autre" },
+  { value: OTHER_OPTION, label: t("Autre") },
 ];
 
 /**
@@ -72,10 +73,10 @@ export default function GoalModal() {
 
   function confirmDelete() {
     if (!editing) return;
-    Alert.alert("Supprimer cet objectif ?", undefined, [
-      { text: "Annuler", style: "cancel" },
+    Alert.alert(t("Supprimer cet objectif ?"), undefined, [
+      { text: t("Annuler"), style: "cancel" },
       {
-        text: "Supprimer",
+        text: t("Supprimer"),
         style: "destructive",
         onPress: () => {
           deleteGoal(editing.id);
@@ -89,9 +90,9 @@ export default function GoalModal() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between px-5 pt-2">
         <Text className="text-2xl font-display tracking-tight text-text">
-          {editing ? "Modifier l'objectif" : "Nouvel objectif"}
+          {editing ? t("Modifier l'objectif") : t("Nouvel objectif")}
         </Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
           <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>
       </View>
@@ -101,10 +102,10 @@ export default function GoalModal() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Field label="Titre">
+        <Field label={t("Titre")}>
           <TextInput
             className={INPUT}
-            placeholder="Ex : Réussir le concours de printemps"
+            placeholder={t("Ex : Réussir le concours de printemps")}
             value={title}
             onChangeText={setTitle}
             autoCapitalize="sentences"
@@ -112,18 +113,18 @@ export default function GoalModal() {
         </Field>
 
         <DropdownField
-          label="Type d'objectif (optionnel)"
+          label={t("Type d'objectif (optionnel)")}
           options={TYPE_OPTIONS}
           value={type}
           onChange={setType}
-          placeholder="Sélectionner un type"
+          placeholder={t("Sélectionner un type")}
         />
 
         {type === OTHER_OPTION ? (
-          <Field label="Précisez votre objectif">
+          <Field label={t("Précisez votre objectif")}>
             <TextInput
               className={INPUT}
-              placeholder="Ex : Améliorer la souplesse à gauche"
+              placeholder={t("Ex : Améliorer la souplesse à gauche")}
               value={customType}
               onChangeText={setCustomType}
               autoCapitalize="sentences"
@@ -131,27 +132,27 @@ export default function GoalModal() {
           </Field>
         ) : null}
 
-        <DatePickerField label="Date cible (optionnel)" value={targetDate} onChange={setTargetDate} />
+        <DatePickerField label={t("Date cible (optionnel)")} value={targetDate} onChange={setTargetDate} />
 
         {horseOptions.length > 0 ? (
           <DropdownField
-            label="Cheval concerné (optionnel)"
+            label={t("Cheval concerné (optionnel)")}
             options={horseOptions}
             value={horseId}
             onChange={setHorseId}
-            placeholder="Aucun cheval en particulier"
+            placeholder={t("Aucun cheval en particulier")}
           />
         ) : null}
 
         {editing ? (
           <TouchableOpacity onPress={confirmDelete} activeOpacity={0.7} className="items-center py-2">
-            <Text className="text-sm font-semibold text-danger">Supprimer cet objectif</Text>
+            <Text className="text-sm font-semibold text-danger">{t("Supprimer cet objectif")}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>
 
       <View className="px-5 pb-2 pt-3">
-        <PrimaryButton label={editing ? "Enregistrer" : "Ajouter"} disabled={!canSave} onPress={submit} />
+        <PrimaryButton label={editing ? t("Enregistrer") : t("Ajouter")} disabled={!canSave} onPress={submit} />
       </View>
       <PickerOverlaySlot />
     </SafeAreaView>

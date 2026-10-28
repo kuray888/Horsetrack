@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import type { ActivityEntry } from "@/agenda/activity";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNewPlanningDestination } from "@/planning/planningDestination";
+import { isNewPlanningDestination, openFormForQuickAdd, parseOpenForm } from "@/planning/planningDestination";
 
 /**
  * Régression : Horse Hub > Entraînement puis Concours (ou l'inverse)
@@ -44,5 +44,25 @@ describe("isNewPlanningDestination", () => {
 
   it("ignore un paramètre invalide", () => {
     expect(isNewPlanningDestination("session", "n'importe-quoi")).toBe(false);
+  });
+});
+
+describe("ouverture d'un formulaire du Planning depuis la feuille d'ajout", () => {
+  it("chaque choix de formulaire a sa destination", () => {
+    expect(openFormForQuickAdd("seance")).toBe("session");
+    for (const option of ["soin", "rendezvous", "concours", "depense", "journal"]) {
+      expect(openFormForQuickAdd(option)).toBe(option);
+    }
+  });
+
+  it("la séance en direct et le nouveau cheval ont leur propre écran", () => {
+    expect(openFormForQuickAdd("direct")).toBeNull();
+    expect(openFormForQuickAdd("cheval")).toBeNull();
+  });
+
+  it("refuse un paramètre inconnu", () => {
+    expect(parseOpenForm("session")).toBe("session");
+    expect(parseOpenForm("admin")).toBeNull();
+    expect(parseOpenForm(undefined)).toBeNull();
   });
 });

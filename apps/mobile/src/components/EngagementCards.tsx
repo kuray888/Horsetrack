@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Share, Text, TouchableOpacity, View } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { FadeInView } from "@/components/FadeInView";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { track } from "@/lib/analytics";
@@ -14,6 +14,7 @@ import {
   recapShareText,
   shouldShowMonthlyRecap,
 } from "@/lib/progress";
+import { t } from "@/i18n";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -68,13 +69,13 @@ export function FirstStepsCard({
   const [dismissed, dismiss] = useDismissed("first_steps_dismissed_v1");
 
   const steps: { key: string; done: boolean; icon: IconName; label: string; onPress: () => void }[] = [
-    { key: "photo", done: hasPhoto, icon: "camera-outline", label: `Ajoute une photo de ${horseName}`, onPress: onAddPhoto },
-    { key: "session", done: hasSession, icon: "horse-variant", label: "Planifie ta première séance", onPress: onPlanSession },
+    { key: "photo", done: hasPhoto, icon: "camera-outline", label: t("Ajoute une photo de {horseName}", { horseName: horseName }), onPress: onAddPhoto },
+    { key: "session", done: hasSession, icon: "horse-variant", label: t("Planifie ta première séance"), onPress: onPlanSession },
     {
       key: "health",
       done: hasHealthAppointment,
       icon: "needle",
-      label: "Note le prochain véto, maréchal ou vaccin",
+      label: t("Note le prochain véto, maréchal ou vaccin"),
       onPress: onAddHealthAppointment,
     },
   ];
@@ -86,7 +87,7 @@ export function FirstStepsCard({
       <View className="gap-3 rounded-card bg-surface p-4 shadow-card">
         <View className="flex-row items-center gap-2">
           <Text className="flex-1 text-sm font-bold uppercase tracking-wide text-accent">
-            Premiers pas · {doneCount}/{steps.length}
+            {t("Premiers pas · ")}{doneCount}/{steps.length}
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -94,7 +95,7 @@ export function FirstStepsCard({
               dismiss();
             }}
             hitSlop={12}
-            accessibilityLabel="Masquer les premiers pas"
+            accessibilityLabel={t("Masquer les premiers pas")}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons name="close" size={18} color={colors.textMuted} accessibilityElementsHidden />
@@ -175,12 +176,12 @@ export function MonthlyRecapCard({
       <View className="gap-3 rounded-card bg-primary p-5">
         <View className="flex-row items-start gap-2">
           <View className="flex-1 gap-0.5">
-            <Text className="text-xs font-bold uppercase tracking-wide text-on-primary/80">Ton bilan du mois</Text>
+            <Text className="text-xs font-bold uppercase tracking-wide text-on-primary/80">{t("Ton bilan du mois")}</Text>
             <Text className="text-xl font-display text-on-primary">
-              {monthName(recap.month)} avec {horseName}
+              {monthName(recap.month)} {t(" avec ")}{horseName}
             </Text>
           </View>
-          <TouchableOpacity onPress={dismiss} hitSlop={12} accessibilityLabel="Masquer le bilan" accessibilityRole="button">
+          <TouchableOpacity onPress={dismiss} hitSlop={12} accessibilityLabel={t("Masquer le bilan")} accessibilityRole="button">
             <MaterialCommunityIcons name="close" size={18} color={colors.textOnPrimary} accessibilityElementsHidden />
           </TouchableOpacity>
         </View>
@@ -197,7 +198,7 @@ export function MonthlyRecapCard({
           className="flex-row items-center gap-2 self-start rounded-full bg-on-primary/15 px-4 py-2"
         >
           <MaterialCommunityIcons name="share-variant-outline" size={16} color={colors.textOnPrimary} />
-          <Text className="text-sm font-bold text-on-primary">Partager</Text>
+          <Text className="text-sm font-bold text-on-primary">{t("Partager")}</Text>
         </TouchableOpacity>
       </View>
     </FadeInView>

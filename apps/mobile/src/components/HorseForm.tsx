@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton, SingleSelect, MultiSelectChips } from "@/components/onboarding";
 import { colors } from "@/theme/colors";
 import { DropdownField } from "@/components/DropdownField";
@@ -27,6 +27,7 @@ import { toggleHealthCondition } from "@/horses/healthConditions";
 import { generateInjuryId } from "@/horses/injuries";
 import { CoatField } from "@/components/CoatField";
 import type { Discipline, HorseFitnessLevel, HorseLevel, HorseSex, HorseWorkload } from "@/onboarding/store";
+import { t as tr } from "@/i18n";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -136,7 +137,7 @@ export function HorseForm({
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between px-5 pt-2">
         <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={tr("Fermer")} accessibilityRole="button">
           <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>
       </View>
@@ -147,7 +148,7 @@ export function HorseForm({
         keyboardShouldPersistTaps="handled"
       >
         <View className="items-center">
-          <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Choisir une photo du cheval">
+          <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={tr("Choisir une photo du cheval")}>
             {photoUrl ? (
               <Image source={{ uri: photoUrl }} className="h-24 w-24 rounded-full" />
             ) : (
@@ -158,30 +159,30 @@ export function HorseForm({
           </TouchableOpacity>
           {photoUrl ? (
             <View className="mt-2 flex-row items-center gap-4">
-              <Text className="text-xs text-muted">Changer la photo</Text>
+              <Text className="text-xs text-muted">{tr("Changer la photo")}</Text>
               <TouchableOpacity onPress={() => setPhotoUrl(null)} hitSlop={10}>
-                <Text className="text-xs font-semibold text-red-500">Supprimer</Text>
+                <Text className="text-xs font-semibold text-red-500">{tr("Supprimer")}</Text>
               </TouchableOpacity>
             </View>
           ) : (
-            <Text className="mt-2 text-xs text-muted">Ajouter une photo</Text>
+            <Text className="mt-2 text-xs text-muted">{tr("Ajouter une photo")}</Text>
           )}
         </View>
 
-        <Field label="Nom du cheval">
+        <Field label={tr("Nom du cheval")}>
           <TextInput
             className={INPUT}
-            placeholder="Ex : Quabar des Monts"
+            placeholder={tr("Ex : Quabar des Monts")}
             value={name}
             onChangeText={setName}
             autoCapitalize="words"
           />
         </Field>
 
-        <Field label="Année de naissance">
+        <Field label={tr("Année de naissance")}>
           <TextInput
             className={INPUT}
-            placeholder={`Ex : ${currentYear - 8}`}
+            placeholder={tr("Ex : {v}", { v: currentYear - 8 })}
             keyboardType="number-pad"
             maxLength={4}
             value={birthYear ? String(birthYear) : ""}
@@ -192,7 +193,7 @@ export function HorseForm({
           />
         </Field>
 
-        <Field label="Sexe">
+        <Field label={tr("Sexe")}>
           <SingleSelect options={HORSE_SEXES} value={sex} onChange={setSex} />
         </Field>
 
@@ -201,10 +202,10 @@ export function HorseForm({
 
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <Field label="Taille au garrot (cm)">
+            <Field label={tr("Taille au garrot (cm)")}>
               <TextInput
                 className={INPUT}
-                placeholder="Ex : 165"
+                placeholder={tr("Ex : 165")}
                 keyboardType="number-pad"
                 maxLength={3}
                 value={heightCm ? String(heightCm) : ""}
@@ -216,10 +217,10 @@ export function HorseForm({
             </Field>
           </View>
           <View className="flex-1">
-            <Field label="Poids (kg)">
+            <Field label={tr("Poids (kg)")}>
               <TextInput
                 className={INPUT}
-                placeholder="Ex : 550"
+                placeholder={tr("Ex : 550")}
                 keyboardType="number-pad"
                 maxLength={4}
                 value={weightKg ? String(weightKg) : ""}
@@ -232,31 +233,31 @@ export function HorseForm({
           </View>
         </View>
 
-        <Field label="Discipline travaillée">
+        <Field label={tr("Discipline travaillée")}>
           <SingleSelect options={DISCIPLINES} value={discipline} onChange={setDiscipline} />
         </Field>
 
-        <Field label="Niveau du cheval">
+        <Field label={tr("Niveau du cheval")}>
           <SingleSelect options={HORSE_LEVELS} value={level} onChange={setLevel} />
         </Field>
 
         <DropdownField
-          label="Niveau de forme actuel"
+          label={tr("Niveau de forme actuel")}
           options={HORSE_FITNESS_LEVELS}
           value={fitnessLevel}
           onChange={setFitnessLevel}
-          placeholder="Sélectionner la forme actuelle"
+          placeholder={tr("Sélectionner la forme actuelle")}
         />
 
         <DropdownField
-          label="Charge de travail actuelle"
+          label={tr("Charge de travail actuelle")}
           options={HORSE_WORKLOADS}
           value={workload}
           onChange={setWorkload}
-          placeholder="Sélectionner la charge de travail"
+          placeholder={tr("Sélectionner la charge de travail")}
         />
 
-        <Field label="Tempérament">
+        <Field label={tr("Tempérament")}>
           <MultiSelectChips
             options={HORSE_TEMPERAMENTS}
             values={temperament}
@@ -265,7 +266,7 @@ export function HorseForm({
           />
         </Field>
 
-        <Field label="Ses points forts">
+        <Field label={tr("Ses points forts")}>
           <MultiSelectChips
             options={HORSE_TRAITS}
             values={strengths}
@@ -277,7 +278,7 @@ export function HorseForm({
           />
         </Field>
 
-        <Field label="Ses points à travailler">
+        <Field label={tr("Ses points à travailler")}>
           <MultiSelectChips
             options={HORSE_TRAITS}
             values={weaknesses}
@@ -289,7 +290,7 @@ export function HorseForm({
           />
         </Field>
 
-        <Field label="Conditions de santé actuelles">
+        <Field label={tr("Conditions de santé actuelles")}>
           <MultiSelectChips
             options={HEALTH_CONDITIONS}
             values={healthConditions}
@@ -303,9 +304,9 @@ export function HorseForm({
           onRemove={(key) => setInjuries((list) => list.filter((i) => i.id !== key))}
         />
 
-        <Field label="Les jours sans séance, il est plutôt…">
+        <Field label={tr("Les jours sans séance, il est plutôt…")}>
           <Text className="text-xs text-muted">
-            Plusieurs choix possibles : ils tournent d&apos;un jour de repos à l&apos;autre (ex. paddock un jour, box le suivant).
+            {tr("Plusieurs choix possibles : ils tournent d'un jour de repos à l'autre (ex. paddock un jour, box le suivant).")}
           </Text>
           <MultiSelectChips
             options={REST_DAY_ACTIVITIES}
@@ -324,7 +325,7 @@ export function HorseForm({
         />
         {onDelete ? (
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="items-center py-2">
-            <Text className="text-sm font-semibold text-red-500">Supprimer ce cheval</Text>
+            <Text className="text-sm font-semibold text-red-500">{tr("Supprimer ce cheval")}</Text>
           </TouchableOpacity>
         ) : null}
       </View>

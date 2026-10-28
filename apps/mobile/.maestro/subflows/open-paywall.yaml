@@ -1,0 +1,21 @@
+# Profil → « Voir Premium » : le paywall, avec les prix lus dans le store.
+appId: com.horsetrack.app
+---
+- tapOn: "Profil|Profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-premium"
+    direction: DOWN
+- tapOn:
+    id: "profile-premium"
+- extendedWaitUntil:
+    visible:
+      id: "paywall-cta"
+    timeout: 20000
+# Les deux formules s'affichent, prix chargés (pendant le chargement, la
+# carte annonce « prix en cours de chargement » : jamais un prix inventé).
+- assertVisible:
+    id: "paywall-plan-annual"
+- assertVisible:
+    id: "paywall-plan-monthly"
+- assertNotVisible: ".*prix en cours de chargement.*|.*price loading.*"

@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@cheval/db": "workspace:*",
     "@cheval/shared": "workspace:*",
     "@supabase/supabase-js": "^2.48.1",

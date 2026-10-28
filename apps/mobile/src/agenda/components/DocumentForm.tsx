@@ -1,5 +1,5 @@
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -10,6 +10,8 @@ import type { DocumentCategory } from "@/agenda/store";
 import { DOC_META } from "@/agenda/meta";
 import type { DocumentFormValue } from "@/agenda/hooks/useDocumentForm";
 import { AttachmentPreview } from "@/agenda/components/AttachmentPreview";
+import { animateNextLayout } from "@/lib/motion";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -39,8 +41,8 @@ export function DocumentForm({
 }) {
   if (!show) {
     return (
-      <Locked message="Range ordonnances, factures et carnet de santé au même endroit" placement="vault" feature="document_add">
-        <AddToggle label="Ajouter un document" onPress={onOpen} color={colors.primary} />
+      <Locked message={t("Range ordonnances, factures et carnet de santé au même endroit")} placement="vault" feature="document_add">
+        <AddToggle label={t("Ajouter un document")} onPress={onOpen} color={colors.primary} />
       </Locked>
     );
   }
@@ -48,9 +50,9 @@ export function DocumentForm({
   return (
     <View className={`${CARD} gap-3`}>
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
-        {editingDocId ? "Modifier le document" : "Nouveau document"}
+        {editingDocId ? t("Modifier le document") : t("Nouveau document")}
       </Text>
-      <Field label="Catégorie">
+      <Field label={t("Catégorie")}>
         <ChipSelect
           options={Object.entries(DOC_META).map(([value, meta]) => ({
             value: value as DocumentCategory,
@@ -61,19 +63,19 @@ export function DocumentForm({
           onChange={(category) => setForm((f) => ({ ...f, category }))}
         />
       </Field>
-      <Field label="Nom du document">
+      <Field label={t("Nom du document")}>
         <TextInput
           className={INPUT}
-          placeholder="Ex : Facture maréchal"
+          placeholder={t("Ex : Facture maréchal")}
           value={form.name}
           onChangeText={(name) => setForm((f) => ({ ...f, name }))}
         />
       </Field>
-      <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
+      <DatePickerField label={t("Date")} value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
       {form.fileUri ? (
         <TouchableOpacity onPress={onPickDocument} activeOpacity={0.8} className="gap-2">
           <AttachmentPreview uri={form.fileUri} />
-          <Text className="text-center text-sm font-semibold text-accent">Changer le document</Text>
+          <Text className="text-center text-sm font-semibold text-accent">{t("Changer le document")}</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
@@ -82,16 +84,19 @@ export function DocumentForm({
           className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
         >
           <MaterialCommunityIcons name="paperclip" size={17} color={colors.textMuted} />
-          <Text className="text-sm font-semibold text-muted">Joindre des photos ou un PDF</Text>
+          <Text className="text-sm font-semibold text-muted">{t("Joindre des photos ou un PDF")}</Text>
         </TouchableOpacity>
       )}
       <View className="flex-row gap-2">
-        <TouchableOpacity onPress={onCancel} className="flex-1 items-center rounded-card border border-border p-4">
-          <Text className="text-base font-semibold text-muted">Annuler</Text>
+        <TouchableOpacity onPress={() => {
+          animateNextLayout();
+          onCancel();
+        }} className="flex-1 items-center rounded-card border border-border p-4">
+          <Text className="text-base font-semibold text-muted">{t("Annuler")}</Text>
         </TouchableOpacity>
         <View className="flex-1">
           <PrimaryButton
-            label={editingDocId ? "Enregistrer" : "Ajouter"}
+            label={editingDocId ? t("Enregistrer") : t("Ajouter")}
             disabled={!form.name.trim() || !form.date}
             onPress={onSubmit}
           />

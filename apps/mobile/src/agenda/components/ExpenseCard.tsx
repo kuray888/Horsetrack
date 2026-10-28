@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Locked } from "@/components/Locked";
 import type { Appointment, Doc, Expense } from "@/agenda/store";
 import { EXPENSE_META, formatAmount } from "@/agenda/meta";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -43,7 +44,7 @@ export function ExpenseCard({
         <View className="items-end gap-0.5">
           <Text className="text-base font-extrabold text-text">{formatAmount(expense.amount, expense.currency)}</Text>
           <Text className={`text-xs font-semibold ${expense.isPaid ? "text-success" : "text-muted"}`}>
-            {expense.isPaid ? "Payé" : "À régler"}
+            {expense.isPaid ? t("Payé") : t("À régler")}
           </Text>
         </View>
       </View>
@@ -55,7 +56,7 @@ export function ExpenseCard({
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="link-variant" size={15} color={colors.textMuted} />
               <Text className="text-sm text-text">
-                Lié à {linkedAppointment.title} ({formatDate(linkedAppointment.date)})
+                {t("Lié à ")}{linkedAppointment.title} ({formatDate(linkedAppointment.date)})
               </Text>
             </View>
           ) : null}
@@ -64,30 +65,30 @@ export function ExpenseCard({
               <View className="flex-row items-center justify-between gap-1.5">
                 <View className="flex-1 flex-row items-center gap-1.5">
                   <MaterialCommunityIcons name="receipt" size={15} color={colors.textMuted} />
-                  <Text className="text-sm text-text">Reçu : {linkedDocument.name}</Text>
+                  <Text className="text-sm text-text">{t("Reçu : ")}{linkedDocument.name}</Text>
                 </View>
                 <TouchableOpacity onPress={onRemoveReceipt} hitSlop={8} activeOpacity={0.7}>
-                  <Text className="text-sm font-semibold text-danger">Retirer</Text>
+                  <Text className="text-sm font-semibold text-danger">{t("Retirer")}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View className="flex-row items-center gap-1.5">
                 <MaterialCommunityIcons name="lock-outline" size={15} color={colors.textMuted} />
-                <Text className="text-sm text-muted">Reçu non disponible</Text>
+                <Text className="text-sm text-muted">{t("Reçu non disponible")}</Text>
               </View>
             )
           ) : (
-            <Locked message="Joins la facture à cette dépense pour la retrouver en deux secondes" placement="vault" feature="expense_invoice">
+            <Locked message={t("Joins la facture à cette dépense pour la retrouver en deux secondes")} placement="vault" feature="expense_invoice">
               <TouchableOpacity onPress={onAttachReceipt} activeOpacity={0.7} className="flex-row items-center gap-1.5">
                 <MaterialCommunityIcons name="paperclip" size={15} color={colors.accent} />
-                <Text className="text-sm font-semibold text-accent">Joindre une facture</Text>
+                <Text className="text-sm font-semibold text-accent">{t("Joindre une facture")}</Text>
               </TouchableOpacity>
             </Locked>
           )}
-          <Locked message="Suis ce qui est payé et ce qui reste à régler" placement="budget" feature="expense_paid_status">
+          <Locked message={t("Suis ce qui est payé et ce qui reste à régler")} placement="budget" feature="expense_paid_status">
             <TouchableOpacity onPress={onTogglePaid} activeOpacity={0.7} className="mt-1">
               <Text className="text-sm font-semibold text-accent">
-                {expense.isPaid ? "Marquer à régler" : "Marquer payée"}
+                {expense.isPaid ? t("Marquer à régler") : t("Marquer payée")}
               </Text>
             </TouchableOpacity>
           </Locked>
@@ -99,10 +100,10 @@ export function ExpenseCard({
               }}
               activeOpacity={0.7}
             >
-              <Text className="text-sm font-semibold text-accent">Modifier</Text>
+              <Text className="text-sm font-semibold text-accent">{t("Modifier")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onDelete} activeOpacity={0.7}>
-              <Text className="text-sm font-semibold text-danger">Supprimer cette dépense</Text>
+              <Text className="text-sm font-semibold text-danger">{t("Supprimer cette dépense")}</Text>
             </TouchableOpacity>
           </View>
         </View>
