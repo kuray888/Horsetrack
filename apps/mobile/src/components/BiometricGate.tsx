@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, AppState, AppStateStatus, Text, TouchableOpac
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { supabase } from "@/lib/supabase";
+import { unregisterPushToken } from "@/lib/pushRegistration";
 import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
 import { isNativeInteractionActive } from "@/lib/nativeInteraction";
 import { colors } from "@/theme/colors";
@@ -109,6 +110,9 @@ export function BiometricGate() {
           style: "destructive",
           onPress: async () => {
             await setBiometricLockEnabled(false);
+            // Comme profile.tsx signOut : le téléphone ne reçoit plus les
+            // notifications du fil (texte des commentaires) de ce compte.
+            await unregisterPushToken().catch(() => {});
             await supabase.auth.signOut();
             // Même navigation explicite qu'un déconnexion normale (cf.
             // profile.tsx signOut) : rien n'écoute les changements de

@@ -65,7 +65,10 @@ export function CoachCard({ horse }: { horse: Horse }) {
   const loading = isActiveOrTrialing && !!key && !response;
 
   useEffect(() => {
-    if (!isActiveOrTrialing || !computed || !key || memory.has(key) || pending.has(key)) return;
+    // Un échec réseau n'est pas gardé pour la journée : nouvel essai au
+    // prochain affichage de la carte.
+    if (!isActiveOrTrialing || !computed || !key || pending.has(key)) return;
+    if (memory.has(key) && memory.get(key)?.status !== "network") return;
     pending.add(key);
     requestSuggestion({ horseId: horse.id, ...suggestionRequestBody(computed.facts, computed.constraints, LANG) })
       .then((r) => {
