@@ -1,6 +1,7 @@
 import { TextInput } from "react-native";
 import { DropdownField } from "@/components/DropdownField";
 import { HORSE_BREEDS, OTHER_OPTION } from "@/onboarding/options";
+import { t } from "@/i18n";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 const KNOWN_BREEDS = HORSE_BREEDS.map((b) => b.value);
@@ -18,16 +19,16 @@ export function BreedField({
   return (
     <>
       <DropdownField
-        label="Race (optionnel)"
+        label={t("Race (optionnel)")}
         options={HORSE_BREEDS}
         value={selection}
         onChange={(v) => onChange(v === OTHER_OPTION ? "" : v)}
-        placeholder="Sélectionner une race"
+        placeholder={t("Sélectionner une race")}
       />
       {selection === OTHER_OPTION ? (
         <TextInput
           className={INPUT}
-          placeholder="Précise la race"
+          placeholder={t("Précise la race")}
           value={value ?? ""}
           onChangeText={onChange}
           autoCapitalize="words"

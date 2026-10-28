@@ -5,6 +5,8 @@ import { analyticsEventForRevenueCat, captureServerEvent } from "@/lib/analytics
 import { billingPeriodFromProductId, grantFieldsForEvent } from "@/lib/revenuecatEntitlement";
 import { fetchEntitlementState, isAnonymousAppUserId, isRevenueCatApiConfigured } from "@/lib/revenuecatApi";
 import { applyEntitlementState } from "@/lib/subscriptionSync";
+import { recordOfferCodeConversion } from "@/lib/promoConversion";
+import { rewardReferrerIfDue } from "@/lib/referralReward";
 
 /**
  * Entitlement RevenueCat du palier payant unique — doit correspondre
@@ -52,6 +54,9 @@ const eventSchema = z.object({
   // entitlement_ids dans ce cas, seulement les comptes d'origine/destination.
   transferred_from: z.array(z.string()).optional(),
   transferred_to: z.array(z.string()).optional(),
+  // Code d'offre store utilisé pour l'achat (suivi des codes promo, cf.
+  // lib/promoConversion.ts).
+  offer_code: z.string().nullable().optional(),
 });
 
 type RevenueCatEvent = z.infer<typeof eventSchema>;
@@ -176,6 +181,10 @@ export async function POST(req: NextRequest) {
         lastWebhookEventAt: eventTimestamp ?? undefined,
       },
     });
+    if (event.offer_code) await recordOfferCodeConversion(userId, event.offer_code, eventTimestamp ?? new Date());
+    // Parrainage : premier vrai paiement d'un filleul → un mois offert au
+    // parrain. Jamais bloquant pour le traitement de l'abonnement.
+    await rewardReferrerIfDue(userId, event).catch((e) => console.warn("[referral] récompense échouée", e));
     return NextResponse.json({ received: true });
   }
 

@@ -18,6 +18,7 @@ import { useRiderProfile } from "@/rider/store";
 import { pullCloudData, pushRiderProfile } from "@/lib/cloudSync";
 import { pullPendingInvites } from "@/lib/sharing";
 import { requestServerSubscriptionSync } from "@/lib/subscriptionSync";
+import { t } from "@/i18n";
 
 /** Pivot freemium du 2026-09-03 (v2) : présente l'abonnement Premium à la fin
  * de l'onboarding, mais reste "skippable" via onSkip — contrairement à
@@ -45,7 +46,7 @@ export default function OnboardingPaywall() {
   // clic (seul le cheval principal est gardé), pas découverte après coup
   // dans une alerte.
   const skipLabel =
-    namedHorses.length > 1 ? `Continuer avec ${namedHorses[0]} seulement (gratuit)` : "Continuer avec la version gratuite";
+    namedHorses.length > 1 ? t("Continuer avec {v} seulement (gratuit)", { v: namedHorses[0] }) : t("Continuer avec la version gratuite");
 
   async function finish(justSubscribed?: Persisted) {
     const premium = !!justSubscribed && computeIsActiveOrTrialing(justSubscribed);
@@ -66,8 +67,8 @@ export default function OnboardingPaywall() {
       setRiderProfile(existing.rider);
       hydrateFromCloud(existing.horses);
       Alert.alert(
-        "Compte existant retrouvé",
-        "Ce compte avait déjà une écurie — tes réponses d'inscription n'ont pas été utilisées, on a restauré tes données existantes."
+        t("Compte existant retrouvé"),
+        t("Ce compte avait déjà une écurie — tes réponses d'inscription n'ont pas été utilisées, on a restauré tes données existantes.")
       );
     } else {
       // setRiderProfile()/replaceHorses() persistent localement ET poussent vers
@@ -121,8 +122,8 @@ export default function OnboardingPaywall() {
       replaceHorses(withinLimit);
       if (withinLimit.length < horsesWithSportProfile.length) {
         Alert.alert(
-          "Un seul cheval sur le palier gratuit",
-          `Le palier gratuit est limité à 1 cheval — seul ${withinLimit[0]?.name ?? "ton premier cheval"} a été conservé. Passe à Premium depuis ton profil pour ajouter les autres.`
+          t("Un seul cheval sur le palier gratuit"),
+          t("Le palier gratuit est limité à 1 cheval — seul {v} a été conservé. Passe à Premium depuis ton profil pour ajouter les autres.", { v: withinLimit[0]?.name ?? "ton premier cheval" })
         );
       }
     }

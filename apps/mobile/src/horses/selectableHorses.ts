@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 /**
  * Quels chevaux peut-on viser depuis un formulaire de création (rendez-vous,
  * dépense…) ou une vue « tous les chevaux » ?
@@ -143,8 +145,8 @@ export function targetsOutsideView(targetIds: string[], visibleIds: string[]): s
 /** Message de confirmation pour les chevaux de `targetsOutsideView`. */
 export function hiddenTargetsMessage(names: string[]): string {
   if (names.length === 0) return "";
-  const who = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
+  const who = names.length === 1 ? names[0] : t("{v} et {v2}", { v: names.slice(0, -1).join(", "), v2: names[names.length - 1] });
   return names.length === 1
-    ? `Créé pour ${who}, qui n'apparaît pas dans cette vue. Change de cheval actif (ou choisis « Tous » dans Planning) pour le retrouver.`
-    : `Créé pour ${who}, qui n'apparaissent pas dans cette vue. Change de cheval actif (ou choisis « Tous » dans Planning) pour les retrouver.`;
+    ? t("Créé pour {who}, qui n'apparaît pas dans cette vue. Change de cheval actif (ou choisis « Tous » dans Planning) pour le retrouver.", { who: who })
+    : t("Créé pour {who}, qui n'apparaissent pas dans cette vue. Change de cheval actif (ou choisis « Tous » dans Planning) pour les retrouver.", { who: who });
 }

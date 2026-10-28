@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { colors } from "@/theme/colors";
 import { formatDate } from "@/lib/dateFormat";
 import { Field } from "@/components/Field";
@@ -17,6 +17,8 @@ import type { Appointment, ExpenseCategory } from "@/agenda/store";
 import { EXPENSE_META } from "@/agenda/meta";
 import { AmountModeField } from "@/agenda/components/AmountModeField";
 import type { ExpenseFormValue } from "@/agenda/hooks/useExpenseForm";
+import { animateNextLayout } from "@/lib/motion";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -68,7 +70,7 @@ export function ExpenseForm({
   }
 
   if (!show) {
-    return <AddToggle label="Ajouter une dépense" onPress={onOpen} color={colors.primary} />;
+    return <AddToggle label={t("Ajouter une dépense")} onPress={onOpen} color={colors.primary} />;
   }
 
   const offerHorseChoice = !editingExpenseId && shouldOfferHorseChoice(selectableHorses, fallbackHorseIds);
@@ -86,9 +88,9 @@ export function ExpenseForm({
   /** Cf. components/FormDetails.tsx : ce qui est replié doit rester lisible
    * d'un coup d'œil. */
   const detailsSummary = [
-    form.notes.trim() ? "avec note" : "sans note",
-    form.fileUri ? "facture jointe" : null,
-    form.appointmentId ? "lié à un rendez-vous" : null,
+    form.notes.trim() ? t("avec note") : t("sans note"),
+    form.fileUri ? t("facture jointe") : null,
+    form.appointmentId ? t("lié à un rendez-vous") : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -96,10 +98,10 @@ export function ExpenseForm({
   return (
     <View className={`${CARD} gap-3`}>
       <Text className="text-sm font-bold uppercase tracking-wide text-accent">
-        {editingExpenseId ? "Modifier la dépense" : "Nouvelle dépense"}
+        {editingExpenseId ? t("Modifier la dépense") : t("Nouvelle dépense")}
       </Text>
       {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
-      <Field label="Catégorie">
+      <Field label={t("Catégorie")}>
         <ChipSelect
           options={Object.entries(EXPENSE_META).map(([value, meta]) => ({
             value: value as ExpenseCategory,
@@ -120,10 +122,10 @@ export function ExpenseForm({
           onChange={(horseIds) => setForm((f) => ({ ...f, horseIds, appointmentId: null }))}
         />
       ) : null}
-      <Field label="Montant (€)">
+      <Field label={t("Montant (€)")}>
         <TextInput
           className={INPUT}
-          placeholder="Ex : 45"
+          placeholder={t("Ex : 45")}
           value={form.amount}
           onChangeText={(amount) => setForm((f) => ({ ...f, amount }))}
           keyboardType="decimal-pad"
@@ -134,15 +136,15 @@ export function ExpenseForm({
         onChange={(amountMode) => setForm((f) => ({ ...f, amountMode }))}
         horseCount={targetCount}
         amount={parsedAmount}
-        noun="dépenses"
+        noun={t("dépenses")}
       />
-      <DatePickerField label="Date" value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
+      <DatePickerField label={t("Date")} value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
       <FormDetails open={showDetails} onToggle={() => setShowDetails((v) => !v)} summary={detailsSummary}>
       <View className="gap-1.5">
-        <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Notes (optionnel)</Text>
+        <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Notes (optionnel)")}</Text>
         <TextInput
           className={INPUT}
-          placeholder="Ex : Vermifuge d'automne"
+          placeholder={t("Ex : Vermifuge d'automne")}
           value={form.notes}
           onChangeText={(notes) => setForm((f) => ({ ...f, notes }))}
         />
@@ -169,7 +171,7 @@ export function ExpenseForm({
               color={linked ? colors.primary : colors.textMuted}
             />
             <Text className="flex-1 text-sm text-text">
-              {linked ? "Lié à " : "Lier à "}
+              {linked ? t("Lié à ") : t("Lier à ")}
               <Text className="font-semibold">{suggestion.title}</Text> ({formatDate(suggestion.date)})
             </Text>
           </TouchableOpacity>
@@ -177,14 +179,14 @@ export function ExpenseForm({
       })()}
       {editingExpenseId ? (
         <Text className="text-xs text-muted">
-          Le reçu joint se gère depuis la fiche de la dépense, pas depuis ce formulaire.
+          {t("Le reçu joint se gère depuis la fiche de la dépense, pas depuis ce formulaire.")}
         </Text>
       ) : (
-        <Locked message="Joins la facture à cette dépense pour la retrouver en deux secondes" placement="vault" feature="expense_invoice">
+        <Locked message={t("Joins la facture à cette dépense pour la retrouver en deux secondes")} placement="vault" feature="expense_invoice">
           {form.fileUri ? (
             <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
               <AttachmentPreview uri={form.fileUri} height={128} />
-              <Text className="text-center text-sm font-semibold text-accent">Changer la facture</Text>
+              <Text className="text-center text-sm font-semibold text-accent">{t("Changer la facture")}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -193,19 +195,22 @@ export function ExpenseForm({
               className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-4"
             >
               <MaterialCommunityIcons name="paperclip" size={17} color={colors.textMuted} />
-              <Text className="text-sm font-semibold text-muted">Joindre une facture (photos ou PDF)</Text>
+              <Text className="text-sm font-semibold text-muted">{t("Joindre une facture (photos ou PDF)")}</Text>
             </TouchableOpacity>
           )}
         </Locked>
       )}
       </FormDetails>
       <View className="flex-row gap-2">
-        <TouchableOpacity onPress={onCancel} className="flex-1 items-center rounded-card border border-border p-4">
-          <Text className="text-base font-semibold text-muted">Annuler</Text>
+        <TouchableOpacity onPress={() => {
+          animateNextLayout();
+          onCancel();
+        }} className="flex-1 items-center rounded-card border border-border p-4">
+          <Text className="text-base font-semibold text-muted">{t("Annuler")}</Text>
         </TouchableOpacity>
         <View className="flex-1">
           <PrimaryButton
-            label={editingExpenseId ? "Enregistrer" : targetCount > 1 ? `Ajouter (×${targetCount})` : "Ajouter"}
+            label={editingExpenseId ? t("Enregistrer") : targetCount > 1 ? t("Ajouter (×{targetCount})", { targetCount: targetCount }) : t("Ajouter")}
             disabled={
               !form.amount.trim() || !form.date || !(Number(form.amount.replace(",", ".")) > 0) || missingHorseChoice
             }

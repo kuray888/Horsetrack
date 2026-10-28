@@ -1,4 +1,5 @@
 import type { ActivityType } from "@/agenda/store";
+import { isRestActivity } from "@/agenda/activityKinds";
 import type { TrainingSession } from "@/sessions/store";
 
 /**
@@ -13,7 +14,7 @@ import type { TrainingSession } from "@/sessions/store";
 export type DisciplineCount = { activityType: ActivityType; count: number };
 
 export type SessionStats = {
-  /** Séances d'entraînement faites (hors "repos"), dans la période. */
+  /** Séances d'entraînement faites (hors repos et pansage), dans la période. */
   sessionCount: number;
   totalMinutes: number;
   /** Arrondie à la minute — 0 si aucune séance n'a de durée renseignée. */
@@ -28,7 +29,7 @@ export type SessionStats = {
 
 export function computeSessionStats(sessions: TrainingSession[], from: Date, to: Date): SessionStats {
   const inRange = sessions.filter((s) => s.completed && s.date >= from && s.date <= to);
-  const training = inRange.filter((s) => s.activityType !== "repos");
+  const training = inRange.filter((s) => !isRestActivity(s.activityType));
   const restDays = inRange.length - training.length;
 
   const sessionCount = training.length;

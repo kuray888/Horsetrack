@@ -7,7 +7,7 @@ import { LegalPage } from "@/components/LegalPage";
  * cf. /legal/politique-confidentialite.md). */
 export default function ConfidentialitePage() {
   return (
-    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="25 septembre 2026">
+    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="28 octobre 2026">
       <h2>1. Qui sommes-nous</h2>
       <p>
         Léa Lilou VERCASSON, Entrepreneur individuel (micro-entreprise), 14 Rue Robert Esnault-Pelterie, 78117
@@ -29,7 +29,10 @@ export default function ConfidentialitePage() {
         <tbody>
           <tr>
             <td>Compte</td>
-            <td>Adresse email, mot de passe (chiffré, géré par Supabase Auth)</td>
+            <td>
+              Adresse email, mot de passe (chiffré, géré par Supabase Auth) ; avec « Continuer avec Apple » ou « Continuer
+              avec Google », l&apos;identifiant transmis par ce service
+            </td>
             <td>Création de compte</td>
           </tr>
           <tr>
@@ -70,7 +73,7 @@ export default function ConfidentialitePage() {
           <tr>
             <td>Mesure d&apos;usage</td>
             <td>
-              Écrans consultés et actions effectuées dans l&apos;app (ex. « formule annuelle choisie », « rappel créé »),
+              Écrans consultés et actions effectuées dans l&apos;app (ex. « formule annuelle choisie », « rappel créé », code promo accepté),
               version de l&apos;app, système du téléphone, rattachés à votre identifiant utilisateur —{" "}
               <strong>jamais</strong> le contenu de vos fiches (noms, notes, documents)
             </td>
@@ -84,10 +87,78 @@ export default function ConfidentialitePage() {
             </td>
             <td>Ajout d&apos;une photo ou d&apos;un document</td>
           </tr>
+          <tr>
+            <td>Parcours des séances en direct</td>
+            <td>
+              Positions GPS pendant une séance que vous démarrez vous-même, y compris écran verrouillé : tracé
+              simplifié, distance, vitesse et temps passé à chaque allure, enregistrés avec la séance. Rien n&apos;est
+              collecté en dehors d&apos;une séance en cours, ni quand vous la démarrez sans GPS
+            </td>
+            <td>Séance en direct</td>
+          </tr>
+          <tr>
+            <td>Coach (Premium)</td>
+            <td>
+              Les questions que vous posez au coach. Pour y répondre, l&apos;Application envoie des faits calculés sur
+              votre cheval (âge, niveau, discipline, conditions de santé, blessures en cours, séances des dernières
+              semaines, soins et échéances, concours, dépenses par catégorie, poids, ressenti du journal, météo prévue) —{" "}
+              <strong>jamais</strong> son nom, le vôtre, votre email, ni ses numéros SIRE, de transpondeur ou
+              d&apos;assurance, ni vos notes libres. Nous gardons la suggestion du jour et le résumé du mois ; pour chaque
+              appel, seulement des compteurs techniques (taille, coût, issue), jamais le contenu des questions
+            </td>
+            <td>Carte « Ton coach », écran du coach</td>
+          </tr>
+          <tr>
+            <td>Fil d&apos;un cheval</td>
+            <td>
+              Commentaires et réactions sur une séance ou un souvenir, visibles par le propriétaire et les personnes
+              avec qui le cheval est partagé ; signalements d&apos;un commentaire
+            </td>
+            <td>Commentaires, réactions, signalement</td>
+          </tr>
+          <tr>
+            <td>Notifications push</td>
+            <td>Jeton de notification de votre téléphone et langue de l&apos;app, pour vous prévenir d&apos;un nouveau commentaire</td>
+            <td>Notifications déjà autorisées</td>
+          </tr>
+          <tr>
+            <td>Sécurité en balade (facultative)</td>
+            <td>
+              Votre prénom, le nom et l&apos;adresse email des proches (3 au plus) que vous choisissez, et votre
+              dernière position pendant la balade. Ces proches reçoivent un lien de suivi et, si besoin, une alerte.
+              Seule la dernière position est conservée ; elle est supprimée 7 jours après la fin de la balade
+            </td>
+            <td>Séance en direct avec « Prévenir mes proches » activé</td>
+          </tr>
+          <tr>
+            <td>Fiche complémentaire du cheval</td>
+            <td>
+              Numéros SIRE, UELN et de transpondeur, assureur et numéro de contrat, écurie, ration alimentaire,
+              organisation de la demi-pension (prénom, jours, participation) ; visibles par les personnes avec qui vous
+              partagez le cheval
+            </td>
+            <td>Saisie dans la fiche du cheval</td>
+          </tr>
+          <tr>
+            <td>Carnet de contacts</td>
+            <td>Nom, métier, téléphone, email et notes des professionnels que vous ajoutez (vétérinaire, maréchal…)</td>
+            <td>Profil → Mes contacts</td>
+          </tr>
+          <tr>
+            <td>Vidéos du journal</td>
+            <td>Vidéo d&apos;une minute au plus que vous choisissez d&apos;ajouter à un souvenir (Premium)</td>
+            <td>Ajout d&apos;une vidéo</td>
+          </tr>
+          <tr>
+            <td>Parrainage</td>
+            <td>Votre code de parrainage, et le lien entre votre compte et celui de l&apos;ami qui vous a parrainé</td>
+            <td>Partage ou saisie d&apos;un code</td>
+          </tr>
         </tbody>
       </table>
       <p>
-        <strong>Nous ne collectons pas</strong> : votre localisation précise, vos contacts, des données de navigation
+        <strong>Nous ne collectons pas</strong> : votre localisation en dehors d&apos;une séance en direct que vous
+        démarrez vous-même, le carnet de contacts de votre téléphone, des données de navigation
         publicitaire, ni aucun identifiant à des fins de tracking publicitaire — l&apos;Application n&apos;intègre aucun
         SDK publicitaire. La mesure d&apos;usage ci-dessus sert uniquement à améliorer l&apos;Application ; elle
         n&apos;est ni revendue, ni croisée avec des données d&apos;autres applications ou sites.
@@ -103,7 +174,14 @@ export default function ConfidentialitePage() {
         <li>Créer et gérer votre compte.</li>
         <li>Fournir les fonctionnalités de suivi de l&apos;Application (planning, agenda, journal, coffre-fort, finances, objectifs).</li>
         <li>Envoyer les rappels et notifications que vous avez programmés (push et email), et les emails liés à un partage de cheval que vous initiez.</li>
-        <li>Permettre le partage d&apos;un cheval avec une demi-pension ou un coach que vous invitez.</li>
+        <li>
+          Permettre le partage d&apos;un cheval avec une demi-pension ou un coach que vous invitez, et les échanges dans
+          le fil de ce cheval (avec notification des participants, et traitement des signalements sous 24 h).
+        </li>
+        <li>
+          Faire fonctionner le coach (Premium) : proposer la prochaine séance, répondre à vos questions sur le carnet
+          du cheval, résumer chaque mois. Le coach ne donne aucun avis vétérinaire.
+        </li>
         <li>Gérer votre abonnement et votre période d&apos;essai.</li>
         <li>Assurer la sécurité du service (authentification, limitation d&apos;usage abusif).</li>
         <li>
@@ -140,8 +218,14 @@ export default function ConfidentialitePage() {
           </tr>
           <tr>
             <td><strong>Resend</strong></td>
-            <td>Envoi des emails de rappel de rendez-vous et des emails d&apos;invitation à partager un cheval</td>
-            <td>Adresse email du destinataire, contenu de l&apos;email (nom du cheval, type de rendez-vous ou d&apos;invitation)</td>
+            <td>
+              Envoi des emails de rappel de rendez-vous, d&apos;invitation à partager un cheval, et de sécurité en
+              balade (lien de suivi, alerte)
+            </td>
+            <td>
+              Adresse email du destinataire, contenu de l&apos;email (nom du cheval, type de rendez-vous ou
+              d&apos;invitation ; pour la sécurité en balade, votre prénom et un lien vers votre dernière position)
+            </td>
           </tr>
           <tr>
             <td><strong>RevenueCat</strong></td>
@@ -158,11 +242,26 @@ export default function ConfidentialitePage() {
             <td>Mesure d&apos;usage de l&apos;Application (serveurs situés en Union Européenne)</td>
             <td>Mesure d&apos;usage décrite en section 2, identifiant utilisateur</td>
           </tr>
+          <tr>
+            <td><strong>Anthropic</strong></td>
+            <td>Modèle d&apos;intelligence artificielle du coach (Claude), appelé uniquement par nos serveurs</td>
+            <td>
+              Les faits sur le cheval décrits en section 2 (rubrique « Coach ») et le texte de vos questions — sans nom,
+              email ni numéro d&apos;identification. Anthropic n&apos;utilise pas ces données pour entraîner ses modèles
+              et ne les conserve que pour une durée limitée prévue par ses conditions commerciales
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Expo (Expo Push)</strong></td>
+            <td>Acheminement des notifications push vers Apple et Google</td>
+            <td>Jeton de notification, titre et début du commentaire notifié, nom du cheval</td>
+          </tr>
         </tbody>
       </table>
       <p>
-        Resend étant basé aux États-Unis, l&apos;envoi d&apos;emails constitue un transfert de données hors Union
-        Européenne, encadré par les clauses contractuelles types (CCT) prévues par la réglementation européenne.
+        Resend, Anthropic et Expo étant basés aux États-Unis, l&apos;envoi d&apos;emails, les appels au coach et
+        l&apos;acheminement des notifications constituent des transferts de données hors Union Européenne, encadrés par
+        les clauses contractuelles types (CCT) prévues par la réglementation européenne.
       </p>
 
       <h2>6. Durée de conservation</h2>
@@ -179,6 +278,7 @@ export default function ConfidentialitePage() {
         données.
       </p>
       <ul>
+        <li><strong>Portabilité</strong> : Profil → Exporter mes données, qui produit vos données en fichiers lisibles par un tableur.</li>
         <li><strong>Suppression</strong> : directement depuis l&apos;Application, à tout moment, sans avoir besoin de nous contacter (Profil → Supprimer mon compte).</li>
         <li><strong>Accès / rectification / autres demandes</strong> : en nous contactant à horsetrack.app@gmail.com.</li>
         <li>Vous disposez également du droit d&apos;introduire une réclamation auprès de la CNIL (www.cnil.fr) si vous estimez que vos droits ne sont pas respectés.</li>

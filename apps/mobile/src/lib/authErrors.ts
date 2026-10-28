@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 /**
  * Classification des messages d'erreur Supabase Auth — module volontairement
  * sans dépendance (cf. le même pattern que planning/planningDestination.ts) :
@@ -42,28 +44,28 @@ export function translateAuthError(message: string): string {
   const m = message.toLowerCase();
 
   if (m.includes("invalid login credentials")) {
-    return "Email ou mot de passe incorrect.";
+    return t("Email ou mot de passe incorrect.");
   }
   if (m.includes("email not confirmed")) {
-    return "Confirme ton adresse email avant de te connecter (vérifie tes emails, y compris les spams).";
+    return t("Confirme ton adresse email avant de te connecter (vérifie tes emails, y compris les spams).");
   }
   if (m.includes("user already registered") || m.includes("already registered") || m.includes("already exists")) {
-    return "Un compte existe déjà avec cet email — connecte-toi plutôt.";
+    return t("Un compte existe déjà avec cet email — connecte-toi plutôt.");
   }
   if (m.includes("password should be at least")) {
-    return `Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`;
+    return t("Le mot de passe doit contenir au moins {MIN_PASSWORD_LENGTH} caractères.", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH });
   }
   if (m.includes("new password should be different")) {
-    return "Le nouveau mot de passe doit être différent de l'ancien.";
+    return t("Le nouveau mot de passe doit être différent de l'ancien.");
   }
   if (m.includes("email rate limit") || m.includes("for security purposes") || m.includes("can only request this")) {
-    return "Trop de tentatives — réessaie dans quelques instants.";
+    return t("Trop de tentatives — réessaie dans quelques instants.");
   }
   if (m.includes("network request failed") || m.includes("network error") || m.includes("fetch failed")) {
-    return "Connexion impossible. Vérifie ta connexion internet et réessaie.";
+    return t("Connexion impossible. Vérifie ta connexion internet et réessaie.");
   }
   if (m.includes("token has expired") || m.includes("invalid or expired") || m.includes("token is invalid")) {
-    return "Ce lien n'est plus valide — demande-en un nouveau.";
+    return t("Ce lien n'est plus valide — demande-en un nouveau.");
   }
 
   return message;

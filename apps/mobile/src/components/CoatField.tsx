@@ -1,6 +1,7 @@
 import { TextInput } from "react-native";
 import { DropdownField } from "@/components/DropdownField";
 import { HORSE_COATS, OTHER_OPTION } from "@/onboarding/options";
+import { t } from "@/i18n";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 const KNOWN_COATS = HORSE_COATS.map((c) => c.value);
@@ -19,16 +20,16 @@ export function CoatField({
   return (
     <>
       <DropdownField
-        label="Robe (optionnel)"
+        label={t("Robe (optionnel)")}
         options={HORSE_COATS}
         value={selection}
         onChange={(v) => onChange(v === OTHER_OPTION ? "" : v)}
-        placeholder="Sélectionner une robe"
+        placeholder={t("Sélectionner une robe")}
       />
       {selection === OTHER_OPTION ? (
         <TextInput
           className={INPUT}
-          placeholder="Précise la robe"
+          placeholder={t("Précise la robe")}
           value={value ?? ""}
           onChangeText={onChange}
           autoCapitalize="words"

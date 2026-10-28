@@ -1,0 +1,27 @@
+# Connexion par email depuis l'écran d'accueil. EMAIL et PASSWORD : un compte
+# de TEST (jamais un vrai client), cf. README.md.
+appId: com.horsetrack.app
+---
+- runFlow: launch.yaml
+- tapOn:
+    id: "welcome-start"
+- scrollUntilVisible:
+    element:
+      id: "account-go-login"
+    direction: DOWN
+- tapOn:
+    id: "account-go-login"
+- tapOn:
+    id: "login-email"
+- inputText: ${EMAIL}
+- tapOn:
+    id: "login-password"
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+# Les notifications ne sont jamais demandées au lancement (cf. today.tsx) :
+# rien à fermer ici. L'Accueil est atteint quand l'onglet Profil est là.
+- extendedWaitUntil:
+    visible: "Profil|Profile"
+    timeout: 45000

@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { previousMonthRecap, recapLines, recapShareText, shouldShowMonthlyRecap, weekStart, weeklyStreak } from "./progress";
+import {
+  previousMonthRecap,
+  recapLines,
+  recapShareText,
+  sessionDoneMessage,
+  shouldShowMonthlyRecap,
+  weekProgress,
+  weekStart,
+  weeklyStreak,
+} from "./progress";
 
 const s = (date: Date, completed = true, durationMinutes: number | null = 45, horseId = "h1") => ({
   horseId,
@@ -82,5 +91,29 @@ describe("bilan du mois", () => {
     const text = recapShareText(recap, "Tornado", "https://exemple.fr/telecharger");
     expect(text.startsWith("Septembre avec Tornado")).toBe(true);
     expect(text).toContain("https://exemple.fr/telecharger");
+  });
+});
+
+describe("weekProgress / sessionDoneMessage", () => {
+  const thursday = new Date(2026, 8, 24, 10);
+
+  it("compte les séances de la semaine du cheval, et elles seules", () => {
+    const sessions = [
+      s(new Date(2026, 8, 21), true),
+      s(new Date(2026, 8, 24), true),
+      s(new Date(2026, 8, 26), false),
+      s(new Date(2026, 8, 20), true), // dimanche précédent : autre semaine
+      s(new Date(2026, 8, 22), true, 45, "h2"), // autre cheval
+    ];
+    expect(weekProgress(sessions, "h1", thursday)).toEqual({ done: 2, total: 3 });
+  });
+
+  it("fête la semaine bouclée, sinon donne la progression", () => {
+    expect(sessionDoneMessage({ done: 3, total: 3 })).toEqual({
+      text: "Semaine bouclée : 3 séances sur 3, bravo !",
+      weekComplete: true,
+    });
+    expect(sessionDoneMessage({ done: 2, total: 3 }).text).toBe("Séance faite · 2/3 cette semaine.");
+    expect(sessionDoneMessage({ done: 1, total: 1 })).toEqual({ text: "Séance faite.", weekComplete: false });
   });
 });

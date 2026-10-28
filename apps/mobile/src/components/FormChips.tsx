@@ -1,5 +1,7 @@
 import { Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
+import { animateNextLayout } from "@/lib/motion";
+import { hapticTap } from "@/lib/haptics";
 
 export type IconSpec = { name: keyof typeof MaterialCommunityIcons.glyphMap; color: string };
 
@@ -51,8 +53,13 @@ export function ChipSelect<T extends string>({
 export function AddToggle({ label, onPress, color }: { label: string; onPress: () => void; color: string }) {
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => {
+        animateNextLayout();
+        hapticTap();
+        onPress();
+      }}
       activeOpacity={0.8}
+      accessibilityRole="button"
       className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
     >
       <MaterialCommunityIcons name="plus" size={18} color={color} />

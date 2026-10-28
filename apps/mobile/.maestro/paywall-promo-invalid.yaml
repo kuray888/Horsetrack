@@ -1,0 +1,32 @@
+# Code promo inconnu : refusé par le serveur, message d'erreur, aucun accès
+# Premium accordé et aucune feuille d'achat ouverte.
+appId: com.horsetrack.app
+tags:
+  - account
+env:
+  EMAIL: ${FREE_EMAIL}
+  PASSWORD: ${FREE_PASSWORD}
+---
+- runFlow: subflows/login.yaml
+- runFlow: subflows/open-paywall.yaml
+- scrollUntilVisible:
+    element:
+      id: "paywall-promo-open"
+    direction: DOWN
+- tapOn:
+    id: "paywall-promo-open"
+- tapOn:
+    id: "paywall-promo-input"
+- inputText: "MAESTRO-INCONNU-0000"
+- tapOn:
+    id: "paywall-promo-apply"
+- extendedWaitUntil:
+    visible:
+      id: "paywall-promo-error"
+    timeout: 15000
+- assertNotVisible:
+    id: "paywall-promo-ok"
+- assertNotVisible:
+    id: "premium-welcome-title"
+- assertVisible:
+    id: "paywall-cta"

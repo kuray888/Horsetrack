@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, type Href } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton } from "@/components/onboarding";
 import { FadeInView } from "@/components/FadeInView";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -12,6 +12,8 @@ import { ensureNotificationPermission, getNotificationStatus } from "@/lib/notif
 import { syncTrialLifecycle } from "@/subscription/trialLifecycle";
 import { formatDayMonth, formatFullDate, trialReminderDate } from "@/subscription/paywallLogic";
 import { track } from "@/lib/analytics";
+import { hapticSuccess } from "@/lib/haptics";
+import { t } from "@/i18n";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -37,6 +39,9 @@ export default function PremiumWelcome() {
 
   useEffect(() => {
     track("premium_welcome_viewed", { status });
+    // Seul écran atteint par tous les chemins d'activation (paywall,
+    // onboarding, code d'offre App Store) : le moment de le faire sentir.
+    hapticSuccess();
     getNotificationStatus()
       .then(setNotifGranted)
       .catch(() => setNotifGranted(false));
@@ -58,11 +63,11 @@ export default function PremiumWelcome() {
 
   const actions: { key: string; icon: IconName; title: string; href: Href }[] = [
     ownedHorses.length < 2
-      ? { key: "add_horse", icon: "horse-variant", title: "Ajoute tes autres chevaux", href: "/add-horse-modal" }
+      ? { key: "add_horse", icon: "horse-variant", title: t("Ajoute tes autres chevaux"), href: "/add-horse-modal" }
       : {
           key: "share",
           icon: "account-multiple-outline",
-          title: "Invite ta demi-pension ou ton coach",
+          title: t("Invite ta demi-pension ou ton coach"),
           href: `/share-horse-modal?horseId=${horse?.id ?? ""}` as Href,
         },
     ...(horse
@@ -70,13 +75,13 @@ export default function PremiumWelcome() {
           {
             key: "reminder",
             icon: "bell-ring-outline" as IconName,
-            title: `Programme un rappel pour le prochain soin de ${horse.name}`,
+            title: t("Programme un rappel pour le prochain soin de {name}", { name: horse.name }),
             href: `/horse/${horse.id}/sante` as Href,
           },
           {
             key: "document",
             icon: "folder-lock-outline" as IconName,
-            title: "Range une ordonnance ou une facture",
+            title: t("Range une ordonnance ou une facture"),
             href: `/horse/${horse.id}/documents` as Href,
           },
         ]
@@ -88,15 +93,15 @@ export default function PremiumWelcome() {
       <ScrollView contentContainerClassName="px-5 pt-8 pb-4 gap-6" showsVerticalScrollIndicator={false}>
         <FadeInView>
           <View className="gap-2">
-            <Text className="text-3xl font-display leading-tight tracking-tight text-text">Bienvenue dans Premium 🎉</Text>
+            <Text className="text-3xl font-display leading-tight tracking-tight text-text" testID="premium-welcome-title">
+              {t("Bienvenue dans Premium 🎉")}
+            </Text>
             <Text className="text-base text-muted">
               {trialing && end
                 ? billingPeriod === null
-                  ? `Ton essai offert est actif jusqu'au ${formatFullDate(end)}.`
-                  : `Ton essai est actif jusqu'au ${formatFullDate(end)}.${
-                      remindAt ? ` On te préviendra le ${formatDayMonth(remindAt)}, avant la fin.` : ""
-                    }`
-                : "Merci ! Toutes les fonctionnalités Premium sont débloquées."}
+                  ? t("Ton essai offert est actif jusqu'au {formatFullDate}.", { formatFullDate: formatFullDate(end) })
+                  : t("Ton essai est actif jusqu'au {formatFullDate}.{v}", { formatFullDate: formatFullDate(end), v: remindAt ? ` On te préviendra le ${formatDayMonth(remindAt)}, avant la fin.` : "" })
+                : t("Merci ! Toutes les fonctionnalités Premium sont débloquées.")}
             </Text>
           </View>
         </FadeInView>
@@ -106,15 +111,15 @@ export default function PremiumWelcome() {
             <View className="gap-3 rounded-card bg-highlight p-4">
               <View className="flex-row items-center gap-2">
                 <MaterialCommunityIcons name="bell-outline" size={20} color={colors.primary} />
-                <Text className="flex-1 text-base font-bold text-text">Être prévenu à temps</Text>
+                <Text className="flex-1 text-base font-bold text-text">{t("Être prévenu à temps")}</Text>
               </View>
               <Text className="text-sm text-muted">
                 {trialing
-                  ? "Active les notifications pour recevoir tes rappels de soins, et notre message avant la fin de l'essai. Sans elles, on te préviendra par email."
-                  : "Active les notifications pour recevoir tes rappels de soins avant chaque rendez-vous."}
+                  ? t("Active les notifications pour recevoir tes rappels de soins, et notre message avant la fin de l'essai. Sans elles, on te préviendra par email.")
+                  : t("Active les notifications pour recevoir tes rappels de soins avant chaque rendez-vous.")}
               </Text>
               <TouchableOpacity onPress={enableNotifications} activeOpacity={0.85} className="self-start rounded-full bg-primary px-5 py-2.5">
-                <Text className="text-sm font-bold text-on-primary">Activer les notifications</Text>
+                <Text className="text-sm font-bold text-on-primary">{t("Activer les notifications")}</Text>
               </TouchableOpacity>
             </View>
           </FadeInView>
@@ -122,7 +127,7 @@ export default function PremiumWelcome() {
 
         <FadeInView delay={180}>
           <View className="gap-3">
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">Pour bien démarrer</Text>
+            <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Pour bien démarrer")}</Text>
             {actions.map((a) => (
               <TouchableOpacity
                 key={a.key}
@@ -143,7 +148,7 @@ export default function PremiumWelcome() {
 
       <View className="px-5 pb-2 pt-3">
         <PrimaryButton
-          label="C'est parti"
+          label={t("C'est parti")}
           onPress={() => {
             track("premium_welcome_action", { action: "close" });
             if (router.canGoBack()) router.back();

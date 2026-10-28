@@ -1,8 +1,9 @@
 import { Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { Field } from "@/components/Field";
 import { resolveTargetHorseIds, toggleHorseId } from "@/horses/selectableHorses";
+import { t } from "@/i18n";
 
 /** « Pour quel(s) cheval(aux) ? » — cases à cocher pour créer la même entrée
  * pour plusieurs chevaux d'un coup (cf. useAppointmentForm, qui boucle
@@ -30,7 +31,7 @@ export function HorseMultiSelect({
   fallbackIds,
   value,
   onChange,
-  label = "Pour quel(s) cheval(aux) ?",
+  label = t("Pour quel(s) cheval(aux) ?"),
 }: {
   horses: { id: string; name: string }[];
   /** Cible par défaut tant que l'utilisateur n'a rien coché (cf. ci-dessus). */
@@ -72,13 +73,12 @@ export function HorseMultiSelect({
       </View>
       {selectedIds.length === 0 ? (
         <Text className="text-xs text-muted">
-          Cette vue affiche toute l&apos;écurie : choisis le ou les chevaux concernés.
+          {t("Cette vue affiche toute l'écurie : choisis le ou les chevaux concernés.")}
         </Text>
       ) : null}
       {selectedIds.length > 1 ? (
         <Text className="text-xs text-muted">
-          {selectedIds.length} entrées distinctes seront créées, une par cheval — les modifier ou les supprimer ensuite
-          se fait cheval par cheval.
+          {selectedIds.length} {t(" entrées distinctes seront créées, une par cheval — les modifier ou les supprimer ensuite se fait cheval par cheval.")}
         </Text>
       ) : null}
     </Field>

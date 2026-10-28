@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, AppState, AppStateStatus, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { supabase } from "@/lib/supabase";
 import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
 import { isNativeInteractionActive } from "@/lib/nativeInteraction";
 import { colors } from "@/theme/colors";
+import { t } from "@/i18n";
 
 type GateStatus = "checking" | "locked" | "unlocked";
 
@@ -82,7 +83,7 @@ export function BiometricGate() {
     if (unlocking.current) return;
     unlocking.current = true;
     try {
-      const ok = await authenticateWithBiometrics("Confirme ton identité pour accéder à Horsetrack");
+      const ok = await authenticateWithBiometrics(t("Confirme ton identité pour accéder à Horsetrack"));
       if (ok) setStatus("unlocked");
     } catch (e) {
       console.warn("[biometric-gate] authentification échouée", e);
@@ -99,12 +100,12 @@ export function BiometricGate() {
   // ici : sans session, il n'y a plus rien à protéger par ce verrou local.
   function offerFallback() {
     Alert.alert(
-      "Impossible de confirmer ton identité",
-      "Vérifie que Face ID/Touch ID est bien activé pour Horsetrack dans les réglages de ton téléphone, ou déconnecte-toi pour désactiver le verrouillage.",
+      t("Impossible de confirmer ton identité"),
+      t("Vérifie que Face ID/Touch ID est bien activé pour Horsetrack dans les réglages de ton téléphone, ou déconnecte-toi pour désactiver le verrouillage."),
       [
-        { text: "Annuler", style: "cancel" },
+        { text: t("Annuler"), style: "cancel" },
         {
-          text: "Se déconnecter et désactiver le verrouillage",
+          text: t("Se déconnecter et désactiver le verrouillage"),
           style: "destructive",
           onPress: async () => {
             await setBiometricLockEnabled(false);
@@ -144,17 +145,17 @@ export function BiometricGate() {
       <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
         <MaterialCommunityIcons name="shield-lock-outline" size={30} color={colors.primary} />
       </View>
-      <Text className="text-center text-lg font-bold text-text">Authentification requise</Text>
-      <Text className="text-center text-sm text-muted">Confirme ton identité pour accéder à Horsetrack.</Text>
+      <Text className="text-center text-lg font-bold text-text">{t("Authentification requise")}</Text>
+      <Text className="text-center text-sm text-muted">{t("Confirme ton identité pour accéder à Horsetrack.")}</Text>
       <TouchableOpacity
         onPress={tryUnlock}
         activeOpacity={0.85}
         className="rounded-card bg-primary px-6 py-3"
       >
-        <Text className="text-base font-bold text-on-primary">Déverrouiller</Text>
+        <Text className="text-base font-bold text-on-primary">{t("Déverrouiller")}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={offerFallback} hitSlop={12}>
-        <Text className="text-sm font-semibold text-muted">Ça ne fonctionne pas ?</Text>
+        <Text className="text-sm font-semibold text-muted">{t("Ça ne fonctionne pas ?")}</Text>
       </TouchableOpacity>
     </View>
   );

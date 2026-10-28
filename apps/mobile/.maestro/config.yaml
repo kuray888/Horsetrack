@@ -1,0 +1,5 @@
+# Tests de bout en bout (Maestro) — cf. README.md.
+flows:
+  - "*.yaml"
+executionOrder:
+  continueOnFailure: false

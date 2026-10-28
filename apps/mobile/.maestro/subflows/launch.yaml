@@ -1,0 +1,44 @@
+# Démarre l'app à neuf. Avec un client de développement, DEV_SERVER pointe
+# vers Metro (ex. http://localhost:8081) ; vide pour un build TestFlight ou
+# un build de production installé sur le simulateur.
+appId: com.horsetrack.app
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    permissions:
+      notifications: unset
+      location: unset
+- runFlow:
+    when:
+      true: ${DEV_SERVER}
+    commands:
+      - openLink: "horsetrack://expo-development-client/?url=${DEV_SERVER}"
+      # Le menu du client de développement s'ouvre au premier chargement,
+      # par-dessus l'app : on le ferme.
+      - extendedWaitUntil:
+          visible: "Reload|Continue|Commencer|Get started"
+          timeout: 60000
+      - runFlow:
+          when:
+            visible: "Continue"
+          commands:
+            - tapOn: "Continue"
+      - runFlow:
+          when:
+            visible: "Go home"
+          commands:
+            - swipe:
+                start: 50%, 60%
+                end: 50%, 98%
+                duration: 300
+      - runFlow:
+          when:
+            visible: "Go home"
+          commands:
+            - tapOn:
+                point: 90%, 48%
+- extendedWaitUntil:
+    visible:
+      id: "welcome-start"
+    timeout: 60000

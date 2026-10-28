@@ -87,11 +87,22 @@ export function mergeRemote<T extends { id: string }>(
 export function unsyncedLocalIds<T extends { id: string }>(
   local: readonly T[],
   remote: readonly T[],
-  guard: SyncGuard
+  guard: SyncGuard,
+  /** Ligne envoyable maintenant ? Sert à attendre que son cheval existe côté
+   * serveur (cf. remoteIndex.isHorseOnServer) : envoyées en même temps que
+   * lui, les séances d'un cheval tout juste rattrapé étaient refusées. */
+  canPush: (row: T) => boolean = () => true
 ): string[] {
   const remoteIds = new Set(remote.map((r) => r.id));
   return local
-    .filter((l) => !remoteIds.has(l.id) && !guard.isKnown(l.id) && !guard.isProtected(l.id))
+    .filter(
+      (l) =>
+        // Modification partie sans confirmation (app fermée pendant l'envoi)…
+        (guard.needsResend?.(l.id) ?? false) ||
+        // …ou ligne que le serveur n'a jamais reçue.
+        (!remoteIds.has(l.id) && !guard.isKnown(l.id) && !guard.isProtected(l.id))
+    )
+    .filter(canPush)
     .map((l) => l.id);
 }
 

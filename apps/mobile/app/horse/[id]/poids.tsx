@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
@@ -13,6 +13,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDate } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
 import { useWeight } from "@/horses/weightStore";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -42,7 +43,7 @@ export default function HorseWeightScreen() {
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
             <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
-            <Text className="text-sm text-muted">Ce cheval est introuvable.</Text>
+            <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
           </View>
         </FadeInView>
       </Screen>
@@ -63,8 +64,8 @@ export default function HorseWeightScreen() {
     // pas de deuxième sélection si ce n'est pas le cheval actif.
     if (!isActiveHorse) {
       Alert.alert(
-        "Cheval non actif",
-        `Sélectionne d'abord ${horse!.name} comme cheval actif (Chevaux) pour lui ajouter une mesure.`
+        t("Cheval non actif"),
+        t("Sélectionne d'abord {name} comme cheval actif (Chevaux) pour lui ajouter une mesure.", { name: horse!.name })
       );
       return;
     }
@@ -75,9 +76,9 @@ export default function HorseWeightScreen() {
   }
 
   function confirmDelete(measurementId: string) {
-    Alert.alert("Supprimer cette mesure ?", "Cette action est définitive.", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", style: "destructive", onPress: () => deleteMeasurement(measurementId) },
+    Alert.alert(t("Supprimer cette mesure ?"), t("Cette action est définitive."), [
+      { text: t("Annuler"), style: "cancel" },
+      { text: t("Supprimer"), style: "destructive", onPress: () => deleteMeasurement(measurementId) },
     ]);
   }
 
@@ -86,8 +87,8 @@ export default function HorseWeightScreen() {
       <Screen>
         <FadeInView>
           <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-display tracking-tight text-text">Poids</Text>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+            <Text className="text-2xl font-display tracking-tight text-text">{t("Poids")}</Text>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
               <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -97,9 +98,9 @@ export default function HorseWeightScreen() {
           <View className={`${CARD} items-center gap-1.5`}>
             {horse.weightKg ? (
               <>
-                <Text className="text-4xl font-display-bold text-text">{horse.weightKg} kg</Text>
+                <Text className="text-4xl font-display-bold text-text">{horse.weightKg} {t(" kg")}</Text>
                 {horseMeasurements[0] ? (
-                  <Text className="text-sm text-muted">Dernière mesure : {formatDate(horseMeasurements[0].date)}</Text>
+                  <Text className="text-sm text-muted">{t("Dernière mesure : ")}{formatDate(horseMeasurements[0].date)}</Text>
                 ) : null}
                 {trend !== null ? (
                   <View className="mt-1 flex-row items-center gap-1">
@@ -110,13 +111,13 @@ export default function HorseWeightScreen() {
                     />
                     <Text className="text-sm font-semibold text-muted">
                       {trend > 0 ? "+" : ""}
-                      {trend} kg depuis la mesure précédente
+                      {trend} {t(" kg depuis la mesure précédente")}
                     </Text>
                   </View>
                 ) : null}
               </>
             ) : (
-              <Text className="text-sm text-muted">Aucune mesure pour l&apos;instant.</Text>
+              <Text className="text-sm text-muted">{t("Aucune mesure pour l'instant.")}</Text>
             )}
           </View>
         </FadeInView>
@@ -124,27 +125,27 @@ export default function HorseWeightScreen() {
         <FadeInView delay={100}>
           {showForm ? (
             <View className={`${CARD} gap-3`}>
-              <Text className="text-sm font-bold uppercase tracking-wide text-accent">Nouvelle mesure</Text>
-              <Field label="Poids (kg)">
+              <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Nouvelle mesure")}</Text>
+              <Field label={t("Poids (kg)")}>
                 <TextInput
                   className={INPUT}
-                  placeholder="Ex : 540"
+                  placeholder={t("Ex : 540")}
                   value={weightInput}
                   onChangeText={setWeightInput}
                   keyboardType="decimal-pad"
                 />
               </Field>
-              <DatePickerField label="Date" value={date} onChange={setDate} />
+              <DatePickerField label={t("Date")} value={date} onChange={setDate} />
               <View className="flex-row gap-2">
                 <TouchableOpacity
                   onPress={() => setShowForm(false)}
                   className="flex-1 items-center rounded-card border border-border p-4"
                 >
-                  <Text className="text-base font-semibold text-muted">Annuler</Text>
+                  <Text className="text-base font-semibold text-muted">{t("Annuler")}</Text>
                 </TouchableOpacity>
                 <View className="flex-1">
                   <PrimaryButton
-                    label="Ajouter"
+                    label={t("Ajouter")}
                     disabled={!weightInput.trim() || !date}
                     onPress={handleAdd}
                   />
@@ -152,18 +153,18 @@ export default function HorseWeightScreen() {
               </View>
             </View>
           ) : (
-            <AddToggle label="Ajouter une mesure" onPress={() => setShowForm(true)} color={colors.primary} />
+            <AddToggle label={t("Ajouter une mesure")} onPress={() => setShowForm(true)} color={colors.primary} />
           )}
         </FadeInView>
 
         {horseMeasurements.length > 0 ? (
           <FadeInView delay={140}>
             <View className="gap-2">
-              <Text className="text-xs font-bold uppercase tracking-wide text-muted">Historique</Text>
+              <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Historique")}</Text>
               {horseMeasurements.map((m) => (
                 <View key={m.id} className={`${CARD} flex-row items-center justify-between`}>
                   <View className="gap-0.5">
-                    <Text className="text-base font-bold text-text">{m.weightKg} kg</Text>
+                    <Text className="text-base font-bold text-text">{m.weightKg} {t(" kg")}</Text>
                     <Text className="text-sm text-muted">{formatDate(m.date)}</Text>
                   </View>
                   <TouchableOpacity
@@ -171,7 +172,7 @@ export default function HorseWeightScreen() {
                     hitSlop={8}
                     activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel={`Supprimer la pesée du ${formatDate(m.date)}`}
+                    accessibilityLabel={t("Supprimer la pesée du {formatDate}", { formatDate: formatDate(m.date) })}
                   >
                     <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.textMuted} />
                   </TouchableOpacity>

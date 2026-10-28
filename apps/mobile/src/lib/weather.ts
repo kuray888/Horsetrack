@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
+import { t } from "@/i18n";
 
 export type WeatherSnapshot = { tempC: number; code: number; label: string; icon: string };
 
@@ -8,17 +9,17 @@ export type WeatherSnapshot = { tempC: number; code: number; label: string; icon
  * variantes "léger/fort" d'une même famille), suffisant pour un aperçu rapide
  * sur une carte de journal, pas pour un bulletin météo détaillé. */
 const WMO_LABELS: { codes: number[]; label: string; icon: string }[] = [
-  { codes: [0], label: "Ciel dégagé", icon: "☀️" },
-  { codes: [1, 2, 3], label: "Nuageux", icon: "⛅" },
-  { codes: [45, 48], label: "Brouillard", icon: "🌫️" },
-  { codes: [51, 53, 55, 56, 57], label: "Bruine", icon: "🌦️" },
-  { codes: [61, 63, 65, 66, 67, 80, 81, 82], label: "Pluie", icon: "🌧️" },
-  { codes: [71, 73, 75, 77, 85, 86], label: "Neige", icon: "❄️" },
-  { codes: [95, 96, 99], label: "Orage", icon: "⛈️" },
+  { codes: [0], label: t("Ciel dégagé"), icon: "☀️" },
+  { codes: [1, 2, 3], label: t("Nuageux"), icon: "⛅" },
+  { codes: [45, 48], label: t("Brouillard"), icon: "🌫️" },
+  { codes: [51, 53, 55, 56, 57], label: t("Bruine"), icon: "🌦️" },
+  { codes: [61, 63, 65, 66, 67, 80, 81, 82], label: t("Pluie"), icon: "🌧️" },
+  { codes: [71, 73, 75, 77, 85, 86], label: t("Neige"), icon: "❄️" },
+  { codes: [95, 96, 99], label: t("Orage"), icon: "⛈️" },
 ];
 
 function labelForCode(code: number): { label: string; icon: string } {
-  return WMO_LABELS.find((w) => w.codes.includes(code)) ?? { label: "Météo", icon: "🌡️" };
+  return WMO_LABELS.find((w) => w.codes.includes(code)) ?? { label: t("Météo"), icon: "🌡️" };
 }
 
 /** Échec silencieux (permission refusée, position indisponible) : la météo

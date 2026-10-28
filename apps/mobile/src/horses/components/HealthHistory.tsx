@@ -6,6 +6,7 @@ import { HEALTH_CONDITIONS } from "@/onboarding/options";
 import { useHorses, type Horse } from "@/horses/store";
 import { healthConditionsState, knownHealthConditions, toggleHealthCondition } from "@/horses/healthConditions";
 import { generateInjuryId, markInjuryRecovered, sortInjuriesRecentFirst } from "@/horses/injuries";
+import { t as tr } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -28,10 +29,10 @@ export function HealthHistory({ horse }: { horse: Horse }) {
 
   function confirmRemove(key: string) {
     const injury = horse.injuries.find((i) => i.id === key);
-    Alert.alert("Retirer cette blessure ?", `${injury?.type ?? "Cette blessure"} sera retirée de l'historique de ${horse.name}.`, [
-      { text: "Annuler", style: "cancel" },
+    Alert.alert(tr("Retirer cette blessure ?"), tr("{v} sera retirée de l'historique de {name}.", { v: injury ? tr(injury.type) : tr("Cette blessure"), name: horse.name }), [
+      { text: tr("Annuler"), style: "cancel" },
       {
-        text: "Retirer",
+        text: tr("Retirer"),
         style: "destructive",
         onPress: () => updateHorseHealth(horse.id, { injuries: horse.injuries.filter((i) => i.id !== key) }),
       },
@@ -40,10 +41,10 @@ export function HealthHistory({ horse }: { horse: Horse }) {
 
   function confirmRecovered(key: string) {
     const injury = horse.injuries.find((i) => i.id === key);
-    Alert.alert("Marquer comme rétablie ?", `${injury?.type ?? "Cette blessure"} restera dans l'historique, avec le statut « complètement rétabli ».`, [
-      { text: "Annuler", style: "cancel" },
+    Alert.alert(tr("Marquer comme rétablie ?"), tr("{v} restera dans l'historique, avec le statut « complètement rétabli ».", { v: injury ? tr(injury.type) : tr("Cette blessure") }), [
+      { text: tr("Annuler"), style: "cancel" },
       {
-        text: "Rétablie",
+        text: tr("Rétablie"),
         onPress: () => updateHorseHealth(horse.id, { injuries: markInjuryRecovered(horse.injuries, key) }),
       },
     ]);
@@ -51,11 +52,11 @@ export function HealthHistory({ horse }: { horse: Horse }) {
 
   return (
     <View className={`${CARD} gap-4`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-muted">Antécédents</Text>
+      <Text className="text-sm font-bold uppercase tracking-wide text-muted">{tr("Antécédents")}</Text>
 
       <View className="gap-2.5">
         <View className="flex-row items-center justify-between">
-          <Text className="text-sm font-semibold text-muted">Problèmes de santé connus</Text>
+          <Text className="text-sm font-semibold text-muted">{tr("Problèmes de santé connus")}</Text>
           {readOnly ? null : (
             <TouchableOpacity
               onPress={() => setEditingConditions((v) => !v)}
@@ -63,7 +64,7 @@ export function HealthHistory({ horse }: { horse: Horse }) {
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <Text className="text-sm font-semibold text-accent">{editingConditions ? "Terminer" : "Modifier"}</Text>
+              <Text className="text-sm font-semibold text-accent">{editingConditions ? tr("Terminer") : tr("Modifier")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -79,13 +80,13 @@ export function HealthHistory({ horse }: { horse: Horse }) {
           <View className="flex-row flex-wrap gap-2">
             {conditions.map((c) => (
               <View key={c} className="rounded-full bg-highlight px-3 py-1.5">
-                <Text className="text-sm font-semibold text-primary">{c}</Text>
+                <Text className="text-sm font-semibold text-primary">{tr(c)}</Text>
               </View>
             ))}
           </View>
         ) : (
           <Text className="text-sm text-muted">
-            {state === "none" ? "Aucun problème connu." : "Non renseigné pour l'instant."}
+            {state === "none" ? tr("Aucun problème connu.") : tr("Non renseigné pour l'instant.")}
           </Text>
         )}
       </View>

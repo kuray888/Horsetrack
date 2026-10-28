@@ -7,9 +7,10 @@ import { useRiderProfile } from "@/rider/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda } from "@/agenda/store";
 import { useWeight } from "@/horses/weightStore";
-import { pullAppointments, pullJournalEntries, pullTrainingSessions, pullWeightMeasurements } from "@/lib/cloudSync";
+import { pullAndMergeHorseData } from "@/lib/cloudRefresh";
 import { markOnboardingCompleted } from "@/onboarding/completion";
 import { acceptInvite, pullPendingInvites, pullSharedHorses, ROLE_LABEL_SHORT, type PendingInvite } from "@/lib/sharing";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -27,9 +28,9 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 export default function PendingInvitesOnboarding() {
   const { horses, hydrateFromCloud } = useHorses();
   const { riderProfile, setRiderProfile } = useRiderProfile();
-  const { hydrateFromCloud: hydrateSessionsFromCloud } = useSessions();
-  const { hydrateAppointmentsFromCloud, hydrateJournalFromCloud } = useAgenda();
-  const { hydrateFromCloud: hydrateWeightFromCloud } = useWeight();
+  const { mergeFromCloud: mergeSessions } = useSessions();
+  const { mergeFromCloud: mergeAgenda } = useAgenda();
+  const { mergeFromCloud: mergeWeight } = useWeight();
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -83,16 +84,7 @@ export default function PendingInvitesOnboarding() {
         // rejeter (createSignedUrl) si le réseau flanche, ce qui sinon ferait
         // disparaître l'invite en silence sans jamais avoir rapatrié ces
         // données (cf. audit du 2026-09-14).
-        const [appointments, journalEntries, trainingSessions, weightMeasurements] = await Promise.all([
-          pullAppointments().catch(() => null),
-          pullJournalEntries().catch(() => null),
-          pullTrainingSessions().catch(() => null),
-          pullWeightMeasurements().catch(() => null),
-        ]);
-        if (appointments) hydrateAppointmentsFromCloud(appointments);
-        if (journalEntries) hydrateJournalFromCloud(journalEntries);
-        if (trainingSessions) hydrateSessionsFromCloud(trainingSessions);
-        if (weightMeasurements) hydrateWeightFromCloud(weightMeasurements);
+        await pullAndMergeHorseData({ mergeAgenda, mergeSessions, mergeWeight });
       }
       setInvites((list) => list.filter((i) => i.id !== invite.id));
     } catch {
@@ -113,25 +105,24 @@ export default function PendingInvitesOnboarding() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-display tracking-tight text-text">
-            {invites.length > 1 ? "Invitations en attente" : "Invitation en attente"}
+            {invites.length > 1 ? t("Invitations en attente") : t("Invitation en attente")}
           </Text>
           <Text className="text-base text-muted">
-            Quelqu&apos;un t&apos;a invité·e à suivre son cheval sur Horsetrack.
+            {t("Quelqu'un t'a invité·e à suivre son cheval sur Horsetrack.")}
           </Text>
         </View>
 
         {invites.map((invite) => (
           <View key={invite.id} className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
-              Tu es invité·e à accéder à la fiche de <Text className="font-bold">{invite.horseName}</Text> (planning,
-              santé, journal, budget) en tant que <Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
+              {t("Tu es invité·e à accéder à la fiche de ")}<Text className="font-bold">{invite.horseName}</Text> {t(" (planning, santé, journal, budget) en tant que ")}<Text className="font-bold">{ROLE_LABEL_SHORT[invite.role]}</Text>.
             </Text>
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => handleLater(invite.id)}
                 className="flex-1 items-center rounded-card border border-border p-3"
               >
-                <Text className="text-sm font-semibold text-muted">Plus tard</Text>
+                <Text className="text-sm font-semibold text-muted">{t("Plus tard")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleAccept(invite)}
@@ -140,7 +131,7 @@ export default function PendingInvitesOnboarding() {
                 className="flex-1 items-center rounded-card bg-primary p-3"
               >
                 <Text className="text-sm font-bold text-on-primary">
-                  {acceptingId === invite.id ? "…" : "Accepter"}
+                  {acceptingId === invite.id ? "…" : t("Accepter")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -149,7 +140,7 @@ export default function PendingInvitesOnboarding() {
 
         <TouchableOpacity onPress={continueToOwnProfile} hitSlop={8}>
           <Text className="text-center text-sm font-semibold text-accent">
-            Configurer mon propre profil à la place
+            {t("Configurer mon propre profil à la place")}
           </Text>
         </TouchableOpacity>
       </View>

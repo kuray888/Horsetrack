@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
 import { Animated, View, Text, TouchableOpacity } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useSubscription } from "@/subscription/store";
 import { openPaywall, useTrialConfirmed } from "@/subscription/paywall";
 import type { PaywallPlacement } from "@/subscription/paywallLogic";
 import { usePressScale } from "@/hooks/usePressScale";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { t } from "@/i18n";
 
 /**
  * Gating « soft » d'un visuel premium.
@@ -71,7 +72,7 @@ export function Locked({
             className="rounded-full bg-primary px-5 py-2.5"
           >
             <Text className="text-sm font-bold text-on-primary">
-              {trialConfirmed ? "Essayer gratuitement" : "Découvrir Premium"}
+              {trialConfirmed ? t("Essayer gratuitement") : t("Découvrir Premium")}
             </Text>
           </TouchableOpacity>
         </Animated.View>

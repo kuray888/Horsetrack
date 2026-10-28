@@ -1,12 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
-import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { isHorseOnServer, noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
-import { pushTrainingSession, deleteTrainingSessionRemote } from "@/lib/cloudSync";
+import { pushTrainingSession, deleteTrainingSessionRemote, pushSessionRide } from "@/lib/cloudSync";
 import type { ActivityType } from "@/agenda/store";
+import type { SessionRide } from "@/rides/types";
+import { mergeActivityType } from "@/agenda/activityKinds";
+import { columnCaughtUp, columnState } from "@/lib/schemaGaps";
+import { keepLocalRide, reviveRide } from "@/rides/rideSync";
 import { useHorses } from "@/horses/store";
 import { recordPositiveMoment } from "@/lib/reviewPrompt";
+import { track } from "@/lib/analytics";
 
 /**
  * Séances d'entraînement planifiées manuellement par le cavalier — remplace
@@ -39,11 +44,27 @@ export type TrainingSession = {
   /** Coché une fois la séance faite — suivi simple, sans lien avec un
    * quelconque système de badges/XP (retiré avec l'IA). */
   completed: boolean;
+  /** Parcours d'une séance enregistrée en direct (cf. rides/). `undefined` :
+   * inconnu (ancienne version, ou table serveur pas encore créée) — la fusion
+   * garde alors le parcours local ; `null` : aucun parcours. Synchronisé dans
+   * une table à part (cf. lib/cloudSync.ts pushSessionRide). */
+  ride?: SessionRide | null;
 };
 
-export type NewTrainingSession = Omit<TrainingSession, "id" | "horseId" | "completed">;
+export type NewTrainingSession = Omit<TrainingSession, "id" | "horseId" | "completed" | "ride">;
+
+export type SaveRideInput = {
+  sessionId: string | null;
+  horseId: string;
+  activityType: ActivityType;
+  customActivityLabel: string | null;
+  notes: string;
+  ride: SessionRide;
+};
 
 const SESSIONS_KEY = "training_sessions_v1";
+
+
 
 function generateId(): string {
   return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -62,6 +83,10 @@ type SessionsContextValue = {
    * Planning). Même champ que `toggleCompleted`, aucun nouveau modèle. */
   addSession: (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => void;
   updateSession: (session: TrainingSession) => void;
+  /** Enregistre une séance faite en direct : complète la séance prévue
+   * `sessionId` (cochée, durée réelle, parcours) ou en crée une, déjà faite.
+   * Renvoie l'id de la séance. */
+  saveRide: (input: SaveRideInput) => string;
   deleteSession: (sessionId: string) => void;
   toggleCompleted: (sessionId: string) => void;
   /** Prochaine(s) séance(s) à venir pour le cheval sélectionné, triées par
@@ -118,7 +143,12 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         }
         if (parsed) {
           setSessions(
-            parsed.map((s) => ({ ...s, date: new Date(s.date), customActivityLabel: s.customActivityLabel ?? null }))
+            parsed.map((s) => ({
+              ...s,
+              date: new Date(s.date),
+              customActivityLabel: s.customActivityLabel ?? null,
+              ride: reviveRide(s.ride),
+            }))
           );
         }
       } catch (e) {
@@ -161,6 +191,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       };
       setSessions((list) => [...list, next]);
       pushTrainingSession(next).catch(() => {});
+      track("session_created", { completed: next.completed, activity: next.activityType });
     },
     [selectedHorse]
   );
@@ -168,6 +199,60 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const updateSession = useCallback((session: TrainingSession) => {
     setSessions((list) => list.map((s) => (s.id === session.id ? session : s)));
     pushTrainingSession(session).catch(() => {});
+  }, []);
+
+  const saveRide = useCallback((input: SaveRideInput): string => {
+    const { ride } = input;
+    const durationMinutes = Math.max(1, Math.round(ride.durationSeconds / 60));
+    const p = (n: number) => String(n).padStart(2, "0");
+    const time = `${p(ride.startedAt.getHours())}:${p(ride.startedAt.getMinutes())}`;
+    const day = new Date(ride.startedAt.getFullYear(), ride.startedAt.getMonth(), ride.startedAt.getDate());
+    const existing = input.sessionId ? sessionsRef.current.find((s) => s.id === input.sessionId) : undefined;
+    const next: TrainingSession = existing
+      ? {
+          ...existing,
+          activityType: input.activityType,
+          customActivityLabel: input.customActivityLabel,
+          // Heure réelle de départ : la séance a eu lieu maintenant, pas à
+          // l'heure prévue. La date reste celle prévue si on la fait le jour même.
+          time,
+          durationMinutes,
+          notes: input.notes.trim() ? input.notes : existing.notes,
+          completed: true,
+          ride,
+        }
+      : {
+          id: generateId(),
+          horseId: input.horseId,
+          activityType: input.activityType,
+          customActivityLabel: input.customActivityLabel,
+          date: day,
+          time,
+          durationMinutes,
+          intensity: null,
+          notes: input.notes,
+          completed: true,
+          ride,
+        };
+    setSessions((list) => (existing ? list.map((s) => (s.id === next.id ? next : s)) : [...list, next]));
+    // La séance d'abord : le parcours la référence côté serveur.
+    pushTrainingSession(next)
+      .catch(() => {})
+      .finally(() => {
+        if (next.horseId) pushSessionRide(next.id, next.horseId, ride).catch(() => {});
+      });
+    if (!existing) track("session_created", { completed: true, activity: next.activityType });
+    if (!existing?.completed) {
+      recordPositiveMoment("session_done");
+      track("session_completed", { activity: next.activityType });
+    }
+    track("ride_saved", {
+      gps: ride.gps,
+      minutes: durationMinutes,
+      km: Math.round(ride.distanceMeters / 100) / 10,
+      planned: !!existing,
+    });
+    return next.id;
   }, []);
 
   const deleteSession = useCallback((sessionId: string) => {
@@ -184,7 +269,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       pushTrainingSession(next).catch(() => {});
       // Séance cochée : le moment le plus satisfaisant de l'app (cf. demande
       // d'avis, lib/reviewPrompt.ts).
-      if (next.completed) recordPositiveMoment("session_done");
+      if (next.completed) {
+        recordPositiveMoment("session_done");
+        track("session_completed", { activity: next.activityType });
+      }
     },
     [sessions]
   );
@@ -200,13 +288,39 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     // Séances jamais arrivées sur le serveur (refus définitif, ex. cheval pas
     // encore créé côté serveur) : renvoyées à chaque relecture, sans quoi
     // elles n'existaient que sur ce téléphone (cf. unsyncedLocalIds).
-    const unsynced = new Set(unsyncedLocalIds(sessionsRef.current, remote, guard));
+    const unsynced = new Set(unsyncedLocalIds(sessionsRef.current, remote, guard, (s) => isHorseOnServer(s.horseId)));
+    // Type précis (TREC, travail à pied…) que le serveur n'a pas pu garder,
+    // colonne absente ou tout juste créée : cf. agenda/activityKinds.ts
+    // mergeActivityType et lib/schemaGaps.ts.
+    const kindState = columnState("training_sessions", "activityKind");
     // Persisté par l'effet d'écriture qui suit chaque changement de `sessions`.
-    setSessions((list) => mergeRemote(list, remote, guard).items);
+    // Parcours inconnu du serveur (`undefined` : table pas encore créée ou
+    // relecture ratée) : le parcours local est gardé, pas effacé.
+    const preserve = (l: TrainingSession, r: TrainingSession) =>
+      keepLocalRide(l, { ...r, activityType: mergeActivityType(l.activityType, r.activityType, kindState).type });
+    setSessions((list) => mergeRemote(list, remote, guard, preserve).items);
     noteRemoteSnapshot("training_sessions", remote.map((s) => s.id), pullStartedAt);
+    const remoteById = new Map(remote.map((r) => [r.id, r]));
     for (const session of sessionsRef.current) {
       if (unsynced.has(session.id)) pushTrainingSession(session).catch(() => {});
+      const fromServer = remoteById.get(session.id);
+      if (!fromServer) continue;
+      // Parcours enregistré ici mais absent du serveur (envoi raté, ou table
+      // créée depuis) : renvoyé, comme une séance jamais arrivée.
+      if (session.ride && session.horseId && fromServer.ride === null) {
+        pushSessionRide(session.id, session.horseId, session.ride).catch(() => {});
+      }
+      // Version du serveur, avec le type précis local : c'est elle qui est
+      // gardée par la fusion ci-dessus.
+      if (
+        !unsynced.has(session.id) &&
+        !guard.isProtected(session.id) &&
+        mergeActivityType(session.activityType, fromServer.activityType, kindState).resend
+      ) {
+        pushTrainingSession({ ...fromServer, activityType: session.activityType }).catch(() => {});
+      }
     }
+    if (kindState === "catching_up") columnCaughtUp("training_sessions", "activityKind");
   }, []);
 
   const removeHorseData = useCallback((horseId: string) => {
@@ -235,6 +349,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       sessions,
       addSession,
       updateSession,
+      saveRide,
       deleteSession,
       toggleCompleted,
       upcomingForSelectedHorse,
@@ -249,6 +364,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       sessions,
       addSession,
       updateSession,
+      saveRide,
       deleteSession,
       toggleCompleted,
       upcomingForSelectedHorse,

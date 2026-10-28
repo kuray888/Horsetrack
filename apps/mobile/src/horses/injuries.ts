@@ -1,4 +1,5 @@
 import type { HorseRecoveryStatus } from "@/onboarding/store";
+import { t } from "@/i18n";
 
 /** Sous-ensemble de `Injury` (cf. horses/store.tsx) dont ce module a besoin —
  * évite d'importer le store (react-native, expo-secure-store...) et garde ce
@@ -50,6 +51,6 @@ export function markInjuryRecovered<T extends InjuryRecord>(injuries: T[], id: s
 export function recoveryAlertMessage(injuries: InjuryRecord[]): string | null {
   const inProgress = injuries.filter((i) => i.recoveryStatus === "IN_PROGRESS");
   if (inProgress.length === 0) return null;
-  if (inProgress.length === 1) return `Récupération en cours : ${inProgress[0].type}`;
-  return `${inProgress.length} blessures en cours de récupération`;
+  if (inProgress.length === 1) return t("Récupération en cours : {type}", { type: inProgress[0].type });
+  return t("{length} blessures en cours de récupération", { length: inProgress.length });
 }

@@ -1,6 +1,7 @@
 import { formatDate } from "@/lib/dateFormat";
 import { APPT_META } from "@/agenda/meta";
 import type { AppointmentType } from "@/agenda/store";
+import { t } from "@/i18n";
 
 /** Contenu du rappel d'un rendez-vous — partagé par le formulaire (cf.
  * hooks/useAppointmentForm.ts) et la reprogrammation après une modification
@@ -14,8 +15,8 @@ export function appointmentReminderContent(
   horseName: string | null
 ): { title: string; body: string } {
   return {
-    title: `Rappel : ${title}`,
-    body: `${horseName ? `${horseName} · ` : ""}${formatDate(date)}${time ? ` à ${time}` : ""}${location ? ` · ${location}` : ""}`,
+    title: t("Rappel : {title}", { title: title }),
+    body: `${horseName ? `${horseName} · ` : ""}${formatDate(date)}${time ? t(" à {time}", { time: time }) : ""}${location ? ` · ${location}` : ""}`,
   };
 }
 
@@ -32,8 +33,8 @@ export function nextDueReminderContent(
   trigger.setDate(trigger.getDate() - 3);
   trigger.setHours(9, 0, 0, 0);
   return {
-    title: `Échéance à venir : ${title}`,
-    body: `${APPT_META[apptType].label} prévu(e) le ${formatDate(nextDueDate)} pour ${horseName ?? "ton cheval"}.`,
+    title: t("Échéance à venir : {title}", { title: title }),
+    body: t("{label} prévu(e) le {formatDate} pour {v}.", { label: APPT_META[apptType].label, formatDate: formatDate(nextDueDate), v: horseName ?? "ton cheval" }),
     trigger: trigger.getTime() > now.getTime() ? trigger : null,
   };
 }

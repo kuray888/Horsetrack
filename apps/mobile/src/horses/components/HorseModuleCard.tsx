@@ -1,5 +1,5 @@
 import { Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -24,7 +24,7 @@ export function HorseModuleCard({
 }) {
   const colors = useThemeColors();
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} className={`${CARD} flex-row items-center gap-3`}>
+    <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={onPress} className={`${CARD} flex-row items-center gap-3`}>
       <View className="h-11 w-11 items-center justify-center rounded-full bg-highlight">
         <MaterialCommunityIcons name={icon} size={20} color={iconColor} />
       </View>

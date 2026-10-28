@@ -1,7 +1,8 @@
 import { Text, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Image } from "@/components/AppImage";
 import { colors } from "@/theme/colors";
+import { t } from "@/i18n";
 
 /** Vrai pour un PDF, qu'il soit local ("…/document-123.pdf") ou une URL signée
  * du stockage ("…/<id>.pdf?token=…") — d'où le retrait de la query string :
@@ -19,7 +20,7 @@ export function AttachmentPreview({ uri, height = 160 }: { uri: string; height?:
     return (
       <View style={{ height }} className="items-center justify-center gap-1 rounded-card border border-border bg-highlight">
         <MaterialCommunityIcons name="file-pdf-box" size={34} color={colors.danger} />
-        <Text className="text-sm font-semibold text-text">Document PDF joint</Text>
+        <Text className="text-sm font-semibold text-text">{t("Document PDF joint")}</Text>
       </View>
     );
   }

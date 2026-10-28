@@ -1,4 +1,5 @@
 import { Alert, Text } from "react-native";
+import { removeHorseExtras } from "@/extras/store";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { HorseForm } from "@/components/HorseForm";
@@ -7,6 +8,7 @@ import { useHorses } from "@/horses/store";
 import { useAgenda } from "@/agenda/store";
 import { useSessions } from "@/sessions/store";
 import { useWeight } from "@/horses/weightStore";
+import { t } from "@/i18n";
 
 export default function EditHorseModal() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,7 +23,7 @@ export default function EditHorseModal() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
         <Text className="text-base text-muted">
-          {horse?.sharedRole ? "Les chevaux partagés ne sont pas modifiables." : "Cheval introuvable."}
+          {horse?.sharedRole ? t("Les chevaux partagés ne sont pas modifiables.") : t("Cheval introuvable.")}
         </Text>
       </SafeAreaView>
     );
@@ -29,16 +31,16 @@ export default function EditHorseModal() {
 
   function confirmDelete() {
     if (ownedHorseCount <= 1) {
-      Alert.alert("Impossible", "Tu dois garder au moins un cheval dans ton écurie.");
+      Alert.alert(t("Impossible"), t("Tu dois garder au moins un cheval dans ton écurie."));
       return;
     }
     Alert.alert(
-      "Supprimer ce cheval ?",
-      `${horse!.name} et tout son historique (séances, rendez-vous, journal) seront définitivement supprimés. Cette action est irréversible.`,
+      t("Supprimer ce cheval ?"),
+      t("{name} et tout son historique (séances, rendez-vous, journal) seront définitivement supprimés. Cette action est irréversible.", { name: horse!.name }),
       [
-        { text: "Annuler", style: "cancel" },
+        { text: t("Annuler"), style: "cancel" },
         {
-          text: "Supprimer",
+          text: t("Supprimer"),
           style: "destructive",
           onPress: () => {
             // removeHorse() ne touche qu'à l'écurie locale — sans ces 3
@@ -51,6 +53,7 @@ export default function EditHorseModal() {
             removeAgendaHorseData(horse!.id);
             removeSessionsHorseData(horse!.id);
             removeWeightHorseData(horse!.id);
+            removeHorseExtras(horse!.id);
             removeHorse(horse!.id);
             router.back();
           },
@@ -62,8 +65,8 @@ export default function EditHorseModal() {
   return (
     <>
     <HorseForm
-      title="Modifier le cheval"
-      submitLabel="Enregistrer"
+      title={t("Modifier le cheval")}
+      submitLabel={t("Enregistrer")}
       initial={horse}
       onSubmit={(updated) => {
         updateHorse(horse.id, updated);

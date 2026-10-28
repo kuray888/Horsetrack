@@ -1,8 +1,9 @@
 import { ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Image } from "@/components/AppImage";
+import { t } from "@/i18n";
 
 /** Visionneuse plein écran d'une photo de document (cf. DocumentCard, « Toucher
  * pour ouvrir en grand »).
@@ -41,12 +42,12 @@ export default function DocumentViewerScreen() {
             source={{ uri }}
             style={{ width, height: height - insets.top - insets.bottom }}
             contentFit="contain"
-            accessibilityLabel={title ?? "Document"}
+            accessibilityLabel={title ?? t("Document")}
           />
         </ScrollView>
       ) : (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-base text-white">Document introuvable.</Text>
+          <Text className="text-base text-white">{t("Document introuvable.")}</Text>
         </View>
       )}
 
@@ -62,7 +63,7 @@ export default function DocumentViewerScreen() {
           onPress={() => router.back()}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel="Fermer"
+          accessibilityLabel={t("Fermer")}
           className="h-10 w-10 items-center justify-center rounded-full bg-white/20"
         >
           <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" accessibilityElementsHidden />

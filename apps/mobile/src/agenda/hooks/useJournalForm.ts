@@ -12,6 +12,8 @@ const emptyJournalForm = {
   // "Photo du jour" optionnelle, une seule par entrée pour V1 (cf. audit
   // Phase 8 tranche F) — même champ/pipeline que DocumentForm.fileUri.
   photoUri: null as string | null,
+  // Vidéo (Premium) : choisie par JournalForm lui-même (cf. pickAndPersistVideo).
+  videoUri: null as string | null,
 };
 
 export type JournalFormValue = typeof emptyJournalForm;
@@ -52,6 +54,7 @@ export function useJournalForm({
       date: entry.date,
       time: entry.time,
       photoUri: entry.photoUri,
+      videoUri: entry.videoUri ?? null,
     });
     onEditStart();
     setShowJournalForm(true);
@@ -80,6 +83,7 @@ export function useJournalForm({
           date,
           time: journalForm.time.trim(),
           photoUri: journalForm.photoUri,
+          videoUri: journalForm.videoUri,
         });
       } else {
         // Best-effort, jamais bloquant : un refus de position/permission ne
@@ -94,6 +98,7 @@ export function useJournalForm({
           time: journalForm.time.trim(),
           weather,
           photoUri: journalForm.photoUri,
+          videoUri: journalForm.videoUri,
         });
       }
       cancelJournalForm();

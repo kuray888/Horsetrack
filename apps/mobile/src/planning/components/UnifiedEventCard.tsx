@@ -5,6 +5,10 @@ import { AppointmentCard } from "@/agenda/components/AppointmentCard";
 import type { Appointment, CompetitionEntry } from "@/agenda/store";
 import type { TrainingSession } from "@/sessions/store";
 import type { UnifiedEvent } from "@/planning/unifiedEvents";
+import { animateNextLayout } from "@/lib/motion";
+import { SwipeableRow } from "@/components/SwipeableRow";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import { t } from "@/i18n";
 
 type SessionHandlers = {
   onToggleDone: (session: TrainingSession) => void;
@@ -21,7 +25,7 @@ type AppointmentHandlers = {
   onAddChecklistItem: (appt: Appointment, label: string) => void;
   onRemoveChecklistItem: (appt: Appointment, itemId: string) => void;
   onAddCompetitionEntry: (appt: Appointment, entry: Omit<CompetitionEntry, "id" | "result">) => void;
-  onUpdateCompetitionEntryResult: (appt: Appointment, entryId: string, result: string) => void;
+  onUpdateCompetitionEntry: (appt: Appointment, entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) => void;
   onDeleteCompetitionEntry: (appt: Appointment, entryId: string) => void;
 };
 
@@ -86,22 +90,50 @@ function EventCard({
   sessionHandlers: SessionHandlers;
   appointmentHandlers: AppointmentHandlers;
 }) {
+  const colors = useThemeColors();
   if (event.kind === "session") {
+    const done = event.session.completed;
     return (
+      <SwipeableRow
+        leading={{
+          label: done ? t("À faire") : t("Fait"),
+          icon: done ? "undo-variant" : "check",
+          color: done ? colors.textMuted : colors.success,
+          onPress: () => sessionHandlers.onToggleDone(event.session),
+        }}
+        trailing={{
+          label: t("Supprimer"),
+          icon: "trash-can-outline",
+          color: colors.danger,
+          onPress: () => sessionHandlers.onDelete(event.session),
+        }}
+      >
       <SessionCard
         session={event.session}
         expanded={expanded}
-        onPress={onToggleExpand}
+        onPress={() => {
+          animateNextLayout();
+          onToggleExpand();
+        }}
         onToggleDone={() => sessionHandlers.onToggleDone(event.session)}
         onEdit={() => sessionHandlers.onEdit(event.session)}
         onDuplicate={() => sessionHandlers.onDuplicate(event.session)}
         onDelete={() => sessionHandlers.onDelete(event.session)}
       />
+      </SwipeableRow>
     );
   }
 
   const appt = event.appointment;
   return (
+    <SwipeableRow
+      trailing={{
+        label: t("Supprimer"),
+        icon: "trash-can-outline",
+        color: colors.danger,
+        onPress: () => appointmentHandlers.onDelete(appt),
+      }}
+    >
     <AppointmentCard
       appt={appt}
       expanded={expanded}
@@ -113,10 +145,9 @@ function EventCard({
       onAddChecklistItem={(label) => appointmentHandlers.onAddChecklistItem(appt, label)}
       onRemoveChecklistItem={(itemId) => appointmentHandlers.onRemoveChecklistItem(appt, itemId)}
       onAddCompetitionEntry={(entry) => appointmentHandlers.onAddCompetitionEntry(appt, entry)}
-      onUpdateCompetitionEntryResult={(entryId, result) =>
-        appointmentHandlers.onUpdateCompetitionEntryResult(appt, entryId, result)
-      }
+      onUpdateCompetitionEntry={(entryId, patch) => appointmentHandlers.onUpdateCompetitionEntry(appt, entryId, patch)}
       onDeleteCompetitionEntry={(entryId) => appointmentHandlers.onDeleteCompetitionEntry(appt, entryId)}
     />
+    </SwipeableRow>
   );
 }

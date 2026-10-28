@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { Redirect } from "expo-router";
-import { colors } from "@/theme/colors";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { supabase } from "@/lib/supabase";
 import { isOnboardingCompleted } from "@/onboarding/completion";
 
@@ -13,6 +13,7 @@ import { isOnboardingCompleted } from "@/onboarding/completion";
  * (déconnexion), on renvoie vers le login plutôt que de relancer l'onboarding.
  */
 export default function Index() {
+  const themeColors = useThemeColors();
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [done, setDone] = useState<boolean | null>(null);
 
@@ -34,8 +35,8 @@ export default function Index() {
 
   if (hasSession === null || done === null) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: themeColors.background }}>
+        <ActivityIndicator color={themeColors.primary} />
       </View>
     );
   }

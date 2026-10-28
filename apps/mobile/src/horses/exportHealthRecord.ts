@@ -5,6 +5,7 @@ import { buildTextPdf } from "@/lib/pdfText";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { buildHealthRecordLines, type RecordAppointment, type RecordHorse, type RecordWeight } from "@/horses/healthRecord";
+import { t } from "@/i18n";
 
 /**
  * Écrit le carnet de santé sur disque et ouvre le partage iOS — d'où on peut
@@ -26,7 +27,7 @@ export async function exportHealthRecord(
 ): Promise<void> {
   try {
     if (!(await Sharing.isAvailableAsync())) {
-      Alert.alert("Partage indisponible", "Le partage de fichiers n'est pas disponible sur cet appareil.");
+      Alert.alert(t("Partage indisponible"), t("Le partage de fichiers n'est pas disponible sur cet appareil."));
       return;
     }
     const lines = buildHealthRecordLines(horse, soins, weights, new Date());
@@ -34,7 +35,7 @@ export async function exportHealthRecord(
     // Nom de fichier lisible par le destinataire : c'est lui qui s'affichera
     // dans la pièce jointe d'un mail au véto.
     const safeName = horse.name.replace(/[^a-zA-Z0-9-_ ]/g, "").trim() || "cheval";
-    const file = new File(Paths.cache, `Carnet de sante - ${safeName}.pdf`);
+    const file = new File(Paths.cache, t("Carnet de sante - {safeName}.pdf", { safeName: safeName }));
     if (file.exists) file.delete();
     file.create();
     file.write(pdf);
@@ -47,6 +48,6 @@ export async function exportHealthRecord(
     recordPositiveMoment("pdf_exported");
   } catch (e) {
     console.warn("[healthRecord] export échoué", e);
-    Alert.alert("Export impossible", "Le carnet n'a pas pu être créé. Réessaie dans un instant.");
+    Alert.alert(t("Export impossible"), t("Le carnet n'a pas pu être créé. Réessaie dans un instant."));
   }
 }

@@ -13,6 +13,7 @@ import {
   targetsOutsideView,
 } from "@/horses/selectableHorses";
 import type { Horse } from "@/horses/store";
+import { t, localDecimal } from "@/i18n";
 
 const emptyExpenseForm = {
   category: "veto" as ExpenseCategory,
@@ -97,7 +98,7 @@ export function useExpenseForm({
     setEditingExpenseId(expense.id);
     setExpenseForm({
       category: expense.category,
-      amount: String(expense.amount).replace(".", ","),
+      amount: localDecimal(String(expense.amount)),
       date: expense.date,
       notes: expense.notes,
       appointmentId: expense.appointmentId,
@@ -147,7 +148,7 @@ export function useExpenseForm({
       // Ceinture du bouton désactivé (cf. ExpenseForm) — même règle que pour
       // les rendez-vous : la vue « Tous » ne désigne aucun cheval par défaut.
       if (needsExplicitHorseChoice(expenseForm.horseIds, selectableHorses, fallbackIds)) {
-        Alert.alert("Pour quel cheval ?", "Choisis au moins un cheval avant d'enregistrer cette dépense.");
+        Alert.alert(t("Pour quel cheval ?"), t("Choisis au moins un cheval avant d'enregistrer cette dépense."));
         // Rien n'a été écrit et le formulaire reste ouvert : le bouton doit
         // redevenir utilisable une fois un cheval coché.
         submitLock.current = false;
@@ -165,7 +166,7 @@ export function useExpenseForm({
         isActiveOrTrialing && expenseForm.fileUri
           ? addDocument({
               category: "facture",
-              name: `Facture ${EXPENSE_META[expenseForm.category].label.toLowerCase()} — ${formatDate(date)}`,
+              name: t("Facture {v} — {formatDate}", { v: EXPENSE_META[expenseForm.category].label.toLowerCase(), formatDate: formatDate(date) }),
               date,
               fileUri: expenseForm.fileUri,
               ...(targetHorseIds[0] ? { horseId: targetHorseIds[0] } : {}),
@@ -199,11 +200,11 @@ export function useExpenseForm({
       // Une dépense créée pour un cheval que la liste de cet écran n'affiche
       // pas semblerait perdue : on le dit (cf. hiddenTargetsMessage).
       hiddenNames = targetsOutsideView(targetHorseIds, visibleHorseIds ?? fallbackIds).map(
-        (id) => selectableHorses.find((h) => h.id === id)?.name ?? "un autre cheval"
+        (id) => selectableHorses.find((h) => h.id === id)?.name ?? t("un autre cheval")
       );
     }
     cancelExpenseForm();
-    if (hiddenNames.length > 0) Alert.alert("Dépense enregistrée", hiddenTargetsMessage(hiddenNames));
+    if (hiddenNames.length > 0) Alert.alert(t("Dépense enregistrée"), hiddenTargetsMessage(hiddenNames));
   }
 
   async function handlePickExpensePhoto() {
@@ -219,7 +220,7 @@ export function useExpenseForm({
     if (!uri) return;
     const documentId = addDocument({
       category: "facture",
-      name: `Facture ${EXPENSE_META[expense.category].label.toLowerCase()} — ${formatDate(expense.date)}`,
+      name: t("Facture {v} — {formatDate}", { v: EXPENSE_META[expense.category].label.toLowerCase(), formatDate: formatDate(expense.date) }),
       date: expense.date,
       fileUri: uri,
       // Le cheval de CETTE dépense, pas le cheval actif (cf. handleSubmitExpense).

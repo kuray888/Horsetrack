@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
@@ -19,6 +19,9 @@ import {
 import { ExpenseForm } from "@/agenda/components/ExpenseForm";
 import { ExpenseCard } from "@/agenda/components/ExpenseCard";
 import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
+import { t, LOCALE } from "@/i18n";
+import { useHorseDetails } from "@/extras/store";
+import { netMonthlyCost } from "@/extras/model";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -50,6 +53,7 @@ export default function HorseBudgetScreen() {
 
   const horse = horses.find((h) => h.id === id);
   const horseId = horse?.id ?? null;
+  const partnership = useHorseDetails(id)?.partnership ?? null;
 
   // Mémoïsés (cf. audit perf du 2026-09-09, repris tel quel de l'écran
   // Agenda) : sans ça, taper dans le formulaire de dépense recalculait tout
@@ -108,7 +112,7 @@ export default function HorseBudgetScreen() {
           .reduce((sum, e) => sum + e.amount, 0);
         return {
           key: `${d.getFullYear()}-${d.getMonth()}`,
-          label: capitalize(d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })),
+          label: capitalize(d.toLocaleDateString(LOCALE, { month: "long", year: "numeric" })),
           total,
         };
       }),
@@ -145,7 +149,7 @@ export default function HorseBudgetScreen() {
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
             <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
-            <Text className="text-sm text-muted">Ce cheval est introuvable.</Text>
+            <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
           </View>
         </FadeInView>
       </Screen>
@@ -160,9 +164,9 @@ export default function HorseBudgetScreen() {
   }
 
   function confirmDeleteExpense(expense: Expense) {
-    Alert.alert("Supprimer cette dépense ?", "Cette action est définitive.", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", style: "destructive", onPress: () => deleteExpense(expense.id) },
+    Alert.alert(t("Supprimer cette dépense ?"), t("Cette action est définitive."), [
+      { text: t("Annuler"), style: "cancel" },
+      { text: t("Supprimer"), style: "destructive", onPress: () => deleteExpense(expense.id) },
     ]);
   }
 
@@ -172,13 +176,13 @@ export default function HorseBudgetScreen() {
         <FadeInView>
           <View className="flex-row items-center justify-between">
             <View className="flex-1 gap-0.5 pr-3">
-              <Text className="text-2xl font-display tracking-tight text-text">Budget</Text>
-              <Text className="text-sm text-muted">Dépenses et budget de {horse.name}</Text>
+              <Text className="text-2xl font-display tracking-tight text-text">{t("Budget")}</Text>
+              <Text className="text-sm text-muted">{t("Dépenses et budget de ")}{horse.name}</Text>
             </View>
             <TouchableOpacity
               onPress={() => router.back()}
               hitSlop={12}
-              accessibilityLabel="Fermer"
+              accessibilityLabel={t("Fermer")}
               accessibilityRole="button"
             >
               <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
@@ -189,18 +193,18 @@ export default function HorseBudgetScreen() {
         {sortedExpenses.length > 0 ? (
           <>
             <FadeInView delay={40}>
-              <Locked message="Vois d'un coup d'œil ce qui est payé et ce qui reste à régler" placement="budget" feature="budget_paid_status">
+              <Locked message={t("Vois d'un coup d'œil ce qui est payé et ce qui reste à régler")} placement="budget" feature="budget_paid_status">
                 <View className={`${CARD} flex-row items-center justify-between`}>
                   <View className="items-center gap-0.5">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Total</Text>
+                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Total")}</Text>
                     <Text className="text-lg font-display text-text">{formatAmount(totalExpenses, "EUR")}</Text>
                   </View>
                   <View className="items-center gap-0.5">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Payé</Text>
+                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Payé")}</Text>
                     <Text className="text-lg font-display text-success">{formatAmount(paidExpenses, "EUR")}</Text>
                   </View>
                   <View className="items-center gap-0.5">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">À payer</Text>
+                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("À payer")}</Text>
                     <Text className="text-lg font-display text-danger">{formatAmount(pendingExpenses, "EUR")}</Text>
                   </View>
                 </View>
@@ -208,22 +212,38 @@ export default function HorseBudgetScreen() {
             </FadeInView>
 
             <FadeInView delay={60}>
-              <Locked message="Vois où part ton budget, poste par poste" placement="budget" feature="budget_breakdown">
+              <Locked message={t("Vois où part ton budget, poste par poste")} placement="budget" feature="budget_breakdown">
                 <View className={`${CARD} gap-4`}>
                   <View className="flex-row items-center justify-between">
                     <View className="gap-0.5">
-                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Ce mois-ci</Text>
+                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Ce mois-ci")}</Text>
                       <Text className="text-lg font-display text-text">{formatAmount(monthTotal, "EUR")}</Text>
                     </View>
                     <View className="items-end gap-0.5">
-                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">Cette année</Text>
+                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Cette année")}</Text>
                       <Text className="text-lg font-display text-text">{formatAmount(yearTotal, "EUR")}</Text>
                     </View>
                   </View>
+                  {/* Demi-pension (cf. horse/[id]/demi-pension.tsx) : sa
+                      participation mensuelle vient en déduction. */}
+                  {partnership && partnership.monthlyFee !== null ? (
+                    <View className="gap-1 border-t border-border pt-3">
+                      <View className="flex-row justify-between">
+                        <Text className="text-sm text-muted">
+                          {t("Participation de {name}", { name: partnership.riderName.trim() || t("la demi-pension") })}
+                        </Text>
+                        <Text className="text-sm font-semibold text-success">−{formatAmount(partnership.monthlyFee, "EUR")}</Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text className="text-sm font-semibold text-text">{t("Reste à ta charge ce mois-ci")}</Text>
+                        <Text className="text-sm font-bold text-text">{formatAmount(netMonthlyCost(monthTotal, partnership), "EUR")}</Text>
+                      </View>
+                    </View>
+                  ) : null}
 
                   {categoryBreakdown.length > 0 ? (
                     <View className="gap-2 border-t border-border pt-3">
-                      <Text className="text-xs font-bold uppercase tracking-wide text-accent">Par catégorie</Text>
+                      <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Par catégorie")}</Text>
                       {categoryBreakdown.map(({ category, total }) => {
                         const meta = EXPENSE_META[category];
                         const pct = totalExpenses > 0 ? Math.round((total / totalExpenses) * 100) : 0;
@@ -244,7 +264,7 @@ export default function HorseBudgetScreen() {
                   ) : null}
 
                   <View className="gap-2 border-t border-border pt-3">
-                    <Text className="text-xs font-bold uppercase tracking-wide text-accent">Historique mensuel</Text>
+                    <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Historique mensuel")}</Text>
                     {monthlyHistory.map(({ key, label, total }) => (
                       <View key={key} className="flex-row items-center justify-between">
                         <Text className="text-sm text-muted">{label}</Text>
@@ -280,12 +300,11 @@ export default function HorseBudgetScreen() {
                 <MaterialCommunityIcons name="wallet-outline" size={22} color={colors.textMuted} />
               </View>
               <Text className="text-center text-sm text-muted">
-                Aucune dépense pour l&apos;instant. Pension, maréchal, véto : les noter ici permet de voir ce que coûte
-                vraiment un mois.
+                {t("Aucune dépense pour l'instant. Pension, maréchal, véto : les noter ici permet de voir ce que coûte vraiment un mois.")}
               </Text>
               {!showExpenseForm ? (
                 <TouchableOpacity onPress={() => setShowExpenseForm(true)} activeOpacity={0.7}>
-                  <Text className="text-sm font-semibold text-accent">Ajouter une dépense</Text>
+                  <Text className="text-sm font-semibold text-accent">{t("Ajouter une dépense")}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>

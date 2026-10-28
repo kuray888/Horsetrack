@@ -139,3 +139,15 @@ describe("Horse Hub navigation source", () => {
     expect(hubSource.match(/goToTab\(/g)?.length).toBeGreaterThanOrEqual(4);
   });
 });
+
+/** Même règle pour les autres écrans empilés au-dessus des onglets (fenêtre
+ * de recherche, routeur de notifications) : un saut vers un onglet n'y passe
+ * jamais par `router.push`/`router.navigate` écrits en dur. */
+describe("écrans empilés : pas de push vers (tabs)", () => {
+  for (const file of ["../../app/search.tsx", "../components/NotificationRouter.tsx"]) {
+    it(`${file.split("/").pop()} n'empile jamais un second (tabs)`, () => {
+      const source = readFileSync(path.resolve(__dirname, file), "utf8");
+      expect(source).not.toMatch(/router\.(push|navigate)\(\s*[`"']\/\(tabs\)/);
+    });
+  }
+});

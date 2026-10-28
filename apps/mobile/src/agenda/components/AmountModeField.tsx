@@ -3,11 +3,12 @@ import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { ChipSelect } from "@/components/FormChips";
 import { amountsForHorses, type AmountMode } from "@/agenda/splitAmount";
+import { t, localDecimal } from "@/i18n";
 
 /** Montant en euros pour l'aperçu de répartition — virgule décimale, et les
  * centimes seulement quand il y en a (60 € et non 60,00 €). */
 function formatEuros(value: number): string {
-  return (Math.round(value * 100) % 100 === 0 ? String(Math.round(value)) : value.toFixed(2)).replace(".", ",");
+  return localDecimal(Math.round(value * 100) % 100 === 0 ? String(Math.round(value)) : value.toFixed(2));
 }
 
 /** « Ce montant est… par cheval / à répartir » + aperçu du résultat.
@@ -27,7 +28,7 @@ export function AmountModeField({
   onChange,
   horseCount,
   amount,
-  noun = "dépenses",
+  noun = t("dépenses"),
 }: {
   mode: AmountMode;
   onChange: (mode: AmountMode) => void;
@@ -41,12 +42,12 @@ export function AmountModeField({
   const preview = Number.isFinite(amount) && amount > 0 ? amountsForHorses(amount, horseCount, mode) : null;
 
   return (
-    <Field label="Ce montant est…">
+    <Field label={t("Ce montant est…")}>
       <View className="gap-2">
         <ChipSelect
           options={[
-            { value: "per-horse" as AmountMode, label: "Par cheval", icon: { name: "content-copy", color: colors.textMuted } },
-            { value: "split" as AmountMode, label: "À répartir", icon: { name: "call-split", color: colors.textMuted } },
+            { value: "per-horse" as AmountMode, label: t("Par cheval"), icon: { name: "content-copy", color: colors.textMuted } },
+            { value: "split" as AmountMode, label: t("À répartir"), icon: { name: "call-split", color: colors.textMuted } },
           ]}
           value={mode}
           onChange={onChange}
@@ -54,8 +55,8 @@ export function AmountModeField({
         {preview ? (
           <Text className="text-xs text-muted">
             {mode === "split"
-              ? `${horseCount} ${noun} de ${preview.map(formatEuros).join(" / ")} €, soit ${formatEuros(amount)} € au total.`
-              : `${horseCount} ${noun} de ${formatEuros(amount)} €, soit ${formatEuros(amount * horseCount)} € au total.`}
+              ? t("{horseCount} {noun} de {v} €, soit {formatEuros} € au total.", { horseCount: horseCount, noun: noun, v: preview.map(formatEuros).join(" / "), formatEuros: formatEuros(amount) })
+              : t("{horseCount} {noun} de {formatEuros} €, soit {formatEuros2} € au total.", { horseCount: horseCount, noun: noun, formatEuros: formatEuros(amount), formatEuros2: formatEuros(amount * horseCount) })}
           </Text>
         ) : null}
       </View>

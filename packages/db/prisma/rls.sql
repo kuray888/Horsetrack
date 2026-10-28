@@ -346,6 +346,7 @@ set search_path = public
 as $$
 declare
   photo_changed boolean;
+  video_changed boolean;
 begin
   -- OLD n'est pas une ligne "toutes colonnes NULL" pendant un INSERT, elle
   -- n'est pas assignée du tout — lire old."photoPath" dans ce cas lève
@@ -355,14 +356,18 @@ begin
   -- court-circuit des opérateurs booléens (contrairement à un langage
   -- procédural), donc `tg_op = 'INSERT' or old.… is distinct from …` resterait
   -- risqué même si ça "marche" en pratique la plupart du temps.
+  -- La vidéo d'un souvenir (bloc B, 2026-10-27) suit la même règle.
   if tg_op = 'INSERT' then
     photo_changed := new."photoPath" is not null;
+    video_changed := new."videoPath" is not null;
   else
     photo_changed := new."photoPath" is not null
       and old."photoPath" is distinct from new."photoPath";
+    video_changed := new."videoPath" is not null
+      and old."videoPath" is distinct from new."videoPath";
   end if;
 
-  if photo_changed and not public.horse_owner_is_active_or_trialing(new."horseId") then
+  if (photo_changed or video_changed) and not public.horse_owner_is_active_or_trialing(new."horseId") then
     raise exception 'journal entry photo requires an active or trialing subscription';
   end if;
 
@@ -389,6 +394,15 @@ alter table public.competition_entries enable row level security;
 alter table public.expenses           enable row level security;
 alter table public.revenuecat_webhook_events enable row level security;
 alter table public.horse_weight_measurements enable row level security;
+alter table public.training_session_rides enable row level security;
+-- Bloc B (cf. bloc-b-2026-10-27.sql) : horse_details (partage du cheval),
+-- rider_contacts (personnel), referral_* (API seulement, sans policy).
+alter table public.horse_details enable row level security;
+alter table public.rider_contacts enable row level security;
+alter table public.referral_codes enable row level security;
+alter table public.referral_uses enable row level security;
+-- ride_shares : sans aucune policy, réservée à l'API (cf. seances-en-direct-2026-10-27.sql).
+alter table public.ride_shares enable row level security;
 -- promo_codes / promo_code_redemptions : aucune policy plus bas, volontairement
 -- (même traitement que revenuecat_webhook_events ci-dessus) — la validation et
 -- l'application d'un code promo passent exclusivement par /api/promo/redeem
@@ -860,6 +874,47 @@ drop policy if exists "training_sessions_delete_shared" on public.training_sessi
 create policy "training_sessions_delete_shared" on public.training_sessions
   for delete using (public.can_access_horse("horseId"));
 
+-- training_session_rides : parcours d'une séance enregistrée en direct
+-- (chrono, GPS, allures — cf. seances-en-direct-2026-10-27.sql). Même portée
+-- de partage que training_sessions ci-dessus.
+drop policy if exists "training_session_rides_select_shared" on public.training_session_rides;
+create policy "training_session_rides_select_shared" on public.training_session_rides
+  for select using (public.can_access_horse("horseId"));
+
+drop policy if exists "training_session_rides_insert_shared" on public.training_session_rides;
+create policy "training_session_rides_insert_shared" on public.training_session_rides
+  for insert with check (public.can_access_horse("horseId"));
+
+drop policy if exists "training_session_rides_update_shared" on public.training_session_rides;
+create policy "training_session_rides_update_shared" on public.training_session_rides
+  for update using (public.can_access_horse("horseId"))
+  with check (public.can_access_horse("horseId"));
+
+drop policy if exists "training_session_rides_delete_shared" on public.training_session_rides;
+create policy "training_session_rides_delete_shared" on public.training_session_rides
+  for delete using (public.can_access_horse("horseId"));
+
+-- horse_details : identité, alimentation, demi-pension — même portée que les séances.
+drop policy if exists "horse_details_select_shared" on public.horse_details;
+create policy "horse_details_select_shared" on public.horse_details
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "horse_details_insert_shared" on public.horse_details;
+create policy "horse_details_insert_shared" on public.horse_details
+  for insert with check (public.can_access_horse("horseId"));
+drop policy if exists "horse_details_update_shared" on public.horse_details;
+create policy "horse_details_update_shared" on public.horse_details
+  for update using (public.can_access_horse("horseId"))
+  with check (public.can_access_horse("horseId"));
+drop policy if exists "horse_details_delete_shared" on public.horse_details;
+create policy "horse_details_delete_shared" on public.horse_details
+  for delete using (public.can_access_horse("horseId"));
+
+-- rider_contacts : carnet personnel.
+drop policy if exists "rider_contacts_own" on public.rider_contacts;
+create policy "rider_contacts_own" on public.rider_contacts
+  for all using ("userId" = auth.uid()::text)
+  with check ("userId" = auth.uid()::text);
+
 -- expenses : le suivi de dépenses de base fait partie du palier gratuit (le
 -- statut payé/à régler détaillé restera, lui, une distinction Premium côté
 -- app — cf. plan freemium). Même portée de partage que training_sessions ci-dessus.
@@ -990,3 +1045,78 @@ create policy "horse_photos_delete_own" on storage.objects
 -- lue ni écrite par un client. RLS activée sans aucune policy = même
 -- pattern que `sessions` ci-dessus : personne ne peut y toucher via
 -- supabase-js.
+
+-- Bloc C (cf. bloc-c-2026-10-28.sql) -------------------------------------------
+-- Coach IA et jetons push : réservés à l'API, RLS sans aucune policy.
+alter table public.coach_calls enable row level security;
+alter table public.coach_suggestions enable row level security;
+alter table public.coach_summaries enable row level security;
+alter table public.push_tokens enable row level security;
+
+-- Fil privé d'un cheval : mêmes personnes que le cheval (can_access_horse).
+-- Rôle de l'auteur posé par la base, jamais par l'app : une demi-pension ne
+-- peut pas se présenter comme propriétaire.
+create or replace function public.set_horse_comment_author_role()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  new."authorUserId" := auth.uid()::text;
+  if public.owns_horse(new."horseId") then
+    new."authorRole" := 'OWNER';
+  else
+    select hc.role::text into new."authorRole"
+    from public.horse_collaborators hc
+    where hc."horseId" = new."horseId"
+      and hc."collaboratorUserId" = auth.uid()::text
+      and hc.status = 'ACCEPTED'
+    limit 1;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists horse_comments_set_author_role on public.horse_comments;
+create trigger horse_comments_set_author_role
+  before insert on public.horse_comments
+  for each row execute function public.set_horse_comment_author_role();
+
+alter table public.horse_comments enable row level security;
+alter table public.horse_reactions enable row level security;
+alter table public.comment_reports enable row level security;
+
+drop policy if exists "horse_comments_select_shared" on public.horse_comments;
+create policy "horse_comments_select_shared" on public.horse_comments
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "horse_comments_insert_shared" on public.horse_comments;
+create policy "horse_comments_insert_shared" on public.horse_comments
+  for insert with check (public.can_access_horse("horseId"));
+-- Pas de modification : un commentaire se supprime et se réécrit.
+-- Suppression : son auteur, ou le propriétaire du cheval (modération).
+drop policy if exists "horse_comments_delete_author_or_owner" on public.horse_comments;
+create policy "horse_comments_delete_author_or_owner" on public.horse_comments
+  for delete using ("authorUserId" = auth.uid()::text or public.owns_horse("horseId"));
+
+drop policy if exists "horse_reactions_select_shared" on public.horse_reactions;
+create policy "horse_reactions_select_shared" on public.horse_reactions
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "horse_reactions_insert_own" on public.horse_reactions;
+create policy "horse_reactions_insert_own" on public.horse_reactions
+  for insert with check ("userId" = auth.uid()::text and public.can_access_horse("horseId"));
+drop policy if exists "horse_reactions_delete_own" on public.horse_reactions;
+create policy "horse_reactions_delete_own" on public.horse_reactions
+  for delete using ("userId" = auth.uid()::text);
+
+-- Signalement : n'importe quel participant du fil, sur un commentaire qu'il
+-- peut lire ; lu seulement depuis la console /admin (API).
+drop policy if exists "comment_reports_insert_participant" on public.comment_reports;
+create policy "comment_reports_insert_participant" on public.comment_reports
+  for insert with check (
+    "reporterUserId" = auth.uid()::text
+    and exists (
+      select 1 from public.horse_comments c
+      where c.id = "commentId" and public.can_access_horse(c."horseId")
+    )
+  );

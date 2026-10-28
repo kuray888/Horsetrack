@@ -9,6 +9,7 @@ import {
   shouldShowRemindersUpsell,
   hasFreeReminderSlot,
   formatStorePrice,
+  isStoreRedeemUrl,
   parsePlacement,
   parseTrialPeriod,
   paywallCopy,
@@ -162,5 +163,16 @@ describe("formatStorePrice", () => {
   it("renvoie null sans devise exploitable", () => {
     expect(formatStorePrice(3.99, null)).toBeNull();
     expect(formatStorePrice(3.99, "PAS_UNE_DEVISE")).toBeNull();
+  });
+});
+
+describe("isStoreRedeemUrl", () => {
+  it("n'accepte que les feuilles de rédemption officielles", () => {
+    expect(isStoreRedeemUrl("https://apps.apple.com/redeem?ctx=offercodes&id=1&code=A")).toBe(true);
+    expect(isStoreRedeemUrl("https://play.google.com/redeem?code=A")).toBe(true);
+    expect(isStoreRedeemUrl("http://apps.apple.com/redeem?code=A")).toBe(false);
+    expect(isStoreRedeemUrl("https://apps.apple.com.evil.fr/redeem?code=A")).toBe(false);
+    expect(isStoreRedeemUrl("https://evil.fr/?https://apps.apple.com/redeem?")).toBe(false);
+    expect(isStoreRedeemUrl("javascript:alert(1)")).toBe(false);
   });
 });

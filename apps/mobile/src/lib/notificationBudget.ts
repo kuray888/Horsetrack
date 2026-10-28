@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 /**
  * Combien de rappels locaux peut-on encore programmer ?
  *
@@ -41,9 +43,9 @@ export function reminderBudgetWarning(pending: number, about: number): string | 
   if (about <= free) return null;
   const lost = about - free;
   return (
-    `${pending} rappel${pending > 1 ? "s sont" : " est"} déjà programmé${pending > 1 ? "s" : ""} sur cet appareil, et iOS n'en garde que ` +
-    `${IOS_PENDING_NOTIFICATION_LIMIT} à la fois. ${lost === 1 ? "Un rappel" : `${lost} rappels`} ` +
-    `${lost === 1 ? "risque" : "risquent"} de ne pas se déclencher — les plus lointains d'abord. ` +
-    `Le rendez-vous, lui, sera bien enregistré.`
+    t("{pending} rappel{v} déjà programmé{v2} sur cet appareil, et iOS n'en garde que ", { pending: pending, v: pending > 1 ? "s sont" : " est", v2: pending > 1 ? "s" : "" }) +
+    t("{IOS_PENDING_NOTIFICATION_LIMIT} à la fois. {v} ", { IOS_PENDING_NOTIFICATION_LIMIT: IOS_PENDING_NOTIFICATION_LIMIT, v: lost === 1 ? "Un rappel" : `${lost} rappels` }) +
+    t("{v} de ne pas se déclencher — les plus lointains d'abord. ", { v: lost === 1 ? "risque" : "risquent" }) +
+    t("Le rendez-vous, lui, sera bien enregistré.")
   );
 }

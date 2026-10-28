@@ -2,6 +2,7 @@ import type { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ACTIVITY_META, type Appointment, type Expense, type JournalEntry } from "@/agenda/store";
 import { APPT_META, EXPENSE_META } from "@/agenda/meta";
 import type { TrainingSession } from "@/sessions/store";
+import { t, LOCALE } from "@/i18n";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -48,8 +49,8 @@ export function buildActivityEntries(
         icon: ACTIVITY_META[s.activityType].icon,
         iconColor: ACTIVITY_META[s.activityType].tint,
         // « Séance CSO », pas « Séance cso » : un sigle garde ses majuscules.
-        title: `Séance ${sessionLabel(ACTIVITY_META[s.activityType].label)}`,
-        subtitle: s.durationMinutes ? `${s.durationMinutes} min` : null,
+        title: t("Séance {sessionLabel}", { sessionLabel: sessionLabel(ACTIVITY_META[s.activityType].label) }),
+        subtitle: s.durationMinutes ? t("{durationMinutes} min", { durationMinutes: s.durationMinutes }) : null,
       })),
     ...appointments
       .filter((a) => a.horseId === horseId && a.date <= upTo)
@@ -68,7 +69,7 @@ export function buildActivityEntries(
         date: j.date,
         icon: ACTIVITY_META[j.activityType].icon,
         iconColor: ACTIVITY_META[j.activityType].tint,
-        title: `Journal — ${ACTIVITY_META[j.activityType].label}`,
+        title: t("Journal — {label}", { label: ACTIVITY_META[j.activityType].label }),
         subtitle: j.notes || null,
       })),
     ...expenses
@@ -79,7 +80,7 @@ export function buildActivityEntries(
         icon: EXPENSE_META[e.category].icon.name,
         iconColor: EXPENSE_META[e.category].icon.color,
         title: EXPENSE_META[e.category].label,
-        subtitle: new Intl.NumberFormat("fr-FR", { style: "currency", currency: e.currency }).format(e.amount),
+        subtitle: new Intl.NumberFormat(LOCALE, { style: "currency", currency: e.currency }).format(e.amount),
       })),
   ];
 

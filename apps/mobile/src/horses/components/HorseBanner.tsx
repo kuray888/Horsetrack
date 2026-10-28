@@ -1,11 +1,13 @@
 import { Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Link } from "expo-router";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { Image } from "@/components/AppImage";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { DISCIPLINES, HORSE_LEVELS } from "@/onboarding/options";
 import { ROLE_LABEL } from "@/lib/sharing";
 import type { Horse } from "@/horses/store";
+import { t } from "@/i18n";
 
 /** ~240dp (cf. audit Phase 8 tranche G, cible 220-260dp) : assez grand pour
  * rendre le cheval immédiatement identifiable, sans pousser les modules du
@@ -36,16 +38,21 @@ export function HorseBanner({
   onEdit: () => void;
 }) {
   const colors = useThemeColors();
-  const age = horse.birthYear ? `${new Date().getFullYear() - horse.birthYear} ans` : null;
+  const age = horse.birthYear ? t("{v} ans", { v: new Date().getFullYear() - horse.birthYear }) : null;
   const subtitle = `${labelOf(DISCIPLINES, horse.discipline)} · ${labelOf(HORSE_LEVELS, horse.level)}`;
-  const details = [horse.breed, horse.coat, age].filter(Boolean).join(" · ") || "Aucune info supplémentaire";
+  const details = [horse.breed, horse.coat, age].filter(Boolean).join(" · ") || t("Aucune info supplémentaire");
   // Saisi à la création (et modifiable depuis la fiche) mais jusqu'ici affiché
   // nulle part — cf. audit du 2026-09-19 : une donnée qu'on demande à
   // l'utilisateur doit lui être rendue quelque part.
-  const temperament = horse.temperament.length > 0 ? horse.temperament.join(", ") : null;
+  const temperament = horse.temperament.length > 0 ? horse.temperament.map((v) => t(v)).join(", ") : null;
   const hasPhoto = !!horse.photoUrl;
 
   return (
+    // Cible de la transition zoom ouverte depuis la liste des chevaux ou
+    // l'Accueil (iOS 18+) : la photo d'origine grandit jusqu'à ce cadre.
+    // Sans transition zoom en cours (fiche dans l'onglet, Android), ce
+    // composant rend simplement son enfant.
+    <Link.AppleZoomTarget>
     <View className="overflow-hidden rounded-card bg-highlight" style={{ height: BANNER_HEIGHT }}>
       {hasPhoto ? (
         <Image source={{ uri: horse.photoUrl! }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
@@ -73,7 +80,7 @@ export function HorseBanner({
         <TouchableOpacity
           onPress={onEdit}
           activeOpacity={0.85}
-          accessibilityLabel="Modifier la photo du cheval"
+          accessibilityLabel={t("Modifier la photo du cheval")}
           accessibilityRole="button"
           hitSlop={8}
           className="absolute right-3 top-3 h-9 w-9 items-center justify-center rounded-full bg-black/35"
@@ -114,10 +121,11 @@ export function HorseBanner({
         </Text>
         {temperament ? (
           <Text className={`text-xs ${hasPhoto ? "text-white/75" : "text-muted"}`} numberOfLines={1}>
-            Tempérament : {temperament}
+            {t("Tempérament : ")}{temperament}
           </Text>
         ) : null}
       </View>
     </View>
+    </Link.AppleZoomTarget>
   );
 }

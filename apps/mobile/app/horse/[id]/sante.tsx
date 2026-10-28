@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { FadeInView } from "@/components/FadeInView";
@@ -17,6 +17,7 @@ import { formatDate } from "@/lib/dateFormat";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
 import { HealthHistory } from "@/horses/components/HealthHistory";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -78,7 +79,7 @@ export default function HorseSanteScreen() {
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
             <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
-            <Text className="text-sm text-muted">Ce cheval est introuvable.</Text>
+            <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
           </View>
         </FadeInView>
       </Screen>
@@ -132,8 +133,8 @@ export default function HorseSanteScreen() {
   }
 
   function statusFor(appt: Appointment): { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; color: string } {
-    if (appt.date <= today) return { label: "Effectué", icon: "check-circle-outline", color: colors.success };
-    return { label: `À venir · ${daysUntilLabel(appt.date)}`, icon: "clock-outline", color: colors.warning };
+    if (appt.date <= today) return { label: t("Effectué"), icon: "check-circle-outline", color: colors.success };
+    return { label: t("À venir · {daysUntilLabel}", { daysUntilLabel: daysUntilLabel(appt.date) }), icon: "clock-outline", color: colors.warning };
   }
 
   // Même confirmation que Planning/Agenda pour un rendez-vous (cf.
@@ -143,9 +144,9 @@ export default function HorseSanteScreen() {
   // cartes d'Agenda/Planning). deleteAppointment existe déjà et gère tout
   // (annule les rappels programmés, sync cloud) — rien à ajouter côté store.
   function confirmDeleteAppt(appt: Appointment) {
-    Alert.alert("Supprimer ce rendez-vous ?", "Cette action est définitive.", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", style: "destructive", onPress: () => deleteAppointment(appt) },
+    Alert.alert(t("Supprimer ce rendez-vous ?"), t("Cette action est définitive."), [
+      { text: t("Annuler"), style: "cancel" },
+      { text: t("Supprimer"), style: "destructive", onPress: () => deleteAppointment(appt) },
     ]);
   }
 
@@ -163,8 +164,8 @@ export default function HorseSanteScreen() {
       <Screen scrollRef={scrollRef}>
         <FadeInView>
           <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-display tracking-tight text-text">Santé</Text>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Fermer" accessibilityRole="button">
+            <Text className="text-2xl font-display tracking-tight text-text">{t("Santé")}</Text>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
               <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -203,7 +204,7 @@ export default function HorseSanteScreen() {
               className="flex-row items-center justify-center gap-2 rounded-card border border-border p-3.5"
             >
               <MaterialCommunityIcons name="file-pdf-box" size={18} color={colors.primary} />
-              <Text className="text-sm font-semibold text-primary">Exporter le carnet de santé (PDF)</Text>
+              <Text className="text-sm font-semibold text-primary">{t("Exporter le carnet de santé (PDF)")}</Text>
             </TouchableOpacity>
           </FadeInView>
         ) : null}
@@ -218,7 +219,7 @@ export default function HorseSanteScreen() {
 
         {!showApptForm ? (
           <FadeInView delay={55}>
-            <Text className="mt-1 text-sm font-bold uppercase tracking-wide text-muted">Soins et rendez-vous</Text>
+            <Text className="mt-1 text-sm font-bold uppercase tracking-wide text-muted">{t("Soins et rendez-vous")}</Text>
           </FadeInView>
         ) : null}
 
@@ -229,7 +230,7 @@ export default function HorseSanteScreen() {
                 <MaterialCommunityIcons name="heart-pulse" size={22} color={colors.textMuted} />
               </View>
               <Text className="text-sm text-muted">
-                Rien à afficher pour l&apos;instant : les soins de {horse.name} apparaîtront ici.
+                {t("Rien à afficher pour l'instant : les soins de ")}{horse.name} {t(" apparaîtront ici.")}
               </Text>
             </View>
           </FadeInView>
@@ -264,7 +265,7 @@ export default function HorseSanteScreen() {
                       </Text>
                       {!isTreatmentRange && appt.nextDueDate ? (
                         <Text className="text-xs text-accent">
-                          Prochaine échéance : {formatDate(appt.nextDueDate)}
+                          {t("Prochaine échéance : ")}{formatDate(appt.nextDueDate)}
                         </Text>
                       ) : null}
                     </View>
@@ -276,12 +277,12 @@ export default function HorseSanteScreen() {
                         </Text>
                       </View>
                       <View className="flex-row items-center gap-3">
-                        <Text className="text-xs font-semibold text-accent">Modifier</Text>
+                        <Text className="text-xs font-semibold text-accent">{t("Modifier")}</Text>
                         <TouchableOpacity
                           onPress={() => confirmDeleteAppt(appt)}
                           hitSlop={8}
                           activeOpacity={0.7}
-                          accessibilityLabel="Supprimer ce rendez-vous"
+                          accessibilityLabel={t("Supprimer ce rendez-vous")}
                           accessibilityRole="button"
                         >
                           <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.danger} />

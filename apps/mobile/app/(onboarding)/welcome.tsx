@@ -1,10 +1,12 @@
 import { useEffect } from "react";
-import { Image, View, Text } from "react-native";
+import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { FadeInView } from "@/components/FadeInView";
 import { track } from "@/lib/analytics";
+import { BrandMark } from "@/components/BrandMark";
+import { t } from "@/i18n";
 
 export default function Welcome() {
   useEffect(() => {
@@ -15,30 +17,25 @@ export default function Welcome() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-1 justify-center px-6">
         <FadeInView>
-          <Image
-            source={require("../../assets/logo-mark.png")}
-            style={{ width: 96, height: 96 }}
-            resizeMode="contain"
-          />
+          <BrandMark size={96} />
         </FadeInView>
         <FadeInView delay={100}>
           <Text className="mt-6 text-4xl font-display leading-tight tracking-tight text-text">
-            Toi et ton cheval, organisés.
+            {t("Toi et ton cheval, organisés.")}
           </Text>
         </FadeInView>
         <FadeInView delay={200}>
           <Text className="mt-4 text-lg text-muted">
-            Planning, rendez-vous santé, concours et suivi financier au même endroit, pour progresser
-            ensemble — quelle que soit ta discipline.
+            {t("Planning, rendez-vous santé, concours et suivi financier au même endroit, pour progresser ensemble — quelle que soit ta discipline.")}
           </Text>
         </FadeInView>
       </View>
 
       <FadeInView delay={300}>
         <View className="gap-3 px-6 pb-2">
-          <PrimaryButton label="Commencer" onPress={() => router.push("/(onboarding)/account")} />
+          <PrimaryButton testID="welcome-start" label={t("Commencer")} onPress={() => router.push("/(onboarding)/account")} />
           <Text className="text-center text-xs text-muted">
-            Gratuit pour commencer · Premium en option
+            {t("Gratuit pour commencer · Premium en option")}
           </Text>
         </View>
       </FadeInView>

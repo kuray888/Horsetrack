@@ -11,6 +11,7 @@ import {
   type ExpenseCategory,
   type Mood,
 } from "@/agenda/store";
+import { t, LOCALE } from "@/i18n";
 
 export type { IconSpec };
 
@@ -22,15 +23,15 @@ export const DISCIPLINE_META: Record<Discipline, { label: string; icon: IconSpec
 ) as Record<Discipline, { label: string; icon: IconSpec }>;
 
 export const APPT_META: Record<AppointmentType, { label: string; icon: IconSpec; chip: string; tag: string }> = {
-  veto: { label: "Vétérinaire", icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
-  osteo: { label: "Ostéopathe", icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  marechal: { label: "Maréchal-ferrant", icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  dentiste: { label: "Dentiste équin", icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
-  vaccination: { label: "Vaccination", icon: { name: "needle", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
-  vermifuge: { label: "Vermifuge", icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
-  traitement: { label: "Traitement", icon: { name: "medical-bag", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  concours: { label: "Concours", icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  autre: { label: "Autre", icon: { name: "calendar-blank-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
+  veto: { label: t("Vétérinaire"), icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  osteo: { label: t("Ostéopathe"), icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  marechal: { label: t("Maréchal-ferrant"), icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  dentiste: { label: t("Dentiste équin"), icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
+  vaccination: { label: t("Vaccination"), icon: { name: "needle", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
+  vermifuge: { label: t("Vermifuge"), icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  traitement: { label: t("Traitement"), icon: { name: "medical-bag", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  concours: { label: t("Concours"), icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  autre: { label: t("Autre"), icon: { name: "calendar-blank-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 
 /** Types de rendez-vous "de soin" — pour lesquels les champs
@@ -47,39 +48,39 @@ export const HEALTH_APPT_TYPES: readonly AppointmentType[] = [
 ];
 
 export const DOC_META: Record<DocumentCategory, { label: string; icon: IconSpec; chip: string; tag: string }> = {
-  facture: { label: "Facture", icon: { name: "receipt", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  rapport: { label: "Rapport", icon: { name: "clipboard-text-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  ordonnance: { label: "Ordonnance", icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
-  autre: { label: "Autre", icon: { name: "paperclip", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
+  facture: { label: t("Facture"), icon: { name: "receipt", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  rapport: { label: t("Rapport"), icon: { name: "clipboard-text-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  ordonnance: { label: t("Ordonnance"), icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  autre: { label: t("Autre"), icon: { name: "paperclip", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 
 export const EXPENSE_META: Record<ExpenseCategory, { label: string; icon: IconSpec; chip: string; tag: string }> = {
-  veto: { label: "Vétérinaire", icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
-  marechal: { label: "Maréchal-ferrant", icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  dentiste: { label: "Dentiste équin", icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
-  osteo: { label: "Ostéopathe", icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  concours: { label: "Concours", icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  pension: { label: "Pension", icon: { name: "home-outline", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  alimentation: { label: "Alimentation", icon: { name: "grass", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
-  complements: { label: "Compléments", icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
-  materiel: { label: "Matériel", icon: { name: "toolbox-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  transport: { label: "Transport", icon: { name: "truck-outline", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  coaching: { label: "Coaching", icon: { name: "whistle-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  autre: { label: "Autre", icon: { name: "tag-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
+  veto: { label: t("Vétérinaire"), icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  marechal: { label: t("Maréchal-ferrant"), icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  dentiste: { label: t("Dentiste équin"), icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
+  osteo: { label: t("Ostéopathe"), icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  concours: { label: t("Concours"), icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  pension: { label: t("Pension"), icon: { name: "home-outline", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  alimentation: { label: t("Alimentation"), icon: { name: "grass", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
+  complements: { label: t("Compléments"), icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
+  materiel: { label: t("Matériel"), icon: { name: "toolbox-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  transport: { label: t("Transport"), icon: { name: "truck-outline", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
+  coaching: { label: t("Coaching"), icon: { name: "whistle-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  autre: { label: t("Autre"), icon: { name: "tag-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 
 export const REMINDER_META: Record<ReminderOption, { label: string; icon: IconSpec }> = {
-  none: { label: "Aucun", icon: { name: "bell-off-outline", color: colors.textMuted } },
-  "1h": { label: "1 heure avant", icon: { name: "bell-outline", color: colors.accent } },
-  "1d": { label: "1 jour avant", icon: { name: "bell-outline", color: colors.accent } },
-  "1w": { label: "1 semaine avant", icon: { name: "bell-outline", color: colors.accent } },
+  none: { label: t("Aucun"), icon: { name: "bell-off-outline", color: colors.textMuted } },
+  "1h": { label: t("1 heure avant"), icon: { name: "bell-outline", color: colors.accent } },
+  "1d": { label: t("1 jour avant"), icon: { name: "bell-outline", color: colors.accent } },
+  "1w": { label: t("1 semaine avant"), icon: { name: "bell-outline", color: colors.accent } },
 };
 
 export const MOOD_META: Record<Mood, { emoji: string; label: string }> = {
-  great: { emoji: "🤩", label: "Top" },
-  good: { emoji: "🙂", label: "Bien" },
-  okay: { emoji: "😐", label: "Moyen" },
-  hard: { emoji: "😣", label: "Difficile" },
+  great: { emoji: "🤩", label: t("Top") },
+  good: { emoji: "🙂", label: t("Bien") },
+  okay: { emoji: "😐", label: t("Moyen") },
+  hard: { emoji: "😣", label: t("Difficile") },
 };
 
 /** Catégories de dépense qui correspondent à un type de rendez-vous du même
@@ -113,7 +114,7 @@ export function suggestedAppointmentFor(
 }
 
 export function formatAmount(amount: number, currency: string): string {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat(LOCALE, { style: "currency", currency }).format(amount);
 }
 
 export function capitalize(s: string): string {
@@ -127,8 +128,8 @@ export function daysUntilLabel(date: Date): string {
   target.setHours(0, 0, 0, 0);
   const days = Math.round((target.getTime() - daysFromNow(0).getTime()) / (24 * 60 * 60 * 1000));
   if (days === 0) return "aujourd'hui";
-  if (days > 0) return `dans ${days} jour${days > 1 ? "s" : ""}`;
-  return `il y a ${-days} jour${-days > 1 ? "s" : ""}`;
+  if (days > 0) return t("dans {days} jour{v}", { days: days, v: days > 1 ? "s" : "" });
+  return t("il y a {v} jour{v2}", { v: -days, v2: -days > 1 ? "s" : "" });
 }
 
 /** id local le temps du formulaire de création (avant que l'épreuve ait un

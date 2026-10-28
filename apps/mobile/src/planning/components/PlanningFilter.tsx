@@ -1,14 +1,15 @@
-import { Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ScrollView, Text, TouchableOpacity } from "react-native";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { PlanningFilterValue } from "@/planning/unifiedEvents";
+import { t } from "@/i18n";
 
 const OPTIONS: { value: PlanningFilterValue; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
-  { value: "all", label: "Tous", icon: "view-grid-outline" },
-  { value: "session", label: "Séances", icon: "horse-variant" },
-  { value: "soin", label: "Soins", icon: "needle" },
-  { value: "concours", label: "Concours", icon: "trophy-outline" },
-  { value: "autre", label: "Autres", icon: "calendar-blank-outline" },
+  { value: "all", label: t("Tous"), icon: "view-grid-outline" },
+  { value: "session", label: t("Séances"), icon: "horse-variant" },
+  { value: "soin", label: t("Soins"), icon: "needle" },
+  { value: "concours", label: t("Concours"), icon: "trophy-outline" },
+  { value: "autre", label: t("Autres"), icon: "calendar-blank-outline" },
 ];
 
 /** Filtre du Planning unifié (Tous/Séances/Soins/Concours/Autres, cf. plan
@@ -26,7 +27,14 @@ export function PlanningFilter({
 }) {
   const colors = useThemeColors();
   return (
-    <View className="flex-row flex-wrap gap-2">
+    // Une seule ligne qui défile, bord à bord (même marge que l'écran) : les
+    // cinq filtres passaient sur deux lignes et repoussaient la liste.
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      className="-mx-5"
+      contentContainerClassName="gap-2 px-5"
+    >
       {OPTIONS.map((opt) => {
         const selected = value === opt.value;
         return (
@@ -46,6 +54,6 @@ export function PlanningFilter({
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }

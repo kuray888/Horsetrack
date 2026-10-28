@@ -1,7 +1,8 @@
 import { Text, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
+import { t } from "@/i18n";
 
 /** « Pour <cheval> » — rappelle en tête d'un formulaire à QUI l'entrée va
  * être rattachée. Les formulaires sont partagés entre des écrans qui n'ont
@@ -26,10 +27,10 @@ export function HorseTargetNotice({ horseName }: { horseName: string | null | un
   return (
     <View
       className="flex-row items-center gap-1.5 rounded-card bg-highlight px-3 py-2"
-      accessibilityLabel={`Entrée pour ${horseName}`}
+      accessibilityLabel={t("Entrée pour {horseName}", { horseName: horseName })}
     >
       <MaterialCommunityIcons name="horse-variant" size={14} color={colors.primary} accessibilityElementsHidden />
-      <Text className="text-xs font-semibold text-primary">Pour {horseName}</Text>
+      <Text className="text-xs font-semibold text-primary">{t("Pour ")}{horseName}</Text>
     </View>
   );
 }

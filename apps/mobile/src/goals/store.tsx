@@ -11,9 +11,10 @@ import {
 import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import { supabase } from "@/lib/supabase";
 import { settleRemoteWrite } from "@/lib/cloudSync";
-import { noteRemoteSnapshot, syncGuard, withWriteTracking } from "@/lib/remoteIndex";
+import { isHorseOnServer, noteRemoteSnapshot, syncGuard, withWriteTracking } from "@/lib/remoteIndex";
 import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
 import { pendingIdsFor } from "@/lib/syncQueue";
+import { parseServerDateOrNull } from "@/lib/serverDate";
 import type { RiderGoal } from "@/onboarding/store";
 
 /**
@@ -75,10 +76,10 @@ async function getOwnerProfileId(): Promise<string | null> {
  * `goals` n'est pas (encore) alignée — l'objectif reste fonctionnel en local
  * dans les deux cas, seule la synchronisation cloud est concernée. */
 function pushGoal(goal: Goal): Promise<void> {
-  return withWriteTracking("goals", goal.id, () => pushGoalImpl(goal));
+  return withWriteTracking("goals", goal.id, (stamp) => pushGoalImpl(goal, stamp));
 }
 
-async function pushGoalImpl(goal: Goal): Promise<void> {
+async function pushGoalImpl(goal: Goal, stamp?: number): Promise<void> {
   const riderId = await getOwnerProfileId();
   if (!riderId) return;
   const row = {
@@ -94,16 +95,16 @@ async function pushGoalImpl(goal: Goal): Promise<void> {
   const { error } = await supabase.from("goals").upsert(row);
   // File de reprise commune (cf. lib/cloudSync.ts) : un objectif créé hors
   // ligne partait jusqu'ici pour de bon uniquement en local.
-  await settleRemoteWrite("pushGoal", "goals", goal.id, error, row);
+  await settleRemoteWrite("pushGoal", "goals", goal.id, error, row, stamp);
 }
 
 function deleteGoalRemote(id: string): Promise<void> {
-  return withWriteTracking("goals", id, () => deleteGoalRemoteImpl(id));
+  return withWriteTracking("goals", id, (stamp) => deleteGoalRemoteImpl(id, stamp), "delete");
 }
 
-async function deleteGoalRemoteImpl(id: string): Promise<void> {
+async function deleteGoalRemoteImpl(id: string, stamp?: number): Promise<void> {
   const { error } = await supabase.from("goals").delete().eq("id", id);
-  await settleRemoteWrite("deleteGoalRemote", "goals", id, error);
+  await settleRemoteWrite("deleteGoalRemote", "goals", id, error, undefined, stamp);
 }
 
 /** Exporté pour (auth)/login.tsx : un changement de compte sur cet appareil
@@ -128,7 +129,8 @@ async function fetchCloudGoals(): Promise<Goal[] | null> {
     title: g.title,
     type: g.type,
     customType: g.customType ?? null,
-    targetDate: g.targetDate ? new Date(g.targetDate) : null,
+    // Colonne timestamp sans fuseau : lue en UTC (cf. lib/serverDate.ts).
+    targetDate: parseServerDateOrNull(g.targetDate),
     horseId: g.horseId,
   }));
 }
@@ -238,7 +240,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
     (remote: Goal[], pullStartedAt: number) => {
       const guard = syncGuard("goals", pullStartedAt, pendingIdsFor("goals"));
       // Objectifs jamais arrivés sur le serveur (refus définitif) : renvoyés.
-      for (const id of unsyncedLocalIds(goalsRef.current, remote, guard)) {
+      for (const id of unsyncedLocalIds(goalsRef.current, remote, guard, (g) => !g.horseId || isHorseOnServer(g.horseId))) {
         const goal = goalsRef.current.find((g) => g.id === id);
         if (goal) pushGoal(goal).catch(() => {});
       }

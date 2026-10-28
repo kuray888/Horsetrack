@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { TextInput, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { t } from "@/i18n";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 pr-11 text-base text-text";
 
@@ -18,6 +19,7 @@ export function PasswordInput({
   autoComplete,
   visible: visibleProp,
   onToggleVisible,
+  testID,
 }: {
   value: string;
   onChangeText: (v: string) => void;
@@ -27,6 +29,8 @@ export function PasswordInput({
   autoComplete: "current-password" | "new-password";
   visible?: boolean;
   onToggleVisible?: () => void;
+  /** Repère des tests de bout en bout (cf. apps/mobile/.maestro). */
+  testID?: string;
 }) {
   const colors = useThemeColors();
   const [visibleState, setVisibleState] = useState(false);
@@ -45,12 +49,13 @@ export function PasswordInput({
         autoCorrect={false}
         autoComplete={autoComplete}
         textContentType={autoComplete === "current-password" ? "password" : "newPassword"}
+        testID={testID}
       />
       <TouchableOpacity
         onPress={toggle}
         hitSlop={12}
         className="absolute right-3"
-        accessibilityLabel={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+        accessibilityLabel={visible ? t("Masquer le mot de passe") : t("Afficher le mot de passe")}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />

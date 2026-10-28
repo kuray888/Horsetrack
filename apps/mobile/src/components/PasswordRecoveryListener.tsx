@@ -3,6 +3,7 @@ import { Alert, Linking } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { extractRecoveryTokens, tokenIdentity } from "@/lib/passwordRecovery";
+import { t } from "@/i18n";
 
 /**
  * Intercepte le lien de récupération de mot de passe envoyé par Supabase
@@ -29,8 +30,8 @@ export function PasswordRecoveryListener() {
       const target = tokenIdentity(tokens.accessToken);
       if (currentUserId && target.userId && target.userId !== currentUserId) {
         Alert.alert(
-          "Lien pour un autre compte",
-          `Ce lien de réinitialisation concerne ${target.email ?? "un autre compte"}. Déconnecte-toi d'abord (Profil → Se déconnecter), puis rouvre le lien depuis l'email.`
+          t("Lien pour un autre compte"),
+          t("Ce lien de réinitialisation concerne {v}. Déconnecte-toi d'abord (Profil → Se déconnecter), puis rouvre le lien depuis l'email.", { v: target.email ?? "un autre compte" })
         );
         return;
       }

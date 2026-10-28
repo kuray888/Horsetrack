@@ -6,6 +6,7 @@ import "../global.css";
 import { useEffect, useRef } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Sentry from "@sentry/react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -39,7 +40,7 @@ import { LastCrashNotice } from "@/components/LastCrashNotice";
 // promesse) — cf. lib/crashLog.ts. Fonctionne même sans Sentry configuré.
 installGlobalErrorHandler();
 
-import { ThemeProvider } from "@/theme/ThemeProvider";
+import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
 import { SubscriptionProvider } from "@/subscription/store";
 import { HorsesProvider } from "@/horses/store";
 import { WeightProvider } from "@/horses/weightStore";
@@ -50,10 +51,18 @@ import { AgendaProvider } from "@/agenda/store";
 import { GoalsProvider } from "@/goals/store";
 import { BiometricGate } from "@/components/BiometricGate";
 import { PasswordRecoveryListener } from "@/components/PasswordRecoveryListener";
+import { NotificationRouter } from "@/components/NotificationRouter";
+import { SessionReminders } from "@/sessions/SessionReminders";
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 import { CrashFallback } from "@/components/CrashFallback";
 import { retryPendingWrites } from "@/lib/cloudSync";
+import { registerPushToken } from "@/lib/pushRegistration";
+import { supabase } from "@/lib/supabase";
+// Importé dès le démarrage : la tâche GPS de la séance en direct doit être
+// déclarée avant qu'iOS ou Android ne lui livre des positions (cf. recorder.ts).
+import { restoreRide } from "@/rides/recorder";
+import { initRideSafety } from "@/rides/safety";
 
 // Analytics produit (cf. lib/analytics.ts) : inactives sans clé PostHog.
 startAnalytics();
@@ -117,12 +126,30 @@ function RootLayout() {
   // retrouvé du réseau (sortie du manège, du van, d'un sous-sol). Pas de
   // détection de connectivité dédiée : elle demanderait une dépendance de
   // plus pour, au mieux, déclencher les mêmes reprises un peu plus tôt.
+  // Séance en direct interrompue (app fermée par le système pendant la
+  // balade) : reprise au lancement, avec la surveillance de sécurité.
+  useEffect(() => {
+    initRideSafety();
+    restoreRide().catch(() => {});
+  }, []);
+
   useEffect(() => {
     retryPendingWrites().catch(() => {});
+    // Jeton push du fil privé : seulement si les notifications sont déjà
+    // autorisées (cf. lib/pushRegistration.ts), jamais demandé ici.
+    registerPushToken().catch(() => {});
     const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
-      if (next === "active") retryPendingWrites().catch(() => {});
+      if (next !== "active") return;
+      retryPendingWrites().catch(() => {});
+      registerPushToken().catch(() => {});
     });
-    return () => sub.remove();
+    const auth = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") registerPushToken().catch(() => {});
+    });
+    return () => {
+      sub.remove();
+      auth.data.subscription.unsubscribe();
+    };
   }, []);
 
   if (!fontsLoaded) return null;
@@ -132,6 +159,9 @@ function RootLayout() {
       fallback={({ error, resetError }) => <CrashFallback error={error} resetError={resetError} />}
       onError={(error) => recordCrash(error, false)}
     >
+    {/* Racine des gestes (balayage des cartes, cf. components/SwipeableRow) :
+        doit envelopper tout l'arbre pour que les gestes y soient reconnus. */}
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider>
     <PickerOverlayProvider>
     <GlossaryProvider>
@@ -145,35 +175,19 @@ function RootLayout() {
                 <SessionsProvider>
                   <GoalsProvider>
                   <CloudRefreshProvider>
-                    <Stack screenOptions={{ headerShown: false }}>
-                      <Stack.Screen name="index" />
-                      <Stack.Screen name="(auth)" />
-                      <Stack.Screen name="(onboarding)" />
-                      <Stack.Screen name="(tabs)" />
-                      <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="premium-welcome" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="document-viewer" options={{ presentation: "fullScreenModal", animation: "fade" }} />
-                      <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="share-horse-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="invites-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="session-note-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="search" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
-                      <Stack.Screen name="reset-password" />
-                    </Stack>
-                    {/* Icônes de la barre système en sombre, sur les deux
-                        plateformes. Toutes les palettes de l'app ont un fond
-                        clair (cf. theme/palettes.ts) : sans consigne
-                        explicite, la barre suit le mode du téléphone et
-                        passe en blanc sur blanc dès que l'appareil est en
-                        thème sombre — heure et batterie deviennent alors
-                        illisibles. Android est le cas le plus visible, le
-                        plein écran y étant imposé par la cible API 36. */}
-                    <StatusBar style="dark" />
+                    <AppStack />
+                    {/* Icônes de la barre système (heure, batterie) : foncées sur
+                        les palettes claires, claires en mode sombre. Toujours
+                        explicites : sans consigne, la barre suit le mode du
+                        téléphone et pouvait passer en blanc sur blanc quand
+                        l'app restait claire (cf. ThemeProvider). */}
+                    <ThemedStatusBar />
                     <PasswordRecoveryListener />
+                    {/* Toucher un rappel ouvre l'écran concerné. */}
+                    <NotificationRouter />
+                    {/* Rappels de séance et leurs boutons « C'est fait » /
+                        « Reporter à demain ». */}
+                    <SessionReminders />
                     <BiometricGate />
                     <LastCrashNotice />
                   </CloudRefreshProvider>
@@ -188,8 +202,49 @@ function RootLayout() {
     </GlossaryProvider>
     </PickerOverlayProvider>
     </ThemeProvider>
+    </GestureHandlerRootView>
     </Sentry.ErrorBoundary>
   );
 }
 
 export default Sentry.wrap(RootLayout);
+
+/** Pile racine. Fond des écrans aux couleurs du thème : sans lui, les
+ * transitions laissaient voir un instant le gris clair par défaut, très
+ * visible en mode sombre. */
+function AppStack() {
+  const { colors } = useTheme();
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(onboarding)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+      <Stack.Screen name="premium-welcome" options={{ presentation: "modal" }} />
+      <Stack.Screen name="document-viewer" options={{ presentation: "fullScreenModal", animation: "fade" }} />
+      <Stack.Screen name="add-horse-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="edit-horse-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="share-horse-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="invites-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="edit-rider-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="session-note-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="ride" options={{ presentation: "modal" }} />
+      <Stack.Screen name="contacts" options={{ presentation: "modal" }} />
+      <Stack.Screen name="referral" options={{ presentation: "modal" }} />
+      <Stack.Screen name="coach" options={{ presentation: "modal" }} />
+      <Stack.Screen name="comments" options={{ presentation: "modal" }} />
+      <Stack.Screen name="library" options={{ presentation: "modal" }} />
+      <Stack.Screen name="search" options={{ presentation: "modal" }} />
+      <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
+      <Stack.Screen name="reset-password" />
+      <Stack.Screen name="auth-callback" options={{ animation: "none" }} />
+    </Stack>
+  );
+}
+
+function ThemedStatusBar() {
+  const { scheme } = useTheme();
+  return <StatusBar style={scheme === "dark" ? "light" : "dark"} />;
+}

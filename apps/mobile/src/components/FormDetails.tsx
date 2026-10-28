@@ -1,7 +1,9 @@
 import { type ReactNode } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { animateNextLayout } from "@/lib/motion";
+import { t } from "@/i18n";
 
 /**
  * Section « détails facultatifs » d'un formulaire : repliée par défaut, à un
@@ -38,11 +40,14 @@ export function FormDetails({
   return (
     <>
       <TouchableOpacity
-        onPress={onToggle}
+        onPress={() => {
+          animateNextLayout();
+          onToggle();
+        }}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={open ? "Masquer les détails" : `Afficher les détails : ${summary}`}
+        accessibilityLabel={open ? t("Masquer les détails") : t("Afficher les détails : {summary}", { summary: summary })}
         className="flex-row items-center gap-1.5 py-1"
       >
         <MaterialCommunityIcons
@@ -52,7 +57,7 @@ export function FormDetails({
           accessibilityElementsHidden
         />
         <Text className="flex-1 text-sm font-semibold text-muted" numberOfLines={1}>
-          {open ? "Masquer les détails" : summary}
+          {open ? t("Masquer les détails") : summary}
         </Text>
       </TouchableOpacity>
       {open ? <View className="gap-3">{children}</View> : null}

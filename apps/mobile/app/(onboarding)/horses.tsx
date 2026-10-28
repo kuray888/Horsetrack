@@ -1,10 +1,11 @@
 import { Alert, View, Text, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { OnboardingShell } from "@/components/onboarding";
 import { useOnboarding } from "@/onboarding/store";
 import { DISCIPLINES, TOTAL_STEPS } from "@/onboarding/options";
 import { colors } from "@/theme/colors";
+import { t } from "@/i18n";
 
 function disciplineLabel(value: string | null): string {
   return DISCIPLINES.find((d) => d.value === value)?.label ?? "—";
@@ -23,12 +24,12 @@ export default function Horses() {
     // premier est toujours inclus au palier gratuit.
     if (namedHorses.length >= 1) {
       Alert.alert(
-        "Un seul cheval sur le palier gratuit",
-        "Tu peux ajouter ce cheval, mais il ne sera conservé qu'avec Horsetrack Premium — sinon seul ton premier cheval restera à la fin de l'inscription.",
+        t("Un seul cheval sur le palier gratuit"),
+        t("Tu peux ajouter ce cheval, mais il ne sera conservé qu'avec Horsetrack Premium — sinon seul ton premier cheval restera à la fin de l'inscription."),
         [
-          { text: "Annuler", style: "cancel" },
+          { text: t("Annuler"), style: "cancel" },
           {
-            text: "Continuer",
+            text: t("Continuer"),
             onPress: () => {
               startNewHorse();
               router.push("/(onboarding)/horse-basics");
@@ -46,9 +47,9 @@ export default function Horses() {
     <OnboardingShell
       step={4}
       total={TOTAL_STEPS}
-      title="Ton écurie"
-      subtitle="Ajoute tous les chevaux de ton écurie — le premier est gratuit, les suivants avec Horsetrack Premium."
-      ctaLabel="C'est tout, continuer"
+      title={t("Ton écurie")}
+      subtitle={t("Ajoute tous les chevaux de ton écurie — le premier est gratuit, les suivants avec Horsetrack Premium.")}
+      ctaLabel={t("C'est tout, continuer")}
       onNext={() => router.push("/(onboarding)/summary")}
     >
       <View className="gap-3">
@@ -79,13 +80,13 @@ export default function Horses() {
               }}
               hitSlop={8}
             >
-              <Text className="px-2 text-sm font-semibold text-accent">Modifier</Text>
+              <Text className="px-2 text-sm font-semibold text-accent">{t("Modifier")}</Text>
             </TouchableOpacity>
             {namedHorses.length > 1 ? (
               <TouchableOpacity
                 onPress={() => removeHorse(h.localId)}
                 hitSlop={8}
-                accessibilityLabel={`Retirer ${h.name}`}
+                accessibilityLabel={t("Retirer {name}", { name: h.name })}
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons name="close" size={16} color={colors.danger} accessibilityElementsHidden />
@@ -100,7 +101,7 @@ export default function Horses() {
           className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
         >
           <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
-          <Text className="text-base font-semibold text-primary">Ajouter un autre cheval</Text>
+          <Text className="text-base font-semibold text-primary">{t("Ajouter un autre cheval")}</Text>
         </TouchableOpacity>
       </View>
     </OnboardingShell>

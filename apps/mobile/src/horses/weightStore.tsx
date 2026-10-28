@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
-import { noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
+import { isHorseOnServer, noteRemoteSnapshot, syncGuard } from "@/lib/remoteIndex";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { pushWeightMeasurement, deleteWeightMeasurementRemote } from "@/lib/cloudSync";
 import { useHorses } from "@/horses/store";
@@ -155,7 +155,7 @@ export function WeightProvider({ children }: { children: ReactNode }) {
     if (!syncReadyRef.current) return;
     const guard = syncGuard("horse_weight_measurements", pullStartedAt, pendingIdsFor("horse_weight_measurements"));
     // Pesées jamais arrivées sur le serveur (refus définitif) : renvoyées.
-    const unsynced = new Set(unsyncedLocalIds(measurementsRef.current, remote, guard));
+    const unsynced = new Set(unsyncedLocalIds(measurementsRef.current, remote, guard, (m) => isHorseOnServer(m.horseId)));
     // Persisté par l'effet d'écriture qui suit chaque changement.
     setMeasurements((list) => mergeRemote(list, remote, guard).items);
     noteRemoteSnapshot("horse_weight_measurements", remote.map((m) => m.id), pullStartedAt);

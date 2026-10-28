@@ -9,12 +9,13 @@ import {
   type Recurrence,
   type RecurrenceIntervalWeeks,
 } from "@/lib/recurrence";
+import { t } from "@/i18n";
 
 const INTERVAL_OPTIONS: { value: RecurrenceIntervalWeeks; label: string }[] = [
-  { value: 1, label: "1 semaine" },
-  { value: 2, label: "2 semaines" },
-  { value: 3, label: "3 semaines" },
-  { value: 4, label: "4 semaines" },
+  { value: 1, label: t("1 semaine") },
+  { value: 2, label: t("2 semaines") },
+  { value: 3, label: t("3 semaines") },
+  { value: 4, label: t("4 semaines") },
 ];
 
 const MIN_OCCURRENCES = 2;
@@ -40,11 +41,11 @@ const DEFAULT_END_DATE = () => {
 export function RecurrenceField({ value, onChange }: { value: Recurrence; onChange: (r: Recurrence) => void }) {
   return (
     <View className="gap-3">
-      <Field label="Répéter ?">
+      <Field label={t("Répéter ?")}>
         <ChipSelect
           options={[
-            { value: "never", label: "Jamais", icon: { name: "close" as const, color: colors.textMuted } },
-            { value: "custom", label: "Personnalisé", icon: { name: "repeat" as const, color: colors.textMuted } },
+            { value: "never", label: t("Jamais"), icon: { name: "close" as const, color: colors.textMuted } },
+            { value: "custom", label: t("Personnalisé"), icon: { name: "repeat" as const, color: colors.textMuted } },
           ]}
           value={value.mode}
           onChange={(mode) => onChange(mode === "never" ? NEVER_RECURRENCE : defaultCustomRecurrence())}
@@ -52,7 +53,7 @@ export function RecurrenceField({ value, onChange }: { value: Recurrence; onChan
       </Field>
       {value.mode === "custom" ? (
         <>
-          <Field label="Toutes les">
+          <Field label={t("Toutes les")}>
             <ChipSelect
               options={INTERVAL_OPTIONS.map((opt) => ({
                 value: String(opt.value),
@@ -65,11 +66,11 @@ export function RecurrenceField({ value, onChange }: { value: Recurrence; onChan
               }
             />
           </Field>
-          <Field label="Fin">
+          <Field label={t("Fin")}>
             <ChipSelect
               options={[
-                { value: "count", label: "Nombre d'occurrences", icon: { name: "repeat" as const, color: colors.textMuted } },
-                { value: "date", label: "À une date", icon: { name: "calendar-clock-outline" as const, color: colors.textMuted } },
+                { value: "count", label: t("Nombre d'occurrences"), icon: { name: "repeat" as const, color: colors.textMuted } },
+                { value: "date", label: t("À une date"), icon: { name: "calendar-clock-outline" as const, color: colors.textMuted } },
               ]}
               value={value.end.type}
               onChange={(type) =>
@@ -84,7 +85,7 @@ export function RecurrenceField({ value, onChange }: { value: Recurrence; onChan
             />
           </Field>
           {value.end.type === "count" ? (
-            <Field label={`${value.end.occurrences} occurrences au total`}>
+            <Field label={t("{occurrences} occurrences au total", { occurrences: value.end.occurrences })}>
               <ChipSelect
                 options={OCCURRENCE_OPTIONS.map((n) => ({
                   value: String(n),
@@ -97,7 +98,7 @@ export function RecurrenceField({ value, onChange }: { value: Recurrence; onChan
             </Field>
           ) : (
             <DatePickerField
-              label="Dernière occurrence au plus tard le"
+              label={t("Dernière occurrence au plus tard le")}
               value={value.end.date}
               onChange={(date) => onChange({ ...value, end: { type: "date", date } })}
             />

@@ -1,19 +1,31 @@
 import { useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
-import { HorseFilterChips, HorseNameBadge } from "@/horses/components/HorseFilterChips";
+import { HorseNameBadge } from "@/horses/components/HorseFilterChips";
+import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
 import { useAgenda, type JournalEntry } from "@/agenda/store";
 import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { JournalForm } from "@/agenda/components/JournalForm";
 import { JournalCard } from "@/agenda/components/JournalCard";
+import { animateNextLayout } from "@/lib/motion";
+import { lazyTab } from "@/components/LazyTab";
+import { ScreenTitle } from "@/components/ScreenTitle";
+import { SwipeableRow } from "@/components/SwipeableRow";
+import { QuickAddSheet, openQuickAddFromTab, type QuickAddOption } from "@/components/QuickAddSheet";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
+
+/** Entrées affichées d'un coup. Chaque souvenir peut porter une photo : tout
+ * rendre à l'ouverture décodait des centaines d'images chez un cavalier qui
+ * tient son journal depuis longtemps, et l'onglet ralentissait d'autant. */
+const JOURNAL_PAGE_SIZE = 25;
 
 /** Journal global (cf. plan Phase 3 Étape 5) — même formulaire/carte que
  * l'ancien onglet Journal de l'Agenda (`useJournalForm`/`JournalForm`/
@@ -23,7 +35,7 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
  * agenda/store.tsx — un seul mécanisme, pas de deuxième source de vérité :
  * override explicite si le filtre est posé, sinon même fallback qu'avant sur
  * le cheval globalement sélectionné). */
-export default function JournalScreen() {
+function JournalScreen() {
   const colors = useThemeColors();
   const { horses, selectedHorse } = useHorses();
   const { journal, addJournalEntry, updateJournalEntry, deleteJournalEntry } = useAgenda();
@@ -47,6 +59,7 @@ export default function JournalScreen() {
     }
   }
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [quickAddVisible, setQuickAddVisible] = useState(false);
 
   const filterHorse = filterHorseId ? horses.find((h) => h.id === filterHorseId) ?? null : null;
   // Cheval qui recevra la prochaine entrée créée depuis cet écran : celui du
@@ -77,25 +90,46 @@ export default function JournalScreen() {
     return [...filtered].sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [journal, filterHorseId]);
 
+  // Repart d'une page à chaque changement de filtre (même pattern
+  // « ajuster pendant le rendu » que syncedHorseParam ci-dessus).
+  const [visibleCount, setVisibleCount] = useState(JOURNAL_PAGE_SIZE);
+  const [pagedFilter, setPagedFilter] = useState(filterHorseId);
+  if (pagedFilter !== filterHorseId) {
+    setPagedFilter(filterHorseId);
+    setVisibleCount(JOURNAL_PAGE_SIZE);
+  }
+  const visibleJournal = sortedJournal.slice(0, visibleCount);
+  const hiddenCount = sortedJournal.length - visibleJournal.length;
+
   function horseName(horseId: string | null): string {
     return horses.find((h) => h.id === horseId)?.name ?? "?";
   }
 
   function confirmDeleteJournalEntry(entry: JournalEntry) {
-    Alert.alert("Supprimer cette entrée ?", "Cette action est définitive.", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", style: "destructive", onPress: () => deleteJournalEntry(entry.id) },
+    Alert.alert(t("Supprimer cette entrée ?"), t("Cette action est définitive."), [
+      { text: t("Annuler"), style: "cancel" },
+      { text: t("Supprimer"), style: "destructive", onPress: () => deleteJournalEntry(entry.id) },
     ]);
+  }
+
+  // Même « + » que partout (cf. components/QuickAddSheet.tsx) : un souvenir
+  // s'écrit ici, le reste s'ouvre là où vit son formulaire.
+  function handleQuickAdd(option: QuickAddOption) {
+    setQuickAddVisible(false);
+    if (option === "journal") setShowJournalForm(true);
+    else openQuickAddFromTab(option);
   }
 
   return (
     <>
     <Screen>
       <FadeInView>
-        <View className="gap-1">
-          <Text className="text-3xl font-display tracking-tight text-text">Journal</Text>
-          <Text className="text-base text-muted">Le carnet de souvenirs de tes chevaux</Text>
-        </View>
+        <ScreenTitle
+          title={t("Journal")}
+          subtitle={t("Le carnet de souvenirs de tes chevaux")}
+          onAdd={showJournalForm ? undefined : () => setQuickAddVisible(true)}
+          addLabel={t("Ajouter")}
+        />
       </FadeInView>
 
       {horses.length > 1 ? (
@@ -105,29 +139,37 @@ export default function JournalScreen() {
               l'origine. Le Planning, lui, s'en tient aux chevaux possédés
               (cf. horses/selectableHorses.ts) — d'où la liste passée en
               paramètre plutôt que lue dans le composant. */}
-          <HorseFilterChips horses={horses} value={filterHorseId} onChange={setFilterHorseId} />
+          {/* Même sélecteur que l'Accueil et le Planning : choisir un cheval
+              en fait le cheval actif de l'app, « Tous » mêle l'écurie. Un
+              cheval verrouillé se relit quand même (filtre seul, sans
+              paywall) : ses souvenirs restent à lui. */}
+          <HorseSwitcher
+            allOption={{ selected: filterHorseId === null, onSelect: () => setFilterHorseId(null) }}
+            selectedId={filterHorseId}
+            onSelect={(id) => setFilterHorseId(id)}
+            onLockedPress={(id) => setFilterHorseId(id)}
+          />
         </FadeInView>
       ) : null}
 
-      <FadeInView delay={80}>
-        <JournalForm
-          show={showJournalForm}
-          form={journalForm}
-          setForm={setJournalForm}
-          editingJournalId={editingJournalId}
-          saving={savingJournal}
-          onOpen={() => setShowJournalForm(true)}
-          onCancel={cancelJournalForm}
-          onSubmit={handleSubmitJournalEntry}
-          onPickPhoto={handlePickJournalPhoto}
-        />
-      </FadeInView>
-      {!showJournalForm && targetHorse ? (
-        <FadeInView delay={90}>
-          <Text className="px-1 text-xs text-muted">
-            La nouvelle entrée sera rattachée à {targetHorse.name}
-            {filterHorse ? " (cheval du filtre)" : " (cheval actif)"}.
-          </Text>
+      {/* Ouvert par le « + » du titre (ou « Modifier » sur une carte). Le
+          cheval qui recevra l'entrée s'affiche dans le formulaire (« Pour
+          X »), là où la question se pose, plutôt qu'en permanence sous la
+          liste. */}
+      {showJournalForm ? (
+        <FadeInView>
+          <JournalForm
+            show={showJournalForm}
+            form={journalForm}
+            setForm={setJournalForm}
+            editingJournalId={editingJournalId}
+            saving={savingJournal}
+            targetHorseName={editingJournalId ? null : targetHorse?.name ?? null}
+            onOpen={() => setShowJournalForm(true)}
+            onCancel={cancelJournalForm}
+            onSubmit={handleSubmitJournalEntry}
+            onPickPhoto={handlePickJournalPhoto}
+          />
         </FadeInView>
       ) : null}
 
@@ -139,36 +181,68 @@ export default function JournalScreen() {
             </View>
             <Text className="text-center text-sm text-muted">
               {filterHorse
-                ? `Aucun souvenir pour ${filterHorse.name} pour l'instant.`
-                : "Aucune entrée de journal pour l'instant."}
+                ? t("Aucun souvenir pour {name} pour l'instant.", { name: filterHorse.name })
+                : t("Aucune entrée de journal pour l'instant.")}
             </Text>
             {!showJournalForm ? (
-              <TouchableOpacity onPress={() => setShowJournalForm(true)} activeOpacity={0.7}>
-                <Text className="text-sm font-semibold text-accent">Ajouter un souvenir</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowJournalForm(true)} activeOpacity={0.7}>
+                <Text className="text-sm font-semibold text-accent">{t("Ajouter un souvenir")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
         </FadeInView>
       ) : (
-        sortedJournal.map((entry, i) => (
+        visibleJournal.map((entry, i) => (
           <FadeInView key={entry.id} delay={120 + i * 60}>
             <View className="gap-1.5">
               {filterHorseId === null && horses.length > 1 ? (
                 <HorseNameBadge name={horseName(entry.horseId)} />
               ) : null}
-              <JournalCard
-                entry={entry}
-                expanded={expandedId === entry.id}
-                onToggleExpand={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
-                onDelete={() => confirmDeleteJournalEntry(entry)}
-                onEdit={() => startEditJournal(entry)}
-              />
+              <SwipeableRow
+                trailing={{
+                  label: t("Supprimer"),
+                  icon: "trash-can-outline",
+                  color: colors.danger,
+                  onPress: () => confirmDeleteJournalEntry(entry),
+                }}
+              >
+                <JournalCard
+                  entry={entry}
+                  expanded={expandedId === entry.id}
+                  onToggleExpand={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                  onDelete={() => confirmDeleteJournalEntry(entry)}
+                  onEdit={() => startEditJournal(entry)}
+                />
+              </SwipeableRow>
             </View>
           </FadeInView>
         ))
       )}
+      {hiddenCount > 0 ? (
+        <TouchableOpacity
+          onPress={() => {
+            animateNextLayout();
+            setVisibleCount((n) => n + JOURNAL_PAGE_SIZE);
+          }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          className="items-center rounded-card border border-border py-3.5"
+        >
+          <Text className="text-sm font-semibold text-accent">
+            {hiddenCount === 1
+              ? t("Afficher le souvenir plus ancien")
+              : t("Afficher {v} souvenirs plus anciens", { v: Math.min(hiddenCount, JOURNAL_PAGE_SIZE) })}
+          </Text>
+          <Text className="text-xs text-muted">
+            {t("{n} restant{v}", { n: hiddenCount, v: hiddenCount > 1 ? "s" : "" })}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </Screen>
     <PickerOverlaySlot />
+    <QuickAddSheet visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} onSelect={handleQuickAdd} />
     </>
   );
 }
+
+export default lazyTab(JournalScreen);

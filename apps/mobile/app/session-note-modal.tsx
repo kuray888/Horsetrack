@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { BackButton } from "@/components/BackButton";
@@ -13,6 +13,7 @@ import { useAgenda, ACTIVITY_META } from "@/agenda/store";
 import { JournalForm } from "@/agenda/components/JournalForm";
 import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { formatDate, formatDuration } from "@/lib/dateFormat";
+import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -87,7 +88,7 @@ export default function SessionNoteModal() {
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
             <MaterialCommunityIcons name="notebook-outline" size={28} color={colors.textMuted} />
-            <Text className="text-sm text-muted">Cette séance est introuvable.</Text>
+            <Text className="text-sm text-muted">{t("Cette séance est introuvable.")}</Text>
           </View>
         </FadeInView>
       </Screen>
@@ -107,9 +108,9 @@ export default function SessionNoteModal() {
       <Screen>
         <FadeInView>
           <View className="gap-1">
-            <Text className="text-2xl font-display tracking-tight text-text">Un mot sur cette séance ?</Text>
+            <Text className="text-2xl font-display tracking-tight text-text">{t("Un mot sur cette séance ?")}</Text>
             <Text className="text-sm text-muted">
-              Ce que tu écris ici rejoint le journal de {horse?.name ?? "ton cheval"}.
+              {t("Ce que tu écris ici rejoint le journal de ")}{horse?.name ?? t("ton cheval")}.
             </Text>
           </View>
         </FadeInView>

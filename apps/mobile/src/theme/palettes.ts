@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 /**
  * Palettes de couleur prédéfinies — choix dans Profil → Apparence, cf.
  * ThemeProvider.tsx. Chaque palette redéfinit les 9 rôles sémantiques
@@ -41,12 +43,12 @@ export type ThemeColors = PaletteColors & {
 export const THEME_ORDER: ThemeId[] = ["marine", "bordeaux", "paturage", "ardoise", "coucher-de-soleil", "lavande"];
 
 export const THEME_LABELS: Record<ThemeId, string> = {
-  marine: "Marine",
-  bordeaux: "Bordeaux",
-  paturage: "Pâturage",
-  ardoise: "Ardoise",
-  "coucher-de-soleil": "Coucher de soleil",
-  lavande: "Lavande",
+  marine: t("Marine"),
+  bordeaux: t("Bordeaux"),
+  paturage: t("Pâturage"),
+  ardoise: t("Ardoise"),
+  "coucher-de-soleil": t("Coucher de soleil"),
+  lavande: t("Lavande"),
 };
 
 export const PALETTES: Record<ThemeId, PaletteColors> = {
@@ -118,6 +120,91 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
   },
 };
 
+/**
+ * Variantes sombres, une par palette. Mêmes rôles, mêmes teintes : le
+ * cavalier qui a choisi « Bordeaux » le retrouve la nuit.
+ *
+ * `primary` y est plus clair qu'en mode clair : il sert à la fois de fond
+ * (boutons, en-tête de l'Accueil, avec du texte blanc) et de couleur de texte
+ * (liens, titres) sur une surface foncée — la teinte claire d'origine serait
+ * illisible sur fond sombre, la teinte foncée d'origine aussi. Le texte
+ * principal, lui, devient un blanc légèrement teinté.
+ */
+export const DARK_PALETTES: Record<ThemeId, PaletteColors> = {
+  marine: {
+    primary: "#4a82bd",
+    accent: "#7fb0d4",
+    highlight: "#172b43",
+    background: "#0e1621",
+    surface: "#18222f",
+    text: "#e6edf4",
+    textMuted: "#8f9bab",
+    textOnPrimary: "#ffffff",
+    border: "#2a3646",
+  },
+  bordeaux: {
+    primary: "#b8506a",
+    accent: "#d4778a",
+    highlight: "#3a1f27",
+    background: "#160e11",
+    surface: "#22171b",
+    text: "#f3e6e9",
+    textMuted: "#a8949a",
+    textOnPrimary: "#ffffff",
+    border: "#3a2a2f",
+  },
+  paturage: {
+    primary: "#4f9157",
+    accent: "#8fbf80",
+    highlight: "#1f3322",
+    background: "#0e140e",
+    surface: "#182118",
+    text: "#e5efe1",
+    textMuted: "#92a08b",
+    textOnPrimary: "#ffffff",
+    border: "#2b3a2b",
+  },
+  ardoise: {
+    primary: "#6a7c99",
+    accent: "#8aa6cc",
+    highlight: "#232c39",
+    background: "#0f1115",
+    surface: "#1a1d23",
+    text: "#e6e9ee",
+    textMuted: "#8f97a3",
+    textOnPrimary: "#ffffff",
+    border: "#2c313a",
+  },
+  "coucher-de-soleil": {
+    primary: "#cf6b44",
+    accent: "#eba876",
+    highlight: "#3a2216",
+    background: "#17100b",
+    surface: "#241912",
+    text: "#f6e8de",
+    textMuted: "#ab9584",
+    textOnPrimary: "#ffffff",
+    border: "#3d2c21",
+  },
+  lavande: {
+    primary: "#8574c2",
+    accent: "#ad9ee0",
+    highlight: "#2a2340",
+    background: "#110f18",
+    surface: "#1c1926",
+    text: "#ece8f6",
+    textMuted: "#9b92b3",
+    textOnPrimary: "#ffffff",
+    border: "#322c45",
+  },
+};
+
+export type ColorScheme = "light" | "dark";
+
+export function paletteFor(id: ThemeId, scheme: ColorScheme): PaletteColors {
+  return scheme === "dark" ? DARK_PALETTES[id] : PALETTES[id];
+}
+
 /** success/warning/danger : constants, cf. commentaire de tête. */
 export const STATUS_COLORS = {
   success: "#3a9d6b",
@@ -143,8 +230,8 @@ function hexToRgbTriplet(hex: string): string {
  * classes Tailwind `rgba(var(--x), opacity)` / `rgb(var(--x))`, cf.
  * tailwind.config.js) pour une palette donnée — consommé par ThemeProvider
  * via `vars()`. */
-export function cssVarsForTheme(id: ThemeId): Record<string, string> {
-  const p = PALETTES[id];
+export function cssVarsForTheme(id: ThemeId, scheme: ColorScheme = "light"): Record<string, string> {
+  const p = paletteFor(id, scheme);
   return {
     "--color-primary": hexToRgbTriplet(p.primary),
     "--color-accent": hexToRgbTriplet(p.accent),

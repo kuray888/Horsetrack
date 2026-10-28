@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { lookupGlossaryTerm } from "./terms";
+import { t } from "@/i18n";
 
 type GlossaryContextValue = { activeTerm: string | null; showTerm: (term: string) => void; hide: () => void };
 
@@ -45,9 +46,9 @@ export function GlossaryPopup() {
     <Pressable onPress={hide} className="absolute inset-0 z-50 items-center justify-center bg-black/50 px-8">
       <View className="w-full gap-3 rounded-card bg-surface p-5 shadow-card">
         <Text className="text-xs font-bold uppercase tracking-wide text-accent">{activeTerm}</Text>
-        <Text className="text-sm leading-5 text-text">{entry?.definition ?? "Définition à venir."}</Text>
+        <Text className="text-sm leading-5 text-text">{entry?.definition ?? t("Définition à venir.")}</Text>
         <Pressable onPress={hide} hitSlop={8} className="self-end rounded-full bg-primary px-4 py-2">
-          <Text className="text-sm font-bold text-on-primary">Fermer</Text>
+          <Text className="text-sm font-bold text-on-primary">{t("Fermer")}</Text>
         </Pressable>
       </View>
     </Pressable>

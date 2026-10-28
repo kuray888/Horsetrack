@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { EMPTY_HORSE_DRAFT, HorseForm } from "@/components/HorseForm";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useHorses } from "@/horses/store";
@@ -10,6 +10,7 @@ import { openPaywall } from "@/subscription/paywall";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
 import { track } from "@/lib/analytics";
 import { colors } from "@/theme/colors";
+import { t } from "@/i18n";
 
 function HorseLimitReached({ limit }: { limit: number }) {
   return (
@@ -18,20 +19,19 @@ function HorseLimitReached({ limit }: { limit: number }) {
         <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
           <MaterialCommunityIcons name="lock-outline" size={28} color={colors.primary} />
         </View>
-        <Text className="text-center text-xl font-bold text-text">Toute ton écurie, au même endroit</Text>
+        <Text className="text-center text-xl font-bold text-text">{t("Toute ton écurie, au même endroit")}</Text>
         <Text className="text-center text-sm text-muted">
-          La version gratuite suit {limit} {limit > 1 ? "chevaux" : "cheval"}. Avec Premium, ajoute autant de chevaux que tu
-          veux, chacun avec son planning, sa santé et son budget.
+          {t("La version gratuite suit ")}{limit} {limit > 1 ? "chevaux" : "cheval"}{t(". Avec Premium, ajoute autant de chevaux que tu veux, chacun avec son planning, sa santé et son budget.")}
         </Text>
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => openPaywall("horses", { feature: "add_horse_limit" })}
           className="rounded-full bg-primary px-6 py-3"
         >
-          <Text className="text-sm font-bold text-on-primary">Découvrir Premium</Text>
+          <Text className="text-sm font-bold text-on-primary">{t("Découvrir Premium")}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Text className="text-sm font-semibold text-muted">Retour</Text>
+          <Text className="text-sm font-semibold text-muted">{t("Retour")}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -63,8 +63,8 @@ export default function AddHorseModal() {
   return (
     <>
     <HorseForm
-      title="Ajouter un cheval"
-      submitLabel="Ajouter"
+      title={t("Ajouter un cheval")}
+      submitLabel={t("Ajouter")}
       initial={EMPTY_HORSE_DRAFT}
       onSubmit={(horse) => {
         addHorse(horse);

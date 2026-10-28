@@ -1,5 +1,6 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
+import { t } from "@/i18n";
 
 const BIOMETRIC_LOCK_KEY = "biometric_lock_enabled_v1";
 
@@ -27,15 +28,15 @@ export async function isBiometricsAvailable(): Promise<boolean> {
 }
 
 export async function authenticateWithBiometrics(
-  promptMessage = "Confirmer votre identité"
+  promptMessage = t("Confirmer votre identité")
 ): Promise<boolean> {
   const available = await isBiometricsAvailable();
   if (!available) return false;
 
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage,
-    fallbackLabel: "Utiliser le code",
-    cancelLabel: "Annuler",
+    fallbackLabel: t("Utiliser le code"),
+    cancelLabel: t("Annuler"),
     disableDeviceFallback: false,
   });
 

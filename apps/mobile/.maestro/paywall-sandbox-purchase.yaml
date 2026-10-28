@@ -1,0 +1,44 @@
+# Achat RÉEL en environnement de test Apple (sandbox) : la feuille de l'App
+# Store s'ouvre, l'achat est confirmé par Apple, RevenueCat renvoie le droit
+# Premium, l'écran de bienvenue s'affiche. Aucune étape n'est simulée par
+# l'app : sans confirmation d'Apple, ce test échoue.
+#
+# Prérequis (cf. README.md) : compte Horsetrack de test jamais abonné
+# (SANDBOX_EMAIL/SANDBOX_PASSWORD) ; sur iPhone, un compte testeur sandbox
+# connecté dans Réglages → App Store → Compte sandbox. Un abonnement sandbox
+# mensuel se renouvelle toutes les 5 minutes et s'arrête seul après 12
+# renouvellements.
+appId: com.horsetrack.app
+tags:
+  - sandbox
+env:
+  EMAIL: ${SANDBOX_EMAIL}
+  PASSWORD: ${SANDBOX_PASSWORD}
+---
+- runFlow: subflows/login.yaml
+- runFlow: subflows/open-paywall.yaml
+- tapOn:
+    id: "paywall-plan-monthly"
+- tapOn:
+    id: "paywall-cta"
+# Feuille d'achat d'Apple (texte système, selon la langue de l'iPhone).
+- extendedWaitUntil:
+    visible: "Subscribe|S’abonner|S'abonner|Confirm|Confirmer"
+    timeout: 30000
+- tapOn: "Subscribe|S’abonner|S'abonner|Confirm|Confirmer"
+# Mot de passe sandbox demandé sur certains appareils.
+- runFlow:
+    when:
+      visible: "Sign In|Connexion|Password|Mot de passe"
+    commands:
+      - inputText: ${APPLE_SANDBOX_PASSWORD}
+      - tapOn: "Sign In|Connexion|OK"
+- runFlow:
+    when:
+      visible: "You’re all set.|Tout est prêt.|OK"
+    commands:
+      - tapOn: "OK"
+- extendedWaitUntil:
+    visible:
+      id: "premium-welcome-title"
+    timeout: 60000

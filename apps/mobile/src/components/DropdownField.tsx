@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Field } from "@/components/Field";
 import { usePickerOverlay } from "@/components/PickerOverlay";
 import { colors } from "@/theme/colors";
+import { t } from "@/i18n";
 
 export type DropdownOption<T extends string> = {
   value: T;
@@ -22,7 +23,7 @@ export function DropdownField<T extends string>({
   value,
   options,
   onChange,
-  placeholder = "Sélectionner…",
+  placeholder = t("Sélectionner…"),
 }: {
   label: string;
   value: T | null;

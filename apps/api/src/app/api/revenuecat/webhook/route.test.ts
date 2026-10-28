@@ -25,6 +25,9 @@ vi.mock("@/lib/analytics", () => ({
   captureServerEvent: vi.fn(),
 }));
 
+const promoConversion = vi.hoisted(() => ({ recordOfferCodeConversion: vi.fn() }));
+vi.mock("@/lib/promoConversion", () => promoConversion);
+
 import { POST } from "./route";
 
 const SECRET = "test-secret";
@@ -167,5 +170,24 @@ describe("webhook RevenueCat — TRANSFER", () => {
     const res = await call({ id: "evt-transfer-3", type: "TRANSFER", transferred_from: ["a"], transferred_to: ["b"] });
     expect(res.status).toBe(200);
     expect(db.riderProfile.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rattache un achat fait avec un code d'offre à son code promo", async () => {
+    await call({
+      id: "evt-offer",
+      type: "INITIAL_PURCHASE",
+      app_user_id: "user-1",
+      entitlement_ids: ["grand_prix"],
+      store: "APP_STORE",
+      period_type: "NORMAL",
+      product_id: "grand_prix_annual",
+      event_timestamp_ms: 1_800_000_000_000,
+      offer_code: "RENTREE30",
+    });
+    expect(promoConversion.recordOfferCodeConversion).toHaveBeenCalledWith(
+      "user-1",
+      "RENTREE30",
+      new Date(1_800_000_000_000)
+    );
   });
 });

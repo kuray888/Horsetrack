@@ -1,6 +1,7 @@
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { t } from "@/i18n";
 
 /** Puces « Tous » + un cheval par puce, pour filtrer l'AFFICHAGE d'une liste
  * multi-chevaux. Extrait tel quel du Journal (cf. (tabs)/journal.tsx, où ce
@@ -20,7 +21,7 @@ export function HorseFilterChips({
   horses,
   value,
   onChange,
-  allLabel = "Tous",
+  allLabel = t("Tous"),
   showAll = true,
 }: {
   horses: { id: string; name: string }[];

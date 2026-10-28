@@ -1,0 +1,16 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Horsetrack utilise l'appareil photo pour photographier ton cheval, une ordonnance ou une facture.",
+    "NSPhotoLibraryUsageDescription": "Horsetrack a besoin d'accéder à tes photos pour ajouter une photo de ton cheval ou d'un document.",
+    "NSFaceIDUsageDescription": "Horsetrack utilise Face ID pour sécuriser l'accès à ton compte.",
+    "NSLocationWhenInUseUsageDescription": "Horsetrack utilise ta position pour la météo, et pour enregistrer le parcours de tes séances en direct (distance, allures, tracé), y compris écran verrouillé.",
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "Horsetrack utilise ta position pour la météo, et pour enregistrer le parcours de tes séances en direct (distance, allures, tracé), y compris écran verrouillé.",
+    "NSLocationAlwaysUsageDescription": "Horsetrack utilise ta position pour la météo, et pour enregistrer le parcours de tes séances en direct (distance, allures, tracé), y compris écran verrouillé.",
+    "NSCalendarsUsageDescription": "Horsetrack ajoute à ton calendrier les rendez-vous et concours que tu choisis.",
+    "NSCalendarsWriteOnlyAccessUsageDescription": "Horsetrack ajoute à ton calendrier les rendez-vous et concours que tu choisis.",
+    "NSCalendarsFullAccessUsageDescription": "Horsetrack ajoute à ton calendrier les rendez-vous et concours que tu choisis.",
+    "NSRemindersUsageDescription": "Horsetrack n'utilise pas tes rappels.",
+    "NSRemindersFullAccessUsageDescription": "Horsetrack n'utilise pas tes rappels.",
+    "NSMotionUsageDescription": "Horsetrack n'utilise pas les données de mouvement de ton téléphone."
+  }
+}
