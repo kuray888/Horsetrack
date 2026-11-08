@@ -47,6 +47,25 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
 - Jamais : faux compte à rebours, fausse rareté, avis ou chiffres inventés,
   prix barré jamais pratiqué, bouton de fermeture retardé.
 
+## Relances (Premium, retour, avis) — une seule politique
+
+Chaque relance a sa logique pure testée et ses plafonds ; ne jamais en
+ajouter une sans la placer dans ce tableau :
+
+- Paywall contextuel : quand on touche une limite (`openPaywall(placement)`).
+- Carte rappels (`RemindersUpsellCard`) : compte gratuit qui note des soins,
+  14 j de silence après fermeture.
+- Relance Premium périodique (`premiumNudgeLogic.ts`) : gratuit, ≥ 3 jours et
+  ≥ 3 activités ; puis 7 j, 14 j, 30 j ; 3 j de silence après tout paywall ;
+  une par lancement.
+- Passage à l'annuel : carte Premium du Profil pour un abonné mensuel.
+- Offre de retour (`WinbackCard`) : anciens abonnés, code serveur.
+- Fin d'essai : rappel programmé à l'achat (`trialLifecycle.ts`).
+- Retour d'inactivité (`comebackReminderLogic.ts`) : J+4 et J+11, repoussés
+  à chaque ouverture, seulement si les notifications sont déjà autorisées.
+- Avis App Store (`reviewPromptLogic.ts`) : ≥ 7 jours, après 3 moments
+  positifs, 120 j entre deux.
+
 ## Onboarding et rétention
 
 - Objectif : comprendre la valeur en moins de 30 s. Chaque écran doit soit
