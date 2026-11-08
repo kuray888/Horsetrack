@@ -5,7 +5,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { PrimaryButton } from "@/components/onboarding";
-import { colors } from "@/theme/colors";
 import { Field } from "@/components/Field";
 import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";

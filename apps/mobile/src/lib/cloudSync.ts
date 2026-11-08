@@ -364,7 +364,7 @@ async function pushHorsesImpl(
   horses: Horse[],
   onlyIds?: string[]
 ): Promise<{
-  photoUpdates: Array<{ id: string; photoPath: string | null }>;
+  photoUpdates: { id: string; photoPath: string | null }[];
   rejectedIds: string[];
   hadUnexpectedError: boolean;
   skipped: boolean;
@@ -380,7 +380,7 @@ async function pushHorsesImpl(
   if (!profile) return { photoUpdates: [], rejectedIds: [], hadUnexpectedError: false, skipped: true };
 
   const now = new Date().toISOString();
-  const photoUpdates: Array<{ id: string; photoPath: string | null }> = [];
+  const photoUpdates: { id: string; photoPath: string | null }[] = [];
   const rejectedIds: string[] = [];
   let hadUnexpectedError = false;
   // Un cheval à la fois, pas un upsert groupé : Postgres/RLS rejette un
