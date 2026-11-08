@@ -20,7 +20,9 @@ export type PaywallPlacement =
   | "profile"
   | "trial_ending"
   | "ride_safety"
-  | "coach";
+  | "coach"
+  /** Relance périodique d'un compte gratuit actif (cf. premiumNudgeLogic.ts). */
+  | "reminder";
 
 export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "onboarding",
@@ -35,6 +37,7 @@ export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "trial_ending",
   "ride_safety",
   "coach",
+  "reminder",
 ];
 
 export function parsePlacement(value: unknown): PaywallPlacement {
@@ -161,6 +164,12 @@ export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = 
         title: tr("Pars en balade, tes proches veillent."),
         subtitle:
           tr("Ils suivent ta position pendant la séance, et sont prévenus par email si tu ne bouges plus ou si ton téléphone ne répond plus."),
+      };
+    case "reminder":
+      return {
+        icon: "star-outline",
+        title: tr("Va plus loin avec {first}.", { first: first }),
+        subtitle: tr("Un rappel avant chaque soin, tous ses papiers rangés, un coach pour tes séances et autant de chevaux que tu veux."),
       };
     case "profile":
     default:

@@ -67,6 +67,7 @@ export type AnalyticsEvent =
   | "premium_welcome_action"
   | "trial_reminder_scheduled"
   | "upsell_card_viewed"
+  | "premium_nudge_shown"
   | "upsell_card_dismissed"
   // Activation
   | "horse_added"

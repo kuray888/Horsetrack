@@ -27,6 +27,7 @@ import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
 import { usePendingSyncCount, useRejectedWriteCount } from "@/lib/useSyncQueue";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
 import { RemindersUpsellCard } from "@/subscription/RemindersUpsellCard";
+import { PremiumNudge } from "@/subscription/PremiumNudge";
 import { FirstStepsCard, MonthlyRecapCard } from "@/components/EngagementCards";
 import { useCloudRefresh } from "@/lib/cloudRefresh";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
@@ -382,6 +383,9 @@ function TodayScreen() {
       ) : null}
 
       <RemindersUpsellCard />
+      {/* Relance Premium périodique, rare et jamais par-dessus un autre
+          paywall (cf. subscription/premiumNudgeLogic.ts). Ne rend rien. */}
+      <PremiumNudge horseId={horse?.id ?? null} />
 
       {laterEvents.length > 0 ? <UpcomingCard events={laterEvents} /> : null}
 

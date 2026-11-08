@@ -11,6 +11,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { BillingPeriod, PromoRedeemResult } from "@/subscription/store";
 import { usePaywallOfferState } from "@/subscription/paywall";
 import { track } from "@/lib/analytics";
+import { notePaywallSeen } from "@/subscription/premiumNudgeStore";
 import { legalUrl, openLegalPage, type LegalPage } from "@/lib/links";
 import {
   BENEFITS,
@@ -474,6 +475,7 @@ export function PaywallView({
   useEffect(() => {
     if (loading || viewTracked.current) return;
     viewTracked.current = true;
+    notePaywallSeen();
     track("paywall_viewed", {
       placement,
       horse_names_shown: horseNames.length,
