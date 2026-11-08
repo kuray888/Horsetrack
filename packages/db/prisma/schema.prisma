@@ -599,6 +599,19 @@ model RideSlot {
   @@map("ride_slots")
 }
 
+/// Notifications du planning déjà envoyées (Écurie Pro v2) : une par
+/// événement et par destinataire, même si l'app rejoue l'appel (file hors
+/// ligne). Écrite et lue par l'API seulement (RLS sans policy).
+model PlanningNotification {
+  /// "<session|slot>:<id>:<événement>:<destinataire>"
+  id           String   @id
+  senderUserId String
+  createdAt    DateTime @default(now())
+
+  @@index([senderUserId, createdAt])
+  @@map("planning_notifications")
+}
+
 model TrainingSessionRide {
   id        String          @id
   sessionId String          @unique

@@ -13,6 +13,7 @@ import { useHorseRights } from "@/horses/useHorseRights";
 import { useHorseTeam } from "@/horses/team";
 import { riderDisplayName, sessionAccess, type TeamMember } from "@/planning/riders";
 import { track } from "@/lib/analytics";
+import { notifyPlanning } from "@/planning/planningNotify";
 import { t } from "@/i18n";
 
 type SessionHandlers = {
@@ -162,8 +163,10 @@ function SessionEventCard({
   const team = useHorseTeam(someoneElse ? session.horseId : null);
   const done = session.completed;
   const access = sessionAccess(rights.roleFor(session.horseId), session, rights.me);
+  const shared = rights.roleFor(session.horseId) !== "OWNER";
   const toggleDone = () => {
     if (access === "done" && !session.completed) track("assigned_session_done", {});
+    if (shared && !session.completed) notifyPlanning("session", session.id, "done");
     sessionHandlers.onToggleDone(session);
   };
   return (

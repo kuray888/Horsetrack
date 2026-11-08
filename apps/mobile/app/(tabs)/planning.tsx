@@ -46,6 +46,7 @@ import { useHorseTeam } from "@/horses/team";
 import { useHorseRights } from "@/horses/useHorseRights";
 import { useSlots } from "@/planning/slotsStore";
 import { track } from "@/lib/analytics";
+import { notifyPlanning } from "@/planning/planningNotify";
 import { PlanningStatsCard } from "@/planning/components/PlanningStatsCard";
 import { INTENSITY_META } from "@/sessions/components/SessionCard";
 import {
@@ -669,6 +670,10 @@ function PlanningScreen() {
     if (editingId) {
       const existing = horseSessions.find((s) => s.id === editingId);
       if (!existing) return false;
+      const nextRider = riderColumns(form.riderUserId, form.riderOther ? form.riderName : "");
+      if (nextRider.riderUserId && nextRider.riderUserId !== rights.me && nextRider.riderUserId !== existing.riderUserId) {
+        notifyPlanning("session", existing.id, "assigned");
+      }
       updateSession({
         ...existing,
         activityType: form.activityType,
@@ -678,7 +683,7 @@ function PlanningScreen() {
         durationMinutes: form.durationMinutes,
         intensity: form.intensity,
         notes: form.notes,
-        ...riderColumns(form.riderUserId, form.riderOther ? form.riderName : ""),
+        ...nextRider,
       });
     } else {
       // form.recurrence "custom" : crée une séance identique à chaque date
@@ -731,25 +736,32 @@ function PlanningScreen() {
           ? riderColumns(form.riderUserId, form.riderOther ? form.riderName : "")
           : { riderUserId: null, riderName: null };
       if (!rider.riderUserId && !rider.riderName && !canAssignOthers && rights.me) rider.riderUserId = rights.me;
-      if (rider.riderName || (rider.riderUserId && rider.riderUserId !== rights.me)) {
+      const assignsSomeoneElse = !!rider.riderUserId && rider.riderUserId !== rights.me;
+      if (rider.riderName || assignsSomeoneElse) {
         track("session_assigned", { account: !!rider.riderUserId, count: occurrenceDates.length });
       }
+      const created: string[] = [];
       for (const sessionHorseId of sessionTargets) {
         for (const date of occurrenceDates) {
-          addSession({
-            ...rider,
-            horseId: sessionHorseId,
-            activityType: form.activityType,
-            customActivityLabel,
-            date,
-            time: form.time,
-            durationMinutes: form.durationMinutes,
-            intensity: form.intensity,
-            notes: form.notes,
-            completed: form.completed,
-          });
+          created.push(
+            addSession({
+              ...rider,
+              horseId: sessionHorseId,
+              activityType: form.activityType,
+              customActivityLabel,
+              date,
+              time: form.time,
+              durationMinutes: form.durationMinutes,
+              intensity: form.intensity,
+              notes: form.notes,
+              completed: form.completed,
+            })
+          );
         }
       }
+      // Le cavalier est prévenu de la première séance seulement : une série
+      // répétée ne doit pas envoyer une notification par semaine d'un coup.
+      if (assignsSomeoneElse && created[0]) notifyPlanning("session", created[0], "assigned");
     }
     const createdCount = editingId ? 0 : sessionCreateCount;
     setShowForm(false);

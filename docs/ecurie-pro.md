@@ -41,7 +41,8 @@ toujours les prix du store : ils se règlent dans App Store Connect.
    `ecurie-pro-v2-3-seances-2026-11-08.sql` (séance attribuée, « C'est fait »),
    puis `ecurie-pro-v2-4-creneaux-2026-11-08.sql` (créneaux récurrents ; il
    transforme aussi les jours de demi-pension des comptes Pro en créneaux et
-   affiche combien par cheval). Testés sur une base
+   affiche combien par cheval), puis
+   `ecurie-pro-v2-5-notifications-2026-11-08.sql` (journal des notifications). Testés sur une base
    dans l'état actuel de la prod et rejouables (`pnpm --filter @cheval/db
    test:rls` vérifie les règles sur un Postgres local).
 
@@ -61,6 +62,10 @@ toujours les prix du store : ils se règlent dans App Store Connect.
 - Créneaux : fiche du cheval → Créneaux réguliers ; les jours de
   demi-pension y apparaissent déjà ; ajouter « samedi 10 h, cours » ; un
   compte Premium voit l'offre Écurie Pro au lieu du formulaire.
+- Notifications (API déployée, deux iPhone) : séance attribuée → « Tu
+  montes Tornade » chez la DP ; elle coche → « Léa a monté Tornade » chez
+  le propriétaire ; occurrence annulée → la DP est prévenue ; rappel avant
+  une séance d'un créneau, sur le téléphone de la DP.
 
 ## Mesure (PostHog)
 `pro_paywall_viewed`, `pro_cta_tapped`, `purchase_started` / `purchase_completed`

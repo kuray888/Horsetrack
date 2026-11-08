@@ -85,6 +85,7 @@ describe("sessionForOccurrence", () => {
     const s = sessionForOccurrence({ id: "dp_h1_2_2026-11-10", slot: slot(), date: new Date(2026, 10, 10, 15), session: null });
     expect(s).toMatchObject({ id: "dp_h1_2_2026-11-10", horseId: "h1", riderUserId: "u-dp", time: "18:00", durationMinutes: 90, slotId: "dp_h1_2", completed: false });
     expect(s.date.getHours()).toBe(0);
+    expect(s.createdByUserId).toBeNull();
   });
 });
 

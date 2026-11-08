@@ -123,6 +123,9 @@ export function sessionForOccurrence(occurrence: SlotOccurrence): TrainingSessio
     riderName: slot.riderName,
     slotId: slot.id,
     cancelledAt: null,
+    // Pas « créée sur cet appareil » : ses droits et ses rappels suivent le
+    // cavalier du créneau, pas celui qui l'écrit (cf. lib/permissions.ts).
+    createdByUserId: null,
   };
 }
 

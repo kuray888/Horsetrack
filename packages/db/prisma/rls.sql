@@ -1593,3 +1593,9 @@ $$;
 revoke execute on function public.migrate_partnership_slots(text) from public, anon;
 grant execute on function public.migrate_partnership_slots(text) to authenticated, service_role;
 -- <<< creneaux
+
+-- >>> notifications-planning (Écurie Pro v2, 2026-11-08)
+-- Notifications du planning déjà envoyées : réservée à l'API (connexion
+-- Prisma), RLS sans aucune policy, comme push_tokens.
+alter table public.planning_notifications enable row level security;
+-- <<< notifications-planning

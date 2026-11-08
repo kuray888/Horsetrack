@@ -19,6 +19,7 @@ import { can } from "@/lib/permissions";
 import { hapticSelection, hapticSuccess, hapticTap } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { track } from "@/lib/analytics";
+import { notifyPlanning } from "@/planning/planningNotify";
 import { LOCALE, t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -89,6 +90,9 @@ export default function WeekPlanningScreen() {
   function markDone(item: PlanItem) {
     hapticSuccess();
     animateNextLayout();
+    // Cheval de quelqu'un d'autre : ceux qui organisent son planning sont
+    // prévenus (« Léa a monté Tornade »).
+    if (!ownedIds.has(item.horseId)) notifyPlanning("session", item.id, "done");
     if (item.session) {
       toggleCompleted(item.session.id);
     } else if (item.occurrence) {
@@ -111,6 +115,7 @@ export default function WeekPlanningScreen() {
           animateNextLayout();
           const base = item.session ?? (item.occurrence ? sessionForOccurrence(item.occurrence) : null);
           if (base) updateSession({ ...base, cancelledAt: new Date() });
+          if (item.riderUserId && item.riderUserId !== rights.me) notifyPlanning("session", item.id, "cancelled");
           track("slot_occurrence_cancelled", {});
         },
       },

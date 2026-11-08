@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 import * as Notifications from "expo-notifications";
 import { useSessions, type TrainingSession } from "@/sessions/store";
 import { useHorses, type Horse } from "@/horses/store";
 import { useCurrentUserId } from "@/lib/currentUser";
 import { isMySession, roleOf } from "@/lib/permissions";
+import { notifyPlanning } from "@/planning/planningNotify";
+import { useSlots } from "@/planning/slotsStore";
+import { sessionForOccurrence, slotOccurrences } from "@/planning/slots";
 import { ACTIVITY_META } from "@/agenda/store";
 import { readJson, writeJson } from "@/lib/localStore";
 import { cancelReminder, getNotificationStatus, scheduleSessionReminderNotification } from "@/lib/notifications";
@@ -94,6 +97,17 @@ export function SessionReminders() {
   const { sessions, loading, toggleCompleted, updateSession } = useSessions();
   const { horses } = useHorses();
   const me = useCurrentUserId();
+  const slots = useSlots();
+  // Occurrences des créneaux réguliers pas encore écrites : rappelées comme
+  // des séances (même identifiant que la séance qu'elles deviendront).
+  const withOccurrences = useMemo(() => {
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 8);
+    const virtual = slotOccurrences(slots, sessions, now, end)
+      .filter((o) => !o.session)
+      .map((o) => sessionForOccurrence(o));
+    return virtual.length ? [...sessions, ...virtual] : sessions;
+  }, [slots, sessions]);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -124,17 +138,25 @@ export function SessionReminders() {
     // seraient annulés puis reprogrammés une seconde plus tard.
     if (me === null && horses.some((h) => h.sharedRole)) return;
     const timer = setTimeout(() => {
-      syncSessionReminders(sessions, horses, me).catch(() => {});
+      syncSessionReminders(withOccurrences, horses, me).catch(() => {});
     }, 1500);
     return () => clearTimeout(timer);
-  }, [sessions, horses, me, loading, tick]);
+  }, [withOccurrences, horses, me, loading, tick]);
 
   // Boutons de la notification. Les séances sont lues dans une ref pour ne
   // pas réabonner l'écouteur à chaque changement.
-  const sessionsRef = useRef(sessions);
+  const sessionsRef = useRef(withOccurrences);
+  const horsesRef = useRef(horses);
+  const realSessionsRef = useRef(sessions);
   useEffect(() => {
-    sessionsRef.current = sessions;
+    realSessionsRef.current = sessions;
   }, [sessions]);
+  useEffect(() => {
+    horsesRef.current = horses;
+  }, [horses]);
+  useEffect(() => {
+    sessionsRef.current = withOccurrences;
+  }, [withOccurrences]);
   const handledKeys = useRef(new Set<string>());
 
   useEffect(() => {
@@ -154,7 +176,14 @@ export function SessionReminders() {
       if (action === SESSION_ACTION_DONE) {
         if (!session.completed) {
           hapticSuccess();
-          toggleCompleted(session.id);
+          // Occurrence de créneau pas encore écrite : écrite, faite.
+          if (realSessionsRef.current.some((x) => x.id === session.id)) toggleCompleted(session.id);
+          else {
+            updateSession({ ...session, completed: true });
+            track("session_completed", { activity: session.activityType, slot: true });
+          }
+          // Cheval partagé : le propriétaire et le coach sont prévenus.
+          if (horsesRef.current.find((h) => h.id === session.horseId)?.sharedRole) notifyPlanning("session", session.id, "done");
         }
       } else {
         updateSession({ ...session, date: postponedDate(new Date()) });

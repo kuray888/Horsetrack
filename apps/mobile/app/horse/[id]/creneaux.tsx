@@ -24,6 +24,7 @@ import { endSlot, migrateHorsePartnership, saveSlot, useSlots } from "@/planning
 import { hapticSelection, hapticSuccess } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { track } from "@/lib/analytics";
+import { notifyPlanning } from "@/planning/planningNotify";
 import { formatDate } from "@/lib/dateFormat";
 import { t } from "@/i18n";
 
@@ -132,8 +133,9 @@ export default function HorseSlotsScreen() {
     if (!horse || draft.weekdays.length === 0) return;
     const rider = riderColumns(draft.riderUserId, draft.riderOther ? draft.riderName : "");
     const validFrom = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const saved: string[] = [];
     for (const weekday of draft.weekdays) {
-      saveSlot({
+      const slot = saveSlot({
         horseId: horse.id,
         ...rider,
         weekday,
@@ -145,7 +147,10 @@ export default function HorseSlotsScreen() {
         activityType: null,
         notes: "",
       });
+      saved.push(slot.id);
     }
+    // Le cavalier est prévenu une fois, pour le premier jour.
+    if (rider.riderUserId && rider.riderUserId !== rights.me && saved[0]) notifyPlanning("slot", saved[0], "slot_assigned");
     track("slot_created", { count: draft.weekdays.length, kind: draft.kind, account: !!rider.riderUserId });
     hapticSuccess();
     animateNextLayout();

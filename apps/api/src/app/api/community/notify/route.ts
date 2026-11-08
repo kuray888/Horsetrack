@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { MAX_NOTIFIED_COMMENTS_PER_HOUR, commentPushMessages, threadParticipants } from "@/lib/communityPush";
+import { sendExpoPush } from "@/lib/expoPush";
 
 const schema = z.object({ commentId: z.string().min(1).max(64) });
 
@@ -61,18 +62,5 @@ export async function POST(req: NextRequest) {
   });
   if (messages.length === 0) return NextResponse.json({ sent: 0 });
 
-  const res = await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(messages),
-  }).catch(() => null);
-
-  // Jetons désinstallés : retirés, pour ne plus les solliciter.
-  const json = (await res?.json().catch(() => null)) as { data?: { status: string; details?: { error?: string } }[] } | null;
-  const dead = (json?.data ?? [])
-    .map((r, i) => (r.status === "error" && r.details?.error === "DeviceNotRegistered" ? messages[i].to : null))
-    .filter((t): t is string => !!t);
-  if (dead.length) await db.pushToken.deleteMany({ where: { token: { in: dead } } });
-
-  return NextResponse.json({ sent: res?.ok ? messages.length - dead.length : 0 });
+  return NextResponse.json({ sent: await sendExpoPush(messages) });
 }

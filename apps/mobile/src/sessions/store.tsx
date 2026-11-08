@@ -102,7 +102,8 @@ type SessionsContextValue = {
    * séance saisie après coup est déjà faite, la cocher ensuite serait un
    * deuxième geste pour rien (cf. le choix « Déjà faite » du formulaire de
    * Planning). Même champ que `toggleCompleted`, aucun nouveau modèle. */
-  addSession: (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => void;
+  /** Renvoie l'identifiant de la séance créée. */
+  addSession: (session: NewTrainingSession & { horseId?: string | null; completed?: boolean }) => string;
   updateSession: (session: TrainingSession) => void;
   /** Enregistre une séance faite en direct : complète la séance prévue
    * `sessionId` (cochée, durée réelle, parcours) ou en crée une, déjà faite.
@@ -213,6 +214,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       setSessions((list) => [...list, next]);
       pushTrainingSession(next).catch(() => {});
       track("session_created", { completed: next.completed, activity: next.activityType });
+      return next.id;
     },
     [selectedHorse]
   );
