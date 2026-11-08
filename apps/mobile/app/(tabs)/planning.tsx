@@ -71,6 +71,27 @@ import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
+/** Événements affichés d'un coup, à venir comme passés (cf. JOURNAL_PAGE_SIZE). */
+const PLANNING_PAGE_SIZE = 20;
+
+/** « Afficher la suite » en bas d'une liste paginée — même bouton que le Journal. */
+function ShowMoreButton({ hidden, label, onPress }: { hidden: number; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        animateNextLayout();
+        onPress();
+      }}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      className="items-center rounded-card border border-border py-3"
+    >
+      <Text className="text-sm font-semibold text-accent">{label}</Text>
+      <Text className="text-xs text-muted">{t("{n} restant{v}", { n: hidden, v: hidden > 1 ? "s" : "" })}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function PlanningScreen() {
   const colors = useThemeColors();
   const { horses, selectedHorse } = useHorses();
@@ -408,8 +429,24 @@ function PlanningScreen() {
     [filteredEvents, todayStart]
   );
 
-  const upcomingGroups = useMemo(() => groupByDay(upcoming), [upcoming]);
-  const doneGroups = useMemo(() => groupByDay(done.slice(0, 20)), [done]);
+  // Affichage par pages, comme le Journal : une séance répétée chaque semaine
+  // sur un an produit à elle seule plus de 50 dates à venir, et le passé
+  // grossit avec l'usage. Repart d'une page quand le filtre ou le cheval
+  // change (pattern « ajuster pendant le rendu »), pas quand une séance est
+  // cochée.
+  const [upcomingCount, setUpcomingCount] = useState(PLANNING_PAGE_SIZE);
+  const [doneCount, setDoneCount] = useState(PLANNING_PAGE_SIZE);
+  const pagingKey = `${filter}|${filterHorseId ?? ""}`;
+  const [pagedKey, setPagedKey] = useState(pagingKey);
+  if (pagedKey !== pagingKey) {
+    setPagedKey(pagingKey);
+    setUpcomingCount(PLANNING_PAGE_SIZE);
+    setDoneCount(PLANNING_PAGE_SIZE);
+  }
+  const upcomingGroups = useMemo(() => groupByDay(upcoming.slice(0, upcomingCount)), [upcoming, upcomingCount]);
+  const doneGroups = useMemo(() => groupByDay(done.slice(0, doneCount)), [done, doneCount]);
+  const upcomingHidden = Math.max(upcoming.length - upcomingCount, 0);
+  const doneHidden = Math.max(done.length - doneCount, 0);
 
   const sessionHandlers = {
     onToggleDone: (s: TrainingSession) => toggleSessionDone(s),
@@ -1155,6 +1192,13 @@ function PlanningScreen() {
               </View>
             ))
           )}
+          {upcomingHidden > 0 ? (
+            <ShowMoreButton
+              hidden={upcomingHidden}
+              label={t("Afficher {v} événements suivants", { v: Math.min(upcomingHidden, PLANNING_PAGE_SIZE) })}
+              onPress={() => setUpcomingCount((n) => n + PLANNING_PAGE_SIZE)}
+            />
+          ) : null}
 
           {done.length > 0 ? (
             <>
@@ -1193,6 +1237,13 @@ function PlanningScreen() {
                     </View>
                   ))
                 : null}
+              {showPast && doneHidden > 0 ? (
+                <ShowMoreButton
+                  hidden={doneHidden}
+                  label={t("Afficher {v} événements plus anciens", { v: Math.min(doneHidden, PLANNING_PAGE_SIZE) })}
+                  onPress={() => setDoneCount((n) => n + PLANNING_PAGE_SIZE)}
+                />
+              ) : null}
             </>
           ) : null}
         </>
