@@ -74,6 +74,7 @@ export default function AppPaywall() {
     <PaywallView
       placement={placement}
       horseNames={horseNames}
+      heroPhotoUrl={horse?.photoUrl ?? null}
       onSubscribe={onSubscribe}
       onClose={() => router.back()}
       onRestore={restore}

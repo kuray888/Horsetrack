@@ -38,10 +38,12 @@ export default function OnboardingPaywall() {
   // applyCustomerInfo() n'arrive pas avant que ce closure ne s'exécute).
   // Chevaux nommés du brouillon, cheval principal en tête — cités dans le
   // titre du paywall et dans le lien de sortie gratuite (cf. PaywallView).
-  const namedHorses = [...horses]
+  const draftHorses = [...horses]
     .filter((h) => h.name.trim().length > 0)
-    .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
-    .map((h) => h.name.trim());
+    .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
+  const namedHorses = draftHorses.map((h) => h.name.trim());
+  // Photo du cheval cité en premier dans le titre — jamais celle d'un autre.
+  const heroPhotoUrl = draftHorses[0]?.photoUrl ?? null;
   // Plusieurs chevaux : la conséquence du choix gratuit est dite AVANT le
   // clic (seul le cheval principal est gardé), pas découverte après coup
   // dans une alerte.
@@ -152,6 +154,7 @@ export default function OnboardingPaywall() {
     <PaywallView
       placement="onboarding"
       horseNames={namedHorses}
+      heroPhotoUrl={heroPhotoUrl}
       onSubscribe={onSubscribe}
       onSkip={() => finish()}
       skipLabel={skipLabel}

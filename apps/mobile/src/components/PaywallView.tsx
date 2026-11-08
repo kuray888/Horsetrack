@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton } from "@/components/onboarding";
 import { FadeInView } from "@/components/FadeInView";
+import { Image } from "@/components/AppImage";
 import { Skeleton } from "@/components/Skeleton";
 import { usePressScale } from "@/hooks/usePressScale";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -69,22 +70,22 @@ function ComparisonCard() {
   const colors = useThemeColors();
   return (
     <View className="flex-row overflow-hidden rounded-card border border-border">
-      <View className="flex-1 gap-2.5 bg-surface p-4">
+      <View className="flex-1 gap-3 bg-surface p-4">
         <Text className="text-[11px] font-bold uppercase tracking-wide text-muted">{t("Gratuit")}</Text>
         {FREE_BULLETS.map((b) => (
-          <View key={b} className="flex-row items-start gap-1.5">
+          <View key={b} className="flex-row items-start gap-2">
             <MaterialCommunityIcons name="check" size={14} color={colors.textMuted} style={{ marginTop: 2 }} />
             <Text className="flex-1 text-[13px] leading-4 text-text">{b}</Text>
           </View>
         ))}
       </View>
-      <View className="flex-1 gap-2.5 border-l border-primary/20 bg-highlight p-4">
+      <View className="flex-1 gap-3 border-l border-primary/20 bg-highlight p-4">
         <View className="flex-row items-center gap-1">
           <MaterialCommunityIcons name="star" size={12} color={colors.primary} />
           <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">{t("Premium, en plus")}</Text>
         </View>
         {PREMIUM_BULLETS.map((b) => (
-          <View key={b} className="flex-row items-start gap-1.5">
+          <View key={b} className="flex-row items-start gap-2">
             <MaterialCommunityIcons name="check" size={14} color={colors.primary} style={{ marginTop: 2 }} />
             <Text className="flex-1 text-[13px] leading-4 font-medium text-text">{b}</Text>
           </View>
@@ -230,6 +231,7 @@ function PlanCard({
   label,
   price,
   sub,
+  note = null,
   badge,
   selected,
   onPress,
@@ -241,6 +243,9 @@ function PlanCard({
    * prix provisoire qui pourrait différer du prix facturé. */
   price: string | null;
   sub: string | null;
+  /** Essai gratuit confirmé par le store pour cette formule — dit dans la
+   * carte elle-même, avant de la choisir, plutôt que découvert sur le bouton. */
+  note?: string | null;
   badge: string | null;
   selected: boolean;
   onPress: () => void;
@@ -257,7 +262,7 @@ function PlanCard({
         accessibilityRole="radio"
         accessibilityState={{ selected }}
         testID={testID}
-        accessibilityLabel={`${label}, ${price ?? t("prix en cours de chargement")}${sub ? `, ${sub}` : ""}`}
+        accessibilityLabel={`${label}, ${price ?? t("prix en cours de chargement")}${sub ? `, ${sub}` : ""}${note ? `, ${note}` : ""}`}
         className={`flex-row items-center gap-3 rounded-card border-2 p-4 ${
           selected ? "border-primary bg-highlight" : "border-border bg-surface"
         }`}
@@ -277,6 +282,7 @@ function PlanCard({
             ) : null}
           </View>
           {sub ? <Text className="text-xs text-muted">{sub}</Text> : null}
+          {note ? <Text className="text-xs font-semibold text-primary">{note}</Text> : null}
         </View>
         {price === null ? (
           <Skeleton width={84} height={20} />
@@ -325,6 +331,32 @@ function TrialTimeline({ reminderAt, endAt, priceLine }: { reminderAt: Date | nu
   );
 }
 
+/** En-tête du paywall : la photo du cheval concerné quand on l'a (on parle
+ * de SON cheval, pas d'une app générique), l'icône du contexte en pastille.
+ * Sans photo, ou si elle ne se charge pas (fichier local effacé), l'icône
+ * seule, comme avant. */
+function PaywallHero({ icon, photoUrl }: { icon: IconName; photoUrl: string | null }) {
+  const colors = useThemeColors();
+  const [failed, setFailed] = useState(false);
+  if (!photoUrl || failed) {
+    return (
+      <View className="h-14 w-14 items-center justify-center rounded-full bg-highlight">
+        <MaterialCommunityIcons name={icon} size={28} color={colors.primary} />
+      </View>
+    );
+  }
+  return (
+    <View className="h-20 w-20" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View className="h-20 w-20 overflow-hidden rounded-full border-2 border-primary/30 bg-highlight">
+        <Image source={{ uri: photoUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" onError={() => setFailed(true)} />
+      </View>
+      <View className="absolute -bottom-1 -right-1 h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-primary">
+        <MaterialCommunityIcons name={icon} size={16} color={colors.textOnPrimary} />
+      </View>
+    </View>
+  );
+}
+
 /**
  * Vue du paywall, réutilisée par l'onboarding (`onSkip` présent, pas
  * `onClose` — cf. (onboarding)/paywall.tsx) et le paywall de l'app (ouvert par
@@ -336,6 +368,7 @@ function TrialTimeline({ reminderAt, endAt, priceLine }: { reminderAt: Date | nu
 export function PaywallView({
   placement,
   horseNames = [],
+  heroPhotoUrl = null,
   onSubscribe,
   onClose,
   onSkip,
@@ -350,6 +383,8 @@ export function PaywallView({
   placement: PaywallPlacement;
   /** Chevaux à citer dans le titre (brouillon d'onboarding, cheval concerné). */
   horseNames?: string[];
+  /** Photo du cheval cité en premier dans `horseNames`, pour l'en-tête. */
+  heroPhotoUrl?: string | null;
   onSubscribe: (period: BillingPeriod) => void;
   onClose?: () => void;
   /** Sortie vers le palier gratuit — uniquement pour le paywall d'onboarding,
@@ -412,6 +447,28 @@ export function PaywallView({
   const trialEnd = trialEndDate(now, trial);
   const reminderAt = trialReminderDate(trialEnd, now);
   const priceLine = t("{priceString} par {v}", { priceString: selected.priceString, v: PERIOD_WORD[period] });
+
+  /** Mention d'essai d'une carte : seulement si le store confirme l'essai
+   * pour CETTE formule (même règle que trialConfirmed). */
+  function trialNote(p: BillingPeriod): string | null {
+    const info = offer?.[p];
+    if (currentPeriod || storeUnavailable || info?.trialEligible !== true) return null;
+    const planTrial = parseTrialPeriod(info.trialUnit, info.trialCount) ?? DEFAULT_TRIAL;
+    return t("Essai gratuit de {d}", { d: trialDurationLabel(planTrial) });
+  }
+
+  // Ancrage sur le prix mensuel RÉEL du store (jamais un prix barré inventé) :
+  // « soit 3,33 €/mois au lieu de 3,99 € ». Le montant facturé (39,99 €/an)
+  // reste le plus visible, à droite de la carte.
+  const annualSub =
+    loading || storeUnavailable || !annual.pricePerMonthString
+      ? null
+      : savings
+        ? t("soit {pricePerMonthString}/mois au lieu de {monthlyPrice}", {
+            pricePerMonthString: annual.pricePerMonthString,
+            monthlyPrice: monthly.priceString,
+          })
+        : t("soit {pricePerMonthString}/mois", { pricePerMonthString: annual.pricePerMonthString });
 
   useEffect(() => {
     if (loading || viewTracked.current) return;
@@ -482,9 +539,7 @@ export function PaywallView({
       >
         <FadeInView>
           <View className="gap-3">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-highlight">
-              <MaterialCommunityIcons name={copy.icon as IconName} size={28} color={colors.primary} />
-            </View>
+            <PaywallHero icon={copy.icon as IconName} photoUrl={heroPhotoUrl} />
             <Text className="text-3xl font-display leading-tight tracking-tight text-text">{copy.title}</Text>
             <Text className="text-base text-muted">{copy.subtitle}</Text>
           </View>
@@ -516,12 +571,13 @@ export function PaywallView({
           {compareOpen ? <ComparisonCard /> : null}
         </View>
 
-        <View className="gap-2.5" accessibilityRole="radiogroup">
+        <View className="gap-3" accessibilityRole="radiogroup">
           <PlanCard
             testID="paywall-plan-annual"
             label={t("Annuel")}
             price={loading ? null : storeUnavailable ? "—" : t("{price}/an", { price: annual.priceString })}
-            sub={!loading && !storeUnavailable && annual.pricePerMonthString ? t("soit {pricePerMonthString}/mois", { pricePerMonthString: annual.pricePerMonthString }) : null}
+            sub={annualSub}
+            note={trialNote("ANNUAL")}
             badge={
               currentPeriod === "ANNUAL"
                 ? t("Ta formule")
@@ -537,6 +593,7 @@ export function PaywallView({
             label={t("Mensuel")}
             price={loading ? null : storeUnavailable ? "—" : t("{price}/mois", { price: monthly.priceString })}
             sub={t("sans engagement")}
+            note={trialNote("MONTHLY")}
             badge={currentPeriod === "MONTHLY" ? t("Ta formule") : null}
             selected={period === "MONTHLY"}
             onPress={() => selectPeriod("MONTHLY")}
@@ -551,6 +608,14 @@ export function PaywallView({
       </ScrollView>
 
       <View className="gap-3 px-5 pb-2 pt-3">
+        {trialConfirmed ? (
+          // Réassurance au plus près du bouton : vraie uniquement parce que
+          // l'essai est confirmé par le store (rien n'est facturé à l'achat).
+          <View className="flex-row items-center justify-center gap-2" testID="paywall-no-charge">
+            <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+            <Text className="text-sm font-semibold text-text">{t("Aucun paiement aujourd'hui")}</Text>
+          </View>
+        ) : null}
         <PrimaryButton
           testID="paywall-cta"
           label={ctaLabel}
