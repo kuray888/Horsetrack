@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { refreshExtras } from "@/extras/store";
+import { refreshSlots } from "@/planning/slotsStore";
 import { AppState } from "react-native";
 import { supabase } from "@/lib/supabase";
 import {
@@ -148,6 +149,8 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     // Identité, alimentation, contacts (cf. extras/store.ts) : relus à part,
     // un échec n'empêche rien d'autre.
     await refreshExtras(pullStartedAt).catch(() => {});
+    // Créneaux récurrents (Écurie Pro v2, cf. planning/slotsStore.ts).
+    await refreshSlots(pullStartedAt).catch(() => {});
   }, []);
 
   const refresh = useCallback((): Promise<void> => {

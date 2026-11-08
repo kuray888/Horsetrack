@@ -111,6 +111,10 @@ export type AnalyticsEvent =
   // Écurie Pro v2 : séance attribuée à quelqu'un d'autre, et cochée par son cavalier attribué.
   | "session_assigned"
   | "assigned_session_done"
+  // Créneaux récurrents (Écurie Pro v2).
+  | "slot_created"
+  | "slot_ended"
+  | "partnership_slots_migrated"
   | "session_completed"
   // Tests A/B (cf. lib/experiments.ts)
   | "experiment_exposed";

@@ -16,7 +16,7 @@ PSQL=(psql -v ON_ERROR_STOP=1 -q -X -d "$DB")
 # Les migrations de prod recopient des sections de rls.sql : elles doivent
 # rester identiques.
 section() { sed -n "/^-- >>> $2/,/^-- <<< $2/p" "$1"; }
-for pair in "droits-par-role:ecurie-pro-v2-2-droits-2026-11-08.sql" "planning-seances:ecurie-pro-v2-3-seances-2026-11-08.sql"; do
+for pair in "droits-par-role:ecurie-pro-v2-2-droits-2026-11-08.sql" "planning-seances:ecurie-pro-v2-3-seances-2026-11-08.sql" "creneaux:ecurie-pro-v2-4-creneaux-2026-11-08.sql"; do
   name="${pair%%:*}"; file="${pair#*:}"
   if ! diff <(section "$PRISMA_DIR/rls.sql" "$name") <(section "$PRISMA_DIR/$file" "$name") >/dev/null; then
     echo "$file ne recopie plus rls.sql (section $name)"; exit 1

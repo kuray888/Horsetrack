@@ -244,6 +244,7 @@ model Horse {
   details            HorseDetails?
   coachSuggestions   CoachSuggestion[]
   coachSummaries     CoachSummary[]
+  rideSlots          RideSlot[]
   comments           HorseComment[]
   reactions          HorseReaction[]
 
@@ -542,6 +543,12 @@ model TrainingSession {
   doneAt       DateTime?
   /// Ressenti noté en cochant : "GOOD" / "OK" / "HARD" (texte, comme intensity).
   feeling      String?
+  /// Occurrence d'un créneau récurrent (cf. RideSlot) : identifiant de la
+  /// séance « <créneau>_<AAAA-MM-JJ> ». Null pour une séance ponctuelle.
+  slotId       String?
+  /// Occurrence annulée (créneau sauté cette semaine-là) : la ligne reste
+  /// pour que l'occurrence ne réapparaisse pas.
+  cancelledAt  DateTime?
 
   ride TrainingSessionRide?
 
@@ -562,6 +569,36 @@ model TrainingSession {
 /// estimées) — une ligne par séance, id = id de la séance. Table séparée de
 /// training_sessions : la synchro d'une séance ne dépend jamais de celle de
 /// son parcours (cf. apps/mobile/src/lib/cloudSync.ts).
+/// Écurie Pro v2 — créneau récurrent d'un cheval (cf. rls.sql « creneaux »).
+/// Ne crée pas de séances à l'avance : l'app calcule les occurrences.
+model RideSlot {
+  id              String        @id
+  horseId         String
+  horse           Horse         @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  /// Cavalier : un compte de l'équipe, ou un simple nom.
+  riderUserId     String?
+  riderName       String?
+  /// 1 = lundi … 7 = dimanche (même convention que Partnership.days).
+  weekday         Int
+  /// "HH:MM", null = horaire libre.
+  startTime       String?
+  endTime         String?
+  validFrom       DateTime
+  validUntil      DateTime?
+  /// "DP" | "LESSON" | "WORK" — texte, comme TrainingSession.intensity.
+  kind            String        @default("WORK")
+  activityType    ActivityType?
+  notes           String        @default("")
+  createdByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@index([riderUserId])
+  @@map("ride_slots")
+}
+
 model TrainingSessionRide {
   id        String          @id
   sessionId String          @unique

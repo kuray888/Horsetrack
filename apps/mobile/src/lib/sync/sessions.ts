@@ -27,6 +27,8 @@ export async function pushTrainingSessionImpl(session: TrainingSession, stamp?: 
     ...(session.riderUserId !== undefined ? { riderUserId: session.riderUserId } : {}),
     ...(session.riderName !== undefined ? { riderName: session.riderName } : {}),
     ...(session.feeling !== undefined ? { feeling: session.feeling } : {}),
+    ...(session.slotId !== undefined ? { slotId: session.slotId } : {}),
+    ...(session.cancelledAt !== undefined ? { cancelledAt: session.cancelledAt?.toISOString() ?? null } : {}),
     updatedAt: new Date().toISOString(),
   };
   await upsertWithOptionalColumns(
@@ -34,7 +36,7 @@ export async function pushTrainingSessionImpl(session: TrainingSession, stamp?: 
     "training_sessions",
     session.id,
     row,
-    ["activityKind", "riderUserId", "riderName", "feeling"],
+    ["activityKind", "riderUserId", "riderName", "feeling", "slotId", "cancelledAt"],
     stamp
   );
 }
@@ -136,13 +138,15 @@ type SessionRow = {
   doneByUserId?: string | null;
   doneAt?: string | null;
   feeling?: string | null;
+  slotId?: string | null;
+  cancelledAt?: string | null;
 };
 export async function pullTrainingSessions(): Promise<TrainingSession[] | null> {
   const [data, rides] = await Promise.all([
     selectWithOptionalColumns<SessionRow>(
       "training_sessions",
       "id, horseId, activityType, customActivityLabel, date, time, durationMinutes, intensity, notes, completed",
-      ["activityKind", "createdByUserId", "riderUserId", "riderName", "doneByUserId", "doneAt", "feeling"]
+      ["activityKind", "createdByUserId", "riderUserId", "riderName", "doneByUserId", "doneAt", "feeling", "slotId", "cancelledAt"]
     ),
     pullSessionRides().catch(() => null),
   ]);
@@ -166,6 +170,8 @@ export async function pullTrainingSessions(): Promise<TrainingSession[] | null> 
     doneByUserId: row.doneByUserId,
     doneAt: row.doneAt === undefined ? undefined : row.doneAt ? parseServerDate(row.doneAt) : null,
     feeling: row.feeling === undefined ? undefined : ((row.feeling as TrainingSession["feeling"]) ?? null),
+    slotId: row.slotId,
+    cancelledAt: row.cancelledAt === undefined ? undefined : row.cancelledAt ? parseServerDate(row.cancelledAt) : null,
   }));
 }
 

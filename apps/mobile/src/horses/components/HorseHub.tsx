@@ -43,6 +43,8 @@ import { t } from "@/i18n";
 import { useHorseDetails } from "@/extras/store";
 import { hasFeeding, hasIdentity, hasPartnership } from "@/extras/model";
 import { useHorseRights } from "@/horses/useHorseRights";
+import { useSlots } from "@/planning/slotsStore";
+import { activeSlots } from "@/planning/slots";
 import { featuredReviewYear } from "@/review/yearReview";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -99,6 +101,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
   // Droits du rôle sur ce cheval (cf. lib/permissions.ts) : budget réservé au
   // propriétaire et au gérant, fiche modifiable par eux seuls.
   const rights = useHorseRights();
+  const allSlots = useSlots();
 
   /** Consulter une fiche ne change PLUS le cheval actif global : ouvrir la
    * fiche de B depuis une alerte de l'Accueil recadrait silencieusement
@@ -196,6 +199,10 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
   const today = daysFromNow(0);
   const horseAppointments = appointments.filter((a) => a.horseId === horse.id);
   const horseExpenses = expenses.filter((e) => e.horseId === horse.id);
+  const horseSlotCount = activeSlots(
+    allSlots.filter((sl) => sl.horseId === horse.id),
+    new Date()
+  ).length;
   const horseJournal = journal.filter((j) => j.horseId === horse.id);
   const horseDocuments = documents.filter((d) => d.horseId === horse.id);
   // Un seul objectif mis en avant (cf. audit produit mini-sprint) : le plus
@@ -543,6 +550,21 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               title={t("Demi-pension")}
               value={partnershipValue}
               onPress={() => router.push(`/horse/${horse.id}/demi-pension`)}
+            />
+          ) : null}
+          {/* Créneaux réguliers (Écurie Pro v2) : pour qui organise le
+              planning, ou pour toute l'équipe dès qu'il en existe. */}
+          {rights.can(horse.id, "manage_planning") || horseSlotCount > 0 ? (
+            <HorseModuleRow
+              icon="calendar-sync-outline"
+              iconColor={colors.primary}
+              title={t("Créneaux réguliers")}
+              value={
+                horseSlotCount > 0
+                  ? t("{count} par semaine", { count: horseSlotCount })
+                  : t("Qui monte, et quand, chaque semaine")
+              }
+              onPress={() => router.push(`/horse/${horse.id}/creneaux`)}
             />
           ) : null}
           {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}

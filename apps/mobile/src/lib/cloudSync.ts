@@ -17,6 +17,8 @@ import { deleteJournalEntryRemoteImpl, pushJournalEntryImpl } from "./sync/journ
 import { deleteTrainingSessionRemoteImpl, pushSessionRideImpl, pushTrainingSessionImpl } from "./sync/sessions";
 import { settleWrite } from "./sync/shared";
 import { deleteWeightMeasurementRemoteImpl, pushWeightMeasurementImpl } from "./sync/weight";
+import { deleteRideSlotRemoteImpl, pushRideSlotImpl } from "./sync/slots";
+import type { RideSlot } from "@/planning/slots";
 
 /**
  * Sauvegarde cloud des données irremplaçables (écurie + profil cavalier,
@@ -40,6 +42,7 @@ export { pullJournalEntries } from "./sync/journal";
 export { pullTrainingSessions } from "./sync/sessions";
 export { retryPendingWrites, settleRemoteWrite } from "./sync/shared";
 export { pullWeightMeasurements } from "./sync/weight";
+export { pullRideSlots, migratePartnershipSlots } from "./sync/slots";
 
 /**
  * Suppression d'une épreuve. Deux marques durables, posées avant l'envoi :
@@ -163,6 +166,12 @@ export function pushWeightMeasurement(measurement: WeightMeasurement) {
 }
 export function deleteWeightMeasurementRemote(id: string) {
   return withWriteTracking("horse_weight_measurements", id, (stamp) => deleteWeightMeasurementRemoteImpl(id, stamp), "delete");
+}
+export function pushRideSlot(slot: RideSlot) {
+  return withWriteTracking("ride_slots", slot.id, (stamp) => pushRideSlotImpl(slot, stamp));
+}
+export function deleteRideSlotRemote(id: string) {
+  return withWriteTracking("ride_slots", id, (stamp) => deleteRideSlotRemoteImpl(id, stamp), "delete");
 }
 export function pushExpense(expense: Expense) {
   return withWriteTracking("expenses", expense.id, (stamp) => pushExpenseImpl(expense, stamp));

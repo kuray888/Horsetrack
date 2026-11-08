@@ -61,6 +61,10 @@ export type TrainingSession = {
   doneAt?: Date | null;
   /** Ressenti noté en cochant : "GOOD" / "OK" / "HARD". */
   feeling?: SessionFeeling | null;
+  /** Occurrence d'un créneau récurrent (cf. planning/slots.ts). */
+  slotId?: string | null;
+  /** Occurrence annulée : la ligne reste pour que le créneau ne la recrée pas. */
+  cancelledAt?: Date | null;
 };
 
 export type SessionFeeling = "GOOD" | "OK" | "HARD";

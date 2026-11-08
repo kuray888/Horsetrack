@@ -38,7 +38,10 @@ toujours les prix du store : ils se règlent dans App Store Connect.
 2. Puis `packages/db/prisma/ecurie-pro-2-regles-2026-11-08.sql`.
 3. Écurie Pro v2, droits par rôle : `ecurie-pro-v2-1-roles-2026-11-08.sql`
    **seul**, puis `ecurie-pro-v2-2-droits-2026-11-08.sql`, puis
-   `ecurie-pro-v2-3-seances-2026-11-08.sql` (séance attribuée, « C'est fait »). Testés sur une base
+   `ecurie-pro-v2-3-seances-2026-11-08.sql` (séance attribuée, « C'est fait »),
+   puis `ecurie-pro-v2-4-creneaux-2026-11-08.sql` (créneaux récurrents ; il
+   transforme aussi les jours de demi-pension des comptes Pro en créneaux et
+   affiche combien par cheval). Testés sur une base
    dans l'état actuel de la prod et rejouables (`pnpm --filter @cheval/db
    test:rls` vérifie les règles sur un Postgres local).
 
@@ -55,6 +58,9 @@ toujours les prix du store : ils se règlent dans App Store Connect.
   supprimer un soin, et coche seulement ses propres séances.
 - Séance attribuée : le propriétaire attribue une séance à la DP ; elle la
   voit (« Tu montes »), la coche ; le propriétaire voit « Monté par Léa ».
+- Créneaux : fiche du cheval → Créneaux réguliers ; les jours de
+  demi-pension y apparaissent déjà ; ajouter « samedi 10 h, cours » ; un
+  compte Premium voit l'offre Écurie Pro au lieu du formulaire.
 
 ## Mesure (PostHog)
 `pro_paywall_viewed`, `pro_cta_tapped`, `purchase_started` / `purchase_completed`
