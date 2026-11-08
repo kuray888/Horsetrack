@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image } from "@/components/AppImage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -150,7 +151,7 @@ export function HorseForm({
         <View className="items-center">
           <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={tr("Choisir une photo du cheval")}>
             {photoUrl ? (
-              <Image source={{ uri: photoUrl }} className="h-24 w-24 rounded-full" />
+              <Image source={{ uri: photoUrl }} style={{ width: 96, height: 96, borderRadius: 48 }} contentFit="cover" />
             ) : (
               <View className="h-24 w-24 items-center justify-center rounded-full border border-dashed border-border bg-surface">
                 <MaterialCommunityIcons name="horse-variant" size={32} color={colors.textMuted} />

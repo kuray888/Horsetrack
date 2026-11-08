@@ -1,4 +1,5 @@
-import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import { Image } from "@/components/AppImage";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { OnboardingShell, SingleSelect } from "@/components/onboarding";
@@ -44,7 +45,7 @@ export default function HorseBasics() {
           className="h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-dashed border-border bg-surface"
         >
           {editingHorse.photoUrl ? (
-            <Image source={{ uri: editingHorse.photoUrl }} className="h-24 w-24" />
+            <Image source={{ uri: editingHorse.photoUrl }} style={{ width: 96, height: 96 }} contentFit="cover" />
           ) : (
             <MaterialCommunityIcons name="horse-variant" size={32} color={colors.textMuted} />
           )}
