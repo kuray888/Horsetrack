@@ -15,6 +15,9 @@ const STATIC_ROLES: [string, keyof ThemeColors][] = [
   [staticColors.highlight, "highlight"],
   [staticColors.textMuted, "textMuted"],
   [staticColors.border, "border"],
+  [staticColors.success, "success"],
+  [staticColors.warning, "warning"],
+  [staticColors.danger, "danger"],
 ];
 
 function themedColor(color: IconProps["color"], theme: ThemeColors | null): IconProps["color"] {

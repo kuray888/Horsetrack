@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, db } from "@cheval/db";
 import { deleteSupabaseAuthUser, getUserIdFromRequest, removeStorageFolder } from "@/lib/supabaseAdmin";
@@ -36,6 +37,11 @@ export async function DELETE(req: NextRequest) {
   // Parrainage : les lignes qui nomment ce compte (comme filleul ou parrain)
   // n'ont pas de clé étrangère, donc pas de cascade.
   await db.referralUse.deleteMany({ where: { OR: [{ refereeUserId: userId }, { referrerUserId: userId }] } });
+  // Signalements de commentaires : pas de clé étrangère non plus. On garde le
+  // signalement pour la modération mais sans l'identifiant du compte, remplacé
+  // par une valeur aléatoire (une seule par compte : un signalement par
+  // commentaire, la clé unique tient).
+  await db.commentReport.updateMany({ where: { reporterUserId: userId }, data: { reporterUserId: `supprime-${randomUUID()}` } });
 
   // Lu avant la suppression : le cascade Horse→HorseCollaborator (cf.
   // schema.prisma) va couper l'accès de tout collaborateur ACCEPTED sur un

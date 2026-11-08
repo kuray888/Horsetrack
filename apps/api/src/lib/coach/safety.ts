@@ -59,7 +59,9 @@ const SYMPTOM_PATTERNS: RegExp[] = [
 ];
 
 export function mentionsSymptom(text: string): boolean {
-  const t = fold(text);
+  // « boîte » (le récipient) devient « boite » une fois les accents retirés,
+  // comme le verbe boiter : on écarte la forme accentuée avant de plier.
+  const t = fold(text.replace(/boîtes?/gi, "contenant"));
   return SYMPTOM_PATTERNS.some((re) => re.test(t));
 }
 

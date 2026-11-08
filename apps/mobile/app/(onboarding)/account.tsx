@@ -349,7 +349,7 @@ export default function OnboardingAccount() {
   if (checkingSession) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background" edges={["top", "bottom"]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator className="text-primary" />
       </SafeAreaView>
     );
   }
@@ -451,7 +451,7 @@ export default function OnboardingAccount() {
             autoComplete="new-password"
           />
           {passwordsMismatch ? (
-            <Text className="text-xs text-red-500">{t("Les mots de passe ne correspondent pas.")}</Text>
+            <Text className="text-xs text-danger">{t("Les mots de passe ne correspondent pas.")}</Text>
           ) : null}
         </Field>
       </View>

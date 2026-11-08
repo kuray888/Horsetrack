@@ -53,7 +53,7 @@ export default function AddHorseModal() {
     if (subscription.loading) {
       return (
         <SafeAreaView className="flex-1 items-center justify-center bg-background" edges={["top", "bottom"]}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator className="text-primary" />
         </SafeAreaView>
       );
     }

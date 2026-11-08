@@ -161,7 +161,7 @@ export function HorseForm({
             <View className="mt-2 flex-row items-center gap-4">
               <Text className="text-xs text-muted">{tr("Changer la photo")}</Text>
               <TouchableOpacity onPress={() => setPhotoUrl(null)} hitSlop={10}>
-                <Text className="text-xs font-semibold text-red-500">{tr("Supprimer")}</Text>
+                <Text className="text-xs font-semibold text-danger">{tr("Supprimer")}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -325,7 +325,7 @@ export function HorseForm({
         />
         {onDelete ? (
           <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="items-center py-2">
-            <Text className="text-sm font-semibold text-red-500">{tr("Supprimer ce cheval")}</Text>
+            <Text className="text-sm font-semibold text-danger">{tr("Supprimer ce cheval")}</Text>
           </TouchableOpacity>
         ) : null}
       </View>

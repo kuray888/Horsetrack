@@ -176,7 +176,7 @@ export default function ChangePasswordModal() {
 
       {checkingIdentity ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator className="text-primary" />
         </View>
       ) : (
         <>

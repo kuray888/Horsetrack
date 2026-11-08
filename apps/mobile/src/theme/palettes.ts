@@ -6,7 +6,8 @@ import { t } from "@/i18n";
  * "de marque" (primary/accent/highlight/background/surface/text/textMuted/
  * textOnPrimary/border) ; success/warning/danger restent volontairement
  * identiques dans toutes les palettes (le rouge d'alerte ne doit pas changer
- * de sens juste parce que le thème change).
+ * de sens juste parce que le thème change) — seule leur luminosité suit le
+ * mode, cf. statusColorsFor.
  *
  * Limite connue : seules les classes Tailwind (bg-primary, text-accent…)
  * suivent le thème en direct, via les variables CSS injectées par
@@ -59,7 +60,7 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
     background: "#e7ecef",
     surface: "#ffffff",
     text: "#274c77",
-    textMuted: "#8b8c89",
+    textMuted: "#6a6b68",
     textOnPrimary: "#ffffff",
     border: "#d7dfe4",
   },
@@ -70,7 +71,7 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
     background: "#f7eef0",
     surface: "#ffffff",
     text: "#4a1c28",
-    textMuted: "#8c7378",
+    textMuted: "#7e676c",
     textOnPrimary: "#ffffff",
     border: "#e8d5d9",
   },
@@ -81,7 +82,7 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
     background: "#eef3e9",
     surface: "#ffffff",
     text: "#24391f",
-    textMuted: "#7c8874",
+    textMuted: "#677160",
     textOnPrimary: "#ffffff",
     border: "#dbe5d3",
   },
@@ -92,7 +93,7 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
     background: "#eceff3",
     surface: "#ffffff",
     text: "#232830",
-    textMuted: "#7d8592",
+    textMuted: "#656d79",
     textOnPrimary: "#ffffff",
     border: "#dde2e8",
   },
@@ -103,7 +104,7 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
     background: "#fbf1e8",
     surface: "#ffffff",
     text: "#5c2c17",
-    textMuted: "#96806f",
+    textMuted: "#7e6b5c",
     textOnPrimary: "#ffffff",
     border: "#f0ded0",
   },
@@ -114,7 +115,7 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
     background: "#f4f1fa",
     surface: "#ffffff",
     text: "#362a54",
-    textMuted: "#8a80a3",
+    textMuted: "#736890",
     textOnPrimary: "#ffffff",
     border: "#e3ddf0",
   },
@@ -128,7 +129,10 @@ export const PALETTES: Record<ThemeId, PaletteColors> = {
  * (boutons, en-tête de l'Accueil, avec du texte blanc) et de couleur de texte
  * (liens, titres) sur une surface foncée — la teinte claire d'origine serait
  * illisible sur fond sombre, la teinte foncée d'origine aussi. Le texte
- * principal, lui, devient un blanc légèrement teinté.
+ * principal, lui, devient un blanc légèrement teinté. Les deux usages
+ * s'opposent (4,5:1 des deux côtés est impossible) : chaque `primary` est
+ * placé au point d'équilibre, environ 4:1 pour le texte blanc dessus comme
+ * pour lui-même sur une carte sombre.
  */
 export const DARK_PALETTES: Record<ThemeId, PaletteColors> = {
   marine: {
@@ -143,7 +147,7 @@ export const DARK_PALETTES: Record<ThemeId, PaletteColors> = {
     border: "#2a3646",
   },
   bordeaux: {
-    primary: "#b8506a",
+    primary: "#bd5e76",
     accent: "#d4778a",
     highlight: "#3a1f27",
     background: "#160e11",
@@ -154,7 +158,7 @@ export const DARK_PALETTES: Record<ThemeId, PaletteColors> = {
     border: "#3a2a2f",
   },
   paturage: {
-    primary: "#4f9157",
+    primary: "#4c8c54",
     accent: "#8fbf80",
     highlight: "#1f3322",
     background: "#0e140e",
@@ -165,7 +169,7 @@ export const DARK_PALETTES: Record<ThemeId, PaletteColors> = {
     border: "#2b3a2b",
   },
   ardoise: {
-    primary: "#6a7c99",
+    primary: "#6c7e9a",
     accent: "#8aa6cc",
     highlight: "#232c39",
     background: "#0f1115",
@@ -176,7 +180,7 @@ export const DARK_PALETTES: Record<ThemeId, PaletteColors> = {
     border: "#2c313a",
   },
   "coucher-de-soleil": {
-    primary: "#cf6b44",
+    primary: "#c85d33",
     accent: "#eba876",
     highlight: "#3a2216",
     background: "#17100b",
@@ -187,7 +191,7 @@ export const DARK_PALETTES: Record<ThemeId, PaletteColors> = {
     border: "#3d2c21",
   },
   lavande: {
-    primary: "#8574c2",
+    primary: "#8270c0",
     accent: "#ad9ee0",
     highlight: "#2a2340",
     background: "#110f18",
@@ -206,11 +210,26 @@ export function paletteFor(id: ThemeId, scheme: ColorScheme): PaletteColors {
 }
 
 /** success/warning/danger : constants, cf. commentaire de tête. */
+/** Couleurs d'état. Elles gardent leur sens dans toutes les palettes, mais
+ * changent de luminosité avec le mode : surtout utilisées en texte (badges
+ * sur fond /15, montants, alertes), elles visent 4,5:1 en clair ; en sombre,
+ * plus claires, elles équilibrent texte sur carte sombre et icône blanche
+ * sur fond plein (case cochée). Garder en phase avec tokens.cjs (mode clair). */
 export const STATUS_COLORS = {
-  success: "#3a9d6b",
-  warning: "#d98a2b",
-  danger: "#c0533f",
+  success: "#2b744f",
+  warning: "#935c1a",
+  danger: "#ab4a38",
 };
+
+export const DARK_STATUS_COLORS: typeof STATUS_COLORS = {
+  success: "#3faa74",
+  warning: "#d48526",
+  danger: "#d18274",
+};
+
+export function statusColorsFor(scheme: ColorScheme): typeof STATUS_COLORS {
+  return scheme === "dark" ? DARK_STATUS_COLORS : STATUS_COLORS;
+}
 
 export const DEFAULT_THEME: ThemeId = "marine";
 
@@ -232,6 +251,7 @@ function hexToRgbTriplet(hex: string): string {
  * via `vars()`. */
 export function cssVarsForTheme(id: ThemeId, scheme: ColorScheme = "light"): Record<string, string> {
   const p = paletteFor(id, scheme);
+  const status = statusColorsFor(scheme);
   return {
     "--color-primary": hexToRgbTriplet(p.primary),
     "--color-accent": hexToRgbTriplet(p.accent),
@@ -242,8 +262,8 @@ export function cssVarsForTheme(id: ThemeId, scheme: ColorScheme = "light"): Rec
     "--color-text-muted": hexToRgbTriplet(p.textMuted),
     "--color-text-on-primary": hexToRgbTriplet(p.textOnPrimary),
     "--color-border": hexToRgbTriplet(p.border),
-    "--color-success": hexToRgbTriplet(STATUS_COLORS.success),
-    "--color-warning": hexToRgbTriplet(STATUS_COLORS.warning),
-    "--color-danger": hexToRgbTriplet(STATUS_COLORS.danger),
+    "--color-success": hexToRgbTriplet(status.success),
+    "--color-warning": hexToRgbTriplet(status.warning),
+    "--color-danger": hexToRgbTriplet(status.danger),
   };
 }

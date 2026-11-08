@@ -139,7 +139,7 @@ export function BiometricGate() {
   if (status === "checking") {
     return (
       <View className="absolute inset-0 z-50 items-center justify-center bg-background">
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator className="text-primary" />
       </View>
     );
   }

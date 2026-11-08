@@ -53,13 +53,16 @@ export async function requestSuggestion(body: unknown): Promise<SuggestionRespon
 
 export type AnswerResponse =
   | { status: "ok"; answer: string; found: boolean; medical: boolean; questionsLeft?: number }
-  | { status: "unavailable" | "quota" | "premium" | "network" };
+  | { status: "unavailable" | "quota" | "premium" | "network" | "error" };
 
 export async function askCoach(lang: "fr" | "en", question: string, records: RecordsFacts): Promise<AnswerResponse> {
   const res = await call("/question", { method: "POST", body: JSON.stringify({ lang, question, records }) });
   if (!res) return { status: "network" };
   if (res.status === 403) return { status: "premium" };
   if (res.status === 429) return { status: "quota" };
+  // Requête refusée (400, 404…) ou panne du serveur : ce n'est pas un
+  // problème de connexion, l'app ne doit pas dire « Pas de connexion ».
+  if (!res.ok) return { status: "error" };
   const data = await json<AnswerResponse>(res);
   return data ?? { status: "network" };
 }

@@ -4,7 +4,7 @@ import { vars } from "nativewind";
 import * as SecureStore from "expo-secure-store";
 import {
   PALETTES,
-  STATUS_COLORS,
+  statusColorsFor,
   cssVarsForTheme,
   paletteFor,
   DEFAULT_THEME,
@@ -14,7 +14,7 @@ import {
 } from "./palettes";
 
 function colorsForTheme(id: ThemeId, scheme: ColorScheme): ThemeColors {
-  return { ...paletteFor(id, scheme), ...STATUS_COLORS };
+  return { ...paletteFor(id, scheme), ...statusColorsFor(scheme) };
 }
 
 const KEY = "theme_id_v1";

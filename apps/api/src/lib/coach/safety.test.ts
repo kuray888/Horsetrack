@@ -62,6 +62,12 @@ describe("garde-fou vétérinaire", () => {
     }
   });
 
+  it("ne confond pas la boîte (récipient) avec le verbe boiter", () => {
+    expect(mentionsSymptom("Que mettre dans ma boîte de pansage ?")).toBe(false);
+    expect(mentionsSymptom("Combien de BOÎTES de granulés par mois ?")).toBe(false);
+    expect(mentionsSymptom("Mon cheval boite depuis hier")).toBe(true);
+  });
+
   it("ne confond pas le boulet (articulation) avec une boule", () => {
     expect(mentionsSymptom("Quand ai-je acheté les protège-boulets ?")).toBe(false);
     expect(mentionsSymptom("Il a une boule sur le canon")).toBe(true);

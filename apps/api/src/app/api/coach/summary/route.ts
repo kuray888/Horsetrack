@@ -3,6 +3,7 @@ import { Prisma, db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { QUOTAS } from "@/lib/coach/config";
 import { summaryRequestSchema } from "@/lib/coach/schemas";
+import { canRetrySummary, isFinishedMonth } from "@/lib/coach/summaryRules";
 import { canAccessHorse, coachAvailable, isPremiumUser, monthStart } from "@/lib/coach/store";
 
 /**
@@ -21,16 +22,25 @@ export async function POST(req: NextRequest) {
   if (!(await isPremiumUser(userId))) return NextResponse.json({ status: "premium" }, { status: 403 });
   if (!(await canAccessHorse(userId, body.horseId))) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  // Seulement un mois terminé.
-  const current = new Date().toISOString().slice(0, 7);
-  if (body.month >= current) return NextResponse.json({ error: "Mois en cours" }, { status: 400 });
+  // Seulement un mois terminé (dans le fuseau du cavalier).
+  if (!isFinishedMonth(body.month)) return NextResponse.json({ error: "Mois en cours" }, { status: 400 });
 
   const existing = await db.coachSummary.findUnique({
     where: { userId_horseId_month: { userId, horseId: body.horseId, month: body.month } },
   });
-  if (existing) return NextResponse.json({ status: existing.status, summary: existing.summary });
+  // Un résumé en échec se relance (il compte déjà dans le quota du mois).
+  const retry = existing ? canRetrySummary(existing) : false;
+  if (existing && !retry) return NextResponse.json({ status: existing.status, summary: existing.summary });
 
   if (!(await coachAvailable())) return NextResponse.json({ status: "unavailable" });
+
+  if (existing) {
+    await db.coachSummary.update({
+      where: { id: existing.id },
+      data: { status: "PENDING", batchId: null, summary: null, lang: body.lang, facts: body.facts as Prisma.InputJsonValue },
+    });
+    return NextResponse.json({ status: "PENDING", summary: null });
+  }
 
   const thisMonth = await db.coachSummary.count({ where: { userId, createdAt: { gte: monthStart() } } });
   if (thisMonth >= QUOTAS.summaryHorsesPerMonth) return NextResponse.json({ status: "quota" });

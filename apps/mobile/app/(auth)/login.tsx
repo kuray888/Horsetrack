@@ -8,6 +8,7 @@ import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
+import { unregisterPushToken } from "@/lib/pushRegistration";
 import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
 import { translateAuthError } from "@/lib/authErrors";
 import { getLocalDataOwner, setLocalDataOwner } from "@/lib/deviceOwner";
@@ -92,7 +93,7 @@ export default function LoginScreen() {
           tr("Confirmation impossible"),
           tr("Ton identité n'a pas pu être confirmée (Face ID/Touch ID indisponible ou refusé). Tu peux réessayer, ou désactiver le verrouillage biométrique."),
           [
-            { text: tr("Réessayer"), style: "cancel", onPress: () => supabase.auth.signOut() },
+            { text: tr("Réessayer"), style: "cancel", onPress: () => void signOutWithoutPush() },
             {
               text: tr("Désactiver le verrouillage"),
               style: "destructive",
@@ -217,7 +218,7 @@ export default function LoginScreen() {
           // vraies données au prochain push (cf. lib/cloudSync.ts). On annule
           // la connexion plutôt que de repartir d'un état vide.
           setLoading(false);
-          await supabase.auth.signOut();
+          await signOutWithoutPush();
           Alert.alert(
             tr("Connexion impossible"),
             tr("Impossible de récupérer tes données pour l'instant. Vérifie ta connexion et réessaie.")
@@ -432,4 +433,11 @@ export default function LoginScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+/** Connexion annulée : la session a pu enregistrer le jeton push de cet
+ * appareil entre-temps — on le retire avant, comme profile.tsx. */
+async function signOutWithoutPush() {
+  await unregisterPushToken().catch(() => {});
+  await supabase.auth.signOut();
 }

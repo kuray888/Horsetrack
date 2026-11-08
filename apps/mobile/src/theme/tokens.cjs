@@ -29,14 +29,14 @@ const colors = {
 
   // Texte
   text: palette.navy, // texte fort
-  textMuted: palette.stone, // texte secondaire / labels
+  textMuted: "#6a6b68", // texte secondaire / labels (stone assombri : 4,5:1 sur le fond)
   textOnPrimary: "#ffffff", // texte sur fond primary
   border: "#d7dfe4", // bordures discrètes
 
   // États fonctionnels
-  success: "#3a9d6b",
-  warning: "#d98a2b",
-  danger: "#c0533f",
+  success: "#2b744f",
+  warning: "#935c1a",
+  danger: "#ab4a38",
 };
 
 module.exports = { palette, colors };

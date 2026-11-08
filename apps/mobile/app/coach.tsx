@@ -103,6 +103,8 @@ export default function CoachScreen() {
       openPaywall("coach", { feature: "coach_question" });
     } else if (r.status === "unavailable") {
       setNotice(t("Le coach fait une pause pour le moment. Réessaie plus tard."));
+    } else if (r.status === "error") {
+      setNotice(t("Une erreur est survenue. Réessaie."));
     } else {
       setNotice(t("Pas de connexion. Réessaie dans un instant."));
     }
@@ -206,10 +208,10 @@ export default function CoachScreen() {
                   <TouchableOpacity
                     accessibilityRole="button"
                     onPress={() => void Linking.openURL(telUrl(vet.phone)!)}
-                    className="flex-row items-center gap-1.5 self-start rounded-full bg-danger px-4 py-2"
+                    className="flex-row items-center gap-1.5 self-start rounded-full border border-danger bg-danger/15 px-4 py-2"
                   >
-                    <MaterialCommunityIcons name="phone" size={16} color={colors.textOnPrimary} />
-                    <Text className="text-sm font-bold text-on-primary">{t("Appeler {name}", { name: vet.name })}</Text>
+                    <MaterialCommunityIcons name="phone" size={16} color={colors.danger} />
+                    <Text className="text-sm font-bold text-danger">{t("Appeler {name}", { name: vet.name })}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
