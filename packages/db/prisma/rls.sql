@@ -604,53 +604,8 @@ drop policy if exists "horse_injuries_select_shared" on public.horse_injuries;
 create policy "horse_injuries_select_shared" on public.horse_injuries
   for select using (public.can_access_horse("horseId"));
 
--- appointments / journal_entries : propriétaire ET collaborateur accepté ont
--- un accès complet — "le calendrier" du brief. Le suivi de base (rendez-vous,
--- journal) fait partie du palier gratuit, y compris les rendez-vous de type
--- concours (checklist/dossard/notes) : seules les épreuves détaillées
--- (competition_entries, cf. plus bas) et les rappels programmés (gérés côté
--- app/API, pas par une colonne ici) restent Premium. Écriture non gatée par
--- abonnement, donc — can_access_horse seul suffit, propriétaire ou
--- collaborateur (le partage lui-même reste Premium, cf.
--- horse_collaborators_owner_insert plus bas : un compte gratuit n'a donc de
--- toute façon jamais de collaborateur).
-drop policy if exists "appointments_shared" on public.appointments;
-
-drop policy if exists "appointments_select_shared" on public.appointments;
-create policy "appointments_select_shared" on public.appointments
-  for select using (public.can_access_horse("horseId"));
-
-drop policy if exists "appointments_insert_shared" on public.appointments;
-create policy "appointments_insert_shared" on public.appointments
-  for insert with check (public.can_access_horse("horseId"));
-
-drop policy if exists "appointments_update_shared" on public.appointments;
-create policy "appointments_update_shared" on public.appointments
-  for update using (public.can_access_horse("horseId"))
-  with check (public.can_access_horse("horseId"));
-
-drop policy if exists "appointments_delete_shared" on public.appointments;
-create policy "appointments_delete_shared" on public.appointments
-  for delete using (public.can_access_horse("horseId"));
-
-drop policy if exists "journal_entries_shared" on public.journal_entries;
-
-drop policy if exists "journal_entries_select_shared" on public.journal_entries;
-create policy "journal_entries_select_shared" on public.journal_entries
-  for select using (public.can_access_horse("horseId"));
-
-drop policy if exists "journal_entries_insert_shared" on public.journal_entries;
-create policy "journal_entries_insert_shared" on public.journal_entries
-  for insert with check (public.can_access_horse("horseId"));
-
-drop policy if exists "journal_entries_update_shared" on public.journal_entries;
-create policy "journal_entries_update_shared" on public.journal_entries
-  for update using (public.can_access_horse("horseId"))
-  with check (public.can_access_horse("horseId"));
-
-drop policy if exists "journal_entries_delete_shared" on public.journal_entries;
-create policy "journal_entries_delete_shared" on public.journal_entries
-  for delete using (public.can_access_horse("horseId"));
+-- appointments / journal_entries (suivi de base, palier gratuit) : policies dans
+-- la section « droits-par-role » en fin de fichier.
 
 -- Voir protect_journal_entry_photo_premium plus haut.
 drop trigger if exists journal_entries_protect_photo_premium on public.journal_entries;
@@ -658,61 +613,7 @@ create trigger journal_entries_protect_photo_premium
   before insert or update on public.journal_entries
   for each row execute function public.protect_journal_entry_photo_premium();
 
--- competition_entries : épreuves d'un concours — pas de horseId direct (child
--- d'Appointment, cf. schema.prisma), donc on remonte au cheval du rendez-vous
--- parent à chaque fois. Contrairement à appointments (gratuit), l'écriture
--- ici reste Premium : "concours multi-épreuves" est le vrai argument payant
--- (un rendez-vous concours seul, avec checklist/dossard, reste gratuit —
--- seul le détail par épreuve est verrouillé). Lecture inconditionnelle comme
--- partout ailleurs.
-drop policy if exists "competition_entries_shared" on public.competition_entries;
-
-drop policy if exists "competition_entries_select_shared" on public.competition_entries;
-create policy "competition_entries_select_shared" on public.competition_entries
-  for select using (
-    exists (select 1 from public.appointments a where a.id = "appointmentId" and public.can_access_horse(a."horseId"))
-  );
-
-drop policy if exists "competition_entries_insert_shared" on public.competition_entries;
-create policy "competition_entries_insert_shared" on public.competition_entries
-  for insert with check (
-    exists (
-      select 1 from public.appointments a
-      where a.id = "appointmentId"
-        and public.can_access_horse(a."horseId")
-        and public.horse_owner_is_active_or_trialing(a."horseId")
-    )
-  );
-
-drop policy if exists "competition_entries_update_shared" on public.competition_entries;
-create policy "competition_entries_update_shared" on public.competition_entries
-  for update using (
-    exists (
-      select 1 from public.appointments a
-      where a.id = "appointmentId"
-        and public.can_access_horse(a."horseId")
-        and public.horse_owner_is_active_or_trialing(a."horseId")
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.appointments a
-      where a.id = "appointmentId"
-        and public.can_access_horse(a."horseId")
-        and public.horse_owner_is_active_or_trialing(a."horseId")
-    )
-  );
-
-drop policy if exists "competition_entries_delete_shared" on public.competition_entries;
-create policy "competition_entries_delete_shared" on public.competition_entries
-  for delete using (
-    exists (
-      select 1 from public.appointments a
-      where a.id = "appointmentId"
-        and public.can_access_horse(a."horseId")
-        and public.horse_owner_is_active_or_trialing(a."horseId")
-    )
-  );
+-- competition_entries (épreuves, Premium) : section « droits-par-role ».
 
 -- horse_collaborators : le propriétaire du cheval gère ses invitations
 -- (créer/lister/révoquer) ; l'invité voit et accepte sa propre ligne avant
@@ -725,35 +626,10 @@ create policy "competition_entries_delete_shared" on public.competition_entries
 -- vérifier l'abonnement actif/en essai (cf. horse_owner_is_active_or_trialing)
 -- et la limite d'1 collaborateur par cheval — select/update/delete restent
 -- ouverts au propriétaire comme avant (annuler un partage doit rester
--- possible même après expiration, par exemple).
+-- possible même après expiration, par exemple). Écurie Pro v2 : le gérant
+-- partage ces droits, sauf sur les gérants — policies owner_* dans la section
+-- « droits-par-role » en fin de fichier.
 drop policy if exists "horse_collaborators_owner_all" on public.horse_collaborators;
-
-drop policy if exists "horse_collaborators_owner_select" on public.horse_collaborators;
-create policy "horse_collaborators_owner_select" on public.horse_collaborators
-  for select using (public.owns_horse("horseId"));
-
-drop policy if exists "horse_collaborators_owner_update" on public.horse_collaborators;
-create policy "horse_collaborators_owner_update" on public.horse_collaborators
-  for update using (public.owns_horse("horseId")) with check (public.owns_horse("horseId"));
-
-drop policy if exists "horse_collaborators_owner_delete" on public.horse_collaborators;
-create policy "horse_collaborators_owner_delete" on public.horse_collaborators
-  for delete using (public.owns_horse("horseId"));
-
-drop policy if exists "horse_collaborators_owner_insert" on public.horse_collaborators;
-create policy "horse_collaborators_owner_insert" on public.horse_collaborators
-  for insert with check (
-    public.owns_horse("horseId")
-    and public.horse_owner_is_active_or_trialing("horseId")
-    -- Même exclusion des invitations PENDING expirées que enforce_horse_collaborator_quota
-    -- ci-dessus (le WITH CHECK seul ne suffit pas à fermer la race condition,
-    -- d'où le trigger, mais doit rester cohérent avec lui).
-    and (
-      select count(*) from public.horse_collaborators hc2
-      where hc2."horseId" = "horseId"
-        and (hc2.status = 'ACCEPTED' or hc2."expiresAt" is null or hc2."expiresAt" > now())
-    ) < public.horse_collaborator_limit("horseId")
-  );
 
 -- Voir enforce_horse_collaborator_quota ci-dessus : même fermeture de race
 -- condition que enforce_horse_quota, pour la limite de collaborateurs par cheval.
@@ -801,6 +677,19 @@ begin
   -- Backend (Prisma, auth.uid() nul) ou propriétaire du cheval : règles
   -- habituelles (la policy owner_update impose déjà un cheval possédé).
   if auth.uid() is null or public.owns_horse(old."horseId") then
+    return new;
+  end if;
+  -- Gérant (Écurie Pro v2) : change le rôle ou renouvelle une invitation,
+  -- rien d'autre — ni le cheval, ni la personne, ni l'acceptation. Les
+  -- policies lui interdisent déjà les lignes de gérant.
+  if public.horse_can(old."horseId", 'manage_sharing') then
+    if new."horseId" is distinct from old."horseId"
+       or new."invitedEmail" is distinct from old."invitedEmail"
+       or new.status is distinct from old.status
+       or new."collaboratorUserId" is distinct from old."collaboratorUserId"
+       or new."createdAt" is distinct from old."createdAt" then
+      raise exception 'horse collaborator: a manager can only change the role or renew an invitation';
+    end if;
     return new;
   end if;
   -- Invité : seule l'acceptation est permise — statut ACCEPTED, pour
@@ -876,64 +765,8 @@ create trigger protect_user_email
   before update on public.users
   for each row execute function public.protect_user_email();
 
--- training_sessions : séances planifiées manuellement par le cavalier — le
--- planning est la fonctionnalité coeur du palier gratuit, non gatée. Même
--- portée de partage que appointments/journal_entries (can_access_horse), même
--- si un compte gratuit n'a jamais de collaborateur en pratique (le partage
--- lui-même est Premium).
-drop policy if exists "training_sessions_shared" on public.training_sessions;
-
-drop policy if exists "training_sessions_select_shared" on public.training_sessions;
-create policy "training_sessions_select_shared" on public.training_sessions
-  for select using (public.can_access_horse("horseId"));
-
-drop policy if exists "training_sessions_insert_shared" on public.training_sessions;
-create policy "training_sessions_insert_shared" on public.training_sessions
-  for insert with check (public.can_access_horse("horseId"));
-
-drop policy if exists "training_sessions_update_shared" on public.training_sessions;
-create policy "training_sessions_update_shared" on public.training_sessions
-  for update using (public.can_access_horse("horseId"))
-  with check (public.can_access_horse("horseId"));
-
-drop policy if exists "training_sessions_delete_shared" on public.training_sessions;
-create policy "training_sessions_delete_shared" on public.training_sessions
-  for delete using (public.can_access_horse("horseId"));
-
--- training_session_rides : parcours d'une séance enregistrée en direct
--- (chrono, GPS, allures — cf. seances-en-direct-2026-10-27.sql). Même portée
--- de partage que training_sessions ci-dessus.
-drop policy if exists "training_session_rides_select_shared" on public.training_session_rides;
-create policy "training_session_rides_select_shared" on public.training_session_rides
-  for select using (public.can_access_horse("horseId"));
-
-drop policy if exists "training_session_rides_insert_shared" on public.training_session_rides;
-create policy "training_session_rides_insert_shared" on public.training_session_rides
-  for insert with check (public.can_access_horse("horseId"));
-
-drop policy if exists "training_session_rides_update_shared" on public.training_session_rides;
-create policy "training_session_rides_update_shared" on public.training_session_rides
-  for update using (public.can_access_horse("horseId"))
-  with check (public.can_access_horse("horseId"));
-
-drop policy if exists "training_session_rides_delete_shared" on public.training_session_rides;
-create policy "training_session_rides_delete_shared" on public.training_session_rides
-  for delete using (public.can_access_horse("horseId"));
-
--- horse_details : identité, alimentation, demi-pension — même portée que les séances.
-drop policy if exists "horse_details_select_shared" on public.horse_details;
-create policy "horse_details_select_shared" on public.horse_details
-  for select using (public.can_access_horse("horseId"));
-drop policy if exists "horse_details_insert_shared" on public.horse_details;
-create policy "horse_details_insert_shared" on public.horse_details
-  for insert with check (public.can_access_horse("horseId"));
-drop policy if exists "horse_details_update_shared" on public.horse_details;
-create policy "horse_details_update_shared" on public.horse_details
-  for update using (public.can_access_horse("horseId"))
-  with check (public.can_access_horse("horseId"));
-drop policy if exists "horse_details_delete_shared" on public.horse_details;
-create policy "horse_details_delete_shared" on public.horse_details
-  for delete using (public.can_access_horse("horseId"));
+-- training_sessions, training_session_rides, horse_details (planning et fiche,
+-- palier gratuit) : section « droits-par-role » en fin de fichier.
 
 -- rider_contacts : carnet personnel.
 drop policy if exists "rider_contacts_own" on public.rider_contacts;
@@ -941,49 +774,7 @@ create policy "rider_contacts_own" on public.rider_contacts
   for all using ("userId" = auth.uid()::text)
   with check ("userId" = auth.uid()::text);
 
--- expenses : le suivi de dépenses de base fait partie du palier gratuit (le
--- statut payé/à régler détaillé restera, lui, une distinction Premium côté
--- app — cf. plan freemium). Même portée de partage que training_sessions ci-dessus.
-drop policy if exists "expenses_shared" on public.expenses;
-
-drop policy if exists "expenses_select_shared" on public.expenses;
-create policy "expenses_select_shared" on public.expenses
-  for select using (public.can_access_horse("horseId"));
-
-drop policy if exists "expenses_insert_shared" on public.expenses;
-create policy "expenses_insert_shared" on public.expenses
-  for insert with check (public.can_access_horse("horseId"));
-
-drop policy if exists "expenses_update_shared" on public.expenses;
-create policy "expenses_update_shared" on public.expenses
-  for update using (public.can_access_horse("horseId"))
-  with check (public.can_access_horse("horseId"));
-
-drop policy if exists "expenses_delete_shared" on public.expenses;
-create policy "expenses_delete_shared" on public.expenses
-  for delete using (public.can_access_horse("horseId"));
-
--- horse_weight_measurements : suivi de poids (audit produit post-V1, phase 5)
--- — suivi de base comme Santé/Entraînement, non gaté Premium. Même portée de
--- partage que training_sessions ci-dessus (can_access_horse) : un
--- collaborateur qui s'occupe du cheval doit pouvoir peser et noter, pas
--- seulement le propriétaire.
-drop policy if exists "horse_weight_measurements_select_shared" on public.horse_weight_measurements;
-create policy "horse_weight_measurements_select_shared" on public.horse_weight_measurements
-  for select using (public.can_access_horse("horseId"));
-
-drop policy if exists "horse_weight_measurements_insert_shared" on public.horse_weight_measurements;
-create policy "horse_weight_measurements_insert_shared" on public.horse_weight_measurements
-  for insert with check (public.can_access_horse("horseId"));
-
-drop policy if exists "horse_weight_measurements_update_shared" on public.horse_weight_measurements;
-create policy "horse_weight_measurements_update_shared" on public.horse_weight_measurements
-  for update using (public.can_access_horse("horseId"))
-  with check (public.can_access_horse("horseId"));
-
-drop policy if exists "horse_weight_measurements_delete_shared" on public.horse_weight_measurements;
-create policy "horse_weight_measurements_delete_shared" on public.horse_weight_measurements
-  for delete using (public.can_access_horse("horseId"));
+-- expenses, horse_weight_measurements (palier gratuit) : section « droits-par-role ».
 
 -- 5. Storage : bucket "documents" (coffre-fort) -----------------------------
 -- Bucket privé : un document (ordonnance, facture...) ne doit jamais être
@@ -1121,9 +912,6 @@ create policy "horse_comments_insert_shared" on public.horse_comments
   for insert with check (public.can_access_horse("horseId"));
 -- Pas de modification : un commentaire se supprime et se réécrit.
 -- Suppression : son auteur, ou le propriétaire du cheval (modération).
-drop policy if exists "horse_comments_delete_author_or_owner" on public.horse_comments;
-create policy "horse_comments_delete_author_or_owner" on public.horse_comments
-  for delete using ("authorUserId" = auth.uid()::text or public.owns_horse("horseId"));
 
 drop policy if exists "horse_reactions_select_shared" on public.horse_reactions;
 create policy "horse_reactions_select_shared" on public.horse_reactions
@@ -1146,3 +934,379 @@ create policy "comment_reports_insert_participant" on public.comment_reports
       where c.id = "commentId" and public.can_access_horse(c."horseId")
     )
   );
+
+-- >>> droits-par-role (Écurie Pro v2, 2026-11-08)
+-- Droits par rôle sur un cheval partagé. Jusqu'ici can_access_horse donnait à
+-- tout invité accepté les mêmes droits d'écriture que le propriétaire (une
+-- demi-pension pouvait supprimer un soin ou une dépense). Désormais :
+--   * horse_role(cheval)            : 'OWNER', le rôle du collaborateur accepté, ou null ;
+--   * horse_role_can(rôle, droit)   : LA matrice des droits (recopiée dans
+--     apps/mobile/src/lib/permissions.ts, un test vérifie qu'elles concordent) ;
+--   * horse_can(cheval, droit)      : les deux réunis, pour les policies ;
+--   * "createdByUserId"             : auteur d'une ligne, posé par la base
+--     (set_created_by), jamais par l'app — sert aux droits « les siens ».
+-- La lecture reste ouverte à toute l'équipe du cheval (can_access_horse),
+-- sauf les dépenses.
+
+create or replace function public.horse_role(_horse_id text)
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select case
+    when auth.uid() is null then null
+    when public.owns_horse(_horse_id) then 'OWNER'
+    else (
+      select hc.role::text
+      from public.horse_collaborators hc
+      where hc."horseId" = _horse_id
+        and hc."collaboratorUserId" = auth.uid()::text
+        and hc.status = 'ACCEPTED'
+      limit 1
+    )
+  end;
+$$;
+
+-- Matrice des droits. Une ligne par droit, rôles entre parenthèses : format
+-- lu par apps/mobile/src/lib/permissions.test.ts, à garder tel quel.
+create or replace function public.horse_role_can(_role text, _cap text)
+returns boolean
+language sql
+immutable
+as $$
+  select coalesce(case _cap
+    when 'read'                then _role in ('OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER', 'GROOM', 'VET', 'FARRIER')
+    when 'edit_details'        then _role in ('OWNER', 'MANAGER')
+    when 'manage_sharing'      then _role in ('OWNER', 'MANAGER')
+    when 'manage_sessions'     then _role in ('OWNER', 'MANAGER', 'COACH')
+    when 'own_sessions'        then _role in ('OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER')
+    when 'manage_care'         then _role in ('OWNER', 'MANAGER')
+    when 'add_care'            then _role in ('OWNER', 'MANAGER', 'GROOM', 'VET', 'FARRIER')
+    when 'manage_competitions' then _role in ('OWNER', 'MANAGER', 'COACH')
+    when 'manage_journal'      then _role in ('OWNER', 'MANAGER')
+    when 'add_journal'         then _role in ('OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER', 'GROOM', 'VET', 'FARRIER')
+    when 'manage_expenses'     then _role in ('OWNER', 'MANAGER')
+    when 'moderate'            then _role in ('OWNER', 'MANAGER')
+    when 'manage_planning'     then _role in ('OWNER', 'MANAGER', 'COACH')
+    else false
+  end, false);
+$$;
+
+create or replace function public.horse_can(_horse_id text, _cap text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select public.horse_role_can(public.horse_role(_horse_id), _cap);
+$$;
+
+-- « Tout » avec le droit `_manage`, ou « les siens » avec le droit `_own`.
+create or replace function public.horse_can_write(_horse_id text, _manage text, _own text, _created_by text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  -- coalesce : une ligne sans auteur (antérieure) donnerait null, pas false.
+  select public.horse_can(_horse_id, _manage)
+    or coalesce(_created_by = auth.uid()::text and public.horse_can(_horse_id, _own), false);
+$$;
+
+-- Rendez-vous : un concours relève du sportif (coach compris), tout autre
+-- type relève des soins.
+create or replace function public.can_write_appointment(_horse_id text, _type text, _created_by text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select case
+    when _type = 'CONCOURS' then public.horse_can(_horse_id, 'manage_competitions')
+    else public.horse_can_write(_horse_id, 'manage_care', 'add_care', _created_by)
+  end;
+$$;
+
+-- Séance : toutes pour le coach et le gérant ; les siennes (créées par soi)
+-- pour une demi-pension ou un cavalier.
+create or replace function public.can_write_session(_horse_id text, _created_by text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select public.horse_can_write(_horse_id, 'manage_sessions', 'own_sessions', _created_by);
+$$;
+
+-- Parcours GPS : mêmes droits que sa séance (qui existe forcément : clé
+-- étrangère sessionId).
+create or replace function public.can_write_session_ride(_session_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    (select public.can_write_session(s."horseId", s."createdByUserId")
+       from public.training_sessions s where s.id = _session_id),
+    false
+  );
+$$;
+
+revoke execute on function public.horse_role(text) from public, anon;
+revoke execute on function public.horse_can(text, text) from public, anon;
+revoke execute on function public.horse_can_write(text, text, text, text) from public, anon;
+revoke execute on function public.can_write_appointment(text, text, text) from public, anon;
+revoke execute on function public.can_write_session(text, text) from public, anon;
+revoke execute on function public.can_write_session_ride(text) from public, anon;
+grant execute on function public.horse_role(text) to authenticated, service_role;
+grant execute on function public.horse_can(text, text) to authenticated, service_role;
+grant execute on function public.horse_can_write(text, text, text, text) to authenticated, service_role;
+grant execute on function public.can_write_appointment(text, text, text) to authenticated, service_role;
+grant execute on function public.can_write_session(text, text) to authenticated, service_role;
+grant execute on function public.can_write_session_ride(text) to authenticated, service_role;
+
+-- Auteur d'une ligne : celui qui l'insère (via l'API Supabase), immuable
+-- ensuite. Le backend (auth.uid() nul) garde la valeur qu'il fournit. Les
+-- lignes antérieures restent sans auteur : seuls le propriétaire et le
+-- gérant peuvent alors les modifier.
+create or replace function public.set_created_by()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if auth.uid() is not null then
+      new."createdByUserId" := auth.uid()::text;
+    end if;
+  else
+    new."createdByUserId" := old."createdByUserId";
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists set_created_by on public.appointments;
+create trigger set_created_by before insert or update on public.appointments
+  for each row execute function public.set_created_by();
+drop trigger if exists set_created_by on public.journal_entries;
+create trigger set_created_by before insert or update on public.journal_entries
+  for each row execute function public.set_created_by();
+drop trigger if exists set_created_by on public.training_sessions;
+create trigger set_created_by before insert or update on public.training_sessions
+  for each row execute function public.set_created_by();
+drop trigger if exists set_created_by on public.expenses;
+create trigger set_created_by before insert or update on public.expenses
+  for each row execute function public.set_created_by();
+drop trigger if exists set_created_by on public.horse_weight_measurements;
+create trigger set_created_by before insert or update on public.horse_weight_measurements
+  for each row execute function public.set_created_by();
+
+-- appointments ---------------------------------------------------------------
+drop policy if exists "appointments_shared" on public.appointments;
+drop policy if exists "appointments_select_shared" on public.appointments;
+create policy "appointments_select_shared" on public.appointments
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "appointments_insert_shared" on public.appointments;
+create policy "appointments_insert_shared" on public.appointments
+  for insert with check (public.can_write_appointment("horseId", type::text, "createdByUserId"));
+drop policy if exists "appointments_update_shared" on public.appointments;
+create policy "appointments_update_shared" on public.appointments
+  for update using (public.can_write_appointment("horseId", type::text, "createdByUserId"))
+  with check (public.can_write_appointment("horseId", type::text, "createdByUserId"));
+drop policy if exists "appointments_delete_shared" on public.appointments;
+create policy "appointments_delete_shared" on public.appointments
+  for delete using (public.can_write_appointment("horseId", type::text, "createdByUserId"));
+
+-- competition_entries : épreuves d'un concours (Premium), droits du concours.
+drop policy if exists "competition_entries_shared" on public.competition_entries;
+drop policy if exists "competition_entries_select_shared" on public.competition_entries;
+create policy "competition_entries_select_shared" on public.competition_entries
+  for select using (
+    exists (select 1 from public.appointments a where a.id = "appointmentId" and public.can_access_horse(a."horseId"))
+  );
+drop policy if exists "competition_entries_insert_shared" on public.competition_entries;
+create policy "competition_entries_insert_shared" on public.competition_entries
+  for insert with check (
+    exists (
+      select 1 from public.appointments a
+      where a.id = "appointmentId"
+        and public.horse_can(a."horseId", 'manage_competitions')
+        and public.horse_owner_is_active_or_trialing(a."horseId")
+    )
+  );
+drop policy if exists "competition_entries_update_shared" on public.competition_entries;
+create policy "competition_entries_update_shared" on public.competition_entries
+  for update using (
+    exists (
+      select 1 from public.appointments a
+      where a.id = "appointmentId"
+        and public.horse_can(a."horseId", 'manage_competitions')
+        and public.horse_owner_is_active_or_trialing(a."horseId")
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.appointments a
+      where a.id = "appointmentId"
+        and public.horse_can(a."horseId", 'manage_competitions')
+        and public.horse_owner_is_active_or_trialing(a."horseId")
+    )
+  );
+drop policy if exists "competition_entries_delete_shared" on public.competition_entries;
+create policy "competition_entries_delete_shared" on public.competition_entries
+  for delete using (
+    exists (
+      select 1 from public.appointments a
+      where a.id = "appointmentId"
+        and public.horse_can(a."horseId", 'manage_competitions')
+        and public.horse_owner_is_active_or_trialing(a."horseId")
+    )
+  );
+
+-- journal_entries : toute l'équipe écrit ; chacun modifie les siennes.
+drop policy if exists "journal_entries_shared" on public.journal_entries;
+drop policy if exists "journal_entries_select_shared" on public.journal_entries;
+create policy "journal_entries_select_shared" on public.journal_entries
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "journal_entries_insert_shared" on public.journal_entries;
+create policy "journal_entries_insert_shared" on public.journal_entries
+  for insert with check (public.horse_can("horseId", 'add_journal'));
+drop policy if exists "journal_entries_update_shared" on public.journal_entries;
+create policy "journal_entries_update_shared" on public.journal_entries
+  for update using (public.horse_can_write("horseId", 'manage_journal', 'add_journal', "createdByUserId"))
+  with check (public.horse_can_write("horseId", 'manage_journal', 'add_journal', "createdByUserId"));
+drop policy if exists "journal_entries_delete_shared" on public.journal_entries;
+create policy "journal_entries_delete_shared" on public.journal_entries
+  for delete using (public.horse_can_write("horseId", 'manage_journal', 'add_journal', "createdByUserId"));
+
+-- training_sessions ----------------------------------------------------------
+drop policy if exists "training_sessions_shared" on public.training_sessions;
+drop policy if exists "training_sessions_select_shared" on public.training_sessions;
+create policy "training_sessions_select_shared" on public.training_sessions
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "training_sessions_insert_shared" on public.training_sessions;
+create policy "training_sessions_insert_shared" on public.training_sessions
+  for insert with check (public.can_write_session("horseId", "createdByUserId"));
+drop policy if exists "training_sessions_update_shared" on public.training_sessions;
+create policy "training_sessions_update_shared" on public.training_sessions
+  for update using (public.can_write_session("horseId", "createdByUserId"))
+  with check (public.can_write_session("horseId", "createdByUserId"));
+drop policy if exists "training_sessions_delete_shared" on public.training_sessions;
+create policy "training_sessions_delete_shared" on public.training_sessions
+  for delete using (public.can_write_session("horseId", "createdByUserId"));
+
+drop policy if exists "training_session_rides_select_shared" on public.training_session_rides;
+create policy "training_session_rides_select_shared" on public.training_session_rides
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "training_session_rides_insert_shared" on public.training_session_rides;
+create policy "training_session_rides_insert_shared" on public.training_session_rides
+  for insert with check (public.can_write_session_ride("sessionId"));
+drop policy if exists "training_session_rides_update_shared" on public.training_session_rides;
+create policy "training_session_rides_update_shared" on public.training_session_rides
+  for update using (public.can_write_session_ride("sessionId"))
+  with check (public.can_write_session_ride("sessionId"));
+drop policy if exists "training_session_rides_delete_shared" on public.training_session_rides;
+create policy "training_session_rides_delete_shared" on public.training_session_rides
+  for delete using (public.can_write_session_ride("sessionId"));
+
+-- horse_details : identité, alimentation, demi-pension — lue par l'équipe,
+-- écrite par le propriétaire et le gérant.
+drop policy if exists "horse_details_select_shared" on public.horse_details;
+create policy "horse_details_select_shared" on public.horse_details
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "horse_details_insert_shared" on public.horse_details;
+create policy "horse_details_insert_shared" on public.horse_details
+  for insert with check (public.horse_can("horseId", 'edit_details'));
+drop policy if exists "horse_details_update_shared" on public.horse_details;
+create policy "horse_details_update_shared" on public.horse_details
+  for update using (public.horse_can("horseId", 'edit_details'))
+  with check (public.horse_can("horseId", 'edit_details'));
+drop policy if exists "horse_details_delete_shared" on public.horse_details;
+create policy "horse_details_delete_shared" on public.horse_details
+  for delete using (public.horse_can("horseId", 'edit_details'));
+
+-- expenses : propriétaire et gérant seulement, lecture comprise.
+drop policy if exists "expenses_shared" on public.expenses;
+drop policy if exists "expenses_select_shared" on public.expenses;
+create policy "expenses_select_shared" on public.expenses
+  for select using (public.horse_can("horseId", 'manage_expenses'));
+drop policy if exists "expenses_insert_shared" on public.expenses;
+create policy "expenses_insert_shared" on public.expenses
+  for insert with check (public.horse_can("horseId", 'manage_expenses'));
+drop policy if exists "expenses_update_shared" on public.expenses;
+create policy "expenses_update_shared" on public.expenses
+  for update using (public.horse_can("horseId", 'manage_expenses'))
+  with check (public.horse_can("horseId", 'manage_expenses'));
+drop policy if exists "expenses_delete_shared" on public.expenses;
+create policy "expenses_delete_shared" on public.expenses
+  for delete using (public.horse_can("horseId", 'manage_expenses'));
+
+-- horse_weight_measurements : un soin courant (groom, véto compris).
+drop policy if exists "horse_weight_measurements_select_shared" on public.horse_weight_measurements;
+create policy "horse_weight_measurements_select_shared" on public.horse_weight_measurements
+  for select using (public.can_access_horse("horseId"));
+drop policy if exists "horse_weight_measurements_insert_shared" on public.horse_weight_measurements;
+create policy "horse_weight_measurements_insert_shared" on public.horse_weight_measurements
+  for insert with check (public.horse_can("horseId", 'add_care'));
+drop policy if exists "horse_weight_measurements_update_shared" on public.horse_weight_measurements;
+create policy "horse_weight_measurements_update_shared" on public.horse_weight_measurements
+  for update using (public.horse_can_write("horseId", 'manage_care', 'add_care', "createdByUserId"))
+  with check (public.horse_can_write("horseId", 'manage_care', 'add_care', "createdByUserId"));
+drop policy if exists "horse_weight_measurements_delete_shared" on public.horse_weight_measurements;
+create policy "horse_weight_measurements_delete_shared" on public.horse_weight_measurements
+  for delete using (public.horse_can_write("horseId", 'manage_care', 'add_care', "createdByUserId"));
+
+-- horse_collaborators : le gérant gère l'équipe comme le propriétaire, sauf
+-- les gérants (ni en nommer, ni en modifier, ni en retirer un autre que soi).
+drop policy if exists "horse_collaborators_owner_select" on public.horse_collaborators;
+create policy "horse_collaborators_owner_select" on public.horse_collaborators
+  for select using (public.horse_can("horseId", 'manage_sharing'));
+
+drop policy if exists "horse_collaborators_owner_update" on public.horse_collaborators;
+create policy "horse_collaborators_owner_update" on public.horse_collaborators
+  for update using (
+    public.owns_horse("horseId")
+    or (public.horse_can("horseId", 'manage_sharing') and role <> 'MANAGER')
+  )
+  with check (
+    public.owns_horse("horseId")
+    or (public.horse_can("horseId", 'manage_sharing') and role <> 'MANAGER')
+  );
+
+drop policy if exists "horse_collaborators_owner_delete" on public.horse_collaborators;
+create policy "horse_collaborators_owner_delete" on public.horse_collaborators
+  for delete using (
+    public.owns_horse("horseId")
+    or (public.horse_can("horseId", 'manage_sharing') and role <> 'MANAGER')
+    or "collaboratorUserId" = auth.uid()::text
+  );
+
+drop policy if exists "horse_collaborators_owner_insert" on public.horse_collaborators;
+create policy "horse_collaborators_owner_insert" on public.horse_collaborators
+  for insert with check (
+    (public.owns_horse("horseId") or (public.horse_can("horseId", 'manage_sharing') and role <> 'MANAGER'))
+    and public.horse_owner_is_active_or_trialing("horseId")
+    -- Même exclusion des invitations PENDING expirées que enforce_horse_collaborator_quota
+    -- (le WITH CHECK seul ne ferme pas la course, d'où le trigger).
+    and (
+      select count(*) from public.horse_collaborators hc2
+      where hc2."horseId" = "horseId"
+        and (hc2.status = 'ACCEPTED' or hc2."expiresAt" is null or hc2."expiresAt" > now())
+    ) < public.horse_collaborator_limit("horseId")
+  );
+
+-- Fil : un commentaire se supprime par son auteur ou par un modérateur.
+drop policy if exists "horse_comments_delete_author_or_owner" on public.horse_comments;
+create policy "horse_comments_delete_author_or_owner" on public.horse_comments
+  for delete using ("authorUserId" = auth.uid()::text or public.horse_can("horseId", 'moderate'));
+-- <<< droits-par-role

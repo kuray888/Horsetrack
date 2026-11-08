@@ -178,6 +178,9 @@ export type Appointment = {
   /** Id de la notification locale programmée pour nextDueDate, pour pouvoir
    * l'annuler — même principe que reminderNotificationId, jamais synchronisé. */
   nextDueNotificationId: string | null;
+  /** Auteur (cf. lib/permissions.ts Author) : undefined tant que la ligne
+   * créée sur cet appareil n'a pas été relue du serveur. */
+  createdByUserId?: string | null;
 };
 
 /** `horseId` n'est pas fourni ici : `addAppointment` le rattache par défaut au
@@ -260,6 +263,9 @@ export type JournalEntry = {
    * serveur. Chemin Storage : "{horseId}/journal/{id}.mp4". */
   videoUri?: string | null;
   videoPath?: string | null;
+  /** Auteur (cf. lib/permissions.ts Author) : undefined tant que la ligne
+   * créée sur cet appareil n'a pas été relue du serveur. */
+  createdByUserId?: string | null;
 };
 
 /**
@@ -290,6 +296,9 @@ export type Expense = {
    * app/horse/[id]/budget.tsx) ; reste toujours `false` sur un compte gratuit,
    * faute de pouvoir basculer le statut. */
   isPaid: boolean;
+  /** Auteur (cf. lib/permissions.ts Author) : undefined tant que la ligne
+   * créée sur cet appareil n'a pas été relue du serveur. */
+  createdByUserId?: string | null;
 };
 
 export type NewExpense = Omit<Expense, "id" | "horseId">;

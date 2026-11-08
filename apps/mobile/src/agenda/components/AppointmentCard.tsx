@@ -32,6 +32,7 @@ export function AppointmentCard({
   onAddCompetitionEntry,
   onUpdateCompetitionEntry,
   onDeleteCompetitionEntry,
+  readOnly = false,
 }: {
   appt: Appointment;
   expanded: boolean;
@@ -45,6 +46,9 @@ export function AppointmentCard({
   onAddCompetitionEntry: (entry: Omit<CompetitionEntry, "id" | "result">) => void;
   onUpdateCompetitionEntry: (entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) => void;
   onDeleteCompetitionEntry: (entryId: string) => void;
+  /** Rendez-vous d'un cheval partagé qu'on ne peut pas modifier (cf.
+   * lib/permissions.ts) : consultation, appel, calendrier. */
+  readOnly?: boolean;
 }) {
   const meta = APPT_META[appt.type];
   const [editingResult, setEditingResult] = useState(false);
@@ -98,16 +102,17 @@ export function AppointmentCard({
       accessibilityState={{ expanded }}
       accessibilityActions={[
         { name: "activate", label: expanded ? t("Replier") : t("Déplier") },
-        { name: "edit", label: t("Modifier") },
+        ...(readOnly ? [] : [{ name: "edit", label: t("Modifier") }]),
         { name: "calendar", label: t("Ajouter au calendrier") },
-        { name: "delete", label: t("Supprimer") },
+        ...(readOnly ? [] : [{ name: "delete", label: t("Supprimer") }]),
       ]}
       onAccessibilityAction={(e) => {
         if (e.nativeEvent.actionName === "activate") {
           animateNextLayout();
           onToggleExpand();
-        } else if (e.nativeEvent.actionName === "edit") onEdit();
-        else if (e.nativeEvent.actionName === "calendar") handleAddToCalendar();
+        } else if (e.nativeEvent.actionName === "calendar") handleAddToCalendar();
+        else if (readOnly) return;
+        else if (e.nativeEvent.actionName === "edit") onEdit();
         else if (e.nativeEvent.actionName === "delete") onDelete();
       }}
       activeOpacity={0.85}
@@ -199,6 +204,8 @@ export function AppointmentCard({
                     <View key={item.id} className="flex-row items-center gap-2.5 py-1">
                       <TouchableOpacity accessibilityRole="button"
                         onPress={() => onToggleChecklistItem(item.id)}
+                        disabled={readOnly}
+                        accessibilityState={{ checked: item.checked, disabled: readOnly }}
                         activeOpacity={0.7}
                         className="flex-1 flex-row items-center gap-2.5"
                       >
@@ -215,40 +222,45 @@ export function AppointmentCard({
                           {item.label}
                         </Text>
                       </TouchableOpacity>
-                      <TouchableOpacity accessibilityRole="button"
-                        onPress={() => onRemoveChecklistItem(item.id)}
-                        activeOpacity={0.7}
-                        hitSlop={8}
-                      >
-                        <Text className="text-sm text-muted">✕</Text>
-                      </TouchableOpacity>
+                      {readOnly ? null : (
+                        <TouchableOpacity accessibilityRole="button"
+                          accessibilityLabel={t("Retirer {label}", { label: item.label })}
+                          onPress={() => onRemoveChecklistItem(item.id)}
+                          activeOpacity={0.7}
+                          hitSlop={8}
+                        >
+                          <Text className="text-sm text-muted">✕</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ))}
                 </View>
               ) : null}
 
-              <View className="mt-1 flex-row items-center gap-2">
-                <TextInput
-                  className="flex-1 rounded-card border border-border bg-surface px-3 py-2.5 text-sm text-text"
-                  placeholder={t("Ajouter un élément…")}
-                  value={newItemLabel}
-                  onChangeText={setNewItemLabel}
-                  onSubmitEditing={handleAddChecklistItem}
-                  returnKeyType="done"
-                />
-                <TouchableOpacity accessibilityRole="button"
-                  onPress={handleAddChecklistItem}
-                  disabled={!newItemLabel.trim()}
-                  activeOpacity={0.8}
-                  className={`h-9 w-9 items-center justify-center rounded-full ${
-                    newItemLabel.trim() ? "bg-primary" : "bg-border"
-                  }`}
-                >
-                  <Text className={`text-base font-bold ${newItemLabel.trim() ? "text-on-primary" : "text-muted"}`}>
-                    +
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              {readOnly ? null : (
+                <View className="mt-1 flex-row items-center gap-2">
+                  <TextInput
+                    className="flex-1 rounded-card border border-border bg-surface px-3 py-2.5 text-sm text-text"
+                    placeholder={t("Ajouter un élément…")}
+                    value={newItemLabel}
+                    onChangeText={setNewItemLabel}
+                    onSubmitEditing={handleAddChecklistItem}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity accessibilityRole="button"
+                    onPress={handleAddChecklistItem}
+                    disabled={!newItemLabel.trim()}
+                    activeOpacity={0.8}
+                    className={`h-9 w-9 items-center justify-center rounded-full ${
+                      newItemLabel.trim() ? "bg-primary" : "bg-border"
+                    }`}
+                  >
+                    <Text className={`text-base font-bold ${newItemLabel.trim() ? "text-on-primary" : "text-muted"}`}>
+                      +
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ) : null}
 
@@ -258,25 +270,40 @@ export function AppointmentCard({
               <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Épreuves")}</Text>
               {appt.competitionEntries.length > 0 ? (
                 <View className="gap-2">
-                  {appt.competitionEntries.map((entry) => (
+                  {appt.competitionEntries.map((entry) =>
+                    readOnly ? (
+                      <Text key={entry.id} className="text-sm text-text">
+                        {[entry.time, entry.name, entry.result].filter(Boolean).join(" · ")}
+                      </Text>
+                    ) : (
                     <CompetitionEntryRow
                       key={entry.id}
                       entry={entry}
                       onUpdate={(patch) => onUpdateCompetitionEntry(entry.id, patch)}
                       onDelete={() => onDeleteCompetitionEntry(entry.id)}
                     />
-                  ))}
+                    )
+                  )}
                 </View>
               ) : (
                 <Text className="text-sm text-muted">{t("Aucune épreuve renseignée.")}</Text>
               )}
-              <Locked message={t("Détaille chaque épreuve : horaires, résultats")} placement="competitions" feature="competition_detail">
-                <AddCompetitionEntryForm onAdd={onAddCompetitionEntry} />
-              </Locked>
+              {readOnly ? null : (
+                <Locked message={t("Détaille chaque épreuve : horaires, résultats")} placement="competitions" feature="competition_detail">
+                  <AddCompetitionEntryForm onAdd={onAddCompetitionEntry} />
+                </Locked>
+              )}
             </View>
           ) : null}
 
-          {isConcours ? (
+          {isConcours && readOnly && appt.result ? (
+            <View className="mt-2 gap-1 border-t border-border pt-3">
+              <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Résultat")}</Text>
+              <Text className="text-sm text-text">{appt.result}</Text>
+            </View>
+          ) : null}
+
+          {isConcours && !readOnly ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
               {editingResult ? (
                 <>
@@ -317,9 +344,11 @@ export function AppointmentCard({
           ) : null}
 
           <View className="mt-1 flex-row items-center gap-4">
-            <TouchableOpacity accessibilityRole="button" onPress={onEdit} activeOpacity={0.7}>
-              <Text className="text-sm font-semibold text-accent">{t("Modifier")}</Text>
-            </TouchableOpacity>
+            {readOnly ? null : (
+              <TouchableOpacity accessibilityRole="button" onPress={onEdit} activeOpacity={0.7}>
+                <Text className="text-sm font-semibold text-accent">{t("Modifier")}</Text>
+              </TouchableOpacity>
+            )}
             {contact && contactTel ? (
               <TouchableOpacity
                 accessibilityRole="button"
@@ -333,9 +362,11 @@ export function AppointmentCard({
             <TouchableOpacity accessibilityRole="button" onPress={handleAddToCalendar} activeOpacity={0.7}>
               <Text className="text-sm font-semibold text-accent">{t("Calendrier")}</Text>
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" onPress={onDelete} activeOpacity={0.7}>
-              <Text className="text-sm font-semibold text-danger">{t("Supprimer")}</Text>
-            </TouchableOpacity>
+            {readOnly ? null : (
+              <TouchableOpacity accessibilityRole="button" onPress={onDelete} activeOpacity={0.7}>
+                <Text className="text-sm font-semibold text-danger">{t("Supprimer")}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       ) : null}

@@ -20,6 +20,9 @@ export type WeightMeasurement = {
   horseId: string;
   weightKg: number;
   date: Date;
+  /** Auteur (cf. lib/permissions.ts Author) : undefined tant que la ligne
+   * créée sur cet appareil n'a pas été relue du serveur. */
+  createdByUserId?: string | null;
 };
 
 const WEIGHT_KEY = "weight_measurements_v1";

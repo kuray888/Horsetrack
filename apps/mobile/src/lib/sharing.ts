@@ -3,7 +3,19 @@ import { mapRemoteHorse, type RemoteHorse } from "@/lib/cloudSync";
 import type { Horse } from "@/horses/store";
 import { t } from "@/i18n";
 
-export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM";
+export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM" | "MANAGER" | "VET" | "FARRIER";
+
+/** Ordre d'affichage des rôles proposés à l'invitation. Droits de chacun :
+ * lib/permissions.ts (copie de rls.sql). */
+export const COLLABORATOR_ROLES: CollaboratorRole[] = [
+  "DEMI_PENSION",
+  "COACH",
+  "RIDER",
+  "GROOM",
+  "MANAGER",
+  "VET",
+  "FARRIER",
+];
 /** "duplicate"/"quota"/"not_premium" distinguent les causes réelles d'un
  * insert refusé par la base (contrainte unique horseId+invitedEmail, quota
  * d'1 collaborateur/cheval, ou abonnement Premium non actif côté serveur cf.
@@ -24,6 +36,9 @@ export const ROLE_LABEL: Record<CollaboratorRole, string> = {
   COACH: t("Coach / enseignant"),
   RIDER: t("Cavalière / cavalier"),
   GROOM: t("Groom / palefrenier"),
+  MANAGER: t("Gérant·e"),
+  VET: t("Vétérinaire"),
+  FARRIER: t("Maréchal-ferrant"),
 };
 
 export const ROLE_LABEL_SHORT: Record<CollaboratorRole, string> = {
@@ -31,6 +46,21 @@ export const ROLE_LABEL_SHORT: Record<CollaboratorRole, string> = {
   COACH: "coach",
   RIDER: t("cavalière/cavalier"),
   GROOM: "groom",
+  MANAGER: t("gérant·e"),
+  VET: t("vétérinaire"),
+  FARRIER: t("maréchal-ferrant"),
+};
+
+/** Ce que chaque rôle peut faire, en une phrase (choix du rôle à
+ * l'invitation). Reflète lib/permissions.ts. */
+export const ROLE_RIGHTS: Record<CollaboratorRole, string> = {
+  DEMI_PENSION: t("Note ses séances et son journal, voit les soins et le planning. Ne voit pas les dépenses."),
+  COACH: t("Planifie et modifie toutes les séances et les concours, voit les soins."),
+  RIDER: t("Note ses séances et son journal, voit les soins et le planning."),
+  GROOM: t("Ajoute les soins courants et les pesées, voit le planning."),
+  MANAGER: t("Gère tout comme toi : séances, soins, dépenses, fiche et équipe. Ne peut pas supprimer le cheval."),
+  VET: t("Ajoute ses soins et les pesées, voit le reste de la fiche."),
+  FARRIER: t("Ajoute ses passages et voit le reste de la fiche."),
 };
 
 export type Collaborator = {

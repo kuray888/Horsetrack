@@ -6,6 +6,7 @@ import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
 import { PrimaryButton } from "@/components/onboarding";
+import { ReadOnlyNote } from "@/components/ReadOnlyNote";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
 import { useSubscription } from "@/subscription/store";
@@ -15,6 +16,7 @@ import { DAY_LABELS, WEEK_DAYS_FULL } from "@/lib/dateFormat";
 import { saveHorseDetails, useHorseDetails } from "@/extras/store";
 import type { Partnership } from "@/extras/model";
 import { localDecimal, t } from "@/i18n";
+import { can, roleOf } from "@/lib/permissions";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -31,6 +33,9 @@ export default function PartnershipScreen() {
   const { horses } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
   const horse = horses.find((h) => h.id === id);
+  // Cheval partagé : fiche modifiable par le propriétaire et le gérant seulement
+  // (cf. lib/permissions.ts) — les autres la consultent.
+  const readOnly = !can(roleOf(horse?.sharedRole), "edit_details");
   const details = useHorseDetails(id);
   const [draft, setDraft] = useState<(Partnership & { feeText: string }) | null>(null);
   const [saved, setSaved] = useState(false);
@@ -98,7 +103,7 @@ export default function PartnershipScreen() {
       <FadeInView>{header}</FadeInView>
 
       <FadeInView delay={40}>
-        <View className={`${CARD} gap-4`}>
+        <View className={`${CARD} gap-4`} pointerEvents={readOnly ? "none" : "auto"}>
           <Field label={t("Prénom de la demi-pension")}>
             <TextInput
               className={INPUT}
@@ -154,7 +159,11 @@ export default function PartnershipScreen() {
               maxLength={300}
             />
           </Field>
-          <PrimaryButton label={saved && !draft ? t("Enregistré ✓") : t("Enregistrer")} onPress={handleSave} disabled={!draft} />
+          {readOnly ? (
+            <ReadOnlyNote />
+          ) : (
+            <PrimaryButton label={saved && !draft ? t("Enregistré ✓") : t("Enregistrer")} onPress={handleSave} disabled={!draft} />
+          )}
         </View>
       </FadeInView>
 

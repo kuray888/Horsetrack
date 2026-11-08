@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
+import { hapticError } from "@/lib/haptics";
 import { formatDate } from "@/lib/dateFormat";
 import { chooseAndPickDocument } from "@/lib/imagePicker";
 import { daysFromNow, useAgenda, type Expense, type ExpenseCategory } from "@/agenda/store";
@@ -14,6 +15,7 @@ import {
 } from "@/horses/selectableHorses";
 import type { Horse } from "@/horses/store";
 import { t, localDecimal } from "@/i18n";
+import { can, notAllowedMessage, roleOf } from "@/lib/permissions";
 
 const emptyExpenseForm = {
   category: "veto" as ExpenseCategory,
@@ -125,6 +127,12 @@ export function useExpenseForm({
     const date = expenseForm.date;
     const amount = Number(expenseForm.amount.replace(",", "."));
     if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    // Filet de sécurité : dépenses réservées au propriétaire et au gérant (cf. lib/permissions.ts).
+    if (!editingExpenseId && horse && !can(roleOf(horse.sharedRole), "manage_expenses")) {
+      hapticError();
+      Alert.alert(t("Ajout impossible"), notAllowedMessage());
+      return;
+    }
     submitLock.current = true;
 
     let hiddenNames: string[] = [];

@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { parseServerDate } from "@/lib/serverDate";
 import type { WeightMeasurement } from "@/horses/weightStore";
-import { settleWrite } from "./shared";
+import { selectWithOptionalColumns, settleWrite } from "./shared";
 
 /** Mesures de poids.
  * Extrait de lib/cloudSync.ts (façade) sans changement de comportement. */
@@ -22,13 +22,20 @@ export async function deleteWeightMeasurementRemoteImpl(id: string, stamp?: numb
   await settleWrite("deleteWeightMeasurementRemote", "horse_weight_measurements", id, error, undefined, stamp);
 }
 export async function pullWeightMeasurements(): Promise<WeightMeasurement[] | null> {
-  const { data, error } = await supabase.from("horse_weight_measurements").select("id, horseId, weightKg, date");
-  if (error || !data) return null;
+  const data = await selectWithOptionalColumns<{
+    id: string;
+    horseId: string;
+    weightKg: number;
+    date: string;
+    createdByUserId?: string | null;
+  }>("horse_weight_measurements", "id, horseId, weightKg, date", ["createdByUserId"]);
+  if (!data) return null;
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,
     weightKg: row.weightKg,
     date: parseServerDate(row.date),
+    createdByUserId: row.createdByUserId,
   }));
 }
 

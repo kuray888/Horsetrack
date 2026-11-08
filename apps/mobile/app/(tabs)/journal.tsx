@@ -13,6 +13,7 @@ import { useAgenda, type JournalEntry } from "@/agenda/store";
 import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { JournalForm } from "@/agenda/components/JournalForm";
 import { JournalCard } from "@/agenda/components/JournalCard";
+import { useHorseRights } from "@/horses/useHorseRights";
 import { animateNextLayout } from "@/lib/motion";
 import { lazyTab } from "@/components/LazyTab";
 import { ScreenTitle } from "@/components/ScreenTitle";
@@ -39,6 +40,8 @@ function JournalScreen() {
   const colors = useThemeColors();
   const { horses, selectedHorse } = useHorses();
   const { journal, addJournalEntry, updateJournalEntry, deleteJournalEntry } = useAgenda();
+  // Sur un cheval partagé, chacun modifie ses propres souvenirs (cf. lib/permissions.ts).
+  const rights = useHorseRights();
   // Filtre initial optionnel (cf. app/horse/[id]/journal.tsx, qui renvoie ici
   // avec ?horse=<id> pour pré-filtrer sur ce cheval) — absent par défaut.
   const { horse: horseParam } = useLocalSearchParams<{ horse?: string }>();
@@ -199,7 +202,7 @@ function JournalScreen() {
                 <HorseNameBadge name={horseName(entry.horseId)} />
               ) : null}
               <SwipeableRow
-                trailing={{
+                trailing={!rights.journal(entry) ? null : {
                   label: t("Supprimer"),
                   icon: "trash-can-outline",
                   color: colors.danger,
@@ -212,6 +215,7 @@ function JournalScreen() {
                   onToggleExpand={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
                   onDelete={() => confirmDeleteJournalEntry(entry)}
                   onEdit={() => startEditJournal(entry)}
+                  readOnly={!rights.journal(entry)}
                 />
               </SwipeableRow>
             </View>

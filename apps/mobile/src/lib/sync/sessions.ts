@@ -117,13 +117,14 @@ type SessionRow = {
   intensity: string | null;
   notes: string;
   completed: boolean;
+  createdByUserId?: string | null;
 };
 export async function pullTrainingSessions(): Promise<TrainingSession[] | null> {
   const [data, rides] = await Promise.all([
     selectWithOptionalColumns<SessionRow>(
       "training_sessions",
       "id, horseId, activityType, customActivityLabel, date, time, durationMinutes, intensity, notes, completed",
-      ["activityKind"]
+      ["activityKind", "createdByUserId"]
     ),
     pullSessionRides().catch(() => null),
   ]);
@@ -140,6 +141,8 @@ export async function pullTrainingSessions(): Promise<TrainingSession[] | null> 
     intensity: (row.intensity as TrainingSession["intensity"]) ?? null,
     notes: row.notes,
     completed: row.completed,
+    // undefined si la colonne manque (base pas encore migrée) : cf. lib/permissions.ts isMine.
+    createdByUserId: row.createdByUserId,
   }));
 }
 

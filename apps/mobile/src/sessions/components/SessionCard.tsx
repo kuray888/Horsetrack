@@ -37,6 +37,7 @@ export function SessionCard({
   onEdit,
   onDuplicate,
   onDelete,
+  readOnly = false,
 }: {
   session: TrainingSession;
   expanded: boolean;
@@ -45,6 +46,9 @@ export function SessionCard({
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  /** Séance d'un cheval partagé qu'on ne peut pas modifier (cf.
+   * lib/permissions.ts) : consultation et commentaires seulement. */
+  readOnly?: boolean;
 }) {
   const colors = useThemeColors();
   const { scale, onPressIn, onPressOut } = usePressScale();
@@ -64,12 +68,17 @@ export function SessionCard({
         accessibilityState={{ expanded }}
         accessibilityActions={[
           { name: "activate", label: expanded ? t("Replier") : t("Déplier") },
-          { name: "toggleDone", label: session.completed ? t("Marquer à faire") : t("Marquer faite") },
-          { name: "edit", label: t("Modifier") },
-          { name: "delete", label: t("Supprimer") },
+          ...(readOnly
+            ? []
+            : [
+                { name: "toggleDone", label: session.completed ? t("Marquer à faire") : t("Marquer faite") },
+                { name: "edit", label: t("Modifier") },
+                { name: "delete", label: t("Supprimer") },
+              ]),
         ]}
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === "activate") onPress();
+          else if (readOnly) return;
           else if (e.nativeEvent.actionName === "toggleDone") onToggleDone();
           else if (e.nativeEvent.actionName === "edit") onEdit();
           else if (e.nativeEvent.actionName === "delete") onDelete();
@@ -110,19 +119,27 @@ export function SessionCard({
           {/* Case à cocher directement sur la carte : marquer une séance
               faite demandait de la déplier puis de toucher « Marquer
               faite ». Le reste de la carte la déplie toujours. */}
-          <TouchableOpacity
-            onPress={onToggleDone}
-            hitSlop={12}
-            activeOpacity={0.6}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: session.completed }}
-            accessibilityLabel={session.completed ? t("Séance faite, marquer à faire") : t("Marquer la séance faite")}
-            className={`h-7 w-7 items-center justify-center rounded-full ${
-              session.completed ? "bg-success" : "border-2 border-border"
-            }`}
-          >
-            {session.completed ? <MaterialCommunityIcons name="check" size={17} color="#ffffff" /> : null}
-          </TouchableOpacity>
+          {readOnly ? (
+            session.completed ? (
+              <View accessibilityLabel={t("Séance faite")} className="h-7 w-7 items-center justify-center rounded-full bg-success">
+                <MaterialCommunityIcons name="check" size={17} color="#ffffff" />
+              </View>
+            ) : null
+          ) : (
+            <TouchableOpacity
+              onPress={onToggleDone}
+              hitSlop={12}
+              activeOpacity={0.6}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: session.completed }}
+              accessibilityLabel={session.completed ? t("Séance faite, marquer à faire") : t("Marquer la séance faite")}
+              className={`h-7 w-7 items-center justify-center rounded-full ${
+                session.completed ? "bg-success" : "border-2 border-border"
+              }`}
+            >
+              {session.completed ? <MaterialCommunityIcons name="check" size={17} color="#ffffff" /> : null}
+            </TouchableOpacity>
+          )}
         </View>
 
         {expanded ? (
@@ -136,52 +153,56 @@ export function SessionCard({
             {session.notes.trim() ? <Text className="text-sm leading-5 text-text">{session.notes}</Text> : null}
             {session.ride?.gps ? <RideDetails ride={session.ride} /> : null}
             <CommentsButton horseId={session.horseId} targetType="session" targetId={session.id} />
-            {!session.completed ? (
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => router.push({ pathname: "/ride", params: { sessionId: session.id } })}
-                activeOpacity={0.8}
-                className="flex-row items-center justify-center gap-1.5 rounded-card border border-primary/30 p-3"
-              >
-                <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
-                <Text className="text-sm font-bold text-primary">{t("Démarrer en direct")}</Text>
-              </TouchableOpacity>
-            ) : null}
-            <View className="flex-row gap-2">
-              <TouchableOpacity accessibilityRole="button"
-                onPress={onToggleDone}
-                activeOpacity={0.8}
-                className="flex-1 items-center rounded-card bg-primary p-3"
-              >
-                <Text className="text-sm font-bold text-on-primary">
-                  {session.completed ? t("Marquer à faire") : t("Marquer faite")}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button"
-                onPress={onEdit}
-                activeOpacity={0.8}
-                className="flex-1 items-center rounded-card border border-border p-3"
-              >
-                <Text className="text-sm font-semibold text-text">{t("Modifier")}</Text>
-              </TouchableOpacity>
-            </View>
-            <View className="flex-row gap-2">
-              <TouchableOpacity accessibilityRole="button"
-                onPress={onDuplicate}
-                activeOpacity={0.8}
-                className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
-              >
-                <MaterialCommunityIcons name="content-copy" size={15} color={colors.textMuted} />
-                <Text className="text-sm font-semibold text-text">{t("Dupliquer +7j")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button"
-                onPress={onDelete}
-                activeOpacity={0.8}
-                className="items-center justify-center rounded-card border border-border px-4"
-              >
-                <Text className="text-sm font-semibold text-warning">{t("Suppr.")}</Text>
-              </TouchableOpacity>
-            </View>
+            {readOnly ? null : (
+              <>
+                {!session.completed ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => router.push({ pathname: "/ride", params: { sessionId: session.id } })}
+                    activeOpacity={0.8}
+                    className="flex-row items-center justify-center gap-1.5 rounded-card border border-primary/30 p-3"
+                  >
+                    <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
+                    <Text className="text-sm font-bold text-primary">{t("Démarrer en direct")}</Text>
+                  </TouchableOpacity>
+                ) : null}
+                <View className="flex-row gap-2">
+                  <TouchableOpacity accessibilityRole="button"
+                    onPress={onToggleDone}
+                    activeOpacity={0.8}
+                    className="flex-1 items-center rounded-card bg-primary p-3"
+                  >
+                    <Text className="text-sm font-bold text-on-primary">
+                      {session.completed ? t("Marquer à faire") : t("Marquer faite")}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button"
+                    onPress={onEdit}
+                    activeOpacity={0.8}
+                    className="flex-1 items-center rounded-card border border-border p-3"
+                  >
+                    <Text className="text-sm font-semibold text-text">{t("Modifier")}</Text>
+                  </TouchableOpacity>
+                </View>
+                <View className="flex-row gap-2">
+                  <TouchableOpacity accessibilityRole="button"
+                    onPress={onDuplicate}
+                    activeOpacity={0.8}
+                    className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
+                  >
+                    <MaterialCommunityIcons name="content-copy" size={15} color={colors.textMuted} />
+                    <Text className="text-sm font-semibold text-text">{t("Dupliquer +7j")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button"
+                    onPress={onDelete}
+                    activeOpacity={0.8}
+                    className="items-center justify-center rounded-card border border-border px-4"
+                  >
+                    <Text className="text-sm font-semibold text-warning">{t("Suppr.")}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         ) : null}
       </TouchableOpacity>

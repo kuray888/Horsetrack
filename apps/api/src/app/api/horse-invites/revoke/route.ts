@@ -4,6 +4,7 @@ import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { sendEmail } from "@/lib/resend";
 import { safeLine } from "@/lib/emailSafety";
+import { canHandleRole, teamActor } from "@/lib/teamAccess";
 
 const schema = z.object({
   horseId: z.string().min(1),
@@ -40,9 +41,14 @@ export async function POST(req: NextRequest) {
 
   const horse = await db.horse.findUnique({
     where: { id: horseId },
-    select: { name: true, owner: { select: { userId: true } } },
+    select: {
+      name: true,
+      owner: { select: { userId: true } },
+      collaborators: { select: { collaboratorUserId: true, role: true, status: true } },
+    },
   });
-  if (!horse || horse.owner.userId !== userId) {
+  const actor = horse ? teamActor(horse, userId) : null;
+  if (!horse || !actor) {
     return NextResponse.json({ error: "Cheval introuvable" }, { status: 403 });
   }
 
@@ -51,11 +57,15 @@ export async function POST(req: NextRequest) {
 
   const collaborator = await db.horseCollaborator.findFirst({
     where: { id: collaboratorId, horseId },
-    select: { id: true, invitedEmail: true },
+    select: { id: true, invitedEmail: true, role: true },
   });
   if (!collaborator) {
     // Déjà révoqué (double appui, autre appareil) : rien à faire.
     return NextResponse.json({ revoked: false, sent: false });
+  }
+  // Un gérant ne retire pas un autre gérant (cf. lib/teamAccess.ts).
+  if (!canHandleRole(actor, collaborator.role)) {
+    return NextResponse.json({ error: "Action réservée au propriétaire" }, { status: 403 });
   }
   // deleteMany plutôt que delete : ne relit pas la ligne supprimée, donc ne
   // dépend d'aucune colonne récente (cf. inviteEmailSentAt).
@@ -64,7 +74,7 @@ export async function POST(req: NextRequest) {
   const horseName = safeLine(horse.name, 60) || "ce cheval";
   const subject = `Ton accès à ${horseName} sur Horsetrack a été retiré`;
   const bodyText = [
-    `Le propriétaire de ${horseName} vient de retirer ton accès partagé à ce cheval sur Horsetrack.`,
+    `L'équipe de ${horseName} vient de retirer ton accès partagé à ce cheval sur Horsetrack.`,
     "",
     "Si tu penses qu'il s'agit d'une erreur, rapproche-toi directement de cette personne — une nouvelle invitation te redonnera accès.",
   ].join("\n");

@@ -42,6 +42,7 @@ import { JournalForm } from "@/agenda/components/JournalForm";
 import { t } from "@/i18n";
 import { useHorseDetails } from "@/extras/store";
 import { hasFeeding, hasIdentity, hasPartnership } from "@/extras/model";
+import { useHorseRights } from "@/horses/useHorseRights";
 import { featuredReviewYear } from "@/review/yearReview";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -95,6 +96,9 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
 
   const horse = horses.find((h) => h.id === id);
   const isOwner = !!horse && !horse.sharedRole;
+  // Droits du rôle sur ce cheval (cf. lib/permissions.ts) : budget réservé au
+  // propriétaire et au gérant, fiche modifiable par eux seuls.
+  const rights = useHorseRights();
 
   /** Consulter une fiche ne change PLUS le cheval actif global : ouvrir la
    * fiche de B depuis une alerte de l'Accueil recadrait silencieusement
@@ -472,14 +476,16 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               goToTab(`/(tabs)/journal?horse=${horse.id}`);
             }}
           />
-          <HorseModuleTile
-            testID="hub-budget"
-            icon="wallet-outline"
-            iconColor={colors.success}
-            title={t("Budget")}
-            value={budgetValue}
-            onPress={() => router.push(`/horse/${horse.id}/budget`)}
-          />
+          {rights.can(horse.id, "manage_expenses") ? (
+            <HorseModuleTile
+              testID="hub-budget"
+              icon="wallet-outline"
+              iconColor={colors.success}
+              title={t("Budget")}
+              value={budgetValue}
+              onPress={() => router.push(`/horse/${horse.id}/budget`)}
+            />
+          ) : null}
         </HorseModuleGrid>
       </FadeInView>
 
@@ -530,7 +536,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
             value={feedingValue}
             onPress={() => router.push(`/horse/${horse.id}/alimentation`)}
           />
-          {horse.sharedRole === null ? (
+          {rights.can(horse.id, "edit_details") ? (
             <HorseModuleRow
               icon="account-heart-outline"
               iconColor={colors.accent}

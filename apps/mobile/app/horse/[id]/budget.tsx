@@ -23,6 +23,7 @@ import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
 import { t, LOCALE } from "@/i18n";
 import { useHorseDetails } from "@/extras/store";
 import { netMonthlyCost } from "@/extras/model";
+import { can, roleOf } from "@/lib/permissions";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -54,6 +55,12 @@ export default function HorseBudgetScreen() {
 
   const horse = horses.find((h) => h.id === id);
   const horseId = horse?.id ?? null;
+  // Calculés ici et non dans le retour anticipé plus bas : là, le React
+  // Compiler renonçait à mémoïser l'écran.
+  const canSeeBudget = can(roleOf(horse?.sharedRole), "manage_expenses");
+  const budgetLockedText = t("Le budget de {name} est visible par son propriétaire et le gérant de l'écurie.", {
+    name: horse?.name ?? "",
+  });
   const partnership = useHorseDetails(id)?.partnership ?? null;
 
   // Mémoïsés (cf. audit perf du 2026-09-09, repris tel quel de l'écran
@@ -149,13 +156,25 @@ export default function HorseBudgetScreen() {
     horse: horse ?? null,
   });
 
-  if (!horse) {
+  // Dépenses réservées au propriétaire et au gérant (la base ne les envoie
+  // même pas aux autres, cf. rls.sql) : un lien direct ne doit pas montrer un
+  // budget vide comme si le cheval ne coûtait rien.
+  if (!horse || !canSeeBudget) {
     return (
       <Screen>
         <FadeInView>
           <View className={`${CARD} items-center gap-2`}>
-            <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
-            <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
+            <MaterialCommunityIcons name={horse ? "lock-outline" : "horse-variant"} size={28} color={colors.textMuted} />
+            <Text className="text-center text-sm text-muted">
+              {horse
+                ? budgetLockedText
+                : t("Ce cheval est introuvable.")}
+            </Text>
+            {horse ? (
+              <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+                <Text className="text-sm font-semibold text-accent">{t("Retour")}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </FadeInView>
       </Screen>

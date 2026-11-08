@@ -12,6 +12,7 @@ import { AddToggle } from "@/components/FormChips";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDate } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
+import { useHorseRights } from "@/horses/useHorseRights";
 import { useWeight } from "@/horses/weightStore";
 import { t } from "@/i18n";
 
@@ -31,6 +32,8 @@ export default function HorseWeightScreen() {
   const { measurements, addMeasurement, deleteMeasurement } = useWeight();
 
   const horse = horses.find((h) => h.id === id);
+  // Pesée : un soin courant (groom, véto compris), cf. lib/permissions.ts.
+  const rights = useHorseRights();
   const isActiveHorse = selectedHorse?.id === id;
 
   const [showForm, setShowForm] = useState(false);
@@ -152,9 +155,9 @@ export default function HorseWeightScreen() {
                 </View>
               </View>
             </View>
-          ) : (
+          ) : rights.can(horse.id, "add_care") ? (
             <AddToggle label={t("Ajouter une mesure")} onPress={() => setShowForm(true)} color={colors.primary} />
-          )}
+          ) : null}
         </FadeInView>
 
         {horseMeasurements.length > 0 ? (
@@ -167,6 +170,7 @@ export default function HorseWeightScreen() {
                     <Text className="text-base font-bold text-text">{m.weightKg} {t(" kg")}</Text>
                     <Text className="text-sm text-muted">{formatDate(m.date)}</Text>
                   </View>
+                  {rights.weight(m) ? (
                   <TouchableOpacity
                     onPress={() => confirmDelete(m.id)}
                     hitSlop={8}
@@ -176,6 +180,7 @@ export default function HorseWeightScreen() {
                   >
                     <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.textMuted} />
                   </TouchableOpacity>
+                  ) : null}
                 </View>
               ))}
             </View>

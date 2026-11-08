@@ -16,12 +16,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions       Session[]
-  riderProfile   RiderProfile?
-  emailReminders EmailReminder[]
-  rideShares     RideShare[]
-  referralCode   ReferralCode?
-  contacts       RiderContact[]
+  sessions         Session[]
+  riderProfile     RiderProfile?
+  emailReminders   EmailReminder[]
+  rideShares       RideShare[]
+  referralCode     ReferralCode?
+  contacts         RiderContact[]
   coachCalls       CoachCall[]
   coachSuggestions CoachSuggestion[]
   coachSummaries   CoachSummary[]
@@ -301,6 +301,11 @@ model HorseWeightMeasurement {
   weightKg Int
   date     DateTime
 
+  /// Auteur de la ligne (droits « les siens », cf. rls.sql set_created_by) :
+  /// posé par la base à l'insertion, jamais par l'app. Null = ligne antérieure
+  /// à Écurie Pro v2, modifiable par le propriétaire et le gérant seulement.
+  createdByUserId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -423,6 +428,11 @@ model Appointment {
   competitionEntries CompetitionEntry[]
   expenses           Expense[]
 
+  /// Auteur de la ligne (droits « les siens », cf. rls.sql set_created_by) :
+  /// posé par la base à l'insertion, jamais par l'app. Null = ligne antérieure
+  /// à Écurie Pro v2, modifiable par le propriétaire et le gérant seulement.
+  createdByUserId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -477,6 +487,11 @@ model JournalEntry {
   /// Vidéo du souvenir (Premium) : "{horseId}/journal/{id}.mp4".
   videoPath    String?
 
+  /// Auteur de la ligne (droits « les siens », cf. rls.sql set_created_by) :
+  /// posé par la base à l'insertion, jamais par l'app. Null = ligne antérieure
+  /// à Écurie Pro v2, modifiable par le propriétaire et le gérant seulement.
+  createdByUserId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -518,6 +533,11 @@ model TrainingSession {
   completed           Boolean      @default(false)
 
   ride TrainingSessionRide?
+
+  /// Auteur de la ligne (droits « les siens », cf. rls.sql set_created_by) :
+  /// posé par la base à l'insertion, jamais par l'app. Null = ligne antérieure
+  /// à Écurie Pro v2, modifiable par le propriétaire et le gérant seulement.
+  createdByUserId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -589,6 +609,11 @@ model Expense {
   /// `documents`, jamais partagée) — comportement attendu, pas une fuite.
   documentId    String?
   document      Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  /// Auteur de la ligne (droits « les siens », cf. rls.sql set_created_by) :
+  /// posé par la base à l'insertion, jamais par l'app. Null = ligne antérieure
+  /// à Écurie Pro v2, modifiable par le propriétaire et le gérant seulement.
+  createdByUserId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -799,6 +824,12 @@ enum HorseCollaboratorRole {
   COACH
   RIDER // cavalière/cavalier additionnel·le (ex : copropriétaire, famille)
   GROOM // lad / palefrenier
+  /// Écurie Pro v2 : gérant (ou copropriétaire) — droits du propriétaire sur
+  /// le cheval, sauf le supprimer et nommer un autre gérant.
+  MANAGER
+  /// Professionnels de santé : ajoutent soins et poids, lisent le reste.
+  VET
+  FARRIER
 
   @@map("horse_collaborator_role")
 }

@@ -144,7 +144,37 @@ deux temps si une enum change (cf. `ecurie-pro-1/2`).
 | 6 | Écran Équipe | invitation multi-chevaux |
 | 7 | Tâches, participation aux frais, rapport PDF | — |
 
-## 8. Questions à trancher avant de coder
+## 8. Décisions (2026-11-08)
+
+Tranchées en autonomie, à la demande du propriétaire du produit :
+
+1. **Cible n°1 : A**, propriétaire de plusieurs chevaux (avec DP, coach,
+   groom). B (pension, chevaux de clients) reste en P3 ; la plateforme web
+   (§ 4, P3) sert déjà le gérant d'une écurie A.
+2. **Un compte (gratuit) est nécessaire** pour voir son planning ; une
+   personne sans compte n'existe que comme nom dans la grille.
+3. **5 personnes par cheval** en Pro ; **chevaux illimités** en Premium comme
+   en Pro.
+4. **Participation aux frais : suivi + rappel au propriétaire** seulement,
+   jamais de relance de paiement envoyée à la DP.
+5. **Les droits par rôle s'appliquent à tout partage** (Premium compris) ;
+   le rôle Gérant est ouvert à tous. Les anciens collaborateurs gardent leur
+   rôle (donc les droits de ce rôle).
+6. **Les documents restent privés** (coffre-fort du propriétaire).
+7. **Pour tous** : rôles, séance attribuée, « C'est fait ». **Pro** (appliqué
+   en base) : créneaux récurrents, grille semaine, Équipe, tâches, frais,
+   rapport PDF, plateforme web. Si Pro s'arrête : tout reste lisible.
+8. **Tests RLS** : `packages/db/tests/rls` sur un Postgres local
+   (`pnpm --filter @cheval/db test:rls`).
+
+Matrice appliquée : `horse_role_can` dans `rls.sql` (copie testée dans
+`apps/mobile/src/lib/permissions.ts`). Différences avec le § 4 : les
+véto / maréchal lisent aussi les séances ; le coach gère les concours ; la
+fiche du cheval (identité, alimentation, demi-pension) est modifiable par le
+propriétaire et le gérant ; le profil (nom, photo, traits, blessures) reste
+au propriétaire seul.
+
+## 8 bis. Questions initiales
 1. Cible n°1 : A (propriétaire multi-chevaux), B (gérant de pension) ou C ?
 2. Une personne qui monte doit-elle avoir un compte (gratuit) pour voir son
    planning ? Recommandé : oui (notifications, et chaque cavalier découvre

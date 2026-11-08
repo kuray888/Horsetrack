@@ -8,6 +8,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
+import { useHorseRights } from "@/horses/useHorseRights";
 import { useWeight } from "@/horses/weightStore";
 import { exportHealthRecord } from "@/horses/exportHealthRecord";
 import { useSubscription } from "@/subscription/store";
@@ -41,6 +42,9 @@ export default function HorseSanteScreen() {
   const { measurements } = useWeight();
 
   const horse = horses.find((h) => h.id === id);
+  // Cheval partagé : soins ajoutés par le groom ou le véto, modifiés par leur
+  // auteur, le propriétaire ou le gérant (cf. lib/permissions.ts).
+  const rights = useHorseRights();
 
   // Consulter cet écran ne change pas le cheval actif global (même règle que
   // le Horse Hub, cf. app/horse/[id]/index.tsx) : le formulaire de soin vise
@@ -174,6 +178,7 @@ export default function HorseSanteScreen() {
         {/* Modifier un soin plus bas dans la liste ouvre le formulaire ici,
             en haut : on y ramène l'écran (cf. useScrollToOnOpen). */}
         <View onLayout={onFormLayout}>
+        {rights.can(horse.id, "add_care") || rights.can(horse.id, "manage_competitions") ? (
         <FadeInView delay={40}>
           <AppointmentForm
             show={showApptForm}
@@ -191,6 +196,7 @@ export default function HorseSanteScreen() {
             onRemoveEntry={removeApptFormEntry}
           />
         </FadeInView>
+        ) : null}
         </View>
 
         {/* Export du carnet — masqué pendant la saisie, comme le reste : on
@@ -245,10 +251,12 @@ export default function HorseSanteScreen() {
                 // types (vaccin, vermifuge...) — même champ nextDueDate déjà
                 // existant, pas de nouvelle donnée.
                 const isTreatmentRange = appt.type === "traitement" && appt.nextDueDate;
+                const writable = rights.appointment(appt);
                 return (
                   <TouchableOpacity
                     key={appt.id}
                     onPress={() => startEditAppt(appt)}
+                    disabled={!writable}
                     activeOpacity={0.8}
                     className={`${CARD} flex-row items-center gap-3`}
                   >
@@ -276,6 +284,7 @@ export default function HorseSanteScreen() {
                           {status.label}
                         </Text>
                       </View>
+                      {writable ? (
                       <View className="flex-row items-center gap-3">
                         <Text className="text-xs font-semibold text-accent">{t("Modifier")}</Text>
                         <TouchableOpacity
@@ -288,6 +297,7 @@ export default function HorseSanteScreen() {
                           <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.danger} />
                         </TouchableOpacity>
                       </View>
+                      ) : null}
                     </View>
                   </TouchableOpacity>
                 );

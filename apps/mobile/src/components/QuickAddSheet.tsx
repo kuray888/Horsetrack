@@ -3,6 +3,8 @@ import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { openFormForQuickAdd } from "@/planning/planningDestination";
+import { useHorses } from "@/horses/store";
+import { quickAddAllowed, roleOf } from "@/lib/permissions";
 import { t } from "@/i18n";
 
 export type QuickAddOption = "cheval" | "direct" | "seance" | "soin" | "rendezvous" | "concours" | "depense" | "journal";
@@ -36,7 +38,10 @@ export function QuickAddSheet({
   withHorse?: boolean;
 }) {
   const colors = useThemeColors();
-  const options = withHorse ? [HORSE_OPTION, ...OPTIONS] : OPTIONS;
+  // Cheval actif partagé : seulement ce que son rôle permet (cf.
+  // lib/permissions.ts) — une demi-pension n'ajoute pas de dépense.
+  const role = roleOf(useHorses().selectedHorse?.sharedRole);
+  const options = (withHorse ? [HORSE_OPTION, ...OPTIONS] : OPTIONS).filter((opt) => quickAddAllowed(role, opt.value));
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">

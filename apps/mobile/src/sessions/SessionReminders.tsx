@@ -3,6 +3,8 @@ import { AppState } from "react-native";
 import * as Notifications from "expo-notifications";
 import { useSessions, type TrainingSession } from "@/sessions/store";
 import { useHorses, type Horse } from "@/horses/store";
+import { useCurrentUserId } from "@/lib/currentUser";
+import { isMySession, roleOf } from "@/lib/permissions";
 import { ACTIVITY_META } from "@/agenda/store";
 import { readJson, writeJson } from "@/lib/localStore";
 import { cancelReminder, getNotificationStatus, scheduleSessionReminderNotification } from "@/lib/notifications";
@@ -39,7 +41,10 @@ export async function setSessionRemindersEnabled(enabled: boolean): Promise<void
  * simultanées liraient le même état et programmeraient deux fois. */
 let syncChain: Promise<void> = Promise.resolve();
 
-function syncSessionReminders(sessions: TrainingSession[], horses: Horse[]): Promise<void> {
+function syncSessionReminders(sessions: TrainingSession[], horses: Horse[], me: string | null): Promise<void> {
+  // Sur un cheval partagé, seulement mes séances : une demi-pension ne doit
+  // pas recevoir les rappels des séances du propriétaire (cf. lib/permissions.ts).
+  sessions = sessions.filter((s) => isMySession(roleOf(horses.find((h) => h.id === s.horseId)?.sharedRole), s, me));
   syncChain = syncChain.then(() => runSync(sessions, horses)).catch(() => {});
   return syncChain;
 }
@@ -88,6 +93,7 @@ async function runSync(sessions: TrainingSession[], horses: Horse[]): Promise<vo
 export function SessionReminders() {
   const { sessions, loading, toggleCompleted, updateSession } = useSessions();
   const { horses } = useHorses();
+  const me = useCurrentUserId();
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -114,11 +120,14 @@ export function SessionReminders() {
   // Regroupe les changements rapprochés (plusieurs séances créées d'un coup).
   useEffect(() => {
     if (loading) return;
+    // Compte pas encore lu : sans lui, les rappels des chevaux partagés
+    // seraient annulés puis reprogrammés une seconde plus tard.
+    if (me === null && horses.some((h) => h.sharedRole)) return;
     const timer = setTimeout(() => {
-      syncSessionReminders(sessions, horses).catch(() => {});
+      syncSessionReminders(sessions, horses, me).catch(() => {});
     }, 1500);
     return () => clearTimeout(timer);
-  }, [sessions, horses, loading, tick]);
+  }, [sessions, horses, me, loading, tick]);
 
   // Boutons de la notification. Les séances sont lues dans une ref pour ne
   // pas réabonner l'écouteur à chaque changement.

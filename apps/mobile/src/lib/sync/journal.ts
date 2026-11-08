@@ -94,7 +94,7 @@ export async function pushJournalEntryImpl(
     "journal_entries",
     entry.id,
     row,
-    ["activityKind", "videoPath"],
+    ["activityKind", "videoPath", "createdByUserId"],
     stamp
   );
   // La photo, elle, n'est pas rejouable depuis la file (l'upload Storage a
@@ -129,6 +129,7 @@ type JournalRow = {
   weather: unknown;
   photoPath: string | null;
   videoPath?: string | null;
+  createdByUserId?: string | null;
 };
 export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
   const data = await selectWithOptionalColumns<JournalRow>(
@@ -159,6 +160,7 @@ export async function pullJournalEntries(): Promise<JournalEntry[] | null> {
       // « sans vidéo » (cf. agenda/store.tsx, fusion du journal).
       videoUri: row.videoPath === undefined ? undefined : row.videoPath ? (signedPhotos.get(row.videoPath) ?? null) : null,
       videoPath: row.videoPath === undefined ? undefined : row.videoPath,
+      createdByUserId: row.createdByUserId,
     });
   }
   return entries;

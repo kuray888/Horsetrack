@@ -18,12 +18,16 @@ export function JournalCard({
   onToggleExpand,
   onDelete,
   onEdit,
+  readOnly = false,
 }: {
   entry: JournalEntry;
   expanded: boolean;
   onToggleExpand: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  /** Souvenir écrit par quelqu'un d'autre sur un cheval partagé (cf.
+   * lib/permissions.ts) : lecture et commentaires seulement. */
+  readOnly?: boolean;
 }) {
   const meta = ACTIVITY_META[entry.activityType];
   const mood = MOOD_META[entry.mood];
@@ -43,14 +47,19 @@ export function JournalCard({
       accessibilityState={{ expanded }}
       accessibilityActions={[
         { name: "activate", label: expanded ? t("Replier") : t("Déplier") },
-        { name: "edit", label: t("Modifier") },
-        { name: "delete", label: t("Supprimer") },
+        ...(readOnly
+          ? []
+          : [
+              { name: "edit", label: t("Modifier") },
+              { name: "delete", label: t("Supprimer") },
+            ]),
       ]}
       onAccessibilityAction={(e) => {
         if (e.nativeEvent.actionName === "activate") {
           animateNextLayout();
           onToggleExpand();
-        } else if (e.nativeEvent.actionName === "edit") onEdit();
+        } else if (readOnly) return;
+        else if (e.nativeEvent.actionName === "edit") onEdit();
         else if (e.nativeEvent.actionName === "delete") onDelete();
       }}
       className={`${CARD} gap-3`}
@@ -104,25 +113,27 @@ export function JournalCard({
             {entry.weather ? ` · ${entry.weather.label}` : ""}
           </Text>
           <CommentsButton horseId={entry.horseId} targetType="journal" targetId={entry.id} />
-          <View className="flex-row gap-2">
-            <TouchableOpacity accessibilityRole="button"
-              onPress={onEdit}
-              activeOpacity={0.8}
-              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
-            >
-              <MaterialCommunityIcons name="pencil-outline" size={15} color={meta.tint} />
-              <Text className="text-sm font-semibold text-text">{t("Modifier")}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button"
-              onPress={onDelete}
-              activeOpacity={0.8}
-              accessibilityLabel={t("Supprimer ce souvenir")}
-              className="flex-row items-center justify-center gap-1.5 rounded-card border border-border px-4"
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={15} color={STATUS_COLORS.danger} />
-              <Text className="text-sm font-semibold text-danger">{t("Supprimer")}</Text>
-            </TouchableOpacity>
-          </View>
+          {readOnly ? null : (
+            <View className="flex-row gap-2">
+              <TouchableOpacity accessibilityRole="button"
+                onPress={onEdit}
+                activeOpacity={0.8}
+                className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={15} color={meta.tint} />
+                <Text className="text-sm font-semibold text-text">{t("Modifier")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button"
+                onPress={onDelete}
+                activeOpacity={0.8}
+                accessibilityLabel={t("Supprimer ce souvenir")}
+                className="flex-row items-center justify-center gap-1.5 rounded-card border border-border px-4"
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={15} color={STATUS_COLORS.danger} />
+                <Text className="text-sm font-semibold text-danger">{t("Supprimer")}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       ) : null}
     </TouchableOpacity>

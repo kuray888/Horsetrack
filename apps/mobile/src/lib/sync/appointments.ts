@@ -59,7 +59,7 @@ export async function pushAppointmentImpl(appt: Appointment, stamp?: number): Pr
  * ou `endDate` dans la table (schéma pas encore migré). */
 function isMissingAppointmentColumnError(error: { message?: string }): boolean {
   const message = (error.message ?? "").toLowerCase();
-  return message.includes("competitionlevel") || message.includes("enddate");
+  return message.includes("competitionlevel") || message.includes("enddate") || message.includes("createdbyuserid");
 }
 export async function deleteAppointmentRemoteImpl(apptId: string, stamp?: number): Promise<void> {
   const { error } = await supabase.from("appointments").delete().eq("id", apptId);
@@ -81,7 +81,7 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
   const entriesOrder = { referencedTable: "competition_entries" };
   let { data, error } = await supabase
     .from("appointments")
-    .select(`${baseColumns}, competitionLevel, endDate, ${entries}`)
+    .select(`${baseColumns}, competitionLevel, endDate, createdByUserId, ${entries}`)
     .order("createdAt", entriesOrder)
     .order("id", entriesOrder);
   // Base pas encore migrée (cf. pushAppointment) : sans ce repli, sélectionner
@@ -120,6 +120,7 @@ export async function pullAppointments(): Promise<Appointment[] | null> {
     nextDueDate: parseServerDateOrNull(row.nextDueDate),
     competitionLevel: normalizeCompetitionLevel((row as { competitionLevel?: unknown }).competitionLevel),
     endDate: parseServerDateOrNull((row as { endDate?: string | null }).endDate),
+    createdByUserId: (row as { createdByUserId?: string | null }).createdByUserId,
     competitionEntries: ((row.competition_entries ?? []) as RemoteCompetitionEntry[]).map((e) => ({
       id: e.id,
       name: e.name,

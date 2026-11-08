@@ -9,6 +9,7 @@ import type { UnifiedEvent } from "@/planning/unifiedEvents";
 import { animateNextLayout } from "@/lib/motion";
 import { SwipeableRow } from "@/components/SwipeableRow";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { useHorseRights } from "@/horses/useHorseRights";
 import { t } from "@/i18n";
 
 type SessionHandlers = {
@@ -94,17 +95,21 @@ function EventCard({
   appointmentHandlers: AppointmentHandlers;
 }) {
   const colors = useThemeColors();
+  // Cheval partagé : actions masquées quand la base les refuserait (cf.
+  // lib/permissions.ts) — séance d'un autre cavalier, soin pour une DP…
+  const rights = useHorseRights();
   if (event.kind === "session") {
     const done = event.session.completed;
+    const readOnly = !rights.session(event.session);
     return (
       <SwipeableRow
-        leading={{
+        leading={readOnly ? null : {
           label: done ? t("À faire") : t("Fait"),
           icon: done ? "undo-variant" : "check",
           color: done ? colors.textMuted : colors.success,
           onPress: () => sessionHandlers.onToggleDone(event.session),
         }}
-        trailing={{
+        trailing={readOnly ? null : {
           label: t("Supprimer"),
           icon: "trash-can-outline",
           color: colors.danger,
@@ -122,15 +127,17 @@ function EventCard({
         onEdit={() => sessionHandlers.onEdit(event.session)}
         onDuplicate={() => sessionHandlers.onDuplicate(event.session)}
         onDelete={() => sessionHandlers.onDelete(event.session)}
+        readOnly={readOnly}
       />
       </SwipeableRow>
     );
   }
 
   const appt = event.appointment;
+  const readOnly = !rights.appointment(appt);
   return (
     <SwipeableRow
-      trailing={{
+      trailing={readOnly ? null : {
         label: t("Supprimer"),
         icon: "trash-can-outline",
         color: colors.danger,
@@ -150,6 +157,7 @@ function EventCard({
       onAddCompetitionEntry={(entry) => appointmentHandlers.onAddCompetitionEntry(appt, entry)}
       onUpdateCompetitionEntry={(entryId, patch) => appointmentHandlers.onUpdateCompetitionEntry(appt, entryId, patch)}
       onDeleteCompetitionEntry={(entryId) => appointmentHandlers.onDeleteCompetitionEntry(appt, entryId)}
+      readOnly={readOnly}
     />
     </SwipeableRow>
   );

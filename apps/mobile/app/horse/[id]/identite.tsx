@@ -6,12 +6,14 @@ import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
 import { PrimaryButton } from "@/components/onboarding";
+import { ReadOnlyNote } from "@/components/ReadOnlyNote";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
 import { hapticSuccess } from "@/lib/haptics";
 import { saveHorseDetails, useHorseDetails } from "@/extras/store";
 import { isPlausibleMicrochip, isPlausibleSire, isPlausibleUeln, type HorseIdentity } from "@/extras/model";
 import { t } from "@/i18n";
+import { can, roleOf } from "@/lib/permissions";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -27,6 +29,9 @@ export default function HorseIdentityScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { horses } = useHorses();
   const horse = horses.find((h) => h.id === id);
+  // Cheval partagé : fiche modifiable par le propriétaire et le gérant seulement
+  // (cf. lib/permissions.ts) — les autres la consultent.
+  const readOnly = !can(roleOf(horse?.sharedRole), "edit_details");
   const details = useHorseDetails(id);
   const [draft, setDraft] = useState<HorseIdentity | null>(null);
   const [saved, setSaved] = useState(false);
@@ -97,7 +102,7 @@ export default function HorseIdentityScreen() {
       </FadeInView>
 
       <FadeInView delay={40}>
-        <View className={`${CARD} gap-4`}>
+        <View className={`${CARD} gap-4`} pointerEvents={readOnly ? "none" : "auto"}>
           {field(t("Numéro SIRE"), "sire", "25012345K", { caps: true, warn: !isPlausibleSire(value.sire) })}
           {field(t("UELN"), "ueln", "250001A12345678", { caps: true, warn: !isPlausibleUeln(value.ueln) })}
           {field(t("Transpondeur (puce)"), "microchip", "250259600123456", {
@@ -108,7 +113,7 @@ export default function HorseIdentityScreen() {
       </FadeInView>
 
       <FadeInView delay={80}>
-        <View className={`${CARD} gap-4`}>
+        <View className={`${CARD} gap-4`} pointerEvents={readOnly ? "none" : "auto"}>
           {field(t("Assureur"), "insurer", t("Ex : Equiassur"))}
           {field(t("Numéro de contrat"), "insurancePolicy", t("Ex : 123456789"), { caps: true })}
           {field(t("Écurie / pension"), "stable", t("Ex : Écurie du Val"))}
@@ -116,7 +121,11 @@ export default function HorseIdentityScreen() {
       </FadeInView>
 
       <FadeInView delay={120}>
-        <PrimaryButton label={saved && !draft ? t("Enregistré ✓") : t("Enregistrer")} onPress={handleSave} disabled={!draft} />
+        {readOnly ? (
+          <ReadOnlyNote />
+        ) : (
+          <PrimaryButton label={saved && !draft ? t("Enregistré ✓") : t("Enregistrer")} onPress={handleSave} disabled={!draft} />
+        )}
         <Text className="pt-2 text-center text-xs text-muted">
           {t("Visible aussi par les personnes avec qui tu partages ce cheval.")}
         </Text>

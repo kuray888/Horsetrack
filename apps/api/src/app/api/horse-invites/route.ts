@@ -4,11 +4,12 @@ import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { sendEmail } from "@/lib/resend";
 import { safeLine } from "@/lib/emailSafety";
+import { COLLABORATOR_ROLES, canHandleRole, teamActor, type CollaboratorRole } from "@/lib/teamAccess";
 
 const schema = z.object({
   horseId: z.string().min(1),
   invitedEmail: z.string().email(),
-  role: z.enum(["DEMI_PENSION", "COACH", "RIDER", "GROOM"]),
+  role: z.enum(COLLABORATOR_ROLES),
 });
 
 // Vocabulaire aligné sur ROLE_LABEL_SHORT (apps/mobile/src/lib/sharing.ts) —
@@ -22,11 +23,14 @@ const schema = z.object({
 const RESEND_COOLDOWN_MS = 60 * 60 * 1000;
 const MAX_INVITE_EMAILS_PER_DAY = 20;
 
-const ROLE_LABEL: Record<"DEMI_PENSION" | "COACH" | "RIDER" | "GROOM", string> = {
+const ROLE_LABEL: Record<CollaboratorRole, string> = {
   DEMI_PENSION: "en demi-pension",
   COACH: "en tant que coach",
   RIDER: "en tant que cavalier·ère additionnel·le",
   GROOM: "en tant que groom",
+  MANAGER: "en tant que gérant·e",
+  VET: "en tant que vétérinaire",
+  FARRIER: "en tant que maréchal-ferrant",
 };
 
 /**
@@ -61,9 +65,15 @@ export async function POST(req: NextRequest) {
 
   const horse = await db.horse.findUnique({
     where: { id: horseId },
-    select: { name: true, owner: { select: { userId: true } } },
+    select: {
+      name: true,
+      ownerId: true,
+      owner: { select: { userId: true } },
+      collaborators: { select: { collaboratorUserId: true, role: true, status: true } },
+    },
   });
-  if (!horse || horse.owner.userId !== userId) {
+  // Propriétaire, ou gérant pour tout rôle sauf gérant (cf. lib/teamAccess.ts).
+  if (!horse || !canHandleRole(teamActor(horse, userId), role)) {
     return NextResponse.json({ error: "Cheval introuvable" }, { status: 403 });
   }
 
@@ -88,7 +98,8 @@ export async function POST(req: NextRequest) {
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const sentToday = await db.horseCollaborator.count({
-      where: { horse: { owner: { userId } }, inviteEmailSentAt: { gte: since } },
+      // Plafond par écurie (chevaux du propriétaire), gérants compris.
+      where: { horse: { ownerId: horse.ownerId }, inviteEmailSentAt: { gte: since } },
     });
     if (sentToday >= MAX_INVITE_EMAILS_PER_DAY) {
       return NextResponse.json({ sent: false, error: "Trop d'invitations envoyées aujourd'hui." }, { status: 429 });

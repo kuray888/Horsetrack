@@ -11,6 +11,7 @@ import { collaboratorLimit } from "@/subscription/logic";
 import { openPaywall } from "@/subscription/paywall";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
 import { track } from "@/lib/analytics";
+import { hapticSelection } from "@/lib/haptics";
 import { DOWNLOAD_URL } from "@/lib/links";
 import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { colors } from "@/theme/colors";
@@ -18,7 +19,9 @@ import {
   inviteCollaborator,
   listCollaborators,
   revokeCollaborator,
+  COLLABORATOR_ROLES,
   ROLE_LABEL,
+  ROLE_RIGHTS,
   type Collaborator,
   type CollaboratorRole,
 } from "@/lib/sharing";
@@ -32,12 +35,18 @@ const ROLE_ICON: Record<CollaboratorRole, keyof typeof MaterialCommunityIcons.gl
   COACH: "school-outline",
   RIDER: "account-outline",
   GROOM: "broom",
+  MANAGER: "account-tie-outline",
+  VET: "stethoscope",
+  FARRIER: "anvil",
 };
 const ROLE_META: Record<CollaboratorRole, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
   DEMI_PENSION: { label: ROLE_LABEL.DEMI_PENSION, icon: ROLE_ICON.DEMI_PENSION },
   COACH: { label: ROLE_LABEL.COACH, icon: ROLE_ICON.COACH },
   RIDER: { label: ROLE_LABEL.RIDER, icon: ROLE_ICON.RIDER },
   GROOM: { label: ROLE_LABEL.GROOM, icon: ROLE_ICON.GROOM },
+  MANAGER: { label: ROLE_LABEL.MANAGER, icon: ROLE_ICON.MANAGER },
+  VET: { label: ROLE_LABEL.VET, icon: ROLE_ICON.VET },
+  FARRIER: { label: ROLE_LABEL.FARRIER, icon: ROLE_ICON.FARRIER },
 };
 
 const STATUS_META: Record<Collaborator["status"], string> = {
@@ -294,31 +303,31 @@ export default function ShareHorseModal() {
             </Field>
             <Field label={t("Rôle")}>
               <View className="flex-row flex-wrap gap-2">
-                {(
-                  Object.entries(ROLE_META) as [
-                    CollaboratorRole,
-                    { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap },
-                  ][]
-                ).map(([value, meta]) => {
-                    const selected = role === value;
-                    return (
-                      <TouchableOpacity
-                        key={value}
-                        onPress={() => setRole(value)}
-                        activeOpacity={0.8}
-                        className={`w-[48%] flex-row items-center justify-center gap-1.5 rounded-full border px-3.5 py-2 ${
-                          selected ? "border-primary bg-highlight" : "border-border bg-surface"
-                        }`}
-                      >
-                        <MaterialCommunityIcons name={meta.icon} size={15} color={selected ? colors.primary : colors.textMuted} />
-                        <Text className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}>
-                          {meta.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  }
-                )}
+                {COLLABORATOR_ROLES.map((value) => {
+                  const meta = ROLE_META[value];
+                  const selected = role === value;
+                  return (
+                    <TouchableOpacity
+                      key={value}
+                      onPress={() => {
+                        hapticSelection();
+                        setRole(value);
+                      }}
+                      activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={meta.label}
+                      className={`w-[48%] flex-row items-center justify-center gap-2 rounded-full border px-4 py-2 ${
+                        selected ? "border-primary bg-highlight" : "border-border bg-surface"
+                      }`}
+                    >
+                      <MaterialCommunityIcons name={meta.icon} size={15} color={selected ? colors.primary : colors.textMuted} />
+                      <Text className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}>{meta.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+              <Text className="mt-2 text-sm text-muted">{ROLE_RIGHTS[role]}</Text>
             </Field>
             <PrimaryButton
               label={submitting ? "Envoi…" : t("Envoyer l'invitation")}

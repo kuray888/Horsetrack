@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { parseServerDate } from "@/lib/serverDate";
 import type { Expense } from "@/agenda/store";
-import { settleWrite } from "./shared";
+import { selectWithOptionalColumns, settleWrite } from "./shared";
 
 /** Dépenses.
  * Extrait de lib/cloudSync.ts (façade) sans changement de comportement. */
@@ -43,11 +43,26 @@ export async function deleteExpenseRemoteImpl(expenseId: string, stamp?: number)
  * (cf. app/horse/[id]/budget.tsx) affiche "reçu non disponible" en croisant localement
  * `documentId` avec la liste de documents déjà chargée par l'utilisateur
  * courant, sans appel réseau supplémentaire ni fuite. */
+type ExpenseRow = {
+  id: string;
+  horseId: string;
+  amount: number | string;
+  currency: string;
+  category: string;
+  date: string;
+  notes: string;
+  appointmentId: string | null;
+  documentId: string | null;
+  isPaid: boolean | null;
+  createdByUserId?: string | null;
+};
 export async function pullExpenses(): Promise<Expense[] | null> {
-  const { data, error } = await supabase
-    .from("expenses")
-    .select("id, horseId, amount, currency, category, date, notes, appointmentId, documentId, isPaid");
-  if (error || !data) return null;
+  const data = await selectWithOptionalColumns<ExpenseRow>(
+    "expenses",
+    "id, horseId, amount, currency, category, date, notes, appointmentId, documentId, isPaid",
+    ["createdByUserId"]
+  );
+  if (!data) return null;
   return data.map((row) => ({
     id: row.id,
     horseId: row.horseId,
@@ -59,6 +74,7 @@ export async function pullExpenses(): Promise<Expense[] | null> {
     appointmentId: row.appointmentId ?? null,
     documentId: row.documentId ?? null,
     isPaid: row.isPaid ?? false,
+    createdByUserId: row.createdByUserId,
   }));
 }
 

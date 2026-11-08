@@ -49,9 +49,12 @@ export type TrainingSession = {
    * garde alors le parcours local ; `null` : aucun parcours. Synchronisé dans
    * une table à part (cf. lib/cloudSync.ts pushSessionRide). */
   ride?: SessionRide | null;
+  /** Auteur (cf. lib/permissions.ts Author) : undefined tant que la ligne
+   * créée sur cet appareil n'a pas été relue du serveur. */
+  createdByUserId?: string | null;
 };
 
-export type NewTrainingSession = Omit<TrainingSession, "id" | "horseId" | "completed" | "ride">;
+export type NewTrainingSession = Omit<TrainingSession, "id" | "horseId" | "completed" | "ride" | "createdByUserId">;
 
 export type SaveRideInput = {
   sessionId: string | null;

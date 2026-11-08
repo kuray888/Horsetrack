@@ -19,6 +19,7 @@ import { File } from "expo-file-system";
 import { horseIdsWithUnsentPhoto } from "@/horses/photoSync";
 import { useSubscription } from "@/subscription/store";
 import { withKeyLock } from "@/lib/keyLock";
+import type { CollaboratorRole } from "@/lib/sharing";
 import type {
   Discipline,
   HorseDraft,
@@ -116,7 +117,7 @@ export type Horse = {
    * du profil et l'exclusion du quota de chevaux du palier (cf. profile.tsx,
    * today.tsx). Un cheval partagé n'est jamais retourné par `pushHorses` (cf.
    * cloudSync.ts), seulement par `pullSharedHorses`. */
-  sharedRole: "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM" | null;
+  sharedRole: CollaboratorRole | null;
 };
 
 export type NewHorse = {

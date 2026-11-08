@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert } from "react-native";
+import { hapticError } from "@/lib/haptics";
 import {
   cancelReminder,
   computeReminderTrigger,
@@ -35,6 +36,7 @@ import { track } from "@/lib/analytics";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
 import { hasFreeReminderSlot } from "@/subscription/paywallLogic";
 import { t, localDecimal } from "@/i18n";
+import { canCreateAppointment, notAllowedMessage, roleOf } from "@/lib/permissions";
 
 const emptyApptForm = {
   type: "veto" as AppointmentType,
@@ -262,6 +264,12 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
   async function handleSubmitAppointment() {
     const date = apptForm.date;
     if (!apptForm.title.trim() || !date || !horse || submittingAppt) return;
+    // Filet de sécurité : la base refuserait ce rendez-vous (cf. lib/permissions.ts).
+    if (!editingApptId && !canCreateAppointment(roleOf(horse?.sharedRole), apptForm.type)) {
+      hapticError();
+      Alert.alert(t("Ajout impossible"), notAllowedMessage());
+      return;
+    }
     setSubmittingAppt(true);
 
     const title = apptForm.title.trim();

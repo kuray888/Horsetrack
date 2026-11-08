@@ -6,12 +6,14 @@ import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { Field } from "@/components/Field";
 import { PrimaryButton } from "@/components/onboarding";
+import { ReadOnlyNote } from "@/components/ReadOnlyNote";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
 import { hapticSuccess } from "@/lib/haptics";
 import { saveHorseDetails, useHorseDetails } from "@/extras/store";
 import { hasFeeding, type FeedingPlan } from "@/extras/model";
 import { t } from "@/i18n";
+import { can, roleOf } from "@/lib/permissions";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -26,6 +28,9 @@ export default function HorseFeedingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { horses } = useHorses();
   const horse = horses.find((h) => h.id === id);
+  // Cheval partagé : fiche modifiable par le propriétaire et le gérant seulement
+  // (cf. lib/permissions.ts) — les autres la consultent.
+  const readOnly = !can(roleOf(horse?.sharedRole), "edit_details");
   const details = useHorseDetails(id);
   const [draft, setDraft] = useState<FeedingPlan | null>(null);
   const [saved, setSaved] = useState(false);
@@ -85,7 +90,7 @@ export default function HorseFeedingScreen() {
       </FadeInView>
 
       <FadeInView delay={40}>
-        <View className={`${CARD} gap-4`}>
+        <View className={`${CARD} gap-4`} pointerEvents={readOnly ? "none" : "auto"}>
           <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Repas")}</Text>
           {plan.meals.map((meal, i) => (
             <View key={meal.id} className="gap-2">
@@ -138,7 +143,7 @@ export default function HorseFeedingScreen() {
       </FadeInView>
 
       <FadeInView delay={80}>
-        <View className={`${CARD} gap-4`}>
+        <View className={`${CARD} gap-4`} pointerEvents={readOnly ? "none" : "auto"}>
           <Field label={t("Foin")}>
             <TextInput
               className={INPUT}
@@ -176,7 +181,11 @@ export default function HorseFeedingScreen() {
 
       <FadeInView delay={120}>
         <View className="gap-3">
-          <PrimaryButton label={saved && !draft ? t("Enregistré ✓") : t("Enregistrer")} onPress={handleSave} disabled={!draft} />
+          {readOnly ? (
+            <ReadOnlyNote />
+          ) : (
+            <PrimaryButton label={saved && !draft ? t("Enregistré ✓") : t("Enregistrer")} onPress={handleSave} disabled={!draft} />
+          )}
           {hasFeeding(plan) ? (
             <TouchableOpacity className="items-center p-2" accessibilityRole="button" onPress={handleShare}>
               <Text className="text-sm font-semibold text-accent">{t("Envoyer la ration par message")}</Text>
