@@ -908,6 +908,7 @@ export const EN: Record<string, string> = {
   "Impossible d'ouvrir": "Couldn't open",
   "Suppression…": "Deleting…",
   "Conditions d'utilisation": "Terms of Use",
+  "Toute la fiche": "Full profile",
   "J'ai un cheval": "I have a horse",
   "Reprendre avec {name}": "Continue with {name}",
   "Recommencer avec un autre cheval": "Start over with another horse",

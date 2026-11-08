@@ -28,7 +28,7 @@ import { findNextDue, findNextCompetition } from "@/agenda/upcoming";
 import { buildActivityEntries } from "@/agenda/activity";
 import { ActivityFeed } from "@/agenda/components/ActivityFeed";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
-import { HorseModuleCard } from "@/horses/components/HorseModuleCard";
+import { HorseModuleCard, HorseModuleGrid, HorseModuleGroup, HorseModuleRow, HorseModuleTile } from "@/horses/components/HorseModuleCard";
 import { HorseBanner } from "@/horses/components/HorseBanner";
 import { HorseMilestonesCard } from "@/horses/components/HorseMilestonesCard";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
@@ -282,7 +282,9 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
 
   // Bilan de l'année : celle qui se termine en décembre / début janvier,
   // sinon l'année en cours (cf. review/yearReview.ts).
-  const reviewYear = featuredReviewYear(new Date()) ?? new Date().getFullYear();
+  const featuredYear = featuredReviewYear(new Date());
+  const reviewInSeason = featuredYear !== null;
+  const reviewYear = featuredYear ?? new Date().getFullYear();
 
   const activityEntries = buildActivityEntries(horse.id, { sessions, appointments, journal, expenses });
 
@@ -423,157 +425,146 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         </FadeInView>
       ) : null}
 
+      {/* L'essentiel, en grille : les quatre usages quotidiens ressortent du
+          reste de la fiche au lieu d'être noyés dans treize cartes égales. */}
       <FadeInView delay={80}>
-        <HorseModuleCard
-          icon="heart-pulse"
-          iconColor={colors.warning}
-          title={t("Santé")}
-          value={santeValue}
-          onPress={() => router.push(`/horse/${horse.id}/sante`)}
-        />
+        <HorseModuleGrid>
+          <HorseModuleTile
+            testID="hub-sante"
+            icon="heart-pulse"
+            iconColor={colors.warning}
+            title={t("Santé")}
+            value={santeValue}
+            onPress={() => router.push(`/horse/${horse.id}/sante`)}
+          />
+          <HorseModuleTile
+            testID="hub-entrainement"
+            icon="chart-line"
+            iconColor={colors.primary}
+            title={t("Entraînement")}
+            value={entrainementValue}
+            // `goToTab` et pas push/navigate : seul router.dismissTo retrouve
+            // l'instance « (tabs) » déjà montée sous la fiche au lieu d'en
+            // empiler une seconde (crash TestFlight du 2026-09-05, cf.
+            // horseHubNavigation.test.ts). Planning étant cadré sur le cheval
+            // actif, `focusThisHorse` le pose juste avant.
+            onPress={() => {
+              focusThisHorse();
+              goToTab("/(tabs)/planning?filter=session");
+            }}
+          />
+          <HorseModuleTile
+            testID="hub-journal"
+            icon="notebook-outline"
+            iconColor={colors.primary}
+            title={t("Journal")}
+            value={journalValue}
+            onPress={() => {
+              focusThisHorse();
+              goToTab(`/(tabs)/journal?horse=${horse.id}`);
+            }}
+          />
+          <HorseModuleTile
+            testID="hub-budget"
+            icon="wallet-outline"
+            iconColor={colors.success}
+            title={t("Budget")}
+            value={budgetValue}
+            onPress={() => router.push(`/horse/${horse.id}/budget`)}
+          />
+        </HorseModuleGrid>
       </FadeInView>
-      <FadeInView delay={100}>
-        <HorseModuleCard
-          icon="chart-line"
-          iconColor={colors.primary}
-          title={t("Entraînement")}
-          value={entrainementValue}
-          // Navigation directe vers la destination finale (cf. audit crash du
-          // 2026-09-05, round 2) — l'ancien écran intermédiaire
-          // horse/[id]/entrainement.tsx (push puis redirect immédiat, même
-          // via <Redirect> déclaratif) plantait en TestFlight. Round 3 :
-          // router.push ET router.navigate empilent TOUS LES DEUX une
-          // nouvelle instance de (tabs) par-dessus celle déjà montée sous le
-          // Horse Hub (vérifié empiriquement sur le vrai StackRouter
-          // d'expo-router : ni PUSH ni NAVIGATE ne retrouvent une route
-          // existante ailleurs que l'écran focus actuel, en l'absence de
-          // `getId`/`singular` sur l'écran "(tabs)" du root Stack — seul le
-          // point de divergence compte, hors PUSH/NAVIGATE ne cherchent que
-          // dans la route focus). Seul router.dismissTo (action POP_TO)
-          // retrouve l'instance "(tabs)" existante par nom dans toute la
-          // pile et revient dessus au lieu d'en empiler une nouvelle — c'est
-          // le seul des trois qui ne duplique jamais le navigateur (cf. aussi
-          // journal/agenda plus bas, même correctif). Planning étant cadré
-          // sur le cheval actif, `focusThisHorse` le pose juste avant : cette
-          // fiche ne le sélectionne plus à l'ouverture.
-          onPress={() => {
-            focusThisHorse();
-            goToTab("/(tabs)/planning?filter=session");
-          }}
-        />
-      </FadeInView>
-      <FadeInView delay={120}>
-        <HorseModuleCard
-          icon="trophy-outline"
-          iconColor={colors.accent}
-          title={t("Concours")}
-          value={concoursValue}
-          onPress={() => {
-            focusThisHorse();
-            goToTab("/(tabs)/planning?filter=concours");
-          }}
-        />
-      </FadeInView>
-      <FadeInView delay={140}>
-        <HorseModuleCard
-          icon="notebook-outline"
-          iconColor={colors.primary}
-          title={t("Journal")}
-          value={journalValue}
-          onPress={() => {
-            focusThisHorse();
-            goToTab(`/(tabs)/journal?horse=${horse.id}`);
-          }}
-        />
-      </FadeInView>
-      <FadeInView delay={160}>
-        <HorseModuleCard
-          icon="wallet-outline"
-          iconColor={colors.success}
-          title={t("Budget")}
-          value={budgetValue}
-          // Sous-écran de CETTE fiche, comme Santé et Poids : plus besoin
-          // de passer par l'ancien onglet Agenda, ni de changer le cheval
-          // actif pour que la destination affiche le bon cheval.
-          onPress={() => router.push(`/horse/${horse.id}/budget`)}
-        />
-      </FadeInView>
-      <FadeInView delay={180}>
-        <HorseModuleCard
-          icon="folder-outline"
-          iconColor={colors.primary}
-          title={t("Documents")}
-          value={documentsValue}
-          onPress={() => router.push(`/horse/${horse.id}/documents`)}
-        />
-      </FadeInView>
-      <FadeInView delay={195}>
-        <HorseModuleCard
-          icon="scale-bathroom"
-          iconColor={colors.accent}
-          title={t("Poids")}
-          value={weightValue}
-          onPress={() => router.push(`/horse/${horse.id}/poids`)}
-        />
-      </FadeInView>
-      <FadeInView delay={194}>
-        <HorseModuleCard
-          icon="party-popper"
-          iconColor={colors.accent}
-          title={t("Bilan {year}", { year: reviewYear })}
-          value={t("Ton année avec {name}, à partager", { name: horse.name })}
-          onPress={() => router.push(`/horse/${horse.id}/annee?year=${reviewYear}`)}
-        />
-      </FadeInView>
-      {horse.sharedRole === null ? (
-        <FadeInView delay={195}>
+
+      {/* Bilan de l'année : mis en avant en saison seulement (décembre,
+          début janvier), rangé dans la liste le reste du temps. */}
+      {reviewInSeason ? (
+        <FadeInView delay={100}>
           <HorseModuleCard
-            icon="account-heart-outline"
+            icon="party-popper"
             iconColor={colors.accent}
-            title={t("Demi-pension")}
-            value={partnershipValue}
-            onPress={() => router.push(`/horse/${horse.id}/demi-pension`)}
+            title={t("Bilan {year}", { year: reviewYear })}
+            value={t("Ton année avec {name}, à partager", { name: horse.name })}
+            onPress={() => router.push(`/horse/${horse.id}/annee?year=${reviewYear}`)}
           />
         </FadeInView>
       ) : null}
-      <FadeInView delay={196}>
-        <HorseModuleCard
-          icon="food-apple-outline"
-          iconColor={colors.success}
-          title={t("Alimentation")}
-          value={feedingValue}
-          onPress={() => router.push(`/horse/${horse.id}/alimentation`)}
-        />
-      </FadeInView>
-      <FadeInView delay={198}>
-        <HorseModuleCard
-          icon="card-account-details-outline"
-          iconColor={colors.primary}
-          title={t("Identité")}
-          value={identityValue}
-          onPress={() => router.push(`/horse/${horse.id}/identite`)}
-        />
-      </FadeInView>
-      {/* Contacts de l'écurie : on les cherche là où se gèrent les soins du
-          cheval, pas seulement dans le Profil (même écran, partagé). */}
-      <FadeInView delay={198}>
-        <HorseModuleCard
-          icon="card-account-phone-outline"
-          iconColor={colors.danger}
-          title={t("Contacts")}
-          value={t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}
-          onPress={() => router.push("/contacts")}
-        />
-      </FadeInView>
-      {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}
-      <FadeInView delay={199}>
-        <HorseModuleCard
-          icon="message-text-outline"
-          iconColor={colors.accent}
-          title={t("Fil")}
-          value={t("Commentaires et réactions de ceux qui le suivent")}
-          onPress={() => router.push(`/horse/${horse.id}/fil`)}
-        />
+
+      <FadeInView delay={120}>
+        <HorseModuleGroup title={t("Toute la fiche")}>
+          <HorseModuleRow
+            icon="trophy-outline"
+            iconColor={colors.accent}
+            title={t("Concours")}
+            value={concoursValue}
+            onPress={() => {
+              focusThisHorse();
+              goToTab("/(tabs)/planning?filter=concours");
+            }}
+          />
+          <HorseModuleRow
+            icon="folder-outline"
+            iconColor={colors.primary}
+            title={t("Documents")}
+            value={documentsValue}
+            onPress={() => router.push(`/horse/${horse.id}/documents`)}
+          />
+          <HorseModuleRow
+            icon="scale-bathroom"
+            iconColor={colors.accent}
+            title={t("Poids")}
+            value={weightValue}
+            onPress={() => router.push(`/horse/${horse.id}/poids`)}
+          />
+          <HorseModuleRow
+            icon="food-apple-outline"
+            iconColor={colors.success}
+            title={t("Alimentation")}
+            value={feedingValue}
+            onPress={() => router.push(`/horse/${horse.id}/alimentation`)}
+          />
+          {horse.sharedRole === null ? (
+            <HorseModuleRow
+              icon="account-heart-outline"
+              iconColor={colors.accent}
+              title={t("Demi-pension")}
+              value={partnershipValue}
+              onPress={() => router.push(`/horse/${horse.id}/demi-pension`)}
+            />
+          ) : null}
+          {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}
+          <HorseModuleRow
+            icon="message-text-outline"
+            iconColor={colors.accent}
+            title={t("Fil")}
+            value={t("Commentaires et réactions de ceux qui le suivent")}
+            onPress={() => router.push(`/horse/${horse.id}/fil`)}
+          />
+          <HorseModuleRow
+            icon="card-account-details-outline"
+            iconColor={colors.primary}
+            title={t("Identité")}
+            value={identityValue}
+            onPress={() => router.push(`/horse/${horse.id}/identite`)}
+          />
+          {/* Contacts de l'écurie : on les cherche là où se gèrent les soins
+              du cheval, pas seulement dans le Profil (même écran, partagé). */}
+          <HorseModuleRow
+            icon="card-account-phone-outline"
+            iconColor={colors.danger}
+            title={t("Contacts")}
+            value={t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}
+            onPress={() => router.push("/contacts")}
+          />
+          {!reviewInSeason ? (
+            <HorseModuleRow
+              icon="party-popper"
+              iconColor={colors.accent}
+              title={t("Bilan {year}", { year: reviewYear })}
+              value={t("Ton année avec {name}, à partager", { name: horse.name })}
+              onPress={() => router.push(`/horse/${horse.id}/annee?year=${reviewYear}`)}
+            />
+          ) : null}
+        </HorseModuleGroup>
       </FadeInView>
 
       {/* Badges du couple : des faits réels (heures, régularité, concours,
