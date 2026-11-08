@@ -5,7 +5,7 @@
 .plans {
   display: grid;
   gap: 18px;
-  max-width: 920px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
@@ -110,6 +110,21 @@
   color: var(--sky);
 }
 
+/* Écurie Pro : carte claire, liseré cuivre (la carte sombre reste Premium,
+   l'offre la plus choisie). */
+.pro {
+  border-color: var(--copper, var(--line));
+  border-width: 2px;
+}
+
+.pro .alt {
+  color: var(--muted);
+}
+
+.pro .items .plus {
+  color: var(--muted);
+}
+
 .items .plus {
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
@@ -162,5 +177,11 @@
   .plans {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 22px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .plans {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

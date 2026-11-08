@@ -26,7 +26,7 @@ export const SITE_URL = httpsOrigin(
 export const SITE_NAME = "Horsetrack";
 export const SITE_TAGLINE = "Toute votre vie équestre, au même endroit.";
 export const SITE_DESCRIPTION =
-  "Planning, séances, soins, concours, journal et budget : Horsetrack réunit tout le suivi de vos chevaux dans une app iPhone. Gratuit pour 1 cheval.";
+  "Planning, séances, soins, concours, journal et budget : Horsetrack réunit tout le suivi de vos chevaux dans une app iPhone. Gratuit pour 1 cheval, Écurie Pro pour gérer une équipe.";
 
 /** Date de dernière mise à jour du contenu (sitemap). */
 export const CONTENT_UPDATED = "2026-11-08";
@@ -59,6 +59,15 @@ export const PRICING = {
   monthlyValue: 3.99,
   yearlyValue: 39.99,
   trial: "1 mois",
+} as const;
+
+/** Écurie Pro (cf. docs/ecurie-pro.md), mêmes règles que PRICING. Pas d'essai
+ * annoncé ici : il dépend de la configuration App Store, l'app l'affiche. */
+export const PRICING_PRO = {
+  monthly: "14,99 €",
+  yearly: "129,99 €",
+  monthlyValue: 14.99,
+  yearlyValue: 129.99,
 } as const;
 
 /** Éditeur et hébergeur (mentions légales, LCEN art. 6). */
