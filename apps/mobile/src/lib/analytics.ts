@@ -103,7 +103,9 @@ export type AnalyticsEvent =
   // Usage (rétention : J1/J7/J30 se calculent sur app_opened dans PostHog)
   | "app_opened"
   | "session_created"
-  | "session_completed";
+  | "session_completed"
+  // Tests A/B (cf. lib/experiments.ts)
+  | "experiment_exposed";
 
 type Props = Record<string, string | number | boolean | null | undefined>;
 
@@ -144,6 +146,14 @@ const baseProps: Props = {
   app_version: Constants.expoConfig?.version ?? null,
 };
 
+/** Propriétés ajoutées à tous les événements suivants (variantes des tests
+ * A/B, cf. lib/experiments.ts). Le temps de la session seulement. */
+const superProps: Props = {};
+
+export function setSuperProperty(key: string, value: string | number | boolean): void {
+  superProps[key] = value;
+}
+
 /** Enregistre un événement. Synchrone côté appelant (fire-and-forget). */
 export function track(event: AnalyticsEvent, props: Props = {}): void {
   if (!enabled()) {
@@ -154,7 +164,7 @@ export function track(event: AnalyticsEvent, props: Props = {}): void {
   void (async () => {
     try {
       const id = distinctId ?? (await getAnonId());
-      queue.push({ event, distinct_id: id, timestamp, properties: { ...baseProps, ...props } });
+      queue.push({ event, distinct_id: id, timestamp, properties: { ...baseProps, ...superProps, ...props } });
       if (queue.length >= FLUSH_AT) void flush();
     } catch {
       // best-effort
