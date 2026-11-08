@@ -224,6 +224,24 @@ export function filterLibrary(exercises: LibraryExercise[], filter: LibraryFilte
   });
 }
 
+/**
+ * Sépare une liste filtrée selon la discipline choisie : les exercices propres
+ * à cette discipline, et les bases communes à toutes (disciplines vides).
+ * Sans cette séparation, choisir « CSO » affichait toujours tous les
+ * exercices de plat, de longe ou de détente — valables partout — et ceux du
+ * CSO s'y perdaient. Sans discipline choisie : tout est « spécifique ».
+ */
+export function splitByDiscipline(
+  exercises: LibraryExercise[],
+  discipline: Discipline | null | undefined
+): { specific: LibraryExercise[]; common: LibraryExercise[] } {
+  if (!discipline) return { specific: exercises, common: [] };
+  return {
+    specific: exercises.filter((e) => e.disciplines.includes(discipline)),
+    common: exercises.filter((e) => e.disciplines.length === 0),
+  };
+}
+
 /** Ligne de notes ajoutée à une séance par « Ajouter à une séance ». */
 export function exerciseNoteLine(e: LibraryExercise): string {
   return `• ${e.title.replace(/\*\*/g, "")}`;
