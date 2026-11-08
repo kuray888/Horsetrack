@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { View } from "react-native";
 import { HorseNameBadge } from "@/horses/components/HorseFilterChips";
 import { SessionCard } from "@/sessions/components/SessionCard";
@@ -35,7 +36,7 @@ type AppointmentHandlers = {
  * propres (cf. brief §1). Ne réimplémente aucune des deux, ne fusionne pas
  * leurs styles — juste un point d'appel unique pour l'appelant (planning.tsx),
  * qui n'a pas à brancher lui-même sur `event.kind` à chaque rendu de liste. */
-export function UnifiedEventCard({
+export const UnifiedEventCard = memo(function UnifiedEventCard({
   event,
   expanded,
   onToggleExpand,
@@ -45,7 +46,9 @@ export function UnifiedEventCard({
 }: {
   event: UnifiedEvent;
   expanded: boolean;
-  onToggleExpand: () => void;
+  /** Reçoit l'id de l'événement : une seule fonction stable pour toute la
+   * liste, sinon le `memo` de cette carte ne servirait à rien. */
+  onToggleExpand: (id: string) => void;
   sessionHandlers: SessionHandlers;
   appointmentHandlers: AppointmentHandlers;
   /** Nom à afficher en pastille au-dessus de la carte — renseigné seulement
@@ -75,7 +78,7 @@ export function UnifiedEventCard({
       appointmentHandlers={appointmentHandlers}
     />
   );
-}
+});
 
 function EventCard({
   event,
@@ -86,7 +89,7 @@ function EventCard({
 }: {
   event: UnifiedEvent;
   expanded: boolean;
-  onToggleExpand: () => void;
+  onToggleExpand: (id: string) => void;
   sessionHandlers: SessionHandlers;
   appointmentHandlers: AppointmentHandlers;
 }) {
@@ -113,7 +116,7 @@ function EventCard({
         expanded={expanded}
         onPress={() => {
           animateNextLayout();
-          onToggleExpand();
+          onToggleExpand(event.id);
         }}
         onToggleDone={() => sessionHandlers.onToggleDone(event.session)}
         onEdit={() => sessionHandlers.onEdit(event.session)}
@@ -137,7 +140,7 @@ function EventCard({
     <AppointmentCard
       appt={appt}
       expanded={expanded}
-      onToggleExpand={onToggleExpand}
+      onToggleExpand={() => onToggleExpand(event.id)}
       onDelete={() => appointmentHandlers.onDelete(appt)}
       onEdit={() => appointmentHandlers.onEdit(appt)}
       onSaveResult={(result) => appointmentHandlers.onSaveResult(appt, result)}

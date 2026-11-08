@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { FadeInView } from "@/components/FadeInView";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
+import { useStableCallbacks } from "@/hooks/useStableCallbacks";
 import { LIST_PAGE_SIZE, ShowMoreButton } from "@/components/ShowMoreButton";
 import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
@@ -431,12 +432,12 @@ function PlanningScreen() {
   const upcomingHidden = Math.max(upcoming.length - upcomingCount, 0);
   const doneHidden = Math.max(done.length - doneCount, 0);
 
-  const sessionHandlers = {
+  const sessionHandlers = useStableCallbacks({
     onToggleDone: (s: TrainingSession) => toggleSessionDone(s),
     onEdit: (s: TrainingSession) => openEditForm(s),
     onDuplicate: (s: TrainingSession) => handleDuplicate(s),
     onDelete: (s: TrainingSession) => confirmDelete(s),
-  };
+  });
 
   // « Modifier » un rendez-vous ouvre le formulaire de CET écran, qui est le
   // même composant partout (AppointmentForm + useAppointmentForm, déjà monté
@@ -445,7 +446,7 @@ function PlanningScreen() {
   // qui justifiait de garder Agenda en vie. Les autres actions (checklist,
   // résultat, épreuves, suppression) restent de simples appels aux mutateurs
   // d'agenda/store.tsx, sans nouvelle logique.
-  const appointmentHandlers = {
+  const appointmentHandlers = useStableCallbacks({
     onEdit: (a: Appointment) => startEditAppt(a),
     // Même confirmation que pour une séance ou un souvenir : la suppression
     // d'un rendez-vous (et de ses rappels) partait au premier toucher, et le
@@ -463,7 +464,10 @@ function PlanningScreen() {
     onUpdateCompetitionEntry: (a: Appointment, entryId: string, patch: Partial<Omit<CompetitionEntry, "id">>) =>
       updateCompetitionEntry(a.id, entryId, patch),
     onDeleteCompetitionEntry: (a: Appointment, entryId: string) => deleteCompetitionEntry(a.id, entryId),
-  };
+  });
+
+  // Une seule fonction pour toute la liste (cf. memo de UnifiedEventCard).
+  const toggleExpanded = useCallback((id: string) => setExpandedId((cur) => (cur === id ? null : id)), []);
 
   const {
     showApptForm,
@@ -1116,7 +1120,7 @@ function PlanningScreen() {
                 <UnifiedEventCard
                   event={event}
                   expanded={expandedId === event.id}
-                  onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                  onToggleExpand={toggleExpanded}
                   sessionHandlers={sessionHandlers}
                   appointmentHandlers={appointmentHandlers}
                   horseName={eventHorseName(event)}
@@ -1165,7 +1169,7 @@ function PlanningScreen() {
                     <UnifiedEventCard
                       event={event}
                       expanded={expandedId === event.id}
-                      onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                      onToggleExpand={toggleExpanded}
                       sessionHandlers={sessionHandlers}
                       appointmentHandlers={appointmentHandlers}
                       horseName={eventHorseName(event)}
@@ -1210,7 +1214,7 @@ function PlanningScreen() {
                           <UnifiedEventCard
                             event={event}
                             expanded={expandedId === event.id}
-                            onToggleExpand={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                            onToggleExpand={toggleExpanded}
                             sessionHandlers={sessionHandlers}
                             appointmentHandlers={appointmentHandlers}
                             horseName={eventHorseName(event)}
