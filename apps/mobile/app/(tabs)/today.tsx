@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshControl, Text, TouchableOpacity, View } from "react-native";
+import { AppState, RefreshControl, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { RideInProgressBanner } from "@/rides/components/RideInProgressBanner";
 import {
   getNotificationPermissionState,
   scheduleWeeklySummary,
+  scheduleComebackReminders,
   type NotificationPermissionState,
 } from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
@@ -173,6 +174,19 @@ function TodayScreen() {
     if (!horse || !notifPermission) return;
     scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
   }, [horse?.id, horse?.name, weekDoneCount, weekSessions.length, notifPermission]);
+
+  // Relance d'inactivité (cf. lib/comebackReminderLogic.ts) : repoussée à
+  // chaque affichage et à chaque retour au premier plan, elle ne part que si
+  // le cavalier ne revient pas pendant 4 puis 11 jours.
+  const horseName = horse?.name ?? null;
+  useEffect(() => {
+    if (!horseName || !notifPermission) return;
+    void scheduleComebackReminders(horseName);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void scheduleComebackReminders(horseName);
+    });
+    return () => sub.remove();
+  }, [horseName, notifPermission]);
 
   // Ajout rapide (cf. plan Phase 3 Étape 4 §9) — mêmes hooks/formulaires que
   // Planning et le Horse Hub, rattachement automatique au cheval actif via

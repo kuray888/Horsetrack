@@ -24,7 +24,7 @@ import {
   isBiometricLockEnabled,
   setBiometricLockEnabled,
 } from "@/lib/biometrics";
-import { cancelWeeklySummary, ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
+import { cancelComebackReminders, cancelWeeklySummary, ensureNotificationPermission, getNotificationStatus } from "@/lib/notifications";
 import { getSessionRemindersEnabled, setSessionRemindersEnabled } from "@/sessions/SessionReminders";
 import { AccountError, deleteAccount } from "@/lib/account";
 import { getAppleAuthorizationCode } from "@/lib/appleAuth";
@@ -229,6 +229,7 @@ function ProfileScreen() {
   async function signOut() {
     try {
       await cancelWeeklySummary();
+      await cancelComebackReminders();
       await unregisterPushToken().catch(() => {});
       await supabase.auth.signOut();
     } catch {
@@ -274,6 +275,7 @@ function ProfileScreen() {
     // de l'écurie, de la progression, de l'agenda ou de l'abo de l'ancien.
     await Promise.all([
       cancelWeeklySummary(),
+      cancelComebackReminders(),
       resetOnboardingCompleted(),
       clearHorses(),
       clearRiderProfile(),

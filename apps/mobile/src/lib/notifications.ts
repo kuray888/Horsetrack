@@ -3,9 +3,11 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { WEEKLY_SUMMARY_URL } from "@/lib/notificationLinks";
+import { comebackMessage, comebackTriggers } from "@/lib/comebackReminderLogic";
 import { t } from "@/i18n";
 
 const WEEKLY_SUMMARY_KEY = "weekly_summary_notif_v1";
+const COMEBACK_KEY = "comeback_notif_v1";
 
 export type ReminderOption = "none" | "1h" | "1d" | "1w";
 
@@ -237,6 +239,41 @@ export async function cancelAllReminders(): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
     await SecureStore.deleteItemAsync(WEEKLY_SUMMARY_KEY);
+    await SecureStore.deleteItemAsync(COMEBACK_KEY);
+  } catch {
+    // Best-effort : voir cancelReminder ci-dessus.
+  }
+}
+
+/** Relance d'inactivité (cf. lib/comebackReminderLogic.ts) : annule les
+ * relances en attente et en reprogramme deux à partir de maintenant. À
+ * appeler à chaque retour dans l'app — elles ne partent donc que si le
+ * cavalier ne revient pas. Seulement si les notifications sont déjà
+ * autorisées : jamais de demande de permission ici. Best-effort. */
+export async function scheduleComebackReminders(horseName: string): Promise<void> {
+  try {
+    await cancelComebackReminders();
+    if (!(await getNotificationStatus())) return;
+    const ids: string[] = [];
+    const triggers = comebackTriggers(new Date());
+    for (let i = 0; i < triggers.length; i++) {
+      const { title, body } = comebackMessage(i, horseName);
+      const id = await scheduleReminder(title, body, triggers[i], WEEKLY_SUMMARY_URL);
+      if (id) ids.push(id);
+    }
+    if (ids.length) await SecureStore.setItemAsync(COMEBACK_KEY, JSON.stringify(ids));
+  } catch {
+    // Best-effort : voir cancelReminder ci-dessus.
+  }
+}
+
+export async function cancelComebackReminders(): Promise<void> {
+  try {
+    const raw = await SecureStore.getItemAsync(COMEBACK_KEY);
+    if (!raw) return;
+    const ids = JSON.parse(raw) as string[];
+    await Promise.all(ids.map((id) => cancelReminder(id)));
+    await SecureStore.deleteItemAsync(COMEBACK_KEY);
   } catch {
     // Best-effort : voir cancelReminder ci-dessus.
   }
