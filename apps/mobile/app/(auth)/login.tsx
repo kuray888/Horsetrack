@@ -23,6 +23,7 @@ import {
   pullWeightMeasurements,
 } from "@/lib/cloudSync";
 import { clearSyncQueue } from "@/lib/syncQueue";
+import { clearHorseTeams } from "@/horses/team";
 import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
 import { withTimeout } from "@/lib/withTimeout";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
@@ -135,6 +136,8 @@ export default function LoginScreen() {
           // au mauvais endroit — quand la RLS ne les refuserait pas
           // simplement (cf. lib/syncQueue.ts).
           clearSyncQueue(),
+          // Équipes des chevaux partagés de l'ancien compte.
+          clearHorseTeams(),
         ]);
 
         try {

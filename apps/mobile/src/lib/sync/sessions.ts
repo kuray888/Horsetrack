@@ -21,9 +21,22 @@ export async function pushTrainingSessionImpl(session: TrainingSession, stamp?: 
     intensity: session.intensity,
     notes: session.notes,
     completed: session.completed,
+    // Cavalier et ressenti : envoyés seulement s'ils sont connus localement,
+    // pour qu'une copie d'avant leur arrivée n'efface pas une attribution
+    // faite ailleurs. Qui a coché et quand : posés par la base.
+    ...(session.riderUserId !== undefined ? { riderUserId: session.riderUserId } : {}),
+    ...(session.riderName !== undefined ? { riderName: session.riderName } : {}),
+    ...(session.feeling !== undefined ? { feeling: session.feeling } : {}),
     updatedAt: new Date().toISOString(),
   };
-  await upsertWithOptionalColumns("pushTrainingSession", "training_sessions", session.id, row, ["activityKind"], stamp);
+  await upsertWithOptionalColumns(
+    "pushTrainingSession",
+    "training_sessions",
+    session.id,
+    row,
+    ["activityKind", "riderUserId", "riderName", "feeling"],
+    stamp
+  );
 }
 export async function deleteTrainingSessionRemoteImpl(sessionId: string, stamp?: number): Promise<void> {
   const { error } = await supabase.from("training_sessions").delete().eq("id", sessionId);
@@ -118,13 +131,18 @@ type SessionRow = {
   notes: string;
   completed: boolean;
   createdByUserId?: string | null;
+  riderUserId?: string | null;
+  riderName?: string | null;
+  doneByUserId?: string | null;
+  doneAt?: string | null;
+  feeling?: string | null;
 };
 export async function pullTrainingSessions(): Promise<TrainingSession[] | null> {
   const [data, rides] = await Promise.all([
     selectWithOptionalColumns<SessionRow>(
       "training_sessions",
       "id, horseId, activityType, customActivityLabel, date, time, durationMinutes, intensity, notes, completed",
-      ["activityKind", "createdByUserId"]
+      ["activityKind", "createdByUserId", "riderUserId", "riderName", "doneByUserId", "doneAt", "feeling"]
     ),
     pullSessionRides().catch(() => null),
   ]);
@@ -143,6 +161,11 @@ export async function pullTrainingSessions(): Promise<TrainingSession[] | null> 
     completed: row.completed,
     // undefined si la colonne manque (base pas encore migrée) : cf. lib/permissions.ts isMine.
     createdByUserId: row.createdByUserId,
+    riderUserId: row.riderUserId,
+    riderName: row.riderName,
+    doneByUserId: row.doneByUserId,
+    doneAt: row.doneAt === undefined ? undefined : row.doneAt ? parseServerDate(row.doneAt) : null,
+    feeling: row.feeling === undefined ? undefined : ((row.feeling as TrainingSession["feeling"]) ?? null),
   }));
 }
 

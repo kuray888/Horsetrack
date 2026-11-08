@@ -10,6 +10,9 @@ import { animateNextLayout } from "@/lib/motion";
 import { SwipeableRow } from "@/components/SwipeableRow";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorseRights } from "@/horses/useHorseRights";
+import { useHorseTeam } from "@/horses/team";
+import { riderDisplayName, sessionAccess, type TeamMember } from "@/planning/riders";
+import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
 
 type SessionHandlers = {
@@ -99,40 +102,15 @@ function EventCard({
   // lib/permissions.ts) — séance d'un autre cavalier, soin pour une DP…
   const rights = useHorseRights();
   if (event.kind === "session") {
-    const done = event.session.completed;
-    const readOnly = !rights.session(event.session);
     return (
-      <SwipeableRow
-        leading={readOnly ? null : {
-          label: done ? t("À faire") : t("Fait"),
-          icon: done ? "undo-variant" : "check",
-          color: done ? colors.textMuted : colors.success,
-          onPress: () => sessionHandlers.onToggleDone(event.session),
-        }}
-        trailing={readOnly ? null : {
-          label: t("Supprimer"),
-          icon: "trash-can-outline",
-          color: colors.danger,
-          onPress: () => sessionHandlers.onDelete(event.session),
-        }}
-      >
-      <SessionCard
+      <SessionEventCard
         session={event.session}
         expanded={expanded}
-        onPress={() => {
-          animateNextLayout();
-          onToggleExpand(event.id);
-        }}
-        onToggleDone={() => sessionHandlers.onToggleDone(event.session)}
-        onEdit={() => sessionHandlers.onEdit(event.session)}
-        onDuplicate={() => sessionHandlers.onDuplicate(event.session)}
-        onDelete={() => sessionHandlers.onDelete(event.session)}
-        readOnly={readOnly}
+        onToggleExpand={() => onToggleExpand(event.id)}
+        sessionHandlers={sessionHandlers}
       />
-      </SwipeableRow>
     );
   }
-
   const appt = event.appointment;
   const readOnly = !rights.appointment(appt);
   return (
@@ -161,4 +139,76 @@ function EventCard({
     />
     </SwipeableRow>
   );
+}
+
+/** Séance du planning : ce que chacun peut en faire (cf. planning/riders.ts)
+ * et qui la monte. Composant à part pour lire l'équipe de SON cheval. */
+function SessionEventCard({
+  session,
+  expanded,
+  onToggleExpand,
+  sessionHandlers,
+}: {
+  session: TrainingSession;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  sessionHandlers: SessionHandlers;
+}) {
+  const colors = useThemeColors();
+  const rights = useHorseRights();
+  // Équipe lue seulement quand un nom est à afficher (séance attribuée, ou
+  // cochée par quelqu'un d'autre).
+  const someoneElse = !!session.riderUserId || (!!session.doneByUserId && session.doneByUserId !== rights.me);
+  const team = useHorseTeam(someoneElse ? session.horseId : null);
+  const done = session.completed;
+  const access = sessionAccess(rights.roleFor(session.horseId), session, rights.me);
+  const toggleDone = () => {
+    if (access === "done" && !session.completed) track("assigned_session_done", {});
+    sessionHandlers.onToggleDone(session);
+  };
+  return (
+    <SwipeableRow
+      leading={access === "none" ? null : {
+        label: done ? t("À faire") : t("Fait"),
+        icon: done ? "undo-variant" : "check",
+        color: done ? colors.textMuted : colors.success,
+        onPress: toggleDone,
+      }}
+      trailing={access !== "full" ? null : {
+        label: t("Supprimer"),
+        icon: "trash-can-outline",
+        color: colors.danger,
+        onPress: () => sessionHandlers.onDelete(session),
+      }}
+    >
+    <SessionCard
+      session={session}
+      expanded={expanded}
+      onPress={() => {
+        animateNextLayout();
+        onToggleExpand();
+      }}
+      onToggleDone={toggleDone}
+      onEdit={() => sessionHandlers.onEdit(session)}
+      onDuplicate={() => sessionHandlers.onDuplicate(session)}
+      onDelete={() => sessionHandlers.onDelete(session)}
+      readOnly={access !== "full"}
+      canToggleDone={access !== "none"}
+      riderLine={riderLine(session, team, rights.me)}
+    />
+    </SwipeableRow>
+  );
+}
+
+/** « Léa monte », « Tu montes », « Monté par Léa »… ; null sans cavalier. */
+function riderLine(session: TrainingSession, team: TeamMember[], me: string | null): string | null {
+  // Cochée par soi sans cavalier attribué : le cas de qui monte seul, rien à dire.
+  if (session.completed && session.doneByUserId && (session.doneByUserId !== me || session.riderUserId)) {
+    const by = riderDisplayName({ riderUserId: session.doneByUserId }, team, me, t("toi"));
+    if (by) return t("Monté par {name}", { name: by });
+  }
+  const name = riderDisplayName(session, team, me, t("toi"));
+  if (!name) return null;
+  if (session.riderUserId && session.riderUserId === me) return session.completed ? t("Monté par toi") : t("Tu montes");
+  return session.completed ? t("Monté par {name}", { name }) : t("{name} monte", { name });
 }

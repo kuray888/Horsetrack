@@ -38,6 +38,8 @@ export function SessionCard({
   onDuplicate,
   onDelete,
   readOnly = false,
+  canToggleDone = !readOnly,
+  riderLine = null,
 }: {
   session: TrainingSession;
   expanded: boolean;
@@ -49,6 +51,11 @@ export function SessionCard({
   /** Séance d'un cheval partagé qu'on ne peut pas modifier (cf.
    * lib/permissions.ts) : consultation et commentaires seulement. */
   readOnly?: boolean;
+  /** Cavalier attribué d'une séance qu'il ne peut pas modifier : il la coche
+   * quand même (cf. planning/riders.ts sessionAccess). */
+  canToggleDone?: boolean;
+  /** « Léa monte », « Monté par toi »… (cf. UnifiedEventCard). */
+  riderLine?: string | null;
 }) {
   const colors = useThemeColors();
   const { scale, onPressIn, onPressOut } = usePressScale();
@@ -64,22 +71,25 @@ export function SessionCard({
         accessible={!expanded}
         accessibilityLabel={`${session.customActivityLabel || meta.label}, ${formatDate(session.date)}, ${
           session.time || t("heure libre")
-        }${session.completed ? t(", faite") : ""}`}
+        }${riderLine ? `, ${riderLine}` : ""}${session.completed ? t(", faite") : ""}`}
         accessibilityState={{ expanded }}
         accessibilityActions={[
           { name: "activate", label: expanded ? t("Replier") : t("Déplier") },
+          ...(canToggleDone
+            ? [{ name: "toggleDone", label: session.completed ? t("Marquer à faire") : t("Marquer faite") }]
+            : []),
           ...(readOnly
             ? []
             : [
-                { name: "toggleDone", label: session.completed ? t("Marquer à faire") : t("Marquer faite") },
                 { name: "edit", label: t("Modifier") },
                 { name: "delete", label: t("Supprimer") },
               ]),
         ]}
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === "activate") onPress();
-          else if (readOnly) return;
-          else if (e.nativeEvent.actionName === "toggleDone") onToggleDone();
+          else if (e.nativeEvent.actionName === "toggleDone") {
+            if (canToggleDone) onToggleDone();
+          } else if (readOnly) return;
           else if (e.nativeEvent.actionName === "edit") onEdit();
           else if (e.nativeEvent.actionName === "delete") onDelete();
         }}
@@ -107,6 +117,12 @@ export function SessionCard({
               {formatDate(session.date)} · {session.time || t("Heure libre")}
               {session.durationMinutes ? t(" · {durationMinutes} min", { durationMinutes: session.durationMinutes }) : ""}
             </Text>
+            {riderLine ? (
+              <View className="flex-row items-center gap-1">
+                <MaterialCommunityIcons name="account-outline" size={13} color={colors.textMuted} />
+                <Text className="text-xs font-semibold text-muted">{riderLine}</Text>
+              </View>
+            ) : null}
             {session.ride?.gps ? (
               <View className="flex-row items-center gap-1">
                 <MaterialCommunityIcons name="map-marker-path" size={13} color={colors.accent} />
@@ -119,7 +135,7 @@ export function SessionCard({
           {/* Case à cocher directement sur la carte : marquer une séance
               faite demandait de la déplier puis de toucher « Marquer
               faite ». Le reste de la carte la déplie toujours. */}
-          {readOnly ? (
+          {!canToggleDone ? (
             session.completed ? (
               <View accessibilityLabel={t("Séance faite")} className="h-7 w-7 items-center justify-center rounded-full bg-success">
                 <MaterialCommunityIcons name="check" size={17} color="#ffffff" />
@@ -153,7 +169,31 @@ export function SessionCard({
             {session.notes.trim() ? <Text className="text-sm leading-5 text-text">{session.notes}</Text> : null}
             {session.ride?.gps ? <RideDetails ride={session.ride} /> : null}
             <CommentsButton horseId={session.horseId} targetType="session" targetId={session.id} />
-            {readOnly ? null : (
+            {readOnly && canToggleDone ? (
+              <>
+                {!session.completed ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => router.push({ pathname: "/ride", params: { sessionId: session.id } })}
+                    activeOpacity={0.8}
+                    className="flex-row items-center justify-center gap-2 rounded-card border border-primary/30 p-3"
+                  >
+                    <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
+                    <Text className="text-sm font-bold text-primary">{t("Démarrer en direct")}</Text>
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={onToggleDone}
+                  activeOpacity={0.8}
+                  className="items-center rounded-card bg-primary p-3"
+                >
+                  <Text className="text-sm font-bold text-on-primary">
+                    {session.completed ? t("Marquer à faire") : t("C'est fait")}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : readOnly ? null : (
               <>
                 {!session.completed ? (
                   <TouchableOpacity

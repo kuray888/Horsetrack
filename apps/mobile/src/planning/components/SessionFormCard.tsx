@@ -16,6 +16,8 @@ import type { SessionIntensity } from "@/sessions/store";
 import { INTENSITY_META } from "@/sessions/components/SessionCard";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { DURATION_OPTIONS, type SessionForm, type SessionTypeSelection } from "@/planning/sessionForm";
+import { RiderField } from "@/planning/components/RiderField";
+import type { TeamMember } from "@/planning/riders";
 import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -41,6 +43,7 @@ export function SessionFormCard({
   overLimit,
   createCount,
   missingHorseChoice,
+  riders = null,
   onCancel,
   onSubmit,
 }: {
@@ -58,6 +61,10 @@ export function SessionFormCard({
   overLimit: boolean;
   createCount: number;
   missingHorseChoice: boolean;
+  /** « Qui monte ? » : proposé quand la séance vise un seul cheval (null
+   * sinon). En vue, au premier plan si le cheval a une équipe, sinon dans
+   * les détails. */
+  riders?: { members: TeamMember[]; me: string | null; allowOther: boolean; prominent: boolean } | null;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
@@ -130,6 +137,15 @@ export function SessionFormCard({
           onChange={(v) => setForm((f) => ({ ...f, durationMinutes: Number(v) }))}
         />
       </Field>
+      {riders?.prominent ? (
+        <RiderField
+          members={riders.members}
+          me={riders.me}
+          allowOther={riders.allowOther}
+          value={form}
+          onChange={(rider) => setForm((f) => ({ ...f, ...rider }))}
+        />
+      ) : null}
       {!editing && offerHorseChoice ? (
         <HorseMultiSelect
           horses={selectableHorses}
@@ -163,6 +179,15 @@ export function SessionFormCard({
         summary={detailsSummary}
       >
         <>
+          {riders && !riders.prominent ? (
+            <RiderField
+              members={riders.members}
+              me={riders.me}
+              allowOther={riders.allowOther}
+              value={form}
+              onChange={(rider) => setForm((f) => ({ ...f, ...rider }))}
+            />
+          ) : null}
           <TimePickerField
             label={t("Heure (optionnel)")}
             value={form.time}

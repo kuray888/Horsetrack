@@ -127,13 +127,16 @@ export function quickAddAllowed(role: HorseRole | null | undefined, option: keyo
   return capability === null || can(role ?? "OWNER", capability);
 }
 
-/** Séance qui « me » concerne (rappels, « C'est fait ») : toutes celles de
- * mes chevaux, et sur un cheval partagé celles que j'ai créées. */
+/** Séance qui « me » concerne (rappels, « C'est fait ») : celle qu'on m'a
+ * attribuée ; sans cavalier attribué, toutes celles de mes chevaux et, sur un
+ * cheval partagé, celles que j'ai créées. */
 export function isMySession(
   role: HorseRole | null | undefined,
-  session: { createdByUserId?: Author },
+  session: { createdByUserId?: Author; riderUserId?: string | null; riderName?: string | null },
   me: string | null
 ): boolean {
+  if (session.riderUserId) return !!me && session.riderUserId === me;
+  if (session.riderName?.trim()) return false;
   return !role || role === "OWNER" || isMine(session.createdByUserId, me);
 }
 

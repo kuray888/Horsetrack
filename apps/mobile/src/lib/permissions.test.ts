@@ -116,4 +116,9 @@ describe("isMySession", () => {
     expect(isMySession("DEMI_PENSION", { createdByUserId: "u-dp" }, "u-dp")).toBe(true);
     expect(isMySession("COACH", { createdByUserId: undefined }, "u-coach")).toBe(true);
   });
+  it("séance attribuée : seulement à son cavalier", () => {
+    expect(isMySession("DEMI_PENSION", { createdByUserId: null, riderUserId: "u-dp" }, "u-dp")).toBe(true);
+    expect(isMySession("OWNER", { createdByUserId: null, riderUserId: "u-dp" }, "u-owner")).toBe(false);
+    expect(isMySession("OWNER", { createdByUserId: null, riderName: "Inès" }, "u-owner")).toBe(false);
+  });
 });

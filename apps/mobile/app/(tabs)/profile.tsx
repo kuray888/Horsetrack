@@ -41,6 +41,7 @@ import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
 import { useSessions } from "@/sessions/store";
 import { clearSyncQueue } from "@/lib/syncQueue";
+import { clearHorseTeams } from "@/horses/team";
 import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
 import { lazyTab } from "@/components/LazyTab";
 import { exportAllData } from "@/export/exportAllData";
@@ -297,6 +298,8 @@ function ProfileScreen() {
       // l'identité du prochain. Même geste qu'au changement de compte (cf.
       // (auth)/login.tsx).
       clearSyncQueue(),
+      // Noms des équipes des chevaux partagés : données d'autres personnes.
+      clearHorseTeams(),
       clearLocalDataOwner(),
     ]);
     // Photos et pièces du coffre-fort copiées sur l'appareil : les listes

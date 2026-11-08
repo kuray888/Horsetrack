@@ -164,7 +164,7 @@ as $$
 $$;
 
 -- Parcours GPS : mêmes droits que sa séance (qui existe forcément : clé
--- étrangère sessionId).
+-- étrangère sessionId). Élargie au cavalier attribué dans « planning-seances ».
 create or replace function public.can_write_session_ride(_session_id text)
 returns boolean
 language sql
@@ -316,6 +316,7 @@ create policy "training_sessions_select_shared" on public.training_sessions
 drop policy if exists "training_sessions_insert_shared" on public.training_sessions;
 create policy "training_sessions_insert_shared" on public.training_sessions
   for insert with check (public.can_write_session("horseId", "createdByUserId"));
+-- Élargie au cavalier attribué dans « planning-seances ».
 drop policy if exists "training_sessions_update_shared" on public.training_sessions;
 create policy "training_sessions_update_shared" on public.training_sessions
   for update using (public.can_write_session("horseId", "createdByUserId"))

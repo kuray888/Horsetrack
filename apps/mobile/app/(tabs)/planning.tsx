@@ -41,6 +41,10 @@ import { addMonths, dayHeaderLabel, groupByDay, startOfMonth } from "@/planning/
 import { emptyForm, formFromSession, type SessionForm } from "@/planning/sessionForm";
 import { MonthGrid } from "@/planning/components/MonthGrid";
 import { SessionFormCard } from "@/planning/components/SessionFormCard";
+import { assignableRiders, riderColumns } from "@/planning/riders";
+import { useHorseTeam } from "@/horses/team";
+import { useHorseRights } from "@/horses/useHorseRights";
+import { track } from "@/lib/analytics";
 import { PlanningStatsCard } from "@/planning/components/PlanningStatsCard";
 import { INTENSITY_META } from "@/sessions/components/SessionCard";
 import {
@@ -176,6 +180,7 @@ function PlanningScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm());
+  const rights = useHorseRights();
   /** Verrou de soumission. handleSubmit est synchrone : deux appuis
    * rapprochés sur « Ajouter » sont deux événements distincts qui lisent tous
    * deux l'état d'avant le rendu suivant, et créent deux séances identiques
@@ -669,6 +674,7 @@ function PlanningScreen() {
         durationMinutes: form.durationMinutes,
         intensity: form.intensity,
         notes: form.notes,
+        ...riderColumns(form.riderUserId, form.riderOther ? form.riderName : ""),
       });
     } else {
       // form.recurrence "custom" : crée une séance identique à chaque date
@@ -714,9 +720,20 @@ function PlanningScreen() {
       hiddenNames = targetsOutsideView(sessionHorseIds, visibleHorseIds).map(
         (id) => selectableHorses.find((h) => h.id === id)?.name ?? t("un autre cheval")
       );
+      // Cavalier : celui choisi pour un cheval seul ; une demi-pension ou un
+      // cavalier qui planifie sans choisir planifie pour lui-même.
+      const rider =
+        sessionTargets.length === 1
+          ? riderColumns(form.riderUserId, form.riderOther ? form.riderName : "")
+          : { riderUserId: null, riderName: null };
+      if (!rider.riderUserId && !rider.riderName && !canAssignOthers && rights.me) rider.riderUserId = rights.me;
+      if (rider.riderName || (rider.riderUserId && rider.riderUserId !== rights.me)) {
+        track("session_assigned", { account: !!rider.riderUserId, count: occurrenceDates.length });
+      }
       for (const sessionHorseId of sessionTargets) {
         for (const date of occurrenceDates) {
           addSession({
+            ...rider,
             horseId: sessionHorseId,
             activityType: form.activityType,
             customActivityLabel,
@@ -808,6 +825,21 @@ function PlanningScreen() {
   // Vue « Tous » sans aucune case cochée : rien n'est visé, le bouton reste
   // désactivé (même règle que les formulaires rendez-vous/dépense).
   const missingHorseChoice = !editingId && needsExplicitHorseChoice(form.horseIds, selectableHorses, defaultHorseIds);
+  // « Qui monte ? » (cf. planning/riders.ts) : seulement quand la séance vise
+  // un seul cheval — l'équipe dépend du cheval.
+  const riderHorseId: string | null = editingId
+    ? (horseSessions.find((s) => s.id === editingId)?.horseId ?? null)
+    : (() => {
+        const ids = shouldOfferHorseChoice(selectableHorses, defaultHorseIds)
+          ? resolveTargetHorseIds(form.horseIds, selectableHorses, defaultHorseIds)
+          : defaultHorseIds;
+        if (ids.length > 1) return null;
+        return ids[0] ?? targetHorse?.id ?? null;
+      })();
+  const riderTeam = useHorseTeam(riderHorseId);
+  const riderRole = rights.roleFor(riderHorseId);
+  const riderMembers = assignableRiders(riderRole, riderTeam, rights.me);
+  const canAssignOthers = rights.can(riderHorseId, "manage_sessions");
   /** Séance déjà planifiée que cette saisie ferait doublonner (cf.
    * findPlannedSessionToComplete pour la règle et ses garde-fous) — cherchée
    * dans TOUTES les séances et pas seulement celles de la vue : la séance
@@ -1018,6 +1050,16 @@ function PlanningScreen() {
             overLimit={sessionOverLimit}
             createCount={sessionCreateCount}
             missingHorseChoice={missingHorseChoice}
+            riders={
+              riderHorseId && riderMembers.length > 0
+                ? {
+                    members: riderMembers,
+                    me: rights.me,
+                    allowOther: canAssignOthers,
+                    prominent: riderTeam.length > 1,
+                  }
+                : null
+            }
             onCancel={() => {
               setShowForm(false);
               setEditingId(null);

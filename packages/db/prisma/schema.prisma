@@ -532,6 +532,17 @@ model TrainingSession {
   /// simple "fait / pas fait".
   completed           Boolean      @default(false)
 
+  /// Écurie Pro v2 — cavalier attribué : un compte de l'équipe du cheval
+  /// (riderUserId), ou un simple nom pour quelqu'un sans compte (riderName).
+  /// Le cavalier attribué peut cocher la séance (cf. rls.sql planning-seances).
+  riderUserId  String?
+  riderName    String?
+  /// Qui a coché « C'est fait », et quand : posés par la base.
+  doneByUserId String?
+  doneAt       DateTime?
+  /// Ressenti noté en cochant : "GOOD" / "OK" / "HARD" (texte, comme intensity).
+  feeling      String?
+
   ride TrainingSessionRide?
 
   /// Auteur de la ligne (droits « les siens », cf. rls.sql set_created_by) :
@@ -543,6 +554,7 @@ model TrainingSession {
   updatedAt DateTime @updatedAt
 
   @@index([horseId])
+  @@index([riderUserId])
   @@map("training_sessions")
 }
 

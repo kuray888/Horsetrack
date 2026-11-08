@@ -10,14 +10,18 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 PRISMA_DIR="$HERE/../../prisma"
 DB="${RLS_TEST_DB:-horsetrack_rls_test}"
 export PGHOST="${PGHOST:-/tmp}"
+export PGOPTIONS="-c client_min_messages=warning"
 PSQL=(psql -v ON_ERROR_STOP=1 -q -X -d "$DB")
 
 # Les migrations de prod recopient des sections de rls.sql : elles doivent
 # rester identiques.
-section() { sed -n '/^-- >>> droits-par-role/,/^-- <<< droits-par-role/p' "$1"; }
-if ! diff <(section "$PRISMA_DIR/rls.sql") <(section "$PRISMA_DIR/ecurie-pro-v2-2-droits-2026-11-08.sql") >/dev/null; then
-  echo "ecurie-pro-v2-2-droits-2026-11-08.sql ne recopie plus rls.sql (section droits-par-role)"; exit 1
-fi
+section() { sed -n "/^-- >>> $2/,/^-- <<< $2/p" "$1"; }
+for pair in "droits-par-role:ecurie-pro-v2-2-droits-2026-11-08.sql" "planning-seances:ecurie-pro-v2-3-seances-2026-11-08.sql"; do
+  name="${pair%%:*}"; file="${pair#*:}"
+  if ! diff <(section "$PRISMA_DIR/rls.sql" "$name") <(section "$PRISMA_DIR/$file" "$name") >/dev/null; then
+    echo "$file ne recopie plus rls.sql (section $name)"; exit 1
+  fi
+done
 
 dropdb --if-exists "$DB" >/dev/null
 createdb "$DB"
@@ -34,7 +38,8 @@ createdb "$DB"
 
 status=0
 for f in "$HERE"/*.test.sql; do
-  "${PSQL[@]}" -c "truncate t.results" >/dev/null
+  # Chaque fichier part d'une base vide (les comptes entraînent tout le reste).
+  "${PSQL[@]}" -c "truncate t.results; truncate auth.users, public.users cascade" >/dev/null
   "${PSQL[@]}" -f "$f" >/dev/null
   failed=$("${PSQL[@]}" -At -c "select count(*) from t.results where not ok")
   total=$("${PSQL[@]}" -At -c "select count(*) from t.results")

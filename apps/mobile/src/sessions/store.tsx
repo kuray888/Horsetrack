@@ -52,9 +52,23 @@ export type TrainingSession = {
   /** Auteur (cf. lib/permissions.ts Author) : undefined tant que la ligne
    * créée sur cet appareil n'a pas été relue du serveur. */
   createdByUserId?: string | null;
+  /** Cavalier attribué (cf. planning/riders.ts) : un compte de l'équipe, ou
+   * un simple nom. undefined = inconnu (base pas encore migrée). */
+  riderUserId?: string | null;
+  riderName?: string | null;
+  /** Qui a coché « C'est fait », et quand — posés par la base, lus seulement. */
+  doneByUserId?: string | null;
+  doneAt?: Date | null;
+  /** Ressenti noté en cochant : "GOOD" / "OK" / "HARD". */
+  feeling?: SessionFeeling | null;
 };
 
-export type NewTrainingSession = Omit<TrainingSession, "id" | "horseId" | "completed" | "ride" | "createdByUserId">;
+export type SessionFeeling = "GOOD" | "OK" | "HARD";
+
+export type NewTrainingSession = Omit<
+  TrainingSession,
+  "id" | "horseId" | "completed" | "ride" | "createdByUserId" | "doneByUserId" | "doneAt"
+>;
 
 export type SaveRideInput = {
   sessionId: string | null;

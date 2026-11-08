@@ -38,6 +38,11 @@ export type SessionForm = {
    * on était en train de faire. Ignoré en édition : la carte de la séance
    * garde son propre « Marquer faite » (cf. SessionCard). */
   completed: boolean;
+  /** Qui monte (cf. planning/components/RiderField.tsx) : un compte de
+   * l'équipe, ou un simple nom quand `riderOther`. */
+  riderUserId: string | null;
+  riderName: string;
+  riderOther: boolean;
 };
 
 export function emptyForm(): SessionForm {
@@ -53,6 +58,9 @@ export function emptyForm(): SessionForm {
     recurrence: NEVER_RECURRENCE,
     horseIds: [],
     completed: false,
+    riderUserId: null,
+    riderName: "",
+    riderOther: false,
   };
 }
 
@@ -69,5 +77,8 @@ export function formFromSession(session: TrainingSession): SessionForm {
     recurrence: NEVER_RECURRENCE,
     horseIds: [],
     completed: session.completed,
+    riderUserId: session.riderUserId ?? null,
+    riderName: session.riderName ?? "",
+    riderOther: !session.riderUserId && !!session.riderName,
   };
 }

@@ -37,7 +37,8 @@ toujours les prix du store : ils se règlent dans App Store Connect.
 1. Exécuter `packages/db/prisma/ecurie-pro-1-type-2026-11-08.sql` **seul**.
 2. Puis `packages/db/prisma/ecurie-pro-2-regles-2026-11-08.sql`.
 3. Écurie Pro v2, droits par rôle : `ecurie-pro-v2-1-roles-2026-11-08.sql`
-   **seul**, puis `ecurie-pro-v2-2-droits-2026-11-08.sql`. Testés sur une base
+   **seul**, puis `ecurie-pro-v2-2-droits-2026-11-08.sql`, puis
+   `ecurie-pro-v2-3-seances-2026-11-08.sql` (séance attribuée, « C'est fait »). Testés sur une base
    dans l'état actuel de la prod et rejouables (`pnpm --filter @cheval/db
    test:rls` vérifie les règles sur un Postgres local).
 
@@ -52,6 +53,8 @@ toujours les prix du store : ils se règlent dans App Store Connect.
 - Un compte Premium voit « Passer à Écurie Pro » et n'est pas facturé deux fois.
 - Droits : une demi-pension ne voit plus le Budget, ne peut ni modifier ni
   supprimer un soin, et coche seulement ses propres séances.
+- Séance attribuée : le propriétaire attribue une séance à la DP ; elle la
+  voit (« Tu montes »), la coche ; le propriétaire voit « Monté par Léa ».
 
 ## Mesure (PostHog)
 `pro_paywall_viewed`, `pro_cta_tapped`, `purchase_started` / `purchase_completed`
