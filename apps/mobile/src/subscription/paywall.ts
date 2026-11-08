@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { router } from "expo-router";
-import { isPurchasesAvailable, loadPaywallOffer, type PaywallOffer } from "@/lib/revenuecat";
+import { isPurchasesAvailable, loadPaywallOffer, type PaywallOffer, type Plan } from "@/lib/revenuecat";
 import { track } from "@/lib/analytics";
 import type { PaywallPlacement } from "./paywallLogic";
 
@@ -26,18 +26,20 @@ const DEV_OFFER: PaywallOffer = {
   ANNUAL: { price: 39.99, priceString: "39,99 €", currencyCode: "EUR", storefrontCountry: "FRA", pricePerMonthString: "3,33 €", trialEligible: true, hasFreeTrialOffer: true, trialUnit: "MONTH", trialCount: 1 },
 };
 
-let cached: Promise<PaywallOffer> | null = null;
+/** Une offre en cache par formule (Premium, Écurie Pro). */
+const cached: Partial<Record<Plan, Promise<PaywallOffer>>> = {};
 
-function fetchOffer(): Promise<PaywallOffer> {
-  if (!isPurchasesAvailable()) return Promise.resolve(__DEV__ ? DEV_OFFER : {});
+function fetchOffer(plan: Plan): Promise<PaywallOffer> {
+  if (!isPurchasesAvailable()) return Promise.resolve(__DEV__ && plan === "premium" ? DEV_OFFER : {});
   const timeout = new Promise<PaywallOffer>((resolve) => setTimeout(() => resolve({}), OFFER_TIMEOUT_MS));
-  return Promise.race([loadPaywallOffer().catch(() => ({})), timeout]);
+  return Promise.race([loadPaywallOffer(plan).catch(() => ({})), timeout]);
 }
 
 /** Relit l'offre au prochain affichage — à appeler après un achat, une
  * restauration ou un changement de compte (l'éligibilité à l'essai change). */
 export function invalidatePaywallOffer(): void {
-  cached = null;
+  delete cached.premium;
+  delete cached.pro;
 }
 
 // L'offre reste en cache pour toute la durée du process JS (cf. `cached`
@@ -55,28 +57,30 @@ AppState.addEventListener("change", (next) => {
   if (next === "active") invalidatePaywallOffer();
 });
 
-function getOffer(): Promise<PaywallOffer> {
-  if (!cached) {
-    cached = fetchOffer().then((offer) => {
+function getOffer(plan: Plan): Promise<PaywallOffer> {
+  let pending = cached[plan];
+  if (!pending) {
+    pending = fetchOffer(plan).then((offer) => {
       // Un résultat vide (réseau, store muet) n'est pas mis en cache : on
       // retentera au prochain affichage plutôt que de rester sans prix réels.
-      if (Object.keys(offer).length === 0) cached = null;
+      if (Object.keys(offer).length === 0) delete cached[plan];
       return offer;
     });
+    cached[plan] = pending;
   }
-  return cached;
+  return pending;
 }
 
 /** `undefined` tant que l'offre charge (l'UI n'affiche alors ni prix
  * définitif ni promesse d'essai), puis l'offre — éventuellement vide.
  * `retry` relance le chargement (offre vide : store injoignable). */
-export function usePaywallOfferState(): { offer: PaywallOffer | undefined; retry: () => void } {
+export function usePaywallOfferState(plan: Plan = "premium"): { offer: PaywallOffer | undefined; retry: () => void } {
   const [offer, setOffer] = useState<PaywallOffer | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
-    getOffer().then((o) => {
+    getOffer(plan).then((o) => {
       if (cancelled) return;
       setOffer(o);
       // Monté avant la configuration de RevenueCat (premier écran au
@@ -85,7 +89,7 @@ export function usePaywallOfferState(): { offer: PaywallOffer | undefined; retry
       // alors que l'essai est disponible.
       if (Object.keys(o).length === 0 && !isPurchasesAvailable()) {
         retry = setTimeout(() => {
-          getOffer().then((again) => {
+          getOffer(plan).then((again) => {
             if (!cancelled) setOffer(again);
           });
         }, 2000);
@@ -95,7 +99,7 @@ export function usePaywallOfferState(): { offer: PaywallOffer | undefined; retry
       cancelled = true;
       if (retry) clearTimeout(retry);
     };
-  }, [attempt]);
+  }, [attempt, plan]);
   return {
     offer,
     retry: () => {

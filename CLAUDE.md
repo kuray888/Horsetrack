@@ -47,6 +47,16 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
 - Jamais : faux compte à rebours, fausse rareté, avis ou chiffres inventés,
   prix barré jamais pratiqué, bouton de fermeture retardé.
 
+## Formules
+
+- Gratuit (1 cheval), **Premium** (`grand_prix`), **Écurie Pro**
+  (`ecurie_pro`, cf. docs/ecurie-pro.md). Les produits Pro portent aussi
+  l'entitlement Premium : `isActiveOrTrialing` reste vrai pour un compte Pro ;
+  `isPro` n'ajoute que les avantages Pro.
+- Toute limite liée à une formule est appliquée côté serveur (rls.sql,
+  apps/api/src/lib/plans.ts) ET reflétée dans l'app (subscription/logic.ts) —
+  jamais seulement dans l'app.
+
 ## Relances (Premium, retour, avis) — une seule politique
 
 Chaque relance a sa logique pure testée et ses plafonds ; ne jamais en

@@ -37,6 +37,8 @@ export type AnalyticsEvent =
   | "paywall_dismissed"
   | "paywall_compare_opened"
   | "free_tier_chosen"
+  | "pro_paywall_viewed"
+  | "pro_cta_tapped"
   | "locked_feature_tapped"
   // Achat
   | "purchase_started"

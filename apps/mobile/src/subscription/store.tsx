@@ -20,10 +20,13 @@ import {
   isPurchasesAvailable,
   loginRevenueCat,
   logoutRevenueCat,
+  PRO_ENTITLEMENT_ID,
+  type Plan,
 } from "@/lib/revenuecat";
 import {
   DEFAULT_SUBSCRIPTION_STATE as DEFAULT,
   computeIsActiveOrTrialing,
+  computeIsPro,
   FREE_HORSE_LIMIT,
   maxHorses,
 } from "./logic";
@@ -59,6 +62,8 @@ type SubscriptionContextValue = Persisted & {
   /** true tant qu'un abonnement Premium (actif ou en essai) couvre le
    * compte — gate des fonctionnalités payantes uniquement, cf. <Locked>. */
   isActiveOrTrialing: boolean;
+  /** Écurie Pro en cours (cf. computeIsPro) — inclut tout Premium. */
+  isPro: boolean;
   loading: boolean;
   /** Démarre l'essai Premium d'1 mois en mode simulation locale (utilisé
    * seulement si RevenueCat n'est pas encore configuré, cf. useSubscribeFlow). */
@@ -104,20 +109,24 @@ function billingPeriodFromProductId(productId: string): BillingPeriod | null {
  * RevenueCat (ambassadeurs, `store: "PROMOTIONAL"`) est marqué `promotional`
  * à part : il n'a pas de formule et ne sera jamais prélevé. */
 async function persistedFromCustomerInfo(info: CustomerInfo): Promise<Persisted> {
-  const entitlement = info.entitlements.active[ENTITLEMENT_ID];
+  // Les produits Pro portent aussi l'entitlement Premium ; le second terme
+  // couvre une configuration RevenueCat où ils ne porteraient que Pro.
+  const pro = info.entitlements.active[PRO_ENTITLEMENT_ID];
+  const entitlement = info.entitlements.active[ENTITLEMENT_ID] ?? pro;
   if (!entitlement) return { ...DEFAULT };
+  const plan: Plan = pro ? "pro" : "premium";
 
   if (entitlement.store === "PROMOTIONAL") {
-    return { status: "active", billingPeriod: null, trialEndsAt: null, promotional: true };
+    return { status: "active", billingPeriod: null, trialEndsAt: null, promotional: true, plan };
   }
   let billingPeriod = billingPeriodFromProductId(entitlement.productIdentifier);
   if (billingPeriod === null) {
     billingPeriod = await billingPeriodOfProduct(entitlement.productIdentifier).catch(() => null);
   }
   if (entitlement.periodType === "TRIAL") {
-    return { status: "trialing", billingPeriod, trialEndsAt: entitlement.expirationDate };
+    return { status: "trialing", billingPeriod, trialEndsAt: entitlement.expirationDate, plan };
   }
-  return { status: "active", billingPeriod, trialEndsAt: null };
+  return { status: "active", billingPeriod, trialEndsAt: null, plan };
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -405,6 +414,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       isActiveOrTrialing: computeIsActiveOrTrialing(state),
+      isPro: computeIsPro(state),
       loading,
       startTrial,
       refresh,
@@ -453,10 +463,12 @@ export function useSubscribeFlow() {
       period: BillingPeriod,
       onSuccess: (persisted: Persisted) => void | Promise<void>,
       /** Contexte d'ouverture du paywall, pour les événements analytics. */
-      placement: string = "unknown"
+      placement: string = "unknown",
+      /** Formule achetée : Premium (par défaut) ou Écurie Pro. */
+      plan: Plan = "premium"
     ) => {
       setSubmitting(true);
-      track("purchase_started", { period, placement, ...promoAnalyticsProps(getPromoContext()) });
+      track("purchase_started", { period, placement, plan, ...promoAnalyticsProps(getPromoContext()) });
       try {
         if (!isPurchasesAvailable()) {
           // La simulation locale (30 jours de Premium accordés sans aucun
@@ -490,7 +502,7 @@ export function useSubscribeFlow() {
           return;
         }
 
-        const pkg = await getSubscriptionPackage(period);
+        const pkg = await getSubscriptionPackage(period, plan);
         if (!pkg) {
           track("purchase_failed", { period, placement, reason: "package_missing" });
           Alert.alert(t("Indisponible"), t("Cette offre n'est pas encore configurée. Réessaie plus tard."));
@@ -511,7 +523,7 @@ export function useSubscribeFlow() {
         // pendant l'onboarding supprimés juste après un abonnement Premium
         // réussi, car maxHorses() lisait encore l'état pré-achat.
         const persisted = await persistedFromCustomerInfo(customerInfo);
-        track("purchase_completed", { period, placement, status: persisted.status, ...promoAnalyticsProps(getPromoContext()) });
+        track("purchase_completed", { period, placement, plan, status: persisted.status, ...promoAnalyticsProps(getPromoContext()) });
         // L'éligibilité à l'essai vient d'être consommée : l'offre en cache
         // (cf. usePaywallOffer) ne doit plus la promettre.
         invalidatePaywallOffer();

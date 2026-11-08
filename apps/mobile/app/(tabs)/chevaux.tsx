@@ -252,6 +252,34 @@ function ChevauxScreen() {
         </FadeInView>
       ) : null}
 
+      {/* Vue écurie (Écurie Pro) : utile dès deux chevaux. Ouverte aussi
+          sans Pro, où elle présente l'offre (cf. app/ecurie.tsx). */}
+      {ownedHorses.length > 1 ? (
+        <FadeInView delay={30}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => router.push("/ecurie")}
+            activeOpacity={0.85}
+            testID="open-stable-view"
+            className="flex-row items-center gap-3 rounded-card bg-surface p-4 shadow-card"
+          >
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
+              <MaterialCommunityIcons name="view-dashboard-outline" size={20} color={colors.primary} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-bold text-text">{t("Vue écurie")}</Text>
+              <Text className="text-[13px] text-muted">{t("Soins en retard et semaine de chaque cheval")}</Text>
+            </View>
+            {subscription.isPro ? null : (
+              <View className="rounded-full bg-primary px-2 py-0.5">
+                <Text className="text-[11px] font-bold text-on-primary">{t("Pro")}</Text>
+              </View>
+            )}
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        </FadeInView>
+      ) : null}
+
       {ownedHorses.length > 0 ? (
         <>
           <FadeInView delay={40}>

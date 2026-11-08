@@ -7,6 +7,7 @@ import { Field } from "@/components/Field";
 import { PrimaryButton } from "@/components/onboarding";
 import { useHorses } from "@/horses/store";
 import { useSubscription } from "@/subscription/store";
+import { collaboratorLimit } from "@/subscription/logic";
 import { openPaywall } from "@/subscription/paywall";
 import { markPremiumActivated } from "@/subscription/trialLifecycle";
 import { track } from "@/lib/analytics";
@@ -76,7 +77,8 @@ function ShareLocked({ horseId, horseName }: { horseId?: string; horseName?: str
 export default function ShareHorseModal() {
   const { horseId } = useLocalSearchParams<{ horseId: string }>();
   const { horses } = useHorses();
-  const { isActiveOrTrialing } = useSubscription();
+  const subscription = useSubscription();
+  const { isActiveOrTrialing, isPro } = subscription;
   const horse = horses.find((h) => h.id === horseId);
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -120,7 +122,10 @@ export default function ShareHorseModal() {
     );
   }
 
-  const atLimit = collaborators.length >= 1;
+  // 1 personne en Premium, 5 en Écurie Pro (même règle que le serveur, cf.
+  // rls.sql horse_collaborator_limit).
+  const limit = collaboratorLimit(subscription);
+  const atLimit = collaborators.length >= limit;
 
   async function handleInvite() {
     const trimmed = email.trim().toLowerCase();
@@ -252,10 +257,26 @@ export default function ShareHorseModal() {
         )}
 
         {loadError ? null : atLimit ? (
-          <View className={`${CARD} items-center gap-2`}>
-            <Text className="text-sm text-muted">
-              {t("Limite d'un·e collaborateur·rice par cheval atteinte — révoque l'accès actuel pour en inviter un·e autre.")}
+          <View className={`${CARD} items-center gap-3`}>
+            <Text className="text-center text-sm text-muted">
+              {isPro
+                ? t("Limite de 5 personnes par cheval atteinte — révoque un accès pour en inviter une autre.")
+                : t("Limite d'un·e collaborateur·rice par cheval atteinte — révoque l'accès actuel pour en inviter un·e autre.")}
             </Text>
+            {isPro ? null : (
+              <TouchableOpacity
+                onPress={() => {
+                  track("locked_feature_tapped", { feature: "collaborator_limit", placement: "pro" });
+                  router.push("/pro");
+                }}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                testID="share-pro"
+                className="w-full items-center rounded-card bg-primary p-3"
+              >
+                <Text className="text-sm font-bold text-on-primary">{t("Jusqu'à 5 personnes avec Écurie Pro")}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View className={`${CARD} gap-3`}>

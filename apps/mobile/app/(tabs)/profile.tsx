@@ -722,6 +722,17 @@ function ProfileScreen() {
             </>
           ) : null}
           <View className="border-t border-border" />
+          <LinkRow
+            icon="view-dashboard-outline"
+            label={subscription.isPro ? tr("Écurie Pro · active") : tr("Écurie Pro")}
+            description={
+              subscription.isPro
+                ? tr("Vue écurie, 5 personnes par cheval, coach ×3")
+                : tr("Pour plusieurs chevaux : 5 personnes par cheval, vue écurie, coach ×3")
+            }
+            onPress={() => router.push(subscription.isPro ? "/ecurie" : "/pro")}
+          />
+          <View className="border-t border-border" />
           {/* Restauration et pages légales : aussi exigées hors du paywall
               (règles App Store 3.1.1 et 5.1.1) — un cavalier qui réinstalle
               l'app ou veut relire ses droits les trouve ici. */}

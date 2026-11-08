@@ -45,7 +45,7 @@ function close() {
 export default function CoachScreen() {
   const colors = useThemeColors();
   const { selectedHorse } = useHorses();
-  const { isActiveOrTrialing } = useSubscription();
+  const { isActiveOrTrialing, isPro } = useSubscription();
   const contacts = useContacts();
   const ctx = useCoachContext(selectedHorse ?? null);
   const [status, setStatus] = useState<CoachStatus | null>(null);
@@ -98,7 +98,11 @@ export default function CoachScreen() {
       setQuestion("");
       if (r.questionsLeft !== undefined) setStatus((s) => (s ? { ...s, questionsLeft: r.questionsLeft! } : s));
     } else if (r.status === "quota") {
-      setNotice(t("Tu as posé tes {n} questions du mois. Le compteur repart le 1er.", { n: status?.questionsLimit ?? 30 }));
+      setNotice(
+        isPro
+          ? t("Tu as posé tes {n} questions du mois. Le compteur repart le 1er.", { n: status?.questionsLimit ?? 100 })
+          : t("Tu as posé tes {n} questions du mois. Le compteur repart le 1er, ou passe à Écurie Pro pour 100 questions par mois.", { n: status?.questionsLimit ?? 30 })
+      );
     } else if (r.status === "premium") {
       openPaywall("coach", { feature: "coach_question" });
     } else if (r.status === "unavailable") {

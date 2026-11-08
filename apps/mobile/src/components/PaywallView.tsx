@@ -229,7 +229,7 @@ function PromoCodeField({
 /** Carte de formule sélectionnable. Le montant FACTURÉ est l'élément de prix
  * le plus visible ; l'équivalent mensuel reste subordonné (règle App Store
  * 3.1.2). Les deux cartes ont la même taille : le mensuel n'est pas caché. */
-function PlanCard({
+export function PlanCard({
   label,
   price,
   sub,

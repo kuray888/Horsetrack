@@ -40,14 +40,24 @@ const Purchases: PurchasesStatic | null = purchasesModule?.default ?? null;
  */
 export const ENTITLEMENT_ID = "grand_prix";
 
+/** Écurie Pro (cf. apps/api/src/lib/plans.ts) : ses produits portent AUSSI
+ * l'entitlement Premium dans RevenueCat, si bien que tout ce qui est Premium
+ * reste ouvert ; celui-ci ne fait qu'ajouter les avantages Pro. */
+export const PRO_ENTITLEMENT_ID = "ecurie_pro";
+
+/** Offre RevenueCat dédiée à Écurie Pro (Offerings → identifiant exact). */
+const PRO_OFFERING_ID = "ecurie_pro";
+
+export type Plan = "premium" | "pro";
+
 /** Identifiants de package RevenueCat — custom (pas les `$rc_monthly`/`$rc_annual`
  * spéciaux, réservés à une offering à un seul produit) : le palier unique ×
  * 2 fréquences, à créer avec ces identifiants exacts dans le dashboard
  * RevenueCat. Plus d'add-on "cheval supplémentaire" depuis le pivot chevaux
  * illimités du 2026-09-05 (v3) — Premium n'a plus de quota à contourner. */
-const PACKAGE_IDENTIFIER: Record<BillingPeriod, string> = {
-  MONTHLY: "grand_prix_monthly",
-  ANNUAL: "grand_prix_annual",
+const PACKAGE_IDENTIFIER: Record<Plan, Record<BillingPeriod, string>> = {
+  premium: { MONTHLY: "grand_prix_monthly", ANNUAL: "grand_prix_annual" },
+  pro: { MONTHLY: "ecurie_pro_monthly", ANNUAL: "ecurie_pro_annual" },
 };
 
 let configured = false;
@@ -105,21 +115,25 @@ export async function logoutRevenueCat(): Promise<void> {
   await Purchases.logOut();
 }
 
-export async function getSubscriptionPackage(period: BillingPeriod): Promise<PurchasesPackage | null> {
+export async function getSubscriptionPackage(period: BillingPeriod, plan: Plan = "premium"): Promise<PurchasesPackage | null> {
   if (!configured || !Purchases) return null;
   const offerings = await Purchases.getOfferings();
-  const current = offerings.current;
-  if (!current) return null;
-  return current.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[period]) ?? null;
+  // Pro : son offre dédiée, à défaut l'offre courante (si les packages Pro y
+  // ont été ajoutés).
+  const offering = plan === "pro" ? offerings.all[PRO_OFFERING_ID] ?? offerings.current : offerings.current;
+  if (!offering) return null;
+  return offering.availablePackages.find((p) => p.identifier === PACKAGE_IDENTIFIER[plan][period]) ?? null;
 }
 
 /** Formule (mensuelle/annuelle) d'un produit du store, retrouvée en le
  * comparant aux produits de l'offre courante — indépendant de la façon dont
  * les identifiants de produit sont nommés dans App Store Connect. */
 export async function billingPeriodOfProduct(productId: string): Promise<BillingPeriod | null> {
-  for (const period of ["MONTHLY", "ANNUAL"] as const) {
-    const pkg = await getSubscriptionPackage(period).catch(() => null);
-    if (pkg?.product.identifier === productId) return period;
+  for (const plan of ["premium", "pro"] as const) {
+    for (const period of ["MONTHLY", "ANNUAL"] as const) {
+      const pkg = await getSubscriptionPackage(period, plan).catch(() => null);
+      if (pkg?.product.identifier === productId) return period;
+    }
   }
   return null;
 }
@@ -146,10 +160,10 @@ export async function billingPeriodOfProduct(productId: string): Promise<Billing
  * d'essai gratuit de l'UI, pour ne jamais facturer quelqu'un à qui l'app
  * venait d'annoncer "1 mois gratuit".
  */
-export async function isTrialEligible(period: BillingPeriod): Promise<boolean | null> {
+export async function isTrialEligible(period: BillingPeriod, plan: Plan = "premium"): Promise<boolean | null> {
   if (!configured || !Purchases) return null;
   try {
-    const pkg = await getSubscriptionPackage(period);
+    const pkg = await getSubscriptionPackage(period, plan);
     if (!pkg || !pkg.product.introPrice) return false;
 
     if (Platform.OS !== "ios") {
@@ -222,26 +236,27 @@ export function storePriceString(pkg: PurchasesPackage, period: BillingPeriod): 
 /** Charge les deux formules en un seul passage (offerings + éligibilité).
  * `{}` si RevenueCat n'est pas disponible — l'appelant retombe alors sur ses
  * prix de repli et ne promet aucun essai. */
-export async function loadPaywallOffer(): Promise<PaywallOffer> {
+export async function loadPaywallOffer(plan: Plan = "premium"): Promise<PaywallOffer> {
   if (!configured || !Purchases) return {};
   const storefrontCountry = await getStorefrontCountry();
   const periods: BillingPeriod[] = ["MONTHLY", "ANNUAL"];
   const entries = await Promise.all(
     periods.map(async (period): Promise<[BillingPeriod, PaywallPlanInfo] | null> => {
       try {
-        const pkg = await getSubscriptionPackage(period);
+        const pkg = await getSubscriptionPackage(period, plan);
         if (!pkg) return null;
         const intro = pkg.product.introPrice;
         const isFreeTrial = !!intro && intro.price === 0;
         const { currencyCode } = pkg.product;
         // Prix affiché : euros fixes (FORCE_EUR_PRICES) ou celui du store.
-        const price = FORCE_EUR_PRICES ? FALLBACK_PRICE[period].price : pkg.product.price;
-        const shownCurrency = FORCE_EUR_PRICES ? "EUR" : currencyCode;
+        const forceEur = FORCE_EUR_PRICES && plan === "premium";
+        const price = forceEur ? FALLBACK_PRICE[period].price : pkg.product.price;
+        const shownCurrency = forceEur ? "EUR" : currencyCode;
         return [
           period,
           {
             price,
-            priceString: storePriceString(pkg, period),
+            priceString: plan === "premium" ? storePriceString(pkg, period) : formatStorePrice(pkg.product.price, pkg.product.currencyCode) ?? pkg.product.priceString,
             currencyCode: currencyCode ?? null,
             storefrontCountry,
             // Équivalent mensuel arrondi au centime inférieur, comme le fait le
@@ -250,7 +265,7 @@ export async function loadPaywallOffer(): Promise<PaywallOffer> {
               formatStorePrice(period === "ANNUAL" ? Math.floor((price / 12) * 100) / 100 : price, shownCurrency) ??
               pkg.product.pricePerMonthString ??
               null,
-            trialEligible: isFreeTrial ? await isTrialEligible(period) : false,
+            trialEligible: isFreeTrial ? await isTrialEligible(period, plan) : false,
             hasFreeTrialOffer: isFreeTrial,
             trialUnit: isFreeTrial ? intro.periodUnit : null,
             trialCount: isFreeTrial ? intro.periodNumberOfUnits : null,

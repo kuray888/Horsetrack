@@ -18,6 +18,9 @@ export type Persisted = {
   /** Premium offert depuis RevenueCat (ambassadeurs, `store: "PROMOTIONAL"`) :
    * aucun abonnement store derrière, rien à gérer ni à acheter. */
   promotional?: boolean;
+  /** Formule payante : « pro » quand l'entitlement Écurie Pro est actif
+   * (absent des états enregistrés avant Écurie Pro : Premium). */
+  plan?: "premium" | "pro";
 };
 
 export const DEFAULT_SUBSCRIPTION_STATE: Persisted = {
@@ -33,6 +36,17 @@ export function computeIsActiveOrTrialing(s: Pick<Persisted, "status" | "trialEn
     return new Date(s.trialEndsAt).getTime() > Date.now();
   }
   return false;
+}
+
+/** Écurie Pro en cours (actif ou en essai). */
+export function computeIsPro(s: Pick<Persisted, "status" | "trialEndsAt" | "plan">): boolean {
+  return computeIsActiveOrTrialing(s) && s.plan === "pro";
+}
+
+/** Personnes avec qui chaque cheval peut être partagé — doit rester aligné sur
+ * `horse_collaborator_limit` (packages/db/prisma/rls.sql). */
+export function collaboratorLimit(s: Pick<Persisted, "status" | "trialEndsAt" | "plan">): number {
+  return computeIsPro(s) ? 5 : 1;
 }
 
 /** Nombre de chevaux autorisés pour un état d'abonnement donné — 1 en

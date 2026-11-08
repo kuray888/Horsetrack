@@ -237,6 +237,8 @@ function AppStack() {
       <Stack.Screen name="comments" options={{ presentation: "modal" }} />
       <Stack.Screen name="library" options={{ presentation: "modal" }} />
       <Stack.Screen name="search" options={{ presentation: "modal" }} />
+      <Stack.Screen name="pro" options={{ presentation: "modal" }} />
+      <Stack.Screen name="ecurie" options={{ presentation: "modal" }} />
       <Stack.Screen name="change-password-modal" options={{ presentation: "modal" }} />
       <Stack.Screen name="reset-password" />
       <Stack.Screen name="auth-callback" options={{ animation: "none" }} />
