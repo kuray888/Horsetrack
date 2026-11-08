@@ -22,7 +22,9 @@ export type PaywallPlacement =
   | "ride_safety"
   | "coach"
   /** Relance périodique d'un compte gratuit actif (cf. premiumNudgeLogic.ts). */
-  | "reminder";
+  | "reminder"
+  /** Abonné mensuel invité à passer à l'annuel (carte Premium du Profil). */
+  | "annual_upgrade";
 
 export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "onboarding",
@@ -38,6 +40,7 @@ export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "ride_safety",
   "coach",
   "reminder",
+  "annual_upgrade",
 ];
 
 export function parsePlacement(value: unknown): PaywallPlacement {
@@ -170,6 +173,12 @@ export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = 
         icon: "star-outline",
         title: tr("Va plus loin avec {first}.", { first: first }),
         subtitle: tr("Un rappel avant chaque soin, tous ses papiers rangés, un coach pour tes séances et autant de chevaux que tu veux."),
+      };
+    case "annual_upgrade":
+      return {
+        icon: "calendar-check-outline",
+        title: tr("Passe à l'annuel, paie moins."),
+        subtitle: tr("Les mêmes fonctionnalités, facturées une fois par an. Le changement passe par ton compte Apple, sans double paiement."),
       };
     case "profile":
     default:

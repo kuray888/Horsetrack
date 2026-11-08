@@ -9,9 +9,9 @@ import { supabase } from "@/lib/supabase";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { useSubscribeFlow, useSubscription } from "@/subscription/store";
-import { openPaywall } from "@/subscription/paywall";
+import { openPaywall, usePaywallOfferState } from "@/subscription/paywall";
 import { unregisterPushToken } from "@/lib/pushRegistration";
-import { formatFullDate } from "@/subscription/paywallLogic";
+import { annualSavingsPercent, formatFullDate } from "@/subscription/paywallLogic";
 import { openManageSubscriptions } from "@/lib/revenuecat";
 import { track } from "@/lib/analytics";
 import { DOWNLOAD_URL, SUPPORT_EMAIL, canOpenWriteReview, legalUrl, openLegalPage, openSupportEmail, openWriteReview, type LegalPage } from "@/lib/links";
@@ -140,6 +140,8 @@ function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
   const subscription = useSubscription();
   const { restoring, restore } = useSubscribeFlow();
+  // Prix du store, pour chiffrer l'économie de l'annuel (même cache que le paywall).
+  const { offer } = usePaywallOfferState();
   const {
     status,
     billingPeriod,
@@ -335,6 +337,11 @@ function ProfileScreen() {
   // Premium offert (ambassadeurs) : pas d'abonnement store derrière — ni
   // « Gérer », ni paywall, ni avertissement de résiliation.
   const storeManaged = isActiveOrTrialing && !promotional && (status === "active" || billingPeriod !== null);
+  // Abonné mensuel : on propose l'annuel, avec l'économie calculée sur les
+  // prix du store (jamais annoncée tant qu'ils ne sont pas chargés).
+  const monthlySubscriber = storeManaged && status === "active" && billingPeriod === "MONTHLY";
+  const annualSavings =
+    offer?.MONTHLY && offer?.ANNUAL ? annualSavingsPercent(offer.MONTHLY.price, offer.ANNUAL.price) : null;
 
   function subscriptionLabel(): string {
     if (subLoading) return "Chargement…";
@@ -388,6 +395,10 @@ function ProfileScreen() {
                 ? tr("Fin de l'essai le {formatFullDate}", { formatFullDate: formatFullDate(new Date(trialEndsAt)) })
                 : isActiveOrTrialing && promotional
                   ? tr("Offert par Horsetrack — aucun paiement")
+                  : monthlySubscriber
+                  ? annualSavings
+                    ? tr("Passe à l'annuel : −{savings} % sur l'année", { savings: annualSavings })
+                    : tr("Passe à l'annuel pour payer moins")
                   : isActiveOrTrialing
                   ? tr("Profite de toutes les fonctionnalités Premium")
                   : tr("1 cheval, planning et agenda gratuits — passe à Premium pour plus")}
@@ -404,14 +415,14 @@ function ProfileScreen() {
           <TouchableOpacity
             onPress={() => {
               if (storeManaged) track("manage_subscription_opened", { status });
-              openPaywall(isActiveOrTrialing && status === "trialing" ? "trial_ending" : "profile");
+              openPaywall(monthlySubscriber ? "annual_upgrade" : isActiveOrTrialing && status === "trialing" ? "trial_ending" : "profile");
             }}
             activeOpacity={0.8}
             accessibilityRole="button"
             testID="profile-premium"
           >
             <Text className={`text-sm font-bold ${isActiveOrTrialing ? "text-on-primary" : "text-accent"}`}>
-              {storeManaged ? tr("Gérer") : isActiveOrTrialing ? tr("Garder Premium") : tr("Voir Premium")}
+              {monthlySubscriber ? tr("Passer à l'annuel") : storeManaged ? tr("Gérer") : isActiveOrTrialing ? tr("Garder Premium") : tr("Voir Premium")}
             </Text>
           </TouchableOpacity>
           )}
