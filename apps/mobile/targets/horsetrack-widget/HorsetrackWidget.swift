@@ -6,6 +6,12 @@ import WidgetKit
 private let appGroup = "group.com.horsetrack.app"
 private let widgetKey = "widgetData"
 
+/// Même règle que l'app (src/i18n) : français si le téléphone est en
+/// français, anglais pour toutes les autres langues.
+private let isFrench = Locale.preferredLanguages.first?.lowercased().hasPrefix("fr") ?? true
+
+private func L(_ fr: String, _ en: String) -> String { isFrench ? fr : en }
+
 /// Champs ajoutés après la première version : optionnels, pour relire sans
 /// erreur ce qu'une ancienne version de l'app a écrit.
 struct WidgetData: Codable {
@@ -59,12 +65,12 @@ private func whenLabel(day: String?, time: String?, now: Date) -> String? {
     let cal = Calendar.current
     var label: String
     if cal.isDate(date, inSameDayAs: now) {
-        label = "Aujourd'hui"
+        label = L("Aujourd'hui", "Today")
     } else if let tomorrow = cal.date(byAdding: .day, value: 1, to: now), cal.isDate(date, inSameDayAs: tomorrow) {
-        label = "Demain"
+        label = L("Demain", "Tomorrow")
     } else {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "fr_FR")
+        f.locale = Locale(identifier: isFrench ? "fr_FR" : "en_GB")
         f.setLocalizedDateFormatFromTemplate("EEEdMMM")
         label = f.string(from: date)
     }
@@ -147,7 +153,11 @@ private struct WeekProgress: View {
                 }
             }
             .frame(height: 4)
-            Text(total > 0 ? "\(done)/\(total) séance\(total > 1 ? "s" : "") cette semaine" : "Aucune séance cette semaine")
+            Text(
+                total > 0
+                    ? L("\(done)/\(total) séance\(total > 1 ? "s" : "") cette semaine", "\(done)/\(total) session\(total > 1 ? "s" : "") this week")
+                    : L("Aucune séance cette semaine", "No sessions this week")
+            )
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -178,7 +188,7 @@ private struct TodayBlock: View {
                 Text(details).font(.system(size: 11)).foregroundStyle(.secondary)
             }
         } else {
-            Text("Pas de séance prévue")
+            Text(L("Pas de séance prévue", "No session planned"))
                 .font(.system(size: titleSize - 1, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -192,7 +202,7 @@ private struct EmptyStateView: View {
             Image(systemName: "figure.equestrian.sports")
                 .font(.system(size: 22))
                 .foregroundStyle(Color.accentColor)
-            Text("Ouvre Horsetrack pour afficher ta journée")
+            Text(L("Ouvre Horsetrack pour afficher ta journée", "Open Horsetrack to see your day"))
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(3)
         }
@@ -241,7 +251,7 @@ struct MediumView: View {
         if let data = entry.data {
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("AUJOURD'HUI")
+                    Text(L("AUJOURD'HUI", "TODAY"))
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .kerning(0.5)
@@ -259,7 +269,7 @@ struct MediumView: View {
                 Rectangle().fill(.secondary.opacity(0.2)).frame(width: 1)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("ENSUITE")
+                    Text(L("ENSUITE", "NEXT"))
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .kerning(0.5)
@@ -268,13 +278,16 @@ struct MediumView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .lineLimit(3)
                     } else {
-                        Text("Rien de prévu")
+                        Text(L("Rien de prévu", "Nothing planned"))
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 4)
                     if let alerts = data.alertsCount, alerts > 0 {
-                        Label("\(alerts) point\(alerts > 1 ? "s" : "") à surveiller", systemImage: "exclamationmark.triangle.fill")
+                        Label(
+                            L("\(alerts) point\(alerts > 1 ? "s" : "") à surveiller", "\(alerts) thing\(alerts > 1 ? "s" : "") to watch"),
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.orange)
                             .lineLimit(1)
@@ -289,6 +302,64 @@ struct MediumView: View {
     }
 }
 
+// MARK: - Écran verrouillé
+
+/// Séance du jour en une ligne (« Dressage · 18:00 »), ou rien de prévu.
+private func todayLine(_ entry: HorsetrackEntry) -> String {
+    guard let data = entry.data, entry.isCurrentDay, let title = data.todaySessionTitle else {
+        return L("Pas de séance prévue", "No session planned")
+    }
+    let prefix = data.todaySessionDone == true ? "✓ " : ""
+    return [prefix + title, data.todaySessionTime].compactMap { $0 }.joined(separator: " · ")
+}
+
+struct RectangularView: View {
+    let entry: HorsetrackEntry
+
+    var body: some View {
+        if let data = entry.data {
+            VStack(alignment: .leading, spacing: 1) {
+                Label(data.horseName, systemImage: "figure.equestrian.sports")
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                Text(todayLine(entry))
+                    .font(.system(size: 14, weight: .bold))
+                    .lineLimit(1)
+                if let next = entry.nextEventLabel {
+                    Text(next).font(.system(size: 12)).lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Text(L("Ouvre Horsetrack", "Open Horsetrack")).font(.system(size: 13, weight: .semibold))
+        }
+    }
+}
+
+struct InlineView: View {
+    let entry: HorsetrackEntry
+
+    var body: some View {
+        Label(entry.data == nil ? "Horsetrack" : todayLine(entry), systemImage: "figure.equestrian.sports")
+    }
+}
+
+/// Jauge des séances faites cette semaine.
+struct CircularView: View {
+    let entry: HorsetrackEntry
+
+    var body: some View {
+        let done = entry.isCurrentDay ? entry.data?.weeklyDone ?? 0 : 0
+        let total = entry.isCurrentDay ? entry.data?.weeklyTotal ?? 0 : 0
+        Gauge(value: Double(min(done, max(total, 1))), in: 0...Double(max(total, 1))) {
+            Image(systemName: "figure.equestrian.sports")
+        } currentValueLabel: {
+            Text("\(done)/\(total)")
+        }
+        .gaugeStyle(.accessoryCircularCapacity)
+    }
+}
+
 // MARK: - Choix de la vue selon la taille
 
 struct HorsetrackWidgetEntryView: View {
@@ -299,6 +370,12 @@ struct HorsetrackWidgetEntryView: View {
         switch family {
         case .systemSmall:
             SmallView(entry: entry)
+        case .accessoryRectangular:
+            RectangularView(entry: entry)
+        case .accessoryInline:
+            InlineView(entry: entry)
+        case .accessoryCircular:
+            CircularView(entry: entry)
         default:
             MediumView(entry: entry)
         }
@@ -317,8 +394,8 @@ struct HorsetrackWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Horsetrack")
-        .description("Ta séance du jour, ta semaine et ce qui arrive ensuite.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .description(L("Ta séance du jour, ta semaine et ce qui arrive ensuite.", "Today's session, your week and what's next."))
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline, .accessoryCircular])
     }
 }
 
