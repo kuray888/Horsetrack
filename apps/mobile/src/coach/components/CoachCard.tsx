@@ -182,7 +182,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
             </TouchableOpacity>
           ) : null}
           {isActiveOrTrialing ? (
-            <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/coach")} hitSlop={6}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/coach")} hitSlop={6} testID="coach-open">
               <Text className="text-sm font-semibold text-accent">{t("Pose une question sur ton cheval")}</Text>
             </TouchableOpacity>
           ) : (

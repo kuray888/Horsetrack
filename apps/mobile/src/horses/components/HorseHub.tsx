@@ -383,6 +383,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
             <TouchableOpacity accessibilityRole="button"
               onPress={() => router.push(`/share-horse-modal?horseId=${horse.id}`)}
               activeOpacity={0.8}
+              testID="hub-share"
               className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
             >
               <MaterialCommunityIcons name="account-multiple-plus-outline" size={16} color={colors.text} />

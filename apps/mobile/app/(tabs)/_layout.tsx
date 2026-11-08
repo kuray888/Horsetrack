@@ -144,23 +144,23 @@ function JsTabs() {
     >
       <Tabs.Screen
         name="today"
-        options={{ title: t("Accueil"), tabBarIcon: ({ focused }) => <TabIcon name="today" focused={focused} /> }}
+        options={{ tabBarButtonTestID: "tab-today", title: t("Accueil"), tabBarIcon: ({ focused }) => <TabIcon name="today" focused={focused} /> }}
       />
       <Tabs.Screen
         name="chevaux"
-        options={{ title: t("Chevaux"), tabBarIcon: ({ focused }) => <TabIcon name="chevaux" focused={focused} /> }}
+        options={{ tabBarButtonTestID: "tab-chevaux", title: t("Chevaux"), tabBarIcon: ({ focused }) => <TabIcon name="chevaux" focused={focused} /> }}
       />
       <Tabs.Screen
         name="planning"
-        options={{ title: t("Planning"), tabBarIcon: ({ focused }) => <TabIcon name="planning" focused={focused} /> }}
+        options={{ tabBarButtonTestID: "tab-planning", title: t("Planning"), tabBarIcon: ({ focused }) => <TabIcon name="planning" focused={focused} /> }}
       />
       <Tabs.Screen
         name="journal"
-        options={{ title: t("Journal"), tabBarIcon: ({ focused }) => <TabIcon name="journal" focused={focused} /> }}
+        options={{ tabBarButtonTestID: "tab-journal", title: t("Journal"), tabBarIcon: ({ focused }) => <TabIcon name="journal" focused={focused} /> }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: t("Profil"), tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} /> }}
+        options={{ tabBarButtonTestID: "tab-profile", title: t("Profil"), tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} /> }}
       />
       {/* L'écran Agenda a été supprimé : ses trois sections ont rejoint la
           fiche cheval (app/horse/[id]/documents.tsx et budget.tsx) et le

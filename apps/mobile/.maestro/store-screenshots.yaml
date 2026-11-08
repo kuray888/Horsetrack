@@ -1,0 +1,94 @@
+# Captures brutes pour l'App Store (cf. tools/store-screenshots/README.md).
+# Lancé par tools/store-screenshots/capture.sh, qui fixe la barre d'état
+# (9:41, batterie pleine) et range les images. Compte de DÉMONSTRATION
+# Premium avec de vraies données (jamais un vrai client) : EMAIL, PASSWORD,
+# et HORSE = nom du cheval principal si l'écurie en compte plusieurs.
+appId: com.horsetrack.app
+tags:
+  - store
+---
+- runFlow: subflows/login.yaml
+- waitForAnimationToEnd
+
+# 1. Accueil
+- tapOn:
+    id: "tab-today"
+- waitForAnimationToEnd
+- takeScreenshot: today
+
+# 2. Fiche du cheval (onglet Chevaux : la fiche s'affiche directement pour
+#    un seul cheval, sinon on ouvre le cheval principal).
+- tapOn:
+    id: "tab-chevaux"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: "hub-sante"
+    commands:
+      - tapOn: ${HORSE}
+      - waitForAnimationToEnd
+- takeScreenshot: hub
+
+# 3. Santé
+- tapOn:
+    id: "hub-sante"
+- waitForAnimationToEnd
+- takeScreenshot: sante
+- swipe:
+    start: 2%, 50%
+    end: 90%, 50%
+    duration: 300
+- waitForAnimationToEnd
+
+# 4. Budget
+- tapOn:
+    id: "hub-budget"
+- waitForAnimationToEnd
+- takeScreenshot: budget
+- swipe:
+    start: 2%, 50%
+    end: 90%, 50%
+    duration: 300
+- waitForAnimationToEnd
+
+# 5. Partage avec la demi-pension
+- runFlow:
+    when:
+      visible:
+        id: "hub-share"
+    commands:
+      - tapOn:
+          id: "hub-share"
+      - waitForAnimationToEnd
+      - takeScreenshot: partage
+      - swipe:
+          start: 50%, 20%
+          end: 50%, 95%
+          duration: 300
+      - waitForAnimationToEnd
+
+# 6. Planning
+- tapOn:
+    id: "tab-planning"
+- waitForAnimationToEnd
+- takeScreenshot: planning
+
+# 7. Journal
+- tapOn:
+    id: "tab-journal"
+- waitForAnimationToEnd
+- takeScreenshot: journal
+
+# 8. Coach (Premium)
+- tapOn:
+    id: "tab-today"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "coach-open"
+    direction: DOWN
+- tapOn:
+    id: "coach-open"
+- waitForAnimationToEnd
+- takeScreenshot: coach

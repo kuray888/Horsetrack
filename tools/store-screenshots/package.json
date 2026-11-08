@@ -1,0 +1,13 @@
+{
+  "name": "horsetrack-store-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "Visuels App Store (6,9 pouces) à partir de captures du simulateur — hors workspace pnpm.",
+  "scripts": {
+    "render": "node render.mjs",
+    "setup": "npm install && npx playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}
