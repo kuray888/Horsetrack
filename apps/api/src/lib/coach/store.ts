@@ -1,6 +1,6 @@
 import { db } from "@cheval/db";
 import { isPremiumNow } from "@/lib/promoRules";
-import { COACH_MODEL, coachEnabled, monthlyBudgetUsd } from "@/lib/coach/config";
+import { COACH_MODEL, coachEnabled, monthlyBudgetUsd, quotasForTier, type CoachQuotas } from "@/lib/coach/config";
 import { toMicros, type CoachUsage } from "@/lib/coach/cost";
 
 /**
@@ -19,6 +19,16 @@ export async function isPremiumUser(userId: string): Promise<boolean> {
     select: { subscriptionStatus: true, trialEndsAt: true },
   });
   return !!rider && isPremiumNow(rider, new Date());
+}
+
+/** Quotas du coach pour ce compte, ou null s'il n'a pas Premium (ni Pro). */
+export async function coachAccess(userId: string): Promise<CoachQuotas | null> {
+  const rider = await db.riderProfile.findUnique({
+    where: { userId },
+    select: { subscriptionStatus: true, trialEndsAt: true, subscriptionTier: true },
+  });
+  if (!rider || !isPremiumNow(rider, new Date())) return null;
+  return quotasForTier(rider.subscriptionTier);
 }
 
 /** Le cheval appartient au compte, ou lui est partagé (accepté). */

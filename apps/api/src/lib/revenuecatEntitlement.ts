@@ -1,3 +1,5 @@
+import { tierFromEntitlementIds, type PaidTier } from "@/lib/plans";
+
 /**
  * Traduction d'un événement webhook RevenueCat en état d'abonnement serveur
  * (rider_profiles) — logique pure, sans Prisma, pour être testée seule (cf.
@@ -27,6 +29,8 @@ export const GRANT_EVENT_TYPES = new Set([
 
 export type RevenueCatEntitlementEvent = {
   type?: string;
+  /** Entitlements portés par l'événement : décident du palier (cf. lib/plans.ts). */
+  entitlement_ids?: string[];
   period_type?: string;
   store?: string;
   product_id?: string;
@@ -55,7 +59,7 @@ export function isPromotionalEvent(event: RevenueCatEntitlementEvent): boolean {
  * promotionnel est ACTIVE sans formule (`billingPeriod: null`), comme l'app le
  * représente déjà. */
 export function grantFieldsForEvent(event: RevenueCatEntitlementEvent): {
-  subscriptionTier: "GRAND_PRIX";
+  subscriptionTier: PaidTier;
   subscriptionStatus: "ACTIVE" | "TRIALING";
   billingPeriod: "MONTHLY" | "ANNUAL" | null;
   trialEndsAt: Date | null;
@@ -64,7 +68,8 @@ export function grantFieldsForEvent(event: RevenueCatEntitlementEvent): {
   const promotional = isPromotionalEvent(event);
   const isTrial = !promotional && event.period_type === "TRIAL";
   return {
-    subscriptionTier: "GRAND_PRIX",
+    // Sans entitlement connu (anciens événements, tests), palier Premium.
+    subscriptionTier: tierFromEntitlementIds(event.entitlement_ids ?? []) ?? "GRAND_PRIX",
     subscriptionStatus: isTrial ? "TRIALING" : "ACTIVE",
     billingPeriod: promotional ? null : billingPeriodFromProductId(event.product_id),
     trialEndsAt: isTrial && event.expiration_at_ms ? new Date(event.expiration_at_ms) : null,

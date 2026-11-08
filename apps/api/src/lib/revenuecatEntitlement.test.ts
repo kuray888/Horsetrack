@@ -52,3 +52,24 @@ describe("isPromotionalEvent", () => {
     expect(isPromotionalEvent({ store: "APP_STORE", period_type: "NORMAL" })).toBe(false);
   });
 });
+
+describe("palier Écurie Pro", () => {
+  it("un achat portant l'entitlement ecurie_pro ouvre le palier PRO", () => {
+    expect(
+      grantFieldsForEvent({
+        type: "INITIAL_PURCHASE",
+        period_type: "NORMAL",
+        store: "APP_STORE",
+        product_id: "ecurie_pro_annual",
+        entitlement_ids: ["grand_prix", "ecurie_pro"],
+      })
+    ).toEqual({ subscriptionTier: "PRO", subscriptionStatus: "ACTIVE", billingPeriod: "ANNUAL", trialEndsAt: null });
+  });
+
+  it("retour à Premium : le palier redevient GRAND_PRIX", () => {
+    expect(
+      grantFieldsForEvent({ type: "RENEWAL", period_type: "NORMAL", store: "APP_STORE", product_id: "premium_monthly", entitlement_ids: ["grand_prix"] })
+        ?.subscriptionTier
+    ).toBe("GRAND_PRIX");
+  });
+});

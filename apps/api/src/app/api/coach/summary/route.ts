@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
-import { QUOTAS } from "@/lib/coach/config";
 import { summaryRequestSchema } from "@/lib/coach/schemas";
 import { canRetrySummary, isFinishedMonth } from "@/lib/coach/summaryRules";
-import { canAccessHorse, coachAvailable, isPremiumUser, monthStart } from "@/lib/coach/store";
+import { canAccessHorse, coachAvailable, coachAccess, monthStart } from "@/lib/coach/store";
 
 /**
  * Résumé du mois écoulé (Premium). L'app envoie les faits du mois, le
@@ -19,7 +18,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
   const body = parsed.data;
 
-  if (!(await isPremiumUser(userId))) return NextResponse.json({ status: "premium" }, { status: 403 });
+  const quotas = await coachAccess(userId);
+  if (!quotas) return NextResponse.json({ status: "premium" }, { status: 403 });
   if (!(await canAccessHorse(userId, body.horseId))) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   // Seulement un mois terminé (dans le fuseau du cavalier).
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   const thisMonth = await db.coachSummary.count({ where: { userId, createdAt: { gte: monthStart() } } });
-  if (thisMonth >= QUOTAS.summaryHorsesPerMonth) return NextResponse.json({ status: "quota" });
+  if (thisMonth >= quotas.summaryHorsesPerMonth) return NextResponse.json({ status: "quota" });
 
   try {
     await db.coachSummary.create({

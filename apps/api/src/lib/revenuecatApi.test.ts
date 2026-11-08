@@ -63,3 +63,25 @@ describe("entitlementStateFromSubscriber", () => {
     ).toEqual({ active: false });
   });
 });
+
+describe("entitlementStateFromSubscriber — Écurie Pro", () => {
+  const future = new Date(Date.now() + 30 * 86_400_000).toISOString();
+  it("palier PRO quand l'entitlement ecurie_pro est actif", () => {
+    const state = entitlementStateFromSubscriber({
+      subscriber: {
+        entitlements: {
+          grand_prix: { expires_date: future, product_identifier: "ecurie_pro_monthly" },
+          ecurie_pro: { expires_date: future, product_identifier: "ecurie_pro_monthly" },
+        },
+        subscriptions: { ecurie_pro_monthly: { period_type: "normal", store: "app_store" } },
+      },
+    });
+    expect(state.active && state.grant.subscriptionTier).toBe("PRO");
+  });
+  it("palier GRAND_PRIX quand seul Premium est actif", () => {
+    const state = entitlementStateFromSubscriber({
+      subscriber: { entitlements: { grand_prix: { expires_date: future, product_identifier: "grand_prix_annual" } } },
+    });
+    expect(state.active && state.grant.subscriptionTier).toBe("GRAND_PRIX");
+  });
+});

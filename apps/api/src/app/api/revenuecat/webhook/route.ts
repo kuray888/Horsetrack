@@ -7,6 +7,7 @@ import { fetchEntitlementState, isAnonymousAppUserId, isRevenueCatApiConfigured 
 import { applyEntitlementState } from "@/lib/subscriptionSync";
 import { recordOfferCodeConversion } from "@/lib/promoConversion";
 import { rewardReferrerIfDue } from "@/lib/referralReward";
+import { tierFromEntitlementIds } from "@/lib/plans";
 
 /**
  * Entitlement RevenueCat du palier payant unique — doit correspondre
@@ -18,7 +19,6 @@ import { rewardReferrerIfDue } from "@/lib/referralReward";
  * n'est plus lu ici (Premium n'a plus de quota à dépasser) — `extraHorseSlots`
  * reste en base (non supprimé) mais n'est plus mis à jour par ce webhook.
  */
-const ENTITLEMENT_ID = "grand_prix";
 
 // Tous les champs restent optionnels (au lieu de `required`) pour ne pas
 // transformer un event sans entitlement pertinent — déjà ignoré plus bas via
@@ -102,7 +102,8 @@ export async function POST(req: NextRequest) {
   if (event.type === "TRANSFER") return handleTransfer(event);
 
   const entitlementIds = event?.entitlement_ids ?? [];
-  const hasEntitlement = entitlementIds.includes(ENTITLEMENT_ID);
+  const paidTier = tierFromEntitlementIds(entitlementIds);
+  const hasEntitlement = paidTier !== null;
 
   if (!event?.app_user_id || !hasEntitlement) {
     return NextResponse.json({ received: true });
@@ -158,7 +159,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const tier: SubscriptionTier | null = hasEntitlement ? SubscriptionTier.GRAND_PRIX : null;
+  const tier: SubscriptionTier | null =
+    paidTier === "PRO" ? SubscriptionTier.PRO : paidTier === "GRAND_PRIX" ? SubscriptionTier.GRAND_PRIX : null;
   // Anti-réordonnancement (cf. audit sécurité) : RevenueCat garantit une
   // livraison "at-least-once" mais pas l'ordre — sans cette garde, un retry
   // tardif d'un événement périmé (ex. une CANCELLATION livrée en retard)

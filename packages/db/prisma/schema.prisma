@@ -848,6 +848,10 @@ enum SubscriptionTier {
   /// référence plus.
   PADDOCK
   GRAND_PRIX
+  /// Écurie Pro : tout Premium, plus jusqu'à 5 personnes par cheval et des
+  /// quotas de coach plus larges (cf. apps/api/src/lib/plans.ts). Attribué
+  /// par le webhook RevenueCat quand l'entitlement `ecurie_pro` est actif.
+  PRO
 
   @@map("subscription_tier")
 }

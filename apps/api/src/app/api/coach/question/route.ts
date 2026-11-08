@@ -1,11 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
-import { QUOTAS } from "@/lib/coach/config";
 import { runQuestion } from "@/lib/coach/engine";
 import { mentionsSymptom, vetMessage } from "@/lib/coach/safety";
 import { questionRequestSchema } from "@/lib/coach/schemas";
-import { coachAvailable, isPremiumUser, logCall, questionsUsedThisMonth } from "@/lib/coach/store";
+import { coachAvailable, coachAccess, logCall, questionsUsedThisMonth } from "@/lib/coach/store";
 
 /**
  * « Pose une question sur ton cheval » (Premium, 30 par mois). Réponses tirées
@@ -20,7 +19,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
   const body = parsed.data;
 
-  if (!(await isPremiumUser(userId))) return NextResponse.json({ status: "premium" }, { status: 403 });
+  const quotas = await coachAccess(userId);
+  if (!quotas) return NextResponse.json({ status: "premium" }, { status: 403 });
 
   // Avant tout le reste : même coach coupé, un symptôme mène au vétérinaire.
   if (mentionsSymptom(body.question)) {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (!(await coachAvailable())) return NextResponse.json({ status: "unavailable" });
 
   const used = await questionsUsedThisMonth(userId);
-  if (used >= QUOTAS.questionsPerMonth) {
+  if (used >= quotas.questionsPerMonth) {
     return NextResponse.json({ status: "quota", questionsLeft: 0 }, { status: 429 });
   }
 
@@ -50,6 +50,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     status: "ok",
     ...result.value,
-    questionsLeft: Math.max(0, QUOTAS.questionsPerMonth - used - (counted ? 1 : 0)),
+    questionsLeft: Math.max(0, quotas.questionsPerMonth - used - (counted ? 1 : 0)),
   });
 }

@@ -19,13 +19,31 @@ export const PRICES = {
   cacheWrite: 0.125,
 } as const;
 
-/** Quotas par compte Premium (choix « prudent » du 2026-10-28). */
-export const QUOTAS = {
+export type CoachQuotas = {
   /** Une suggestion IA par cheval et par jour, relue ensuite. */
+  suggestionHorsesPerDay: number;
+  questionsPerMonth: number;
+  summaryHorsesPerMonth: number;
+};
+
+/** Quotas par compte Premium (choix « prudent » du 2026-10-28). */
+export const QUOTAS: CoachQuotas = {
   suggestionHorsesPerDay: 3,
   questionsPerMonth: 30,
   summaryHorsesPerMonth: 3,
-} as const;
+};
+
+/** Écurie Pro : plusieurs chevaux suivis au quotidien (cf. lib/plans.ts). Le
+ * plafond de dépense mensuel (monthlyBudgetUsd) reste le garde-fou global. */
+export const PRO_QUOTAS: CoachQuotas = {
+  suggestionHorsesPerDay: 10,
+  questionsPerMonth: 100,
+  summaryHorsesPerMonth: 15,
+};
+
+export function quotasForTier(tier: string | null | undefined): CoachQuotas {
+  return tier === "PRO" ? PRO_QUOTAS : QUOTAS;
+}
 
 /** Plafond de dépense mensuel côté serveur, en plus de celui du compte
  * Anthropic : au-delà, le coach se met en pause jusqu'au mois suivant. */

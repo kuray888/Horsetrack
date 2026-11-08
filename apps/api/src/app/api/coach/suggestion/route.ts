@@ -2,11 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
-import { QUOTAS } from "@/lib/coach/config";
 import { runSuggestion } from "@/lib/coach/engine";
 import { suggestionRequestSchema, type CoachSuggestion } from "@/lib/coach/schemas";
 import { suggestionDay } from "@/lib/coach/validate";
-import { canAccessHorse, coachAvailable, isPremiumUser, logCall } from "@/lib/coach/store";
+import { canAccessHorse, coachAvailable, coachAccess, logCall } from "@/lib/coach/store";
 
 /**
  * « Ta prochaine séance » (Premium). L'app envoie les faits, les contraintes
@@ -27,7 +26,8 @@ export async function POST(req: NextRequest) {
   const body = parsed.data;
   const fallback: CoachSuggestion = { ...body.fallback, source: "code" };
 
-  if (!(await isPremiumUser(userId))) return NextResponse.json({ status: "premium" }, { status: 403 });
+  const quotas = await coachAccess(userId);
+  if (!quotas) return NextResponse.json({ status: "premium" }, { status: 403 });
   if (!(await canAccessHorse(userId, body.horseId))) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   const day = suggestionDay(body.facts.today);
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   let suggestion: CoachSuggestion = fallback;
   if (!body.constraints.restRequired) {
     const today = await db.coachSuggestion.count({ where: { userId, day } });
-    if (today >= QUOTAS.suggestionHorsesPerDay) return NextResponse.json({ status: "quota", suggestion: fallback });
+    if (today >= quotas.suggestionHorsesPerDay) return NextResponse.json({ status: "quota", suggestion: fallback });
 
     const result = await runSuggestion(new Anthropic(), body);
     await logCall({

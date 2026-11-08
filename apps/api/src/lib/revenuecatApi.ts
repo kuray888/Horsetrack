@@ -1,4 +1,5 @@
 import { billingPeriodFromProductId } from "@/lib/revenuecatEntitlement";
+import { PREMIUM_ENTITLEMENT_ID, PRO_ENTITLEMENT_ID, type PaidTier } from "@/lib/plans";
 
 /**
  * Accès serveur à l'API REST RevenueCat (v1), avec la clé SECRÈTE du projet
@@ -15,10 +16,9 @@ import { billingPeriodFromProductId } from "@/lib/revenuecatEntitlement";
  */
 
 const API = "https://api.revenuecat.com/v1";
-const ENTITLEMENT_ID = "grand_prix";
 
 export type EntitlementGrant = {
-  subscriptionTier: "GRAND_PRIX";
+  subscriptionTier: PaidTier;
   subscriptionStatus: "ACTIVE" | "TRIALING";
   billingPeriod: "MONTHLY" | "ANNUAL" | null;
   trialEndsAt: Date | null;
@@ -54,14 +54,16 @@ export function isAnonymousAppUserId(id: string): boolean {
 
 /** Lecture pure de la réponse `GET /subscribers/{id}` — testée seule. */
 export function entitlementStateFromSubscriber(payload: SubscriberPayload, now = Date.now()): EntitlementState {
-  const entitlement = payload.subscriber?.entitlements?.[ENTITLEMENT_ID];
-  if (!entitlement) return { active: false };
   const until = (d: string | null | undefined) => (d ? Date.parse(d) : NaN);
-  const active =
-    entitlement.expires_date == null ||
-    until(entitlement.expires_date) > now ||
-    until(entitlement.grace_period_expires_date) > now;
-  if (!active) return { active: false };
+  const isActive = (e: { expires_date?: string | null; grace_period_expires_date?: string | null } | undefined) =>
+    !!e && (e.expires_date == null || until(e.expires_date) > now || until(e.grace_period_expires_date) > now);
+  // Écurie Pro d'abord (ses produits portent aussi l'entitlement Premium,
+  // cf. lib/plans.ts) ; Premium sinon.
+  const pro = payload.subscriber?.entitlements?.[PRO_ENTITLEMENT_ID];
+  const premium = payload.subscriber?.entitlements?.[PREMIUM_ENTITLEMENT_ID];
+  const tier: PaidTier | null = isActive(pro) ? "PRO" : isActive(premium) ? "GRAND_PRIX" : null;
+  const entitlement = tier === "PRO" ? pro : premium;
+  if (!tier || !entitlement) return { active: false };
 
   const productId = entitlement.product_identifier ?? "";
   const subscription = payload.subscriber?.subscriptions?.[productId];
@@ -70,7 +72,7 @@ export function entitlementStateFromSubscriber(payload: SubscriberPayload, now =
   return {
     active: true,
     grant: {
-      subscriptionTier: "GRAND_PRIX",
+      subscriptionTier: tier,
       subscriptionStatus: trial ? "TRIALING" : "ACTIVE",
       billingPeriod: promotional ? null : billingPeriodFromProductId(productId),
       trialEndsAt: trial && entitlement.expires_date ? new Date(entitlement.expires_date) : null,
@@ -131,7 +133,7 @@ export async function fetchEntitlementExpiry(appUserId: string): Promise<Date | 
     });
     if (!res.ok) return undefined;
     const payload = (await res.json()) as SubscriberPayload;
-    const ent = payload.subscriber?.entitlements?.[ENTITLEMENT_ID];
+    const ent = payload.subscriber?.entitlements?.[PREMIUM_ENTITLEMENT_ID];
     const expires = ent?.expires_date ? new Date(ent.expires_date) : null;
     return expires && expires.getTime() > Date.now() ? expires : null;
   } catch {
@@ -146,7 +148,7 @@ export async function grantPromotionalUntil(appUserId: string, endTime: Date): P
   if (!key || isAnonymousAppUserId(appUserId)) return false;
   try {
     const res = await fetch(
-      `${API}/subscribers/${encodeURIComponent(appUserId)}/entitlements/${ENTITLEMENT_ID}/promotional`,
+      `${API}/subscribers/${encodeURIComponent(appUserId)}/entitlements/${PREMIUM_ENTITLEMENT_ID}/promotional`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },

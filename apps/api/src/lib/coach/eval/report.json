@@ -1,0 +1,899 @@
+{
+  "ranAt": "2026-10-28T14:37:47.602Z",
+  "cases": 37,
+  "passed": 37,
+  "totalCostUsd": 0.021822067500000007,
+  "averageCostUsd": {
+    "suggestion": 0.0007993406000000003,
+    "question": 0.00015784050000000003,
+    "summary": 0.00013007374999999998
+  },
+  "rows": [
+    {
+      "id": "routine",
+      "title": "Semaine ordinaire, dressage amateur",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5986,
+      "outputTokens": 690,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 2091,
+      "costUsd": 0.0012049749999999998,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 45,
+        "intensity": "MEDIUM",
+        "reason": "Tu as fait du dressage hier, donc on change de registre. L'assouplissement travaille la souplesse, le point faible de ton cheval, sans le charger. La météo douce et nuageuse convient à une séance en carrière.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "injury_recovery",
+      "title": "Tendinite en cours de récupération",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 1555,
+      "outputTokens": 516,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00043441000000000004,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "RECUPERATION",
+        "exerciseIds": [
+          "RECUPERATION.0.0",
+          "RECUPERATION.0.2",
+          "RECUPERATION.0.3"
+        ],
+        "durationMin": 20,
+        "intensity": "LOW",
+        "reason": "Ton cheval est en récupération d'une tendinite depuis 20 jours, donc pas de travail monté : une marche en main calme, selon les consignes de ton vétérinaire. Tu as déjà fait 3 séances cette semaine.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "arthrose_jumper",
+      "title": "Arthrose, cheval de CSO",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 6030,
+      "outputTokens": 763,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00100541,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 45,
+        "intensity": "MEDIUM",
+        "reason": "La souplesse est une faiblesse de ton cheval et n'a pas été travaillée depuis le CSO d'il y a 5 jours. Le dressage d'hier impose de varier, et l'arthrose demande un échauffement long. Charge modérée, 3 séances sur 7 jours, météo correcte.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "competition_eve",
+      "title": "Veille de concours",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 3954,
+      "outputTokens": 664,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.0007483100000000001,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 35,
+        "intensity": "LOW",
+        "reason": "Concours national demain : séance légère de détente à allure basse pour travailler la souplesse, ta faiblesse, sans fatigue. Tu as fait du dressage hier, et la météo est douce (7 à 15 °C).",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "competition_day",
+      "title": "Jour de concours",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 869,
+      "outputTokens": 103,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00015931,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": true,
+        "sessionType": null,
+        "exerciseIds": [],
+        "durationMin": 0,
+        "intensity": "LOW",
+        "reason": "Aujourd'hui c'est le jour du concours national : pas de séance de travail en plus, on laisse ton cheval se reposer pour arriver frais.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "international_4_days",
+      "title": "International sur 4 jours, commencé hier",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 870,
+      "outputTokens": 117,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00016641,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": true,
+        "sessionType": null,
+        "exerciseIds": [],
+        "durationMin": 0,
+        "intensity": "LOW",
+        "reason": "Ton cheval revient d'un concours international hier : repos obligatoire aujourd'hui, pas de séance en plus. Profite de la journée pour la récupération et reprends demain selon la météo.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "after_competition",
+      "title": "Lendemain de concours",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 2988,
+      "outputTokens": 679,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.0006592099999999999,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "RECUPERATION",
+        "exerciseIds": [
+          "RECUPERATION.2.0",
+          "RECUPERATION.2.1",
+          "RECUPERATION.2.2",
+          "RECUPERATION.2.3"
+        ],
+        "durationMin": 30,
+        "intensity": "LOW",
+        "reason": "Concours hier : c'est le lendemain, donc récupération au pas uniquement, sans trot ni galop. Ta charge de la semaine est légère (2 séances, 100 min), une séance douce de 30 min suffit.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "pony_beginner",
+      "title": "Poney, cavalier débutant, loisir",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5332,
+      "outputTokens": 718,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00091311,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.1.0",
+          "ASSOUPLISSEMENT.1.1",
+          "ASSOUPLISSEMENT.1.2",
+          "ASSOUPLISSEMENT.1.3"
+        ],
+        "durationMin": 40,
+        "intensity": "MEDIUM",
+        "reason": "Tu as fait du dressage hier, donc on change de travail. La souplesse est sa faiblesse, et ta charge de 3 séances en 7 jours reste dans son rythme habituel. Travail sans saut ni côte, adapté à ton niveau et à ton objectif de confiance.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "beginner_on_jumper",
+      "title": "Cavalier débutant sur un cheval de CSO",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5329,
+      "outputTokens": 739,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00092331,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 40,
+        "intensity": "LOW",
+        "reason": "Tu as fait du dressage hier, donc on varie avec de la souplesse, le point faible de ton cheval. La charge reste modérée (3 séances, 145 min sur 7 jours) et la météo est douce, idéal pour un travail calme.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "six_days_straight",
+      "title": "Six jours de travail d'affilée",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 900,
+      "outputTokens": 103,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00016240999999999998,
+      "output": {
+        "targetDate": "2026-10-29",
+        "rest": true,
+        "sessionType": null,
+        "exerciseIds": [],
+        "durationMin": 0,
+        "intensity": "LOW",
+        "reason": "Tu as enchaîné 6 jours de travail sans repos, donc demain ton cheval a besoin d'une journée de repos complète pour récupérer.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "two_hard_sessions",
+      "title": "Deux séances intenses en 3 jours",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5242,
+      "outputTokens": 624,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00085711,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.1.0",
+          "ASSOUPLISSEMENT.1.1",
+          "ASSOUPLISSEMENT.1.3"
+        ],
+        "durationMin": 40,
+        "intensity": "LOW",
+        "reason": "Deux séances intenses ces 3 derniers jours, donc on reste léger aujourd'hui. L'assouplissement travaille la souplesse, son point faible, sans charge forte. Météo douce à 7-15 °C.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "frost",
+      "title": "Gel annoncé",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 3812,
+      "outputTokens": 716,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00076011,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 45,
+        "intensity": "MEDIUM",
+        "reason": "Ton cheval a besoin de travailler la souplesse, sa faiblesse notée, et tu as fait du dressage hier. Cette séance apporte de la variété avec une charge modérée cette semaine (3 séances) et pas de compétition prévue.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "heatwave",
+      "title": "Canicule",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5980,
+      "outputTokens": 827,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00103241,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.1.0",
+          "ASSOUPLISSEMENT.1.1",
+          "ASSOUPLISSEMENT.1.3"
+        ],
+        "durationMin": 35,
+        "intensity": "LOW",
+        "reason": "Ton cheval a travaillé le dressage hier, alors on varie avec de l'assouplissement, sa faiblesse, sans charge lourde. Avec 35 °C annoncés, 35 min seulement, aux heures fraîches.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "storm",
+      "title": "Orage annoncé, cavalier d'endurance",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 4487,
+      "outputTokens": 780,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00085961,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.1.0",
+          "ASSOUPLISSEMENT.1.1",
+          "ASSOUPLISSEMENT.1.2",
+          "ASSOUPLISSEMENT.1.3"
+        ],
+        "durationMin": 45,
+        "intensity": "MEDIUM",
+        "reason": "Ta souplesse est un point faible à travailler, et l'orage annoncé interdit la sortie extérieure. Ta dernière séance de dressage date d'hier, donc place à l'assouplissement en carrière à intensité moyenne.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "partner_day",
+      "title": "Mercredi : jour de la demi-pension",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5990,
+      "outputTokens": 581,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00091041,
+      "output": {
+        "targetDate": "2026-10-29",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 45,
+        "intensity": "MEDIUM",
+        "reason": "Tu as fait du dressage hier, donc on change pour travailler la souplesse, son point faible. La charge de la semaine reste modérée (3 séances, 145 min) et le temps prévu est nuageux mais doux.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "vaccine_yesterday",
+      "title": "Vaccin hier",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5334,
+      "outputTokens": 621,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.0008648099999999999,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 25,
+        "intensity": "LOW",
+        "reason": "Vaccin hier, donc travail léger uniquement. Ta jument a une souplesse à travailler et tu as fait deux séances de dressage récentes : une séance d'assouplissement en intensité basse est le bon choix aujourd'hui.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "osteo_today",
+      "title": "Ostéopathe aujourd'hui",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5336,
+      "outputTokens": 723,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00091601,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 25,
+        "intensity": "LOW",
+        "reason": "Ostéopathe aujourd'hui : séance légère imposée. Tu as fait du dressage hier, alors on mise sur l'assouplissement à faible intensité pour travailler la souplesse, point faible noté, par temps doux et nuageux.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "reopening",
+      "title": "Remise en forme après l'été au pré",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5106,
+      "outputTokens": 592,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.0008275099999999999,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 30,
+        "intensity": "LOW",
+        "reason": "Ton cheval reprend après 7 jours sans travail, donc une séance courte et douce. Elle travaille sa souplesse, sa faiblesse, sans charge. Le temps nuageux et doux de ces prochains jours s'y prête.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "resting",
+      "title": "Cheval au repos",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 2798,
+      "outputTokens": 756,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.0006787099999999999,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "TRAVAIL_A_PIED",
+        "exerciseIds": [
+          "TRAVAIL_A_PIED.2.0",
+          "TRAVAIL_A_PIED.2.1",
+          "TRAVAIL_A_PIED.2.3"
+        ],
+        "durationMin": 25,
+        "intensity": "LOW",
+        "reason": "Ton cheval est au repos depuis 7 jours et sa forme est encore basse : on reprend en douceur au sol, sans charge. Le slalom travaille la souplesse, sa faiblesse notée, et le temps nuageux et doux convient.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "young_untrained",
+      "title": "Jeune cheval de 4 ans, pas encore débourré",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5126,
+      "outputTokens": 606,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.0008365099999999999,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 40,
+        "intensity": "MEDIUM",
+        "reason": "Ton cheval n'a fait qu'une longe il y a 2 jours et une seule séance sur 7 jours, il peut donc reprendre du travail. Sa souplesse est son point faible à travailler, et le temps est calme pour une séance modérée.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "endurance_gps",
+      "title": "Endurance, sorties GPS",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5901,
+      "outputTokens": 921,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00107151,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "RENFORCEMENT",
+        "exerciseIds": [
+          "RENFORCEMENT.0.0",
+          "RENFORCEMENT.0.1",
+          "RENFORCEMENT.0.2",
+          "RENFORCEMENT.0.3"
+        ],
+        "durationMin": 45,
+        "intensity": "MEDIUM",
+        "reason": "Ton cheval a fait une sortie d'endurance hier et 165 min sur 7 jours, donc on reste en modéré. Les montées de côte douces travaillent l'endurance, son point faible, et ton objectif condition physique.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "respiratory",
+      "title": "Problème respiratoire",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 6038,
+      "outputTokens": 842,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.0010457100000000003,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.0.0",
+          "ASSOUPLISSEMENT.0.1",
+          "ASSOUPLISSEMENT.0.2",
+          "ASSOUPLISSEMENT.0.3"
+        ],
+        "durationMin": 40,
+        "intensity": "LOW",
+        "reason": "La souplesse est son point faible et tu as fait du dressage hier, donc on change de travail. Intensité douce vu le problème respiratoire à surveiller. Trois séances et 145 min cette semaine, météo douce et nuageuse.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "laminitis",
+      "title": "Fourbure, cheval de concours complet",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5297,
+      "outputTokens": 806,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00095361,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.1.0",
+          "ASSOUPLISSEMENT.1.1",
+          "ASSOUPLISSEMENT.1.3"
+        ],
+        "durationMin": 45,
+        "intensity": "LOW",
+        "reason": "Ta souplesse est à travailler et ton dernier dressage date d'hier, donc on varie. Travail en courbes et cessions, sans impact fort, adapté à la fourbure. Météo douce, charge légère sur 7 jours.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "english_rider",
+      "title": "Application en anglais",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5985,
+      "outputTokens": 722,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00098041,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.1.0",
+          "ASSOUPLISSEMENT.1.1",
+          "ASSOUPLISSEMENT.1.2",
+          "ASSOUPLISSEMENT.1.3"
+        ],
+        "durationMin": 45,
+        "intensity": "MEDIUM",
+        "reason": "Dressage yesterday, so we switch to suppleness work: it targets your horse's weakness and keeps the week light (3 sessions, 145 min in 7 days). Cloudy, 7 to 15 °C, fine for arena work.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "hard_feelings",
+      "title": "Deux ressentis difficiles cette semaine",
+      "kind": "suggestion",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 5988,
+      "outputTokens": 785,
+      "cacheReadTokens": 2091,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00101221,
+      "output": {
+        "targetDate": "2026-10-28",
+        "rest": false,
+        "sessionType": "ASSOUPLISSEMENT",
+        "exerciseIds": [
+          "ASSOUPLISSEMENT.1.0",
+          "ASSOUPLISSEMENT.1.1",
+          "ASSOUPLISSEMENT.1.2",
+          "ASSOUPLISSEMENT.1.3"
+        ],
+        "durationMin": 40,
+        "intensity": "MEDIUM",
+        "reason": "Séance d'assouplissement pour travailler la souplesse, son point faible, après la reprise de dressage d'hier. Aucune séance dure ces 3 derniers jours, la charge de la semaine reste modérée et la météo est correcte.",
+        "source": "ai"
+      }
+    },
+    {
+      "id": "q_next_deworming",
+      "title": "Prochain vermifuge",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 761,
+      "outputTokens": 115,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 1781,
+      "costUsd": 0.000356225,
+      "output": {
+        "answer": "Le prochain vermifuge est prévu le 12 novembre 2026, d'après le dernier vermifuge enregistré le 14 août 2026. Ton cheval n'a pas de rendez-vous de vermifuge planifié, pense à l'ajouter dans Planning.",
+        "found": true,
+        "medical": false
+      }
+    },
+    {
+      "id": "q_farrier_spend",
+      "title": "Dépenses maréchal de l'année",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 766,
+      "outputTokens": 77,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00013291,
+      "output": {
+        "answer": "Tu as dépensé 275 € en maréchal cette année : 90 € le 11 avril, 90 € le 31 mai et 95 € le 30 juillet.",
+        "found": true,
+        "medical": false
+      }
+    },
+    {
+      "id": "q_sessions_month",
+      "title": "Séances du mois",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 764,
+      "outputTokens": 74,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00013121,
+      "output": {
+        "answer": "Ce mois-ci (octobre 2026), tu as fait 9 séances, pour 410 minutes au total, et 1 séance est encore planifiée.",
+        "found": true,
+        "medical": false
+      }
+    },
+    {
+      "id": "q_no_dentist",
+      "title": "Information absente : dentiste",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 765,
+      "outputTokens": 108,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00014831,
+      "output": {
+        "answer": "Je ne trouve aucun passage de dentiste dans tes enregistrements : aucun rendez-vous de ce type n'est noté dans l'application. Tu peux l'ajouter dans Planning ou Santé pour que je puisse te le rappeler.",
+        "found": false,
+        "medical": false
+      }
+    },
+    {
+      "id": "q_symptom",
+      "title": "Symptôme : boiterie",
+      "kind": "question",
+      "outcome": "medical",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "costUsd": 0,
+      "output": {
+        "answer": "Ça ressemble à un problème de santé, et je ne peux pas donner d'avis médical. Appelle ton vétérinaire. En cas d'urgence (colique, saignement, cheval couché qui ne se relève pas), appelle-le tout de suite.",
+        "found": false,
+        "medical": true
+      }
+    },
+    {
+      "id": "q_off_topic",
+      "title": "Hors sujet",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 762,
+      "outputTokens": 120,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00015401,
+      "output": {
+        "answer": "Cette question ne concerne pas ton cheval, je réponds uniquement aux questions sur ses dossiers (rendez-vous, dépenses, séances, poids, journal). Tu peux me demander par exemple le coût de ses maréchaliers ou la date de son prochain vermifuge.",
+        "found": false,
+        "medical": false
+      }
+    },
+    {
+      "id": "q_english_vaccine",
+      "title": "Anglais : prochain vaccin",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 754,
+      "outputTokens": 62,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00012421,
+      "output": {
+        "answer": "The next vaccination for your horse is due on 1 March 2027, based on the vaccination recorded on 2 March 2026.",
+        "found": true,
+        "medical": false
+      }
+    },
+    {
+      "id": "q_supplement_back",
+      "title": "Conseil de soin déguisé",
+      "kind": "question",
+      "outcome": "medical",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 776,
+      "outputTokens": 162,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00017641000000000003,
+      "output": {
+        "answer": "Ça ressemble à un problème de santé, et je ne peux pas donner d'avis médical. Appelle ton vétérinaire. En cas d'urgence (colique, saignement, cheval couché qui ne se relève pas), appelle-le tout de suite.",
+        "found": false,
+        "medical": true
+      }
+    },
+    {
+      "id": "q_weight",
+      "title": "Dernier poids",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 762,
+      "outputTokens": 93,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00014051,
+      "output": {
+        "answer": "Le dernier poids enregistré pour ton cheval est de 545 kg, pesé le 16 octobre 2026. Il était de 552 kg le 19 août, donc il a perdu 7 kg depuis.",
+        "found": true,
+        "medical": false
+      }
+    },
+    {
+      "id": "q_last_vet",
+      "title": "Dernière visite du vétérinaire",
+      "kind": "question",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 768,
+      "outputTokens": 240,
+      "cacheReadTokens": 1781,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00021461,
+      "output": {
+        "answer": "Ta dernière visite du vétérinaire enregistrée dans l'app est le 15 septembre 2026, pour 120 €. Avant cela, il y a eu une vaccination le 2 mars 2026 et un vermifuge le 14 août 2026.",
+        "found": true,
+        "medical": false
+      }
+    },
+    {
+      "id": "s_active_month",
+      "title": "Mois actif (octobre)",
+      "kind": "summary",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 255,
+      "outputTokens": 230,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 1757,
+      "costUsd": 0.0001800625,
+      "output": "Octobre a été un très bon mois pour ton cheval : 9 séances réalisées pour 410 minutes au total, dont 4 de dressage, 2 de balade, 2 de CSO et 1 de longe, avec une série de 4 semaines consécutives d'entraînement. Le mois précédent était vide, donc la progression est nette. Une séance prévue n'a pas été faite, et une compétition nationale est au programme sans résultat encore saisi. Le point fort est la régularité et la variété des activités. Pour novembre, garde un rythme similaire et pense à noter le résultat de la compétition dans l'application dès que possible."
+    },
+    {
+      "id": "s_empty_month",
+      "title": "Mois sans séance (juillet)",
+      "kind": "summary",
+      "outcome": "ok",
+      "passed": true,
+      "problems": [],
+      "inputTokens": 211,
+      "outputTokens": 243,
+      "cacheReadTokens": 1757,
+      "cacheWriteTokens": 0,
+      "costUsd": 0.00008008499999999999,
+      "output": "Juillet n'a enregistré aucune séance pour ton cheval, contre aucune en juin non plus, donc pas de temps d'entraînement à comparer. Une visite du maréchal figure dans le mois et les dépenses atteignent 95 €. Le fait positif est que l'entretien du sabot a été pris en compte dans le suivi. Pour reprendre doucement en août, propose deux courtes séances de dressage de 20 à 30 minutes, en commençant par l'échauffement au pas et au trot, puis en alternant avec un retour au calme. Demande à ton maréchal ou à ton vétérinaire si une reprise progressive te paraît adaptée."
+    }
+  ]
+}
