@@ -5,6 +5,7 @@ import {
   findAccountByEmail,
   loadActivationFunnel,
   loadAdminStats,
+  loadPlanBreakdown,
   loadWeeklyActiveRiders,
   loadPromoCodes,
   loadRecentRedemptions,
@@ -226,6 +227,8 @@ function CreateCodeForm() {
   );
 }
 
+const euros = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -233,7 +236,7 @@ export default async function AdminPage({
 }) {
   const params = await searchParams;
   const now = new Date();
-  const [stats, funnel, weeklyActive, codes, recent, account, signupDates, reports] = await Promise.all([
+  const [stats, funnel, weeklyActive, codes, recent, account, signupDates, reports, plans] = await Promise.all([
     loadAdminStats(now),
     loadActivationFunnel(30, now),
     loadWeeklyActiveRiders(now),
@@ -243,6 +246,7 @@ export default async function AdminPage({
     loadSignupDates(SIGNUP_WEEKS, now),
     // Table du bloc C : tant que son SQL n'est pas exécuté, pas de section.
     loadOpenCommentReports().catch(() => null),
+    loadPlanBreakdown(now),
   ]);
   const signups = bucketByWeek(signupDates, SIGNUP_WEEKS, now);
   const paid = stats.paidMonthly + stats.paidAnnual + stats.paidOther;
@@ -288,6 +292,54 @@ export default async function AdminPage({
         </div>
         <p className={s.note}>
           Le chiffre d&apos;affaires, les remboursements et les résiliations font foi dans RevenueCat et App Store Connect.
+        </p>
+      </section>
+
+      <section aria-labelledby="plans-title">
+        <h2 id="plans-title" className={s.h2}>
+          Abonnés par formule
+        </h2>
+        <div className={s.tableWrap}>
+          <table className={s.table}>
+            <thead>
+              <tr>
+                <th>Formule</th>
+                <th>Mensuels</th>
+                <th>Annuels</th>
+                <th>Offerts</th>
+                <th>Essais en cours</th>
+                <th>Revenu mensuel estimé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plans.map((p) => (
+                <tr key={p.plan}>
+                  <td>{p.plan === "PRO" ? "Écurie Pro" : "Premium"}</td>
+                  <td>{p.monthly}</td>
+                  <td>{p.annual}</td>
+                  <td>{p.offered}</td>
+                  <td>{p.trials}</td>
+                  <td>{euros.format(p.monthlyRevenue)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td>
+                  <strong>Total</strong>
+                </td>
+                <td>{plans.reduce((n, p) => n + p.monthly, 0)}</td>
+                <td>{plans.reduce((n, p) => n + p.annual, 0)}</td>
+                <td>{plans.reduce((n, p) => n + p.offered, 0)}</td>
+                <td>{plans.reduce((n, p) => n + p.trials, 0)}</td>
+                <td>
+                  <strong>{euros.format(plans.reduce((n, p) => n + p.monthlyRevenue, 0))}</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className={s.note}>
+          Estimation : prix France TTC (3,99 € / 39,99 € et 14,99 € / 129,99 €), annuels ramenés au mois, avant la commission
+          d&apos;Apple et sans les offres d&apos;introduction. RevenueCat et App Store Connect font foi.
         </p>
       </section>
 

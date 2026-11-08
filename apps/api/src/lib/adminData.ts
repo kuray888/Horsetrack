@@ -1,4 +1,5 @@
 import { db, BillingPeriod, SubscriptionStatus } from "@cheval/db";
+import { revenueByPlan, type PlanRow } from "@/lib/adminRevenue";
 
 /**
  * Lectures de la console d'administration (/admin). Exclusivement en
@@ -46,6 +47,26 @@ export async function loadAdminStats(now: Date = new Date()): Promise<AdminStats
     trialsRunning,
     horses,
   };
+}
+
+/** Abonnés, essais et revenu mensuel estimé par formule (Premium, Écurie Pro). */
+export async function loadPlanBreakdown(now: Date = new Date()): Promise<PlanRow[]> {
+  const [active, trials] = await Promise.all([
+    db.riderProfile.groupBy({
+      by: ["subscriptionTier", "billingPeriod"],
+      where: { subscriptionStatus: SubscriptionStatus.ACTIVE },
+      _count: { _all: true },
+    }),
+    db.riderProfile.groupBy({
+      by: ["subscriptionTier"],
+      where: { subscriptionStatus: SubscriptionStatus.TRIALING, trialEndsAt: { gt: now } },
+      _count: { _all: true },
+    }),
+  ]);
+  return revenueByPlan(
+    active.map((g) => ({ tier: g.subscriptionTier, period: g.billingPeriod, count: g._count._all })),
+    trials.map((g) => ({ tier: g.subscriptionTier, count: g._count._all }))
+  );
 }
 
 export async function loadPromoCodes() {
