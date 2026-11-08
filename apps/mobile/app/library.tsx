@@ -3,7 +3,6 @@ import { Alert, Linking, ScrollView, Text, TextInput, TouchableOpacity, View } f
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
-import { FadeInView } from "@/components/FadeInView";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
 import { useSessions } from "@/sessions/store";
@@ -14,7 +13,7 @@ import { track } from "@/lib/analytics";
 import { hapticSuccess, hapticTap } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { formatDate } from "@/lib/dateFormat";
-import { SESSION_TYPE_INFO, exerciseNoteLine, filterLibrary, libraryExercises, type LibraryExercise } from "@/coach/exerciseLibrary";
+import { SESSION_TYPE_INFO, exerciseNoteLine, filterLibrary, libraryExercises, splitByDiscipline, type LibraryExercise } from "@/coach/exerciseLibrary";
 import { toggleFavorite, useFavorites } from "@/coach/favorites";
 import { t } from "@/i18n";
 
@@ -66,6 +65,9 @@ export default function LibraryScreen() {
   const [noEquipment, setNoEquipment] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  // Bases communes repliées dès qu'une discipline est choisie : on montre
+  // d'abord ce qui est propre à cette discipline (cf. splitByDiscipline).
+  const [showCommon, setShowCommon] = useState(false);
 
   const results = useMemo(
     () =>
@@ -79,6 +81,7 @@ export default function LibraryScreen() {
       }),
     [query, discipline, noEquipment, favoritesOnly, favorites, selectedHorse?.level]
   );
+  const { specific, common } = useMemo(() => splitByDiscipline(results, discipline), [results, discipline]);
 
   // Prochaine séance prévue du cheval actif (aujourd'hui compris).
   const nextPlanned = useMemo(() => {
@@ -146,23 +149,84 @@ export default function LibraryScreen() {
     </TouchableOpacity>
   );
 
-  return (
-    <Screen>
-      <FadeInView>
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1 gap-1">
-            <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-              {t("Bibliothèque d'exercices")}
-            </Text>
-            <Text className="text-sm text-muted">
-              {t("{n} exercices, ceux que le coach utilise pour tes séances.", { n: libraryExercises().length })}
-            </Text>
+  function renderExercise(e: LibraryExercise) {
+      const open = openId === e.id;
+      const fav = favorites.has(e.id);
+      return (
+        <View key={e.id} className={`${CARD} gap-2`}>
+          <View className="flex-row items-start gap-2">
+            <TouchableOpacity
+              className="flex-1 gap-0.5"
+              accessibilityRole="button"
+              accessibilityState={{ expanded: open }}
+              onPress={() => {
+                animateNextLayout();
+                setOpenId(open ? null : e.id);
+              }}
+            >
+              <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
+                {e.sessionTitle} · {PHASE_LABEL[e.phase]}
+              </Text>
+              <Text className="text-[15px] font-semibold text-text">{e.title.replace(/\*\*/g, "")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={fav ? t("Retirer des favoris") : t("Ajouter aux favoris")}
+              hitSlop={8}
+              onPress={() => {
+                hapticTap();
+                if (toggleFavorite(e.id)) track("exercise_favorited", { type: e.type });
+              }}
+            >
+              <MaterialCommunityIcons name={fav ? "star" : "star-outline"} size={22} color={fav ? colors.warning : colors.textMuted} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={close} hitSlop={10}>
-            <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
-          </TouchableOpacity>
+          {open ? (
+            <View className="gap-2">
+              <RichText text={e.description} />
+              <Text className="text-xs text-muted">
+                {t("Matériel : {list}", { list: e.equipment.map((x) => x.replace(/\*\*/g, "")).join(", ") })}
+              </Text>
+              {e.videoUrl ? (
+                <TouchableOpacity accessibilityRole="link" onPress={() => void Linking.openURL(e.videoUrl!)}>
+                  <Text className="text-sm font-semibold text-accent">{t("Voir la vidéo")}</Text>
+                </TouchableOpacity>
+              ) : null}
+              {selectedHorse ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => addTo(e)}
+                  className="flex-row items-center gap-1.5 self-start rounded-full bg-primary px-4 py-2"
+                >
+                  <MaterialCommunityIcons name="plus" size={16} color={colors.textOnPrimary} />
+                  <Text className="text-sm font-bold text-on-primary">{t("Ajouter à une séance")}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
         </View>
-      </FadeInView>
+      );
+  }
+
+  return (
+    <Screen
+      edges={["top", "bottom"]}
+      header={
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
+            {t("Bibliothèque d'exercices")}
+          </Text>
+          <Text className="text-sm text-muted">
+            {t("{n} exercices, ceux que le coach utilise pour tes séances.", { n: libraryExercises().length })}
+          </Text>
+        </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={close} hitSlop={10}>
+          <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+      }
+    >
 
       <TextInput
         className={INPUT}
@@ -184,64 +248,34 @@ export default function LibraryScreen() {
       {results.length === 0 ? (
         <Text className="text-sm text-muted">{t("Aucun exercice ne correspond.")}</Text>
       ) : (
-        results.map((e) => {
-          const open = openId === e.id;
-          const fav = favorites.has(e.id);
-          return (
-            <View key={e.id} className={`${CARD} gap-2`}>
-              <View className="flex-row items-start gap-2">
-                <TouchableOpacity
-                  className="flex-1 gap-0.5"
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: open }}
-                  onPress={() => {
-                    animateNextLayout();
-                    setOpenId(open ? null : e.id);
-                  }}
-                >
-                  <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    {e.sessionTitle} · {PHASE_LABEL[e.phase]}
-                  </Text>
-                  <Text className="text-[15px] font-semibold text-text">{e.title.replace(/\*\*/g, "")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={fav ? t("Retirer des favoris") : t("Ajouter aux favoris")}
-                  hitSlop={8}
-                  onPress={() => {
-                    hapticTap();
-                    if (toggleFavorite(e.id)) track("exercise_favorited", { type: e.type });
-                  }}
-                >
-                  <MaterialCommunityIcons name={fav ? "star" : "star-outline"} size={22} color={fav ? colors.warning : colors.textMuted} />
-                </TouchableOpacity>
+        <>
+          {discipline && specific.length === 0 ? (
+            <Text className="text-sm text-muted">
+              {t("Aucun exercice propre à cette discipline ne correspond. Les bases communes sont juste en dessous.")}
+            </Text>
+          ) : null}
+          {specific.map(renderExercise)}
+          {common.length > 0 ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showCommon }}
+              onPress={() => {
+                animateNextLayout();
+                setShowCommon((v) => !v);
+              }}
+              className="flex-row items-center justify-between rounded-card border border-border px-4 py-3"
+            >
+              <View className="flex-1">
+                <Text className="text-[15px] font-semibold text-text">{t("Bases communes à toutes les disciplines")}</Text>
+                <Text className="text-xs text-muted">
+                  {t("{n} exercices de plat, longe, détente…", { n: common.length })}
+                </Text>
               </View>
-              {open ? (
-                <View className="gap-2">
-                  <RichText text={e.description} />
-                  <Text className="text-xs text-muted">
-                    {t("Matériel : {list}", { list: e.equipment.map((x) => x.replace(/\*\*/g, "")).join(", ") })}
-                  </Text>
-                  {e.videoUrl ? (
-                    <TouchableOpacity accessibilityRole="link" onPress={() => void Linking.openURL(e.videoUrl!)}>
-                      <Text className="text-sm font-semibold text-accent">{t("Voir la vidéo")}</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                  {selectedHorse ? (
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      onPress={() => addTo(e)}
-                      className="flex-row items-center gap-1.5 self-start rounded-full bg-primary px-4 py-2"
-                    >
-                      <MaterialCommunityIcons name="plus" size={16} color={colors.textOnPrimary} />
-                      <Text className="text-sm font-bold text-on-primary">{t("Ajouter à une séance")}</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-          );
-        })
+              <MaterialCommunityIcons name={showCommon ? "chevron-up" : "chevron-down"} size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+          {showCommon ? common.map(renderExercise) : null}
+        </>
       )}
     </Screen>
   );
