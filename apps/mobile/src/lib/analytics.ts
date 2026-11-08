@@ -75,6 +75,7 @@ export type AnalyticsEvent =
   | "reminder_created"
   | "document_added"
   | "share_invite_sent"
+  | "invite_partner_card_tapped"
   | "share_invite_message_opened"
   | "horse_shared"
   | "monthly_recap_shared"

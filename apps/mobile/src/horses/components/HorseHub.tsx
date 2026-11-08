@@ -28,6 +28,7 @@ import { findNextDue, findNextCompetition } from "@/agenda/upcoming";
 import { buildActivityEntries } from "@/agenda/activity";
 import { ActivityFeed } from "@/agenda/components/ActivityFeed";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
+import { InvitePartnerCard } from "@/horses/components/InvitePartnerCard";
 import { HorseModuleCard, HorseModuleGrid, HorseModuleGroup, HorseModuleRow, HorseModuleTile } from "@/horses/components/HorseModuleCard";
 import { HorseBanner } from "@/horses/components/HorseBanner";
 import { HorseMilestonesCard } from "@/horses/components/HorseMilestonesCard";
@@ -403,6 +404,12 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           ) : null}
         </View>
       </FadeInView>
+
+      {/* Demi-pension renseignée mais cheval partagé avec personne : on
+          propose d'inviter la cavalière nommée (cf. InvitePartnerCard). */}
+      {isOwner && partnership?.riderName.trim() ? (
+        <InvitePartnerCard horseId={horse.id} horseName={horse.name} partnerName={partnership.riderName.trim()} />
+      ) : null}
 
       {horseGoal ? (
         <FadeInView delay={60}>
