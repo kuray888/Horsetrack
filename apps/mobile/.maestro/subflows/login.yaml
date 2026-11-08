@@ -4,13 +4,7 @@ appId: com.horsetrack.app
 ---
 - runFlow: launch.yaml
 - tapOn:
-    id: "welcome-start"
-- scrollUntilVisible:
-    element:
-      id: "account-go-login"
-    direction: DOWN
-- tapOn:
-    id: "account-go-login"
+    id: "welcome-login"
 - tapOn:
     id: "login-email"
 - inputText: ${EMAIL}

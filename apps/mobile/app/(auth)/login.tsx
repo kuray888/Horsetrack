@@ -229,7 +229,10 @@ export default function LoginScreen() {
         // pullCloudData() a répondu sans erreur réseau : ce compte n'a vraiment
         // jamais terminé l'onboarding. Comportement précédent, on repart d'une
         // écurie/d'un profil par défaut.
-        await Promise.all([clearHorses(), clearRiderProfile(), resetOnboardingCompleted()]);
+        // Brouillon gardé : le cavalier vient peut-être de saisir son cheval
+        // (parcours « j'ai un cheval », compte déjà existant) — il le
+        // reprend d'un toucher sur l'accueil.
+        await Promise.all([clearHorses(), clearRiderProfile(), resetOnboardingCompleted({ keepDraft: true })]);
         await setLocalDataOwner(userId);
         router.replace("/(onboarding)/welcome");
         return;

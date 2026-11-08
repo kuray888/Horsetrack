@@ -11,6 +11,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { useOnboarding } from "@/onboarding/store";
 import { DISCIPLINES } from "@/onboarding/options";
 import { track } from "@/lib/analytics";
+import { supabase } from "@/lib/supabase";
 import { joinNames } from "@/subscription/paywallLogic";
 import { t } from "@/i18n";
 
@@ -108,6 +109,14 @@ export default function Summary() {
   const namedHorses = horses.filter((h) => h.name.trim().length > 0).map((h) => h.name.trim());
   const preview = primary ? horsePreview(primary, rider.mainDiscipline, new Date()) : null;
 
+  // Parcours « j'ai un cheval » : le compte se crée ici, après avoir vu ce
+  // qu'il va garder. Déjà connecté (parcours invité, ou session restée dans
+  // le trousseau) : directement le paywall.
+  async function next() {
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    router.push(data.session ? "/(onboarding)/paywall" : "/(onboarding)/account");
+  }
+
   useEffect(() => {
     track("onboarding_step_viewed", { step: "summary", horse_count: namedHorses.length });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +179,7 @@ export default function Summary() {
 
       <FadeInView delay={300}>
         <View className="px-5 pb-2 pt-3">
-          <PrimaryButton label={t("Continuer")} onPress={() => router.push("/(onboarding)/paywall")} />
+          <PrimaryButton testID="summary-continue" label={t("Continuer")} onPress={() => void next()} />
         </View>
       </FadeInView>
     </SafeAreaView>

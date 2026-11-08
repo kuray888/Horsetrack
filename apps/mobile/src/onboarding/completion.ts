@@ -1,4 +1,6 @@
 import * as SecureStore from "expo-secure-store";
+import { removeJson } from "@/lib/localStore";
+import { DRAFT_KEY } from "./draftPersistence";
 
 /**
  * Flag local « onboarding terminé », pour décider de l'écran de démarrage
@@ -16,18 +18,24 @@ export async function isOnboardingCompleted(): Promise<boolean> {
   }
 }
 
+/** Fin de l'onboarding : le brouillon sauvegardé n'a plus lieu d'être
+ * (cf. onboarding/draftPersistence.ts). */
 export async function markOnboardingCompleted(): Promise<void> {
   try {
     await SecureStore.setItemAsync(KEY, "true");
+    await removeJson(DRAFT_KEY);
   } catch {
     // Best-effort : cf. audit crash SecureStore du 2026-09-08.
   }
 }
 
 /** Outil de dev/test : efface le flag pour repasser par l'onboarding complet. */
-export async function resetOnboardingCompleted(): Promise<void> {
+/** Retour à une installation neuve (suppression du compte, compte jamais
+ * terminé) : un vieux brouillon ne doit pas pré-remplir le suivant. */
+export async function resetOnboardingCompleted(options: { keepDraft?: boolean } = {}): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(KEY);
+    if (!options.keepDraft) await removeJson(DRAFT_KEY);
   } catch {
     // Best-effort : cf. audit crash SecureStore du 2026-09-08.
   }

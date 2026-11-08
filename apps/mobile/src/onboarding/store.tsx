@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useMemo, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useMemo, useCallback } from "react";
+import { readJsonChecked, writeJson } from "@/lib/localStore";
+import { DRAFT_KEY, reviveDraft } from "./draftPersistence";
 
 /**
  * Store d'onboarding (React Context, pas de dépendance externe).
@@ -73,13 +75,23 @@ export type RiderDraft = {
   primaryGoal: RiderGoal | null;
 };
 
+/** Parcours choisi sur l'écran de bienvenue : « owner » (j'ai un cheval :
+ * le cheval d'abord, le compte à la fin) ou « invited » (on m'a invité·e
+ * sur le cheval de quelqu'un : le compte d'abord, pour accepter le partage
+ * sans inventer de cheval). null : pas encore choisi. */
+export type OnboardingFlow = "owner" | "invited";
+
 type OnboardingState = {
   rider: RiderDraft;
   horses: HorseDraft[];
   editingIndex: number;
+  flow: OnboardingFlow | null;
 };
 
-function newHorse(isPrimary: boolean): HorseDraft {
+/** Délai avant d'écrire le brouillon : regroupe les frappes d'un nom. */
+const SAVE_DELAY_MS = 400;
+
+export function newHorse(isPrimary: boolean): HorseDraft {
   return {
     localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: "",
@@ -106,6 +118,9 @@ function newHorse(isPrimary: boolean): HorseDraft {
 
 type OnboardingContextValue = OnboardingState & {
   setRider: (patch: Partial<RiderDraft>) => void;
+  setFlow: (flow: OnboardingFlow) => void;
+  /** Vrai une fois le brouillon sauvegardé relu (ou absent). */
+  hydrated: boolean;
   /** Cheval en cours d'édition (toujours défini pendant les écrans cheval). */
   editingHorse: HorseDraft;
   updateEditingHorse: (patch: Partial<HorseDraft>) => void;
@@ -129,18 +144,55 @@ const initialState: OnboardingState = {
   },
   horses: [newHorse(true)],
   editingIndex: 0,
+  flow: null,
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<OnboardingState>(initialState);
+  const [hydrated, setHydrated] = useState(false);
+  // Une saisie commencée avant la fin de la relecture n'est jamais écrasée
+  // par le brouillon relu.
+  const touched = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    readJsonChecked<unknown>(DRAFT_KEY, null)
+      .then(({ value }) => {
+        if (cancelled) return;
+        const draft = reviveDraft(value, newHorse);
+        if (draft && !touched.current) setState(draft);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Sauvegarde du brouillon (cf. onboarding/draftPersistence.ts), après la
+  // relecture seulement : avant, on écraserait le brouillon par l'état vierge.
+  useEffect(() => {
+    if (!hydrated) return;
+    const timer = setTimeout(() => void writeJson(DRAFT_KEY, state), SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [state, hydrated]);
 
   const setRider = useCallback((patch: Partial<RiderDraft>) => {
+    touched.current = true;
     setState((s) => ({ ...s, rider: { ...s.rider, ...patch } }));
   }, []);
 
+  const setFlow = useCallback((flow: OnboardingFlow) => {
+    touched.current = true;
+    setState((s) => ({ ...s, flow }));
+  }, []);
+
   const updateEditingHorse = useCallback((patch: Partial<HorseDraft>) => {
+    touched.current = true;
     setState((s) => {
       const horses = s.horses.slice();
       horses[s.editingIndex] = { ...horses[s.editingIndex], ...patch };
@@ -196,7 +248,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       editingHorse: state.horses[state.editingIndex],
+      hydrated,
       setRider,
+      setFlow,
       updateEditingHorse,
       startNewHorse,
       editHorse,
@@ -205,7 +259,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       removeInjury,
       reset,
     }),
-    [state, setRider, updateEditingHorse, startNewHorse, editHorse, removeHorse, addInjury, removeInjury, reset]
+    [state, hydrated, setRider, setFlow, updateEditingHorse, startNewHorse, editHorse, removeHorse, addInjury, removeInjury, reset]
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

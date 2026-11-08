@@ -29,6 +29,7 @@ export type AnalyticsEvent =
   // Onboarding
   | "onboarding_step_viewed"
   | "onboarding_completed"
+  | "onboarding_path_chosen"
   // Paywall
   | "paywall_viewed"
   | "paywall_plan_selected"

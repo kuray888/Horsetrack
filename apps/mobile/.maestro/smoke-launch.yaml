@@ -8,13 +8,7 @@ tags:
 - assertVisible:
     id: "welcome-start"
 - tapOn:
-    id: "welcome-start"
-- scrollUntilVisible:
-    element:
-      id: "account-go-login"
-    direction: DOWN
-- tapOn:
-    id: "account-go-login"
+    id: "welcome-login"
 - assertVisible:
     id: "login-email"
 - assertVisible:

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clearExtras } from "@/extras/store";
 import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,6 +22,8 @@ import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
 import { useSubscription } from "@/subscription/store";
+import { useOnboarding } from "@/onboarding/store";
+import { hasResumableDraft } from "@/onboarding/draftPersistence";
 import { t } from "@/i18n";
 import { GOOGLE_AUTH_ENABLED, signInWithGoogle } from "@/lib/googleAuth";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -58,6 +60,17 @@ export default function OnboardingAccount() {
   const [notConfirmedYet, setNotConfirmedYet] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Parcours « j'ai un cheval » : le compte arrive APRÈS le cheval (cf.
+  // welcome.tsx) — on enchaîne alors directement sur le paywall. Lu via une
+  // référence : continueAfterAuth part aussi d'un effet lancé au montage.
+  const { flow, horses: draftHorses } = useOnboarding();
+  const ownerDraft = flow === "owner" && hasResumableDraft({ horses: draftHorses });
+  const draftName = draftHorses.find((h) => h.isPrimary)?.name.trim() || draftHorses.find((h) => h.name.trim())?.name.trim() || null;
+  const ownerDraftRef = useRef(ownerDraft);
+  useEffect(() => {
+    ownerDraftRef.current = ownerDraft;
+  }, [ownerDraft]);
   const [resendResult, setResendResult] = useState<{ ok: boolean; message: string } | null>(null);
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   const appleAvailable = useAppleSignInAvailable();
@@ -115,6 +128,12 @@ export default function OnboardingAccount() {
    * fictif avant de pouvoir accéder à ce pour quoi il s'est inscrit (cf.
    * (onboarding)/pending-invites.tsx et audit produit du 2026-09-08). */
   async function continueAfterAuth() {
+    // Cheval déjà saisi : droit au paywall. Les invitations éventuelles
+    // s'ouvrent juste après (cf. (onboarding)/paywall.tsx, invites-modal).
+    if (ownerDraftRef.current) {
+      router.replace("/(onboarding)/paywall");
+      return;
+    }
     const invites = await pullPendingInvites().catch(() => []);
     if (invites.length > 0) {
       router.replace("/(onboarding)/pending-invites");
@@ -140,9 +159,10 @@ export default function OnboardingAccount() {
     // cloud (cf. audit du 2026-09-23). Sur une installation neuve, ces purges
     // ne trouvent rien : elles ne coûtent qu'un fichier vide écrit.
     //
-    // Purger ici ne risque pas d'effacer une saisie en cours : le compte est
-    // obtenu AVANT les écrans qui collectent quoi que ce soit (cf.
-    // continueAfterAuth, qui enchaîne seulement ensuite sur rider-level).
+    // Purger ici n'efface pas la saisie en cours : dans le parcours « j'ai un
+    // cheval », le compte arrive après le cheval, mais ce brouillon vit dans
+    // le store d'onboarding (cf. onboarding/draftPersistence.ts), que ces
+    // purges ne touchent pas — il n'est écrit dans l'écurie qu'au paywall.
     if (owner !== userId) {
       await Promise.all([
         clearHorses(),
@@ -415,10 +435,14 @@ export default function OnboardingAccount() {
       <View className="flex-1 gap-5 px-5 pt-8">
         <View className="gap-2">
           <Text className="text-2xl font-display tracking-tight text-text">
-            {t("Crée ton compte Horsetrack")}
+            {ownerDraft && draftName ? t("Garde l'écurie de {name}", { name: draftName }) : t("Crée ton compte Horsetrack")}
           </Text>
           <Text className="text-base text-muted">
-            {t("On personnalise ton profil juste après.")}
+            {ownerDraft
+              ? t("Crée ton compte : tout ce que tu viens de saisir est sauvegardé et retrouvé sur tous tes appareils.")
+              : flow === "invited"
+                ? t("Tu retrouveras ensuite le cheval qu'on a partagé avec toi.")
+                : t("On personnalise ton profil juste après.")}
           </Text>
         </View>
 
