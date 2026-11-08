@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
+import { LIST_PAGE_SIZE, ShowMoreButton } from "@/components/ShowMoreButton";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { Locked } from "@/components/Locked";
 import { colors } from "@/theme/colors";
@@ -62,6 +63,11 @@ export default function HorseBudgetScreen() {
     () => expenses.filter((e) => e.horseId === horseId).sort((a, b) => b.date.getTime() - a.date.getTime()),
     [expenses, horseId]
   );
+  // Dépenses affichées par pages : pension, maréchal, véto… une écurie en
+  // accumule plus d'une centaine par an.
+  const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
+  const visibleExpenses = sortedExpenses.slice(0, visibleCount);
+  const hiddenCount = sortedExpenses.length - visibleExpenses.length;
   const horseAppointments = useMemo(
     () => appointments.filter((a) => a.horseId === horseId),
     [appointments, horseId]
@@ -310,7 +316,7 @@ export default function HorseBudgetScreen() {
             </View>
           </FadeInView>
         ) : (
-          sortedExpenses.map((expense, i) => (
+          visibleExpenses.map((expense, i) => (
             <FadeInView key={expense.id} delay={120 + i * 60}>
               <ExpenseCard
                 expense={expense}
@@ -325,6 +331,13 @@ export default function HorseBudgetScreen() {
             </FadeInView>
           ))
         )}
+        {hiddenCount > 0 ? (
+          <ShowMoreButton
+            hidden={hiddenCount}
+            label={t("Afficher {v} dépenses plus anciennes", { v: Math.min(hiddenCount, LIST_PAGE_SIZE) })}
+            onPress={() => setVisibleCount((n) => n + LIST_PAGE_SIZE)}
+          />
+        ) : null}
       </Screen>
       <PickerOverlaySlot />
     </>

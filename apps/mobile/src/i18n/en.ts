@@ -192,6 +192,7 @@ export const EN: Record<string, string> = {
   "Afficher {v} souvenirs plus anciens": "Show {v} older memories",
   "Afficher {v} événements suivants": "Show the next {v} events",
   "Afficher {v} événements plus anciens": "Show {v} older events",
+  "Afficher {v} dépenses plus anciennes": "Show {v} older expenses",
   "Ajout impossible": "Couldn't add",
   "Ajoute 6 minutes de **trot enlevé** soutenu (ou un galop tranquille si le terrain le permet) en plus du travail prévu, pour développer le fond physique. Arrête immédiatement en cas d'essoufflement marqué ou d'inconfort.": "Add 6 minutes of sustained **rising trot** (or an easy canter if the ground allows) on top of the planned work, to build stamina. Stop immediately if the horse is clearly out of breath or uncomfortable.",
   "Ajoute autant de chevaux que tu veux, chacun avec son planning, sa santé et son budget.": "Add as many horses as you like, each with its own schedule, health and budget.",

@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { FadeInView } from "@/components/FadeInView";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Screen } from "@/components/Screen";
+import { LIST_PAGE_SIZE, ShowMoreButton } from "@/components/ShowMoreButton";
 import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { NEVER_RECURRENCE, computeRecurrenceDates } from "@/lib/recurrence";
@@ -71,26 +72,8 @@ import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
-/** Événements affichés d'un coup, à venir comme passés (cf. JOURNAL_PAGE_SIZE). */
-const PLANNING_PAGE_SIZE = 20;
-
-/** « Afficher la suite » en bas d'une liste paginée — même bouton que le Journal. */
-function ShowMoreButton({ hidden, label, onPress }: { hidden: number; label: string; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      onPress={() => {
-        animateNextLayout();
-        onPress();
-      }}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      className="items-center rounded-card border border-border py-3"
-    >
-      <Text className="text-sm font-semibold text-accent">{label}</Text>
-      <Text className="text-xs text-muted">{t("{n} restant{v}", { n: hidden, v: hidden > 1 ? "s" : "" })}</Text>
-    </TouchableOpacity>
-  );
-}
+/** Événements affichés d'un coup, à venir comme passés. */
+const PLANNING_PAGE_SIZE = LIST_PAGE_SIZE;
 
 function PlanningScreen() {
   const colors = useThemeColors();
