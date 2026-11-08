@@ -8,6 +8,7 @@ export default function DisciplineStep() {
   const { rider, setRider } = useOnboarding();
   return (
     <OnboardingShell
+      stepId="discipline"
       step={2}
       total={TOTAL_STEPS}
       title={t("Ta discipline principale ?")}

@@ -19,6 +19,11 @@ import { t } from "@/i18n";
  * du 2026-09-27) : ils restent modifiables depuis le Profil. */
 export const TOTAL_STEPS = 4;
 
+/** Identifiants stables des étapes d'onboarding, envoyés dans
+ * `onboarding_step_viewed.step` (cf. lib/analytics.ts). Ne jamais en
+ * renommer un : le tunnel PostHog s'appuie dessus. */
+export type OnboardingStepId = "welcome" | "account" | "rider_level" | "discipline" | "horse_basics" | "horses" | "summary";
+
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";
 

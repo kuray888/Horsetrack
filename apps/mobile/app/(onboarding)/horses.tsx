@@ -45,6 +45,7 @@ export default function Horses() {
 
   return (
     <OnboardingShell
+      stepId="horses"
       step={4}
       total={TOTAL_STEPS}
       title={t("Ton écurie")}

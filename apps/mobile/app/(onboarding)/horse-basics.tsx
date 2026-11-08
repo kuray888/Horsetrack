@@ -28,6 +28,7 @@ export default function HorseBasics() {
   return (
     <>
     <OnboardingShell
+      stepId="horse_basics"
       step={3}
       total={TOTAL_STEPS}
       title={tr("Présente-nous ton cheval")}

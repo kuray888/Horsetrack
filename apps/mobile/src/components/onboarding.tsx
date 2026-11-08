@@ -7,8 +7,10 @@ import { usePressScale } from "@/hooks/usePressScale";
 import { FadeInView } from "@/components/FadeInView";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { colors } from "@/theme/colors";
-import type { Option } from "@/onboarding/options";
+import type { OnboardingStepId, Option } from "@/onboarding/options";
 import { track } from "@/lib/analytics";
+import { hapticTap } from "@/lib/haptics";
+import { prefersReducedMotion } from "@/lib/motion";
 import { t } from "@/i18n";
 
 /** Barre de progression fine en haut de chaque étape — le remplissage est
@@ -20,7 +22,7 @@ export function ProgressBar({ step, total }: { step: number; total: number }) {
   const [width] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
-    Animated.timing(width, { toValue: pct, duration: 400, useNativeDriver: false }).start();
+    Animated.timing(width, { toValue: pct, duration: prefersReducedMotion() ? 0 : 400, useNativeDriver: false }).start();
   }, [pct, width]);
 
   return (
@@ -38,6 +40,7 @@ export function ProgressBar({ step, total }: { step: number; total: number }) {
  * titre/sous-titre, contenu défilant, et un CTA principal collé en bas.
  */
 export function OnboardingShell({
+  stepId,
   step,
   total,
   title,
@@ -48,6 +51,10 @@ export function OnboardingShell({
   onNext,
   canGoBack = true,
 }: {
+  /** Identifiant stable de l'étape pour le tunnel analytics — indépendant
+   * de la langue et de l'ordre des écrans (contrairement au titre et à
+   * `step`, qui changent si on réordonne l'onboarding). */
+  stepId: OnboardingStepId;
   step: number;
   total: number;
   title: string;
@@ -60,16 +67,16 @@ export function OnboardingShell({
 }) {
   // Entonnoir d'onboarding : une vue par étape (cf. lib/analytics.ts).
   useEffect(() => {
-    track("onboarding_step_viewed", { step, total, title });
+    track("onboarding_step_viewed", { step: stepId, position: step, total });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [stepId]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center gap-3 px-5 pt-2">
         {canGoBack && router.canGoBack() ? (
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-            <Text className="text-2xl text-muted">‹</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("Retour")}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.textMuted} />
           </TouchableOpacity>
         ) : null}
         <View className="flex-1">
@@ -117,7 +124,11 @@ export function PrimaryButton({
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity
-        onPress={onPress}
+        onPress={() => {
+          // Retour tactile léger : le bouton principal « répond » sous le doigt.
+          hapticTap();
+          onPress();
+        }}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         disabled={disabled}
