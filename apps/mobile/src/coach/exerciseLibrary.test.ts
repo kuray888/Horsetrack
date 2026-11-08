@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exerciseById, filterLibrary, libraryExercises } from "@/coach/exerciseLibrary";
+import { exerciseById, filterLibrary, libraryExercises, splitByDiscipline } from "@/coach/exerciseLibrary";
 
 describe("bibliothèque d'exercices", () => {
   const all = libraryExercises();
@@ -23,5 +23,22 @@ describe("bibliothèque d'exercices", () => {
     expect(filterLibrary(all, { noEquipment: true }).some((e) => e.type === "BARRES_AU_SOL")).toBe(false);
     const fav = new Set(["ASSOUPLISSEMENT.1.1"]);
     expect(filterLibrary(all, { favoritesOnly: true, favorites: fav }).map((e) => e.id)).toEqual(["ASSOUPLISSEMENT.1.1"]);
+  });
+});
+
+describe("splitByDiscipline", () => {
+  it("CSO : exercices propres au CSO à part des bases communes", () => {
+    const all = libraryExercises();
+    const { specific, common } = splitByDiscipline(all, "SHOW_JUMPING");
+    expect(specific.length).toBeGreaterThan(0);
+    expect(specific.every((e) => e.disciplines.includes("SHOW_JUMPING"))).toBe(true);
+    expect(common.every((e) => e.disciplines.length === 0)).toBe(true);
+    // Aucun exercice d'une autre discipline seulement (ex. dressage pur).
+    expect(specific.length + common.length).toBeLessThanOrEqual(all.length);
+  });
+
+  it("sans discipline : tout est affiché tel quel", () => {
+    const all = libraryExercises();
+    expect(splitByDiscipline(all, null)).toEqual({ specific: all, common: [] });
   });
 });

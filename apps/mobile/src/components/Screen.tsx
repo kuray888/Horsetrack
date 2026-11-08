@@ -13,16 +13,20 @@ type Props = {
   refreshControl?: ReactElement<RefreshControlProps>;
   /** Accès au ScrollView, pour faire défiler vers un élément (ex. un formulaire ouvert plus bas). */
   scrollRef?: Ref<ScrollView>;
+  /** En-tête FIXE au-dessus du contenu qui défile (titre, bouton Fermer) :
+   * toujours accessible, même tout en bas d'une longue liste. */
+  header?: ReactNode;
 };
 
 /**
  * Conteneur d'écran standard : fond de page + safe area + padding/gap cohérents.
  * Encapsule la logique SafeAreaView + ScrollView ; le style passe par Tailwind.
  */
-export function Screen({ children, scroll = true, edges = ["top"], className, refreshControl, scrollRef }: Props) {
-  const content = `p-5 gap-4 ${className ?? ""}`;
+export function Screen({ children, scroll = true, edges = ["top"], className, refreshControl, scrollRef, header }: Props) {
+  const content = `p-5 gap-4 ${header ? "pt-3" : ""} ${className ?? ""}`;
   return (
     <SafeAreaView className="flex-1 bg-background" edges={edges}>
+      {header ? <View className="border-b border-border px-5 pb-3 pt-2">{header}</View> : null}
       {scroll ? (
         <ScrollView
           ref={scrollRef}
