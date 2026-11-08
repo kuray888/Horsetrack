@@ -44,6 +44,7 @@ import { SessionFormCard } from "@/planning/components/SessionFormCard";
 import { assignableRiders, riderColumns } from "@/planning/riders";
 import { useHorseTeam } from "@/horses/team";
 import { useHorseRights } from "@/horses/useHorseRights";
+import { useSlots } from "@/planning/slotsStore";
 import { track } from "@/lib/analytics";
 import { PlanningStatsCard } from "@/planning/components/PlanningStatsCard";
 import { INTENSITY_META } from "@/sessions/components/SessionCard";
@@ -181,6 +182,9 @@ function PlanningScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm());
   const rights = useHorseRights();
+  const slotList = useSlots();
+  const { isPro } = useSubscription();
+  const showWeekLink = isPro || slotList.length > 0 || horses.some((h) => h.sharedRole);
   /** Verrou de soumission. handleSubmit est synchrone : deux appuis
    * rapprochés sur « Ajouter » sont deux événements distincts qui lisent tous
    * deux l'état d'avant le rendu suivant, et créent deux séances identiques
@@ -891,6 +895,23 @@ function PlanningScreen() {
           réception, contrairement aux Alert réservées aux cas qui demandent
           une décision. */}
       <SessionDonePrompt session={prompted} onDismiss={dismissPrompt} />
+
+      {/* Planning de la semaine (Écurie Pro v2) : pour qui travaille en équipe
+          — chevaux partagés, créneaux réguliers, ou compte Pro. */}
+      {showWeekLink ? (
+        <TouchableOpacity
+          onPress={() => router.push("/planning-semaine")}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          className="flex-row items-center gap-3 rounded-card bg-surface p-4"
+        >
+          <MaterialCommunityIcons name="calendar-week" size={20} color={colors.primary} />
+          <Text className="flex-1 text-sm font-semibold text-text">
+            {horses.some((h) => h.sharedRole) ? t("Mon planning et celui de l'écurie") : t("Planning de la semaine : qui monte quoi, quand")}
+          </Text>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      ) : null}
 
       {savedNotice ? (
         <View className="flex-row items-center gap-2 rounded-card bg-success/15 px-4 py-3">

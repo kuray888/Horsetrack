@@ -161,10 +161,19 @@ export type CoachFacts = {
 /** Poney : moins de 1,49 m au garrot. */
 export const PONY_MAX_HEIGHT_CM = 148;
 
-const isHard = (s: CoachSessionInput) =>
+/** Seuils de charge de travail, partagés par le coach (constraints.ts) et
+ * les contrôles du planning (planning/week.ts). */
+export const MAX_WORK_DAYS_7 = 6;
+export const MAX_HARD_SESSIONS_3D = 2;
+
+type LoadInput = Pick<CoachSessionInput, "activityType" | "intensity" | "durationMinutes">;
+
+/** Séance éprouvante : intensité haute, saut, cross, endurance, ou longue. */
+export const isHard = (s: LoadInput) =>
   s.intensity === "high" || ["cso", "cross", "endurance"].includes(s.activityType) || (s.durationMinutes ?? 0) >= 75;
 
-const isWork = (s: CoachSessionInput) => s.activityType !== "repos" && s.activityType !== "pansage";
+/** Séance de travail (pas un repos ni un pansage). */
+export const isWork = (s: Pick<CoachSessionInput, "activityType">) => s.activityType !== "repos" && s.activityType !== "pansage";
 
 /** Jours de travail consécutifs jusqu'à hier (séances faites). */
 export function consecutiveWorkDays(sessions: CoachSessionInput[], now: Date): number {

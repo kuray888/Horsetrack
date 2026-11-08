@@ -9,7 +9,7 @@ import {
   riderLevelAtLeast,
   type LibraryExercise,
 } from "@/coach/exerciseLibrary";
-import type { CoachFacts } from "@/coach/facts";
+import { MAX_HARD_SESSIONS_3D, MAX_WORK_DAYS_7, type CoachFacts } from "@/coach/facts";
 import type { Discipline, HorseLevel, RiderLevel } from "@/onboarding/store";
 import { t } from "@/i18n";
 
@@ -153,10 +153,10 @@ export function buildConstraints(facts: CoachFacts): CoachConstraints {
   }
 
   // Charge de travail.
-  if (load.consecutiveWorkDays >= 6 || load.sessionsDone7d >= 6) {
+  if (load.consecutiveWorkDays >= MAX_WORK_DAYS_7 || load.sessionsDone7d >= MAX_WORK_DAYS_7) {
     rest = true;
     rules.push({ code: "load_rest", text: t("6 jours de travail cette semaine : une journée de repos s'impose.") });
-  } else if (load.hardSessions3d >= 2) {
+  } else if (load.hardSessions3d >= MAX_HARD_SESSIONS_3D) {
     exclude(["OBSTACLE", "RENFORCEMENT"]);
     cap("MEDIUM");
     rules.push({ code: "load_hard", text: t("Deux séances intenses ces 3 derniers jours : séance plus légère.") });

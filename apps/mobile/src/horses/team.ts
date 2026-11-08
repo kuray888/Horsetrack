@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 import { readJson, removeJson, writeJson } from "@/lib/localStore";
 import type { HorseRole } from "@/lib/permissions";
@@ -19,9 +19,15 @@ const fetched = new Set<string>();
 const listeners = new Map<string, Set<() => void>>();
 const EMPTY: TeamMember[] = [];
 
+/** Change à chaque nouvelle équipe connue (cf. useHorseTeams). */
+let version = 0;
+const anyListeners = new Set<() => void>();
+
 function publish(horseId: string, team: TeamMember[]) {
   memory.set(horseId, team);
+  version++;
   listeners.get(horseId)?.forEach((l) => l());
+  anyListeners.forEach((l) => l());
 }
 
 async function load(horseId: string): Promise<void> {
@@ -75,4 +81,24 @@ export function useHorseTeam(horseId: string | null | undefined): TeamMember[] {
     [horseId]
   );
   return useSyncExternalStore(subscribe, () => (horseId ? (memory.get(horseId) ?? EMPTY) : EMPTY));
+}
+
+/** Équipes de plusieurs chevaux (planning de la semaine), par cheval. */
+export function useHorseTeams(horseIds: string[]): Record<string, TeamMember[]> {
+  const key = horseIds.join(",");
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      anyListeners.add(onChange);
+      for (const id of key ? key.split(",") : []) load(id).catch(() => {});
+      return () => {
+        anyListeners.delete(onChange);
+      };
+    },
+    [key]
+  );
+  const v = useSyncExternalStore(subscribe, () => version);
+  return useMemo(() => {
+    void v;
+    return Object.fromEntries((key ? key.split(",") : []).map((id) => [id, memory.get(id) ?? EMPTY]));
+  }, [key, v]);
 }

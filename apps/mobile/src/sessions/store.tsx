@@ -217,8 +217,13 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     [selectedHorse]
   );
 
+  /** Remplace la séance, ou l'ajoute si elle n'existe pas encore : une
+   * occurrence de créneau s'écrit à la première action, avec son
+   * identifiant déterministe (cf. planning/slots.ts). */
   const updateSession = useCallback((session: TrainingSession) => {
-    setSessions((list) => list.map((s) => (s.id === session.id ? session : s)));
+    setSessions((list) =>
+      list.some((s) => s.id === session.id) ? list.map((s) => (s.id === session.id ? session : s)) : [...list, session]
+    );
     pushTrainingSession(session).catch(() => {});
   }, []);
 

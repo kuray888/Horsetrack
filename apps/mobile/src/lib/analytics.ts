@@ -115,6 +115,8 @@ export type AnalyticsEvent =
   | "slot_created"
   | "slot_ended"
   | "partnership_slots_migrated"
+  | "slot_occurrence_cancelled"
+  | "week_planning_viewed"
   | "session_completed"
   // Tests A/B (cf. lib/experiments.ts)
   | "experiment_exposed";
