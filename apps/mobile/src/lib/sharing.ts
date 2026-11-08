@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { mapRemoteHorse, type RemoteHorse } from "@/lib/cloudSync";
 import type { Horse } from "@/horses/store";
 import { t } from "@/i18n";
+import { invalidateHorseTeam } from "@/horses/team";
 
 export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM" | "MANAGER" | "VET" | "FARRIER";
 
@@ -277,4 +278,30 @@ export async function pullSharedHorses(): Promise<(Horse & { sharedRole: Collabo
         sharedRole: row.role as CollaboratorRole,
       }))
   );
+}
+
+/** Partages de plusieurs chevaux (écran Équipe) : ceux que la base laisse
+ * voir — les chevaux possédés, et ceux dont on est gérant. null sur échec. */
+export async function listTeamShares(horseIds: string[]): Promise<
+  { id: string; horseId: string; invitedEmail: string; collaboratorUserId: string | null; role: CollaboratorRole; status: CollaboratorStatus }[] | null
+> {
+  if (horseIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("horse_collaborators")
+    .select("id, horseId, invitedEmail, collaboratorUserId, role, status")
+    .in("horseId", horseIds);
+  if (error || !data) return null;
+  return data;
+}
+
+/** Change le rôle d'une personne sur un cheval (propriétaire, ou gérant pour
+ * un rôle autre que gérant, cf. rls.sql). */
+export async function changeCollaboratorRole(id: string, horseId: string, role: CollaboratorRole): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("horse_collaborators")
+    .update({ role, updatedAt: new Date().toISOString() })
+    .eq("id", id)
+    .select("id");
+  invalidateHorseTeam(horseId);
+  return !error && !!data && data.length > 0;
 }

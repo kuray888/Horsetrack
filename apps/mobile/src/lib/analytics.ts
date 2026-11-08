@@ -117,6 +117,11 @@ export type AnalyticsEvent =
   | "partnership_slots_migrated"
   | "slot_occurrence_cancelled"
   | "week_planning_viewed"
+  // Écran Équipe (Écurie Pro v2).
+  | "team_viewed"
+  | "team_invite_sent"
+  | "team_role_changed"
+  | "team_member_revoked"
   | "session_completed"
   // Tests A/B (cf. lib/experiments.ts)
   | "experiment_exposed";

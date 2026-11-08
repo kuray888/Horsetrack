@@ -265,6 +265,21 @@ export default function ShareHorseModal() {
           </View>
         )}
 
+        {/* Plusieurs chevaux : toute l'équipe sur un écran, invitation
+            multi-chevaux (cf. app/equipe.tsx). */}
+        {horses.filter((h) => !h.sharedRole).length > 1 ? (
+          <TouchableOpacity
+            onPress={() => router.push("/equipe")}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            className="flex-row items-center gap-3 rounded-card bg-surface p-4"
+          >
+            <MaterialCommunityIcons name="account-group-outline" size={20} color={colors.primary} />
+            <Text className="flex-1 text-sm font-semibold text-text">{t("Gérer l'équipe de tous tes chevaux")}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        ) : null}
+
         {loadError ? null : atLimit ? (
           <View className={`${CARD} items-center gap-3`}>
             <Text className="text-center text-sm text-muted">

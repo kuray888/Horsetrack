@@ -91,6 +91,18 @@ export default function StableScreen() {
               <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </FadeInView>
+          <FadeInView delay={45}>
+            <TouchableOpacity
+              onPress={() => router.push("/equipe")}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              className="flex-row items-center gap-3 rounded-card bg-surface p-4"
+            >
+              <MaterialCommunityIcons name="account-group-outline" size={20} color={colors.primary} />
+              <Text className="flex-1 text-sm font-semibold text-text">{t("Équipe : rôles, invitations, accès")}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </FadeInView>
           {rows.map((row, i) => (
             <FadeInView key={row.horseId} delay={60 + i * 40}>
               <StableRow row={row} />
