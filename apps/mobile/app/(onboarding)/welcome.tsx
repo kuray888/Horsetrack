@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View, Text } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
@@ -37,6 +37,17 @@ export default function Welcome() {
           <Text className="text-center text-xs text-muted">
             {t("Gratuit pour commencer · Premium en option")}
           </Text>
+          {/* Cavalier qui revient (nouveau téléphone, réinstallation) : droit
+              à la connexion, sans passer par le formulaire de création. */}
+          <TouchableOpacity
+            testID="welcome-login"
+            accessibilityRole="button"
+            onPress={() => router.push("/(auth)/login")}
+            hitSlop={8}
+            className="py-2"
+          >
+            <Text className="text-center text-sm font-semibold text-accent">{t("Déjà un compte ? Se connecter")}</Text>
+          </TouchableOpacity>
         </View>
       </FadeInView>
     </SafeAreaView>

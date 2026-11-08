@@ -908,6 +908,7 @@ export const EN: Record<string, string> = {
   "Impossible d'ouvrir": "Couldn't open",
   "Suppression…": "Deleting…",
   "Conditions d'utilisation": "Terms of Use",
+  "Contacts": "Contacts",
   "Politique de confidentialité": "Privacy Policy",
   "Tu peux la lire sur {url}": "You can read it at {url}",
   "Réessaie dans un instant.": "Try again in a moment.",

@@ -554,6 +554,17 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           onPress={() => router.push(`/horse/${horse.id}/identite`)}
         />
       </FadeInView>
+      {/* Contacts de l'écurie : on les cherche là où se gèrent les soins du
+          cheval, pas seulement dans le Profil (même écran, partagé). */}
+      <FadeInView delay={198}>
+        <HorseModuleCard
+          icon="card-account-phone-outline"
+          iconColor={colors.danger}
+          title={t("Contacts")}
+          value={t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}
+          onPress={() => router.push("/contacts")}
+        />
+      </FadeInView>
       {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}
       <FadeInView delay={199}>
         <HorseModuleCard
