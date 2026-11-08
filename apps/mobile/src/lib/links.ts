@@ -17,6 +17,28 @@ export const DOWNLOAD_URL: string | null = API_URL ? `${API_URL}/telecharger` : 
 
 export const SUPPORT_EMAIL = "horsetrack.app@gmail.com";
 
+/** Pages légales servies par l'API — exigées par Apple (règles 3.1.2 et
+ * 5.1.1) sur le paywall ET accessibles ailleurs dans l'app (Profil). */
+const LEGAL_PATHS = { terms: "/cgu", privacy: "/confidentialite" } as const;
+export type LegalPage = keyof typeof LEGAL_PATHS;
+
+export function legalUrl(page: LegalPage): string | null {
+  return API_URL ? `${API_URL}${LEGAL_PATHS[page]}` : null;
+}
+
+/** Ouvre une page légale. Renvoie false si elle n'a pas pu s'ouvrir : à
+ * l'appelant d'afficher l'adresse plutôt qu'un bouton qui ne fait rien. */
+export async function openLegalPage(page: LegalPage): Promise<boolean> {
+  const url = legalUrl(page);
+  if (!url) return false;
+  try {
+    await Linking.openURL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Identifiant numérique App Store (ex. « 6741234567 »), pour le lien
  * « Noter Horsetrack ». Absent tant que l'app n'est pas publiée. */
 const APP_STORE_ID = process.env.EXPO_PUBLIC_APP_STORE_ID;

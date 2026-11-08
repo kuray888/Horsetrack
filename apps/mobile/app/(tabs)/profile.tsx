@@ -8,13 +8,13 @@ import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { supabase } from "@/lib/supabase";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
-import { useSubscription } from "@/subscription/store";
+import { useSubscribeFlow, useSubscription } from "@/subscription/store";
 import { openPaywall } from "@/subscription/paywall";
 import { unregisterPushToken } from "@/lib/pushRegistration";
 import { formatFullDate } from "@/subscription/paywallLogic";
 import { openManageSubscriptions } from "@/lib/revenuecat";
 import { track } from "@/lib/analytics";
-import { DOWNLOAD_URL, SUPPORT_EMAIL, canOpenWriteReview, openSupportEmail, openWriteReview } from "@/lib/links";
+import { DOWNLOAD_URL, SUPPORT_EMAIL, canOpenWriteReview, legalUrl, openLegalPage, openSupportEmail, openWriteReview, type LegalPage } from "@/lib/links";
 import { useThemeColors, useTheme } from "@/theme/ThemeProvider";
 import { THEME_ORDER, THEME_LABELS, paletteFor } from "@/theme/palettes";
 import {
@@ -139,6 +139,7 @@ function ProfileScreen() {
   const { themeId, setThemeId, scheme, appearance, setAppearance } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const subscription = useSubscription();
+  const { restoring, restore } = useSubscribeFlow();
   const {
     status,
     billingPeriod,
@@ -155,6 +156,12 @@ function ProfileScreen() {
   const { measurements, clearAll: clearWeight } = useWeight();
   const { sessions, clearAll: clearSessions } = useSessions();
   const [exporting, setExporting] = useState(false);
+
+  async function openLegal(page: LegalPage) {
+    if (await openLegalPage(page)) return;
+    const url = legalUrl(page);
+    Alert.alert(tr("Impossible d'ouvrir"), url ? tr("Tu peux la lire sur {url}", { url }) : tr("Réessaie dans un instant."));
+  }
 
   const handleExport = async () => {
     if (exporting) return;
@@ -701,6 +708,22 @@ function ProfileScreen() {
               />
             </>
           ) : null}
+          <View className="border-t border-border" />
+          {/* Restauration et pages légales : aussi exigées hors du paywall
+              (règles App Store 3.1.1 et 5.1.1) — un cavalier qui réinstalle
+              l'app ou veut relire ses droits les trouve ici. */}
+          <LinkRow
+            icon="restore"
+            label={restoring ? tr("Restauration…") : tr("Restaurer mes achats")}
+            description={tr("Retrouve ton abonnement après une réinstallation")}
+            onPress={() => {
+              if (!restoring) void restore();
+            }}
+          />
+          <View className="border-t border-border" />
+          <LinkRow icon="file-document-outline" label={tr("Conditions d'utilisation")} onPress={() => void openLegal("terms")} />
+          <View className="border-t border-border" />
+          <LinkRow icon="shield-lock-outline" label={tr("Politique de confidentialité")} onPress={() => void openLegal("privacy")} />
         </View>
       </FadeInView>
 
@@ -734,7 +757,7 @@ function ProfileScreen() {
             activeOpacity={0.85}
           >
             <Text className="font-semibold text-danger">
-              {deletingAccount ? "Suppression…" : tr("Supprimer mon compte")}
+              {deletingAccount ? tr("Suppression…") : tr("Supprimer mon compte")}
             </Text>
           </TouchableOpacity>
         </View>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, View, Text, TextInput, TouchableOpacity, ScrollView, Linking, Platform } from "react-native";
+import { Alert, Animated, View, Text, TextInput, TouchableOpacity, ScrollView, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton } from "@/components/onboarding";
@@ -11,6 +11,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { BillingPeriod, PromoRedeemResult } from "@/subscription/store";
 import { usePaywallOfferState } from "@/subscription/paywall";
 import { track } from "@/lib/analytics";
+import { legalUrl, openLegalPage, type LegalPage } from "@/lib/links";
 import {
   BENEFITS,
   DEFAULT_TRIAL,
@@ -503,6 +504,12 @@ export function PaywallView({
     onClose?.();
   }
 
+  async function openLegal(page: LegalPage) {
+    if (await openLegalPage(page)) return;
+    const url = legalUrl(page);
+    Alert.alert(t("Impossible d'ouvrir"), url ? t("Tu peux la lire sur {url}", { url }) : t("Réessaie dans un instant."));
+  }
+
   function skip() {
     track("free_tier_chosen", { placement, seconds_on_screen: Math.round((Date.now() - openedAt.current) / 1000) });
     onSkip?.();
@@ -649,17 +656,21 @@ export function PaywallView({
             <Text className="text-center text-sm font-semibold text-text underline">{skipLabel}</Text>
           </TouchableOpacity>
         ) : null}
-        <View className="flex-row justify-center gap-5">
-          <TouchableOpacity onPress={onRestore} disabled={restoring} accessibilityRole="button" testID="paywall-restore">
+        {/* Liens exigés par Apple (règle 3.1.2) : restauration, conditions
+            d'utilisation (EULA) et politique de confidentialité, nommées
+            comme le vérificateur s'attend à les lire. hitSlop : cibles de
+            44 pt malgré le texte en petit corps. */}
+        <View className="flex-row flex-wrap justify-center gap-x-4 gap-y-1">
+          <TouchableOpacity onPress={onRestore} disabled={restoring} hitSlop={12} accessibilityRole="button" testID="paywall-restore">
             <Text className="text-xs font-semibold text-accent">
               {restoring ? t("Restauration…") : t("Restaurer mes achats")}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/cgu`).catch(() => {})}>
-            <Text className="text-xs font-semibold text-accent">{t("Conditions")}</Text>
+          <TouchableOpacity onPress={() => void openLegal("terms")} hitSlop={12} accessibilityRole="link" testID="paywall-terms">
+            <Text className="text-xs font-semibold text-accent">{t("Conditions d'utilisation")}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_API_URL}/confidentialite`).catch(() => {})}>
-            <Text className="text-xs font-semibold text-accent">{t("Confidentialité")}</Text>
+          <TouchableOpacity onPress={() => void openLegal("privacy")} hitSlop={12} accessibilityRole="link" testID="paywall-privacy">
+            <Text className="text-xs font-semibold text-accent">{t("Politique de confidentialité")}</Text>
           </TouchableOpacity>
         </View>
       </View>
