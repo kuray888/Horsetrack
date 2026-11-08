@@ -2,6 +2,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { RevealObserver } from "@/components/RevealObserver";
 import { StickyCta } from "@/components/StickyCta";
 import { Faq } from "@/components/sections/Faq";
+import { GuidesTeaser } from "@/components/sections/GuidesTeaser";
 import { Features } from "@/components/sections/Features";
 import { FinalCta } from "@/components/sections/FinalCta";
 import { Hero } from "@/components/sections/Hero";
@@ -21,6 +22,7 @@ export default function HomePage() {
       <LessAdmin />
       <Steps />
       <Pricing />
+      <GuidesTeaser />
       <Faq />
       <FinalCta />
       <StickyCta href={APP_STORE_URL} startId="hero-cta" endIds={["cta-final", "pied-de-page"]} />

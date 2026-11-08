@@ -1,4 +1,5 @@
 import { FAQ } from "@/content/home";
+import type { Guide } from "@/content/guides";
 import { SCREENS } from "@/content/screens";
 import {
   APP_STORE_URL,
@@ -87,6 +88,36 @@ export function homeStructuredData() {
           name: item.q,
           acceptedAnswer: { "@type": "Answer", text: item.a },
         })),
+      },
+    ],
+  };
+}
+
+/** Guide : article + fil d'Ariane (Accueil › Guides › titre). */
+export function guideStructuredData(guide: Guide) {
+  const url = `${SITE_URL}/guides/${guide.slug}`;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "@id": `${url}#article`,
+        headline: guide.title,
+        description: guide.description,
+        inLanguage: "fr-FR",
+        datePublished: guide.updated,
+        dateModified: guide.updated,
+        mainEntityOfPage: url,
+        author: { "@id": ORGANIZATION_ID },
+        publisher: { "@id": ORGANIZATION_ID },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Accueil", item: `${SITE_URL}/` },
+          { "@type": "ListItem", position: 2, name: "Guides", item: `${SITE_URL}/guides` },
+          { "@type": "ListItem", position: 3, name: guide.title, item: url },
+        ],
       },
     ],
   };

@@ -1,0 +1,195 @@
+/* Pages de contenu (guides, calculateur) : colonne de lecture confortable,
+   même charte que l'accueil (crème, marine, cuivre). */
+
+.page {
+  padding-block: calc(var(--header-h) + clamp(32px, 6vw, 72px)) var(--section-y);
+}
+
+.narrow {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+.crumbs a {
+  color: var(--blue-text);
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  text-decoration: underline;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.2rem, 1.4rem + 3.2vw, 3.4rem);
+  letter-spacing: -0.03em;
+  line-height: 1.04;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.meta {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.intro {
+  margin-top: 24px;
+}
+
+.body {
+  margin-top: 48px;
+  display: grid;
+  gap: 40px;
+}
+
+.body h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 1.9rem);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+
+.body p,
+.body li {
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.body p + p {
+  margin-top: 16px;
+}
+
+.body ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 1.2em;
+  margin-top: 8px;
+}
+
+.body li::marker {
+  color: var(--copper);
+}
+
+.tip {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--sky-soft);
+  border-left: 4px solid var(--blue-band);
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.cta {
+  margin-top: 56px;
+  display: grid;
+  gap: 16px;
+  padding: clamp(24px, 4vw, 40px);
+  border-radius: var(--radius-lg);
+  background: var(--ink-2);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+.cta h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.cta p {
+  color: #d9e6f2;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.related {
+  margin-top: 56px;
+}
+
+.related h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+
+.cards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+
+.card {
+  display: grid;
+  gap: 8px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.card h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.card p {
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.card span {
+  color: var(--blue-text);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.cardFeatured {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+
+.cardFeatured h3 {
+  color: #fff;
+}
+
+.cardFeatured p {
+  color: #d9e6f2;
+}
+
+.cardFeatured span {
+  color: var(--sky);
+}
