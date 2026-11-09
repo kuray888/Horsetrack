@@ -48,6 +48,25 @@ toujours les prix du store : ils se règlent dans App Store Connect.
    dans l'état actuel de la prod et rejouables (`pnpm --filter @cheval/db
    test:rls` vérifie les règles sur un Postgres local).
 
+### 3 bis. Espace gestionnaire (site, /gestion)
+Planning de la semaine sur ordinateur, tâches, exports CSV : lecture seule,
+mêmes identifiants que l'app (adresse + mot de passe, ou lien par email).
+1. Vercel (projet du site `apps/web`) : ajouter `NEXT_PUBLIC_SUPABASE_URL` et
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` (la clé **anon**, jamais la clé de service),
+   puis redéployer. Sans elles, la page affiche « pas encore ouvert ».
+2. Supabase → Authentication → URL Configuration : ajouter
+   `https://<domaine du site>/gestion` aux « Redirect URLs » (lien par email).
+3. Le site n'envoie ses données qu'à Supabase, depuis `/gestion` seulement
+   (CSP propre à ce chemin) ; la page n'est pas indexée.
+4. Ce que chacun voit est décidé par les règles RLS : un propriétaire voit son
+   écurie, un gérant / coach / groom les chevaux dont il fait partie ; seuls
+   les chevaux d'un propriétaire Écurie Pro apparaissent
+   (`horse_owner_is_pro`) ; la participation aux frais n'apparaît que pour le
+   propriétaire et le gérant.
+5. Limite connue : l'espace vit sur le domaine du site vitrine. Un
+   sous-domaine dédié (`gestion.…`) isolerait mieux la session ; à faire si
+   l'usage grandit.
+
 ### 4. Déploiement
 1. API (Vercel) : déployer la branche une fois les étapes 1 à 3 faites.
 2. App : nouveau build EAS (aucun réglage d'environnement à ajouter).

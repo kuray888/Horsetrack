@@ -225,6 +225,8 @@ export const PLANS = {
       "Un rôle pour chacun : DP, coach, groom, gérant, véto, maréchal",
       "Des droits adaptés : chacun note ses séances, le budget reste à vous",
       "Vue écurie : retards, échéances et dépenses de tous vos chevaux",
+      "Tâches d'écurie, créneaux réguliers et planning de la semaine",
+      "Espace gestionnaire sur ordinateur : planning et exports CSV",
       "Coach : trois fois plus de questions",
     ],
   },

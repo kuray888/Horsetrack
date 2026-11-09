@@ -32,6 +32,14 @@ const csp = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+/**
+ * Espace gestionnaire (/gestion) : même politique, avec en plus la connexion
+ * à Supabase (adresse du projet lue au build). Les autres pages gardent la
+ * politique ci-dessus, fermée à toute origine externe.
+ */
+const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : null;
+const gestionCsp = csp.replace("connect-src 'self'", `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`);
+
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
@@ -55,7 +63,18 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 30,
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      // Tout le site sauf /gestion : un en-tête CSP en double durcirait les deux.
+      { source: "/((?!gestion).*)", headers: securityHeaders },
+      {
+        source: "/gestion/:path*",
+        headers: [
+          ...securityHeaders.filter((h) => h.key !== "Content-Security-Policy"),
+          { key: "Content-Security-Policy", value: gestionCsp },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+    ];
   },
 };
 
