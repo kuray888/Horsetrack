@@ -89,6 +89,11 @@ ajouter une sans la placer dans ce tableau :
   à chaque ouverture, seulement si les notifications sont déjà autorisées.
 - Avis App Store (`reviewPromptLogic.ts`) : ≥ 7 jours, après 3 moments
   positifs, 120 j entre deux.
+- Notifications du planning (`apps/api/src/lib/planningPush.ts`, Écurie Pro) :
+  événementielles, pas des relances — séance attribuée, « a monté »,
+  annulation, nouveau créneau ; une par événement et par personne, 60 par
+  heure et par expéditeur, jamais envoyées à l'auteur. Les tâches d'écurie
+  n'en envoient aucune.
 
 ## Onboarding et rétention
 
