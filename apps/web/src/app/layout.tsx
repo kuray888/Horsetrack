@@ -1,16 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque } from "next/font/google";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { APP_STORE_ID, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/content/site";
 import "./globals.css";
 
-/** Police des titres de l'app (cf. apps/mobile/tailwind.config.js), téléchargée
- * au build et servie depuis notre domaine : aucune requête vers Google. */
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["700", "800"],
+/** Police des titres de l'app (cf. apps/mobile/tailwind.config.js), servie
+ * depuis notre domaine : aucune requête vers Google, ni au chargement ni à la
+ * build. Fichier hébergé dans le dépôt (src/app/fonts, licence SIL OFL) : le
+ * téléchargement à la build échouait par moments sur Vercel (Google renvoie
+ * parfois une adresse de fichier que Next ne sait pas lire). Sous-ensemble
+ * latin, police variable : graisses 700 et 800 comme avant. */
+const bricolage = localFont({
+  src: [{ path: "./fonts/BricolageGrotesque-latin.woff2", weight: "700 800", style: "normal" }],
   display: "swap",
   variable: "--font-bricolage",
 });
