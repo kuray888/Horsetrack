@@ -244,6 +244,17 @@ export default function WeekPlanningScreen() {
         </TouchableOpacity>
       </View>
 
+      <TouchableOpacity
+        onPress={() => router.push("/taches")}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        className="flex-row items-center gap-3 rounded-card bg-surface p-4"
+      >
+        <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.primary} />
+        <Text className="flex-1 text-sm font-semibold text-text">{t("Tâches du jour : qui fait quoi")}</Text>
+        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+      </TouchableOpacity>
+
       {warnings.length > 0 ? (
         <FadeInView delay={40}>
           <View className="gap-2 rounded-card bg-warning/15 p-4" accessibilityLiveRegion="polite">

@@ -27,6 +27,7 @@ export type Capability =
   | "add_journal"
   | "manage_expenses"
   | "manage_fees"
+  | "manage_tasks"
   | "moderate"
   | "manage_planning";
 
@@ -45,6 +46,7 @@ export const CAPABILITIES: Record<Capability, HorseRole[]> = {
   add_journal: ALL,
   manage_expenses: ["OWNER", "LEGACY", "MANAGER"],
   manage_fees: ["OWNER", "MANAGER"],
+  manage_tasks: ["OWNER", "MANAGER", "GROOM"],
   moderate: ["OWNER", "MANAGER"],
   manage_planning: ["OWNER", "MANAGER", "COACH"],
 };

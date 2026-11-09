@@ -21,6 +21,8 @@ import { deleteRideSlotRemoteImpl, pushRideSlotImpl } from "./sync/slots";
 import type { RideSlot } from "@/planning/slots";
 import { deleteFeeRemoteImpl, pushFeeImpl } from "./sync/fees";
 import type { Fee } from "@/fees/feesModel";
+import { deleteCompletionRemoteImpl, deleteTaskRemoteImpl, pushCompletionImpl, pushTaskImpl } from "./sync/tasks";
+import type { StableTask, TaskCompletion } from "@/tasks/tasksModel";
 
 /**
  * Sauvegarde cloud des données irremplaçables (écurie + profil cavalier,
@@ -46,6 +48,7 @@ export { retryPendingWrites, settleRemoteWrite } from "./sync/shared";
 export { pullWeightMeasurements } from "./sync/weight";
 export { pullRideSlots, migratePartnershipSlots } from "./sync/slots";
 export { pullFees } from "./sync/fees";
+export { pullTasks, pullCompletions } from "./sync/tasks";
 
 /**
  * Suppression d'une épreuve. Deux marques durables, posées avant l'envoi :
@@ -169,6 +172,18 @@ export function pushWeightMeasurement(measurement: WeightMeasurement) {
 }
 export function deleteWeightMeasurementRemote(id: string) {
   return withWriteTracking("horse_weight_measurements", id, (stamp) => deleteWeightMeasurementRemoteImpl(id, stamp), "delete");
+}
+export function pushTask(task: StableTask) {
+  return withWriteTracking("stable_tasks", task.id, (stamp) => pushTaskImpl(task, stamp));
+}
+export function deleteTaskRemote(id: string) {
+  return withWriteTracking("stable_tasks", id, (stamp) => deleteTaskRemoteImpl(id, stamp), "delete");
+}
+export function pushCompletion(c: TaskCompletion) {
+  return withWriteTracking("stable_task_completions", c.id, (stamp) => pushCompletionImpl(c, stamp));
+}
+export function deleteCompletionRemote(id: string) {
+  return withWriteTracking("stable_task_completions", id, (stamp) => deleteCompletionRemoteImpl(id, stamp), "delete");
 }
 export function pushFee(fee: Fee) {
   return withWriteTracking("participation_fees", fee.id, (stamp) => pushFeeImpl(fee, stamp));

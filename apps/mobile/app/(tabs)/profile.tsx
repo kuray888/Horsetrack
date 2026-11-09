@@ -44,6 +44,7 @@ import { clearSyncQueue } from "@/lib/syncQueue";
 import { clearHorseTeams } from "@/horses/team";
 import { clearSlots } from "@/planning/slotsStore";
 import { clearFees } from "@/fees/feesStore";
+import { clearTasks } from "@/tasks/tasksStore";
 import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
 import { lazyTab } from "@/components/LazyTab";
 import { exportAllData } from "@/export/exportAllData";
@@ -304,6 +305,7 @@ function ProfileScreen() {
       clearHorseTeams(),
       clearSlots(),
       clearFees(),
+      clearTasks(),
       clearLocalDataOwner(),
     ]);
     // Photos et pièces du coffre-fort copiées sur l'appareil : les listes

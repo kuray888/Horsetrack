@@ -26,6 +26,7 @@ import { clearSyncQueue } from "@/lib/syncQueue";
 import { clearHorseTeams } from "@/horses/team";
 import { clearSlots } from "@/planning/slotsStore";
 import { clearFees } from "@/fees/feesStore";
+import { clearTasks } from "@/tasks/tasksStore";
 import { pullSharedHorses, pullPendingInvites } from "@/lib/sharing";
 import { withTimeout } from "@/lib/withTimeout";
 import { markOnboardingCompleted, resetOnboardingCompleted } from "@/onboarding/completion";
@@ -142,6 +143,7 @@ export default function LoginScreen() {
           clearHorseTeams(),
           clearSlots(),
           clearFees(),
+          clearTasks(),
         ]);
 
         try {

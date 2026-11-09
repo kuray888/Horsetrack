@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { refreshExtras } from "@/extras/store";
 import { refreshSlots } from "@/planning/slotsStore";
 import { refreshFees } from "@/fees/feesStore";
+import { refreshTasks } from "@/tasks/tasksStore";
 import { AppState } from "react-native";
 import { supabase } from "@/lib/supabase";
 import {
@@ -153,6 +154,7 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     // Créneaux récurrents (Écurie Pro v2, cf. planning/slotsStore.ts).
     await refreshSlots(pullStartedAt).catch(() => {});
     await refreshFees(pullStartedAt).catch(() => {});
+    await refreshTasks(pullStartedAt).catch(() => {});
   }, []);
 
   const refresh = useCallback((): Promise<void> => {

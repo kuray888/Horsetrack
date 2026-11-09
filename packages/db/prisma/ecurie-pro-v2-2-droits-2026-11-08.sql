@@ -124,6 +124,7 @@ as $$
     when 'manage_expenses'     then _role in ('LEGACY', 'OWNER', 'MANAGER')
     when 'moderate'            then _role in ('OWNER', 'MANAGER')
     when 'manage_fees'         then _role in ('OWNER', 'MANAGER')
+    when 'manage_tasks'        then _role in ('OWNER', 'MANAGER', 'GROOM')
     when 'manage_planning'     then _role in ('OWNER', 'MANAGER', 'COACH')
     else false
   end, false);

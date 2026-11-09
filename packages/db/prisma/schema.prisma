@@ -246,6 +246,7 @@ model Horse {
   coachSummaries     CoachSummary[]
   rideSlots          RideSlot[]
   participationFees  ParticipationFee[]
+  stableTasks        StableTask[]
   comments           HorseComment[]
   reactions          HorseReaction[]
 
@@ -598,6 +599,53 @@ model RideSlot {
   @@index([horseId])
   @@index([riderUserId])
   @@map("ride_slots")
+}
+
+/// Écurie Pro v2 : tâche d'écurie d'un cheval (sortie au pré, repas,
+/// couverture, soin saisi par l'utilisateur). Ponctuelle (dueDate) ou
+/// récurrente (weekdays). L'app ne propose jamais de posologie.
+model StableTask {
+  id              String    @id
+  horseId         String
+  horse           Horse     @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  title           String
+  /// Personne chargée de la tâche : un compte de l'équipe, ou un simple nom.
+  assigneeUserId  String?
+  assigneeName    String?
+  /// Jours ISO (1 = lundi ... 7 = dimanche) ; vide = tâche ponctuelle.
+  weekdays        Int[]
+  dueDate         DateTime?
+  /// "HH:MM", null = dans la journée.
+  time            String?
+  notes           String    @default("")
+  validFrom       DateTime
+  validUntil      DateTime?
+  createdByUserId String?
+
+  completions StableTaskCompletion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId])
+  @@index([assigneeUserId])
+  @@map("stable_tasks")
+}
+
+/// Une tâche faite un jour donné : identifiant "<tâche>_<AAAA-MM-JJ>", donc
+/// une seule ligne par tâche et par jour. Qui et quand : posés par la base.
+model StableTaskCompletion {
+  id           String     @id
+  taskId       String
+  task         StableTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  horseId      String
+  date         DateTime
+  doneByUserId String?
+  doneAt       DateTime   @default(now())
+
+  @@index([taskId])
+  @@index([horseId, date])
+  @@map("stable_task_completions")
 }
 
 /// Écurie Pro v2 — participation aux frais d'une demi-pension, par mois.
