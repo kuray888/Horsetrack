@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addDays, parseServerDate, type Completion, type Fee, type Horse, type Session, type Slot, type Task, type TeamMember } from "@/lib/gestion/planning";
+import { addDays, occurrenceId, parseServerDate, type Completion, type Fee, type Horse, type Session, type Slot, type Task, type TeamMember } from "@/lib/gestion/planning";
 
 /** Lectures de l'espace gestionnaire : tout passe par les règles RLS de la
  * personne connectée. Une erreur est levée telle quelle, l'écran la dit. */
@@ -60,6 +60,24 @@ export async function loadWeek(client: SupabaseClient, horseIds: string[], start
   ]);
   if (sessions.error) fail("Séances", sessions.error);
   if (slots.error) fail("Créneaux", slots.error);
+  // Une occurrence de créneau déjà écrite mais déplacée hors de la semaine
+  // reste « écrite » (comme dans l'app) : on relit ces séances par identifiant.
+  const weekIds: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(start, i);
+    const isoDay = ((day.getDay() + 6) % 7) + 1;
+    for (const slot of slots.data ?? []) if (slot.weekday === isoDay) weekIds.push(occurrenceId(slot.id, day));
+  }
+  const known = new Set((sessions.data ?? []).map((r) => r.id));
+  const missing = weekIds.filter((id) => !known.has(id));
+  if (missing.length > 0) {
+    const moved = await client
+      .from("training_sessions")
+      .select("id, horseId, activityType, date, time, durationMinutes, completed, riderUserId, riderName, cancelledAt")
+      .in("id", missing);
+    if (moved.error) fail("Séances", moved.error);
+    sessions.data = [...(sessions.data ?? []), ...(moved.data ?? [])];
+  }
   if (tasks.error) fail("Tâches", tasks.error);
   if (completions.error) fail("Coches", completions.error);
   // Frais : table absente tant que la migration n'est pas passée, ce n'est pas bloquant.

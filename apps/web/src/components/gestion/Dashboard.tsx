@@ -210,7 +210,7 @@ export function Dashboard({ client, email }: { client: SupabaseClient; email: st
           Tâches de la semaine (CSV)
         </button>
         {data.fees.length > 0 ? (
-          <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={() => download(`participation-frais-${stamp.slice(0, 7)}.csv`, feesCsv(data.fees, horses, teams))}>
+          <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={() => download(`participation-frais-${[...new Set(data.fees.map((f) => f.month))].sort().join("_")}.csv`, feesCsv(data.fees, horses, teams))}>
             Participation aux frais (CSV)
           </button>
         ) : null}
