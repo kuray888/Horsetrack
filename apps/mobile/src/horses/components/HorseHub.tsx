@@ -567,6 +567,15 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               onPress={() => router.push(`/horse/${horse.id}/creneaux`)}
             />
           ) : null}
+          {/* Rapport du mois en PDF (Écurie Pro v2) : pour toute l'équipe, les
+              dépenses n'y figurent que pour qui y a droit. */}
+          <HorseModuleRow
+            icon="file-chart-outline"
+            iconColor={colors.primary}
+            title={t("Rapport du mois")}
+            value={t("Séances, soins et tâches en PDF")}
+            onPress={() => router.push(`/horse/${horse.id}/rapport`)}
+          />
           {/* Participation aux frais (Écurie Pro v2) : suivi mois par mois, pour
               qui gère le cheval. */}
           {rights.can(horse.id, "manage_fees") && (horse.sharedRole || isPro) ? (

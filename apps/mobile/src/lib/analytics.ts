@@ -118,6 +118,7 @@ export type AnalyticsEvent =
   | "slot_occurrence_cancelled"
   | "fee_added"
   | "task_created"
+  | "monthly_report_shared"
   | "task_done"
   | "fee_marked"
   | "week_planning_viewed"
