@@ -10,6 +10,18 @@ const team = [
 
 describe("canTrigger", () => {
   const base = { callerId: "owner", callerRole: "OWNER", createdByUserId: null, doneByUserId: null };
+
+  it("un ancien partage (LEGACY) garde le droit d'attribuer, d'annuler et d'annoncer un créneau", () => {
+    const legacy = { ...base, callerId: "old", callerRole: "LEGACY" };
+    expect(canTrigger("assigned", legacy)).toBe(true);
+    expect(canTrigger("cancelled", legacy)).toBe(true);
+    expect(canTrigger("slot_assigned", legacy)).toBe(true);
+  });
+
+  it("un ancien partage ne reçoit pas les « a monté » (rien de nouveau pour lui)", () => {
+    const t = [...team, { userId: "old", role: "LEGACY" }];
+    expect(planningRecipients("done", { callerId: "dp", riderUserId: "dp", team: t })).not.toContain("old");
+  });
   it("attribuer : qui organise le planning, ou l'auteur de la séance", () => {
     expect(canTrigger("assigned", base)).toBe(true);
     expect(canTrigger("assigned", { ...base, callerId: "dp", callerRole: "DEMI_PENSION" })).toBe(false);

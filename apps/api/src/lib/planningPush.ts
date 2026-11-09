@@ -14,6 +14,10 @@ export type TeamEntry = { userId: string; role: string };
 /** Rôles qui organisent le planning (cf. rls.sql horse_role_can). */
 const PLANNERS = ["OWNER", "MANAGER", "COACH"];
 
+/** Un ancien partage (fullAccess) garde ses droits d'avant : il organise le
+ * planning (rls.sql, rôle LEGACY) mais ne reçoit pas de notification de plus. */
+const TRIGGERERS = [...PLANNERS, "LEGACY"];
+
 /** Au plus 60 notifications du planning par expéditeur et par heure. */
 export const MAX_PLANNING_NOTIFICATIONS_PER_HOUR = 60;
 
@@ -27,10 +31,10 @@ export function canTrigger(
     case "done":
       return !!ctx.doneByUserId && ctx.doneByUserId === ctx.callerId;
     case "slot_assigned":
-      return PLANNERS.includes(ctx.callerRole);
+      return TRIGGERERS.includes(ctx.callerRole);
     case "assigned":
     case "cancelled":
-      return PLANNERS.includes(ctx.callerRole) || ctx.createdByUserId === ctx.callerId;
+      return TRIGGERERS.includes(ctx.callerRole) || ctx.createdByUserId === ctx.callerId;
   }
 }
 

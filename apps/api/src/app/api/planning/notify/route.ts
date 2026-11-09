@@ -31,20 +31,20 @@ type HorseTeam = {
   id: string;
   name: string;
   owner: { userId: string };
-  collaborators: { collaboratorUserId: string | null; role: string }[];
+  collaborators: { collaboratorUserId: string | null; role: string; fullAccess: boolean }[];
 };
 
 const horseSelect = {
   id: true,
   name: true,
   owner: { select: { userId: true } },
-  collaborators: { where: { status: "ACCEPTED" as const }, select: { collaboratorUserId: true, role: true } },
+  collaborators: { where: { status: "ACCEPTED" as const }, select: { collaboratorUserId: true, role: true, fullAccess: true } },
 };
 
 function teamOf(horse: HorseTeam) {
   return [
     { userId: horse.owner.userId, role: "OWNER" },
-    ...horse.collaborators.filter((c) => c.collaboratorUserId).map((c) => ({ userId: c.collaboratorUserId as string, role: c.role })),
+    ...horse.collaborators.filter((c) => c.collaboratorUserId).map((c) => ({ userId: c.collaboratorUserId as string, role: c.fullAccess ? "LEGACY" : c.role })),
   ];
 }
 
@@ -150,5 +150,18 @@ export async function POST(req: NextRequest) {
     when: when(lang),
     feeling,
   }));
-  return NextResponse.json({ sent: await sendExpoPush(messages) });
+  let sent = 0;
+  try {
+    sent = await sendExpoPush(messages);
+  } catch {
+    sent = 0;
+  }
+  // Rien n'est parti (envoi en échec, pas encore de jeton) : on libère les
+  // clés pour qu'une nouvelle tentative puisse encore prévenir la personne.
+  if (sent === 0) {
+    await db.planningNotification
+      .deleteMany({ where: { id: { in: fresh.map((r) => notificationKey(kind, id, event as PlanningEvent, r)) } } })
+      .catch(() => undefined);
+  }
+  return NextResponse.json({ sent });
 }
