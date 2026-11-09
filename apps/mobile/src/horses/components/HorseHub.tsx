@@ -77,7 +77,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
   // Identité et alimentation (cf. extras/store.ts), avant tout retour anticipé.
   const details = useHorseDetails(horseId);
   const { horses, selectHorse, syncFailed, retrySync } = useHorses();
-  const { isActiveOrTrialing } = useSubscription();
+  const { isActiveOrTrialing, isPro } = useSubscription();
   const { sessions } = useSessions();
   const { measurements } = useWeight();
   const { goals } = useGoals();
@@ -565,6 +565,17 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
                   : t("Qui monte, et quand, chaque semaine")
               }
               onPress={() => router.push(`/horse/${horse.id}/creneaux`)}
+            />
+          ) : null}
+          {/* Participation aux frais (Écurie Pro v2) : suivi mois par mois, pour
+              qui gère le cheval. */}
+          {rights.can(horse.id, "manage_fees") && (horse.sharedRole || isPro) ? (
+            <HorseModuleRow
+              icon="cash-multiple"
+              iconColor={colors.success}
+              title={t("Participation aux frais")}
+              value={t("Qui a versé quoi, mois par mois")}
+              onPress={() => router.push(`/horse/${horse.id}/frais`)}
             />
           ) : null}
           {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}

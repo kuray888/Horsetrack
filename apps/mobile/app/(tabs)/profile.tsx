@@ -43,6 +43,7 @@ import { useSessions } from "@/sessions/store";
 import { clearSyncQueue } from "@/lib/syncQueue";
 import { clearHorseTeams } from "@/horses/team";
 import { clearSlots } from "@/planning/slotsStore";
+import { clearFees } from "@/fees/feesStore";
 import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
 import { lazyTab } from "@/components/LazyTab";
 import { exportAllData } from "@/export/exportAllData";
@@ -302,6 +303,7 @@ function ProfileScreen() {
       // Noms des équipes des chevaux partagés : données d'autres personnes.
       clearHorseTeams(),
       clearSlots(),
+      clearFees(),
       clearLocalDataOwner(),
     ]);
     // Photos et pièces du coffre-fort copiées sur l'appareil : les listes

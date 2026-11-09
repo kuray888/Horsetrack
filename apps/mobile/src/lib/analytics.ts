@@ -116,6 +116,8 @@ export type AnalyticsEvent =
   | "slot_ended"
   | "partnership_slots_migrated"
   | "slot_occurrence_cancelled"
+  | "fee_added"
+  | "fee_marked"
   | "week_planning_viewed"
   // Écran Équipe (Écurie Pro v2).
   | "team_viewed"
