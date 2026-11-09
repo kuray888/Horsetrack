@@ -103,15 +103,17 @@ export function SessionReminders() {
   const slots = useSlots();
   // Occurrences des créneaux réguliers pas encore écrites : rappelées comme
   // des séances (même identifiant que la séance qu'elles deviendront).
+  const [tick, setTick] = useState(0);
   const withOccurrences = useMemo(() => {
+    // `tick` : la fenêtre de 8 jours avance avec le temps (retour au premier plan).
+    void tick;
     const now = new Date();
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 8);
     const virtual = slotOccurrences(slots, sessions, now, end)
       .filter((o) => !o.session)
       .map((o) => sessionForOccurrence(o));
     return virtual.length ? [...sessions, ...virtual] : sessions;
-  }, [slots, sessions]);
-  const [tick, setTick] = useState(0);
+  }, [slots, sessions, tick]);
 
   useEffect(() => {
     Notifications.setNotificationCategoryAsync(SESSION_REMINDER_CATEGORY, [

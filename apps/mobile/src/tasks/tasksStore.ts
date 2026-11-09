@@ -3,7 +3,7 @@ import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { pendingIdsFor } from "@/lib/syncQueue";
 import { deleteCompletionRemote, deleteTaskRemote, pullCompletions, pullTasks, pushCompletion, pushTask } from "@/lib/cloudSync";
 import { mergeByUpdatedAt } from "@/extras/model";
-import { completionId, type StableTask, type TaskCompletion } from "@/tasks/tasksModel";
+import { completionId, keepLocalCompletion, type StableTask, type TaskCompletion } from "@/tasks/tasksModel";
 
 /**
  * Tâches d'écurie : sur le téléphone d'abord, envoyées au serveur à chaque
@@ -109,7 +109,7 @@ export async function refreshTasks(pullStartedAt: number): Promise<void> {
     // Les coches sont lues sur 60 jours : les plus anciennes restent en local.
     const pending = pendingIdsFor("stable_task_completions");
     const remote = new Map(completions.map((c) => [c.id, c]));
-    const keptLocal = state.completions.filter((c) => pending.has(c.id) || (!remote.has(c.id) && c.doneAt && c.doneAt.getTime() >= pullStartedAt));
+    const keptLocal = state.completions.filter((c) => pending.has(c.id) || (!remote.has(c.id) && keepLocalCompletion(c, pullStartedAt, false)));
     next = { ...next, completions: [...completions.filter((c) => !pending.has(c.id)), ...keptLocal] };
   }
   if (next !== state) setState(next);

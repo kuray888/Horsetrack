@@ -95,6 +95,19 @@ export function canTick(task: StableTask, me: string | null, canManage: boolean)
   return canManage || (!!me && task.assigneeUserId === me);
 }
 
+/** Les coches sont lues sur 60 jours (lib/sync/tasks.ts pullCompletions). */
+export const COMPLETIONS_WINDOW_MS = 60 * 86_400_000;
+
+/** Après une lecture serveur : garder une coche locale que le serveur ne
+ * renvoie pas ? Oui si elle est en attente d'envoi, plus récente que la
+ * lecture (écriture en route) ou hors de la fenêtre lue ; sinon elle a été
+ * supprimée ailleurs. */
+export function keepLocalCompletion(c: TaskCompletion, pullStartedAt: number, pending: boolean): boolean {
+  if (pending) return true;
+  if (c.date.getTime() < pullStartedAt - COMPLETIONS_WINDOW_MS) return true;
+  return !!c.doneAt && c.doneAt.getTime() >= pullStartedAt;
+}
+
 const WEEKDAY_LABELS = ["", "lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
 
 /** « tous les jours », « lun, mer, ven » ; null pour une tâche ponctuelle. */

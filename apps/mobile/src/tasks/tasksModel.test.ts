@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canTick, completionId, myTasks, recurrenceLabel, summarizeDay, taskRunsOn, tasksForDay, type StableTask, type TaskCompletion } from "./tasksModel";
+import { canTick, completionId, keepLocalCompletion, myTasks, recurrenceLabel, summarizeDay, taskRunsOn, tasksForDay, type StableTask, type TaskCompletion } from "./tasksModel";
 
 const TUE = new Date(2026, 10, 10);
 
@@ -59,5 +59,20 @@ describe("recurrenceLabel", () => {
     expect(recurrenceLabel([5, 1, 3], "tous les jours")).toBe("lun, mer, ven");
     expect(recurrenceLabel([1, 2, 3, 4, 5, 6, 7], "tous les jours")).toBe("tous les jours");
     expect(recurrenceLabel([], "x")).toBeNull();
+  });
+});
+
+describe("keepLocalCompletion", () => {
+  const NOW = new Date(2026, 10, 10, 12).getTime();
+  const comp = (date: Date, doneAt: Date | null): TaskCompletion => ({ id: "t1_x", taskId: "t1", horseId: "h1", date, doneByUserId: "u", doneAt });
+  it("une coche de plus de 60 jours, que le serveur ne renvoie plus, reste en local", () => {
+    expect(keepLocalCompletion(comp(new Date(2026, 7, 1), new Date(2026, 7, 1)), NOW, false)).toBe(true);
+  });
+  it("une coche dans la fenêtre absente du serveur a été supprimée ailleurs : on l'enlève", () => {
+    expect(keepLocalCompletion(comp(new Date(2026, 10, 3), new Date(2026, 10, 3)), NOW, false)).toBe(false);
+  });
+  it("une coche toute récente (écriture en route) ou en attente reste", () => {
+    expect(keepLocalCompletion(comp(new Date(2026, 10, 3), new Date(NOW + 1000)), NOW, false)).toBe(true);
+    expect(keepLocalCompletion(comp(new Date(2026, 10, 3), null), NOW, true)).toBe(true);
   });
 });
