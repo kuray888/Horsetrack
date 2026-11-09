@@ -58,3 +58,10 @@ select t.logout();
 -- le script, mais la fonction elle-même accepte tout cheval.
 select t.sees('Backend : migration d''un cheval Premium possible', $$select 1 from (select public.migrate_partnership_slots('h8') as n) q where n = 1$$, 1);
 select t.sees('Backend : DP unique rattachée', $$select 1 from public.ride_slots where id = 'dp_h8_6' and "riderUserId" = '00000000-0000-0000-0000-000000000009' and "riderName" is null$$, 1);
+
+-- Une personne sortie de l'équipe ne bloque pas la fin de son créneau.
+update public.rider_profiles set "subscriptionStatus" = 'ACTIVE' where id = 'rp_00000000-0000-0000-0000-000000000001';
+delete from public.horse_collaborators where id = 'c2';
+select t.login('00000000-0000-0000-0000-000000000001', 'owner@test.fr');
+select t.allowed('Créneau : un cavalier parti de l''équipe, le propriétaire peut encore le terminer', $$update public.ride_slots set "validUntil" = now() where id = 'dp_h1_2'$$);
+select t.logout();

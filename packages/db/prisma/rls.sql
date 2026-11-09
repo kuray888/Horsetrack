@@ -1556,7 +1556,9 @@ begin
   if new.weekday < 1 or new.weekday > 7 then
     raise exception 'ride slot: weekday must be 1 (Monday) to 7 (Sunday)';
   end if;
-  if new."riderUserId" is not null and not public.is_horse_member(new."horseId", new."riderUserId") then
+  if new."riderUserId" is not null
+     and (tg_op = 'INSERT' or new."riderUserId" is distinct from old."riderUserId")
+     and not public.is_horse_member(new."horseId", new."riderUserId") then
     raise exception 'ride slot: rider is not part of this horse''s team';
   end if;
   return new;
@@ -1673,7 +1675,9 @@ begin
   if new.amount < 0 then
     raise exception 'participation fee: amount must be positive';
   end if;
-  if new."payerUserId" is not null and not public.is_horse_member(new."horseId", new."payerUserId") then
+  if new."payerUserId" is not null
+     and (tg_op = 'INSERT' or new."payerUserId" is distinct from old."payerUserId")
+     and not public.is_horse_member(new."horseId", new."payerUserId") then
     raise exception 'participation fee: payer is not part of this horse''s team';
   end if;
   return new;
@@ -1726,7 +1730,9 @@ begin
   if exists (select 1 from unnest(new.weekdays) d where d < 1 or d > 7) then
     raise exception 'stable task: weekdays must be 1 (Monday) to 7 (Sunday)';
   end if;
-  if new."assigneeUserId" is not null and not public.is_horse_member(new."horseId", new."assigneeUserId") then
+  if new."assigneeUserId" is not null
+     and (tg_op = 'INSERT' or new."assigneeUserId" is distinct from old."assigneeUserId")
+     and not public.is_horse_member(new."horseId", new."assigneeUserId") then
     raise exception 'stable task: assignee is not part of this horse''s team';
   end if;
   return new;

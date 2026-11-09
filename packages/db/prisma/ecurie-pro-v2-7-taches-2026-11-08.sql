@@ -74,7 +74,9 @@ begin
   if exists (select 1 from unnest(new.weekdays) d where d < 1 or d > 7) then
     raise exception 'stable task: weekdays must be 1 (Monday) to 7 (Sunday)';
   end if;
-  if new."assigneeUserId" is not null and not public.is_horse_member(new."horseId", new."assigneeUserId") then
+  if new."assigneeUserId" is not null
+     and (tg_op = 'INSERT' or new."assigneeUserId" is distinct from old."assigneeUserId")
+     and not public.is_horse_member(new."horseId", new."assigneeUserId") then
     raise exception 'stable task: assignee is not part of this horse''s team';
   end if;
   return new;

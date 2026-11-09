@@ -44,7 +44,10 @@ toujours les prix du store : ils se règlent dans App Store Connect.
    affiche combien par cheval), puis
    `ecurie-pro-v2-5-notifications-2026-11-08.sql` (journal des notifications),
    `ecurie-pro-v2-6-frais-2026-11-08.sql` (participation aux frais) et
-   `ecurie-pro-v2-7-taches-2026-11-08.sql` (tâches d'écurie). Testés sur une base
+   `ecurie-pro-v2-7-taches-2026-11-08.sql` (tâches d'écurie). Puis
+   `ecurie-pro-v2-8-equipe-quittee-2026-11-09.sql` (correctif : retirer quelqu'un
+   de l'équipe ne bloque plus le créneau, la tâche ou la participation qui lui
+   était confié ; à exécuter seul, après le 7). Testés sur une base
    dans l'état actuel de la prod et rejouables (`pnpm --filter @cheval/db
    test:rls` vérifie les règles sur un Postgres local).
 

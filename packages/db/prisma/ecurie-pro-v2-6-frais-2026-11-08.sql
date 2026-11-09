@@ -62,7 +62,9 @@ begin
   if new.amount < 0 then
     raise exception 'participation fee: amount must be positive';
   end if;
-  if new."payerUserId" is not null and not public.is_horse_member(new."horseId", new."payerUserId") then
+  if new."payerUserId" is not null
+     and (tg_op = 'INSERT' or new."payerUserId" is distinct from old."payerUserId")
+     and not public.is_horse_member(new."horseId", new."payerUserId") then
     raise exception 'participation fee: payer is not part of this horse''s team';
   end if;
   return new;

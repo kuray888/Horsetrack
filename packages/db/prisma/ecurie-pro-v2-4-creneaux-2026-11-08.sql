@@ -90,7 +90,9 @@ begin
   if new.weekday < 1 or new.weekday > 7 then
     raise exception 'ride slot: weekday must be 1 (Monday) to 7 (Sunday)';
   end if;
-  if new."riderUserId" is not null and not public.is_horse_member(new."horseId", new."riderUserId") then
+  if new."riderUserId" is not null
+     and (tg_op = 'INSERT' or new."riderUserId" is distinct from old."riderUserId")
+     and not public.is_horse_member(new."horseId", new."riderUserId") then
     raise exception 'ride slot: rider is not part of this horse''s team';
   end if;
   return new;
