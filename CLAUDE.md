@@ -57,6 +57,20 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
   apps/api/src/lib/plans.ts) ET reflétée dans l'app (subscription/logic.ts) —
   jamais seulement dans l'app.
 
+- **Rétrocompatibilité des droits (règle absolue)** : un abonné existant ne
+  perd jamais une fonctionnalité. Les partages existants gardent leurs droits
+  d'avant (`horse_collaborators.fullAccess`, rôle `LEGACY` dans rls.sql) ; les
+  droits par rôle ne s'appliquent qu'aux nouvelles invitations ; le
+  propriétaire peut « Appliquer les droits de … » depuis l'écran Équipe. Toute
+  évolution de droits ou de RLS se rejoue sur l'ancien état de la prod (un
+  schéma d'avant, ex. c315fbd) et se couvre par un test `test:rls`.
+- Écurie Pro v2 (cf. docs/ecurie-pro-v2-cahier-des-charges.md) : tables
+  `ride_slots` (créneaux récurrents), `stable_tasks` /
+  `stable_task_completions`, `participation_fees` (suivi seulement, jamais de
+  paiement), `planning_notifications` (journal). L'espace gestionnaire web
+  (`apps/web`, `/gestion`) est en lecture seule et n'utilise que la clé anon :
+  les règles RLS décident de ce que chacun voit.
+
 ## Relances (Premium, retour, avis) — une seule politique
 
 Chaque relance a sa logique pure testée et ses plafonds ; ne jamais en
