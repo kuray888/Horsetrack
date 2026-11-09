@@ -245,6 +245,7 @@ model Horse {
   coachSuggestions   CoachSuggestion[]
   coachSummaries     CoachSummary[]
   rideSlots          RideSlot[]
+  participationFees  ParticipationFee[]
   comments           HorseComment[]
   reactions          HorseReaction[]
 
@@ -597,6 +598,31 @@ model RideSlot {
   @@index([horseId])
   @@index([riderUserId])
   @@map("ride_slots")
+}
+
+/// Écurie Pro v2 — participation aux frais d'une demi-pension, par mois.
+/// Suivi seulement : l'app ne fait transiter aucun argent.
+model ParticipationFee {
+  /// "fee_<cheval>_<payeur>_<AAAA-MM>" : une ligne par payeur et par mois.
+  id              String    @id
+  horseId         String
+  horse           Horse     @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  /// Payeur : un compte de l'équipe, ou un simple nom.
+  payerUserId     String?
+  payerName       String?
+  /// "AAAA-MM"
+  month           String
+  amount          Decimal   @db.Decimal(10, 2)
+  paidAt          DateTime?
+  notes           String    @default("")
+  createdByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([horseId, month])
+  @@index([payerUserId])
+  @@map("participation_fees")
 }
 
 /// Notifications du planning déjà envoyées (Écurie Pro v2) : une par
