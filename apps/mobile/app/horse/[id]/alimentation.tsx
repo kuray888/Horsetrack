@@ -30,7 +30,7 @@ export default function HorseFeedingScreen() {
   const horse = horses.find((h) => h.id === id);
   // Cheval partagé : fiche modifiable par le propriétaire et le gérant seulement
   // (cf. lib/permissions.ts) — les autres la consultent.
-  const readOnly = !can(roleOf(horse?.sharedRole), "edit_details");
+  const readOnly = !can(roleOf(horse?.sharedRole, horse?.sharedFullAccess), "edit_details");
   const details = useHorseDetails(id);
   const [draft, setDraft] = useState<FeedingPlan | null>(null);
   const [saved, setSaved] = useState(false);

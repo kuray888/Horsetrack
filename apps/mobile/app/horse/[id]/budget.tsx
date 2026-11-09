@@ -57,7 +57,7 @@ export default function HorseBudgetScreen() {
   const horseId = horse?.id ?? null;
   // Calculés ici et non dans le retour anticipé plus bas : là, le React
   // Compiler renonçait à mémoïser l'écran.
-  const canSeeBudget = can(roleOf(horse?.sharedRole), "manage_expenses");
+  const canSeeBudget = can(roleOf(horse?.sharedRole, horse?.sharedFullAccess), "manage_expenses");
   const budgetLockedText = t("Le budget de {name} est visible par son propriétaire et le gérant de l'écurie.", {
     name: horse?.name ?? "",
   });

@@ -128,7 +128,7 @@ export function useExpenseForm({
     const amount = Number(expenseForm.amount.replace(",", "."));
     if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
     // Filet de sécurité : dépenses réservées au propriétaire et au gérant (cf. lib/permissions.ts).
-    if (!editingExpenseId && horse && !can(roleOf(horse.sharedRole), "manage_expenses")) {
+    if (!editingExpenseId && horse && !can(roleOf(horse.sharedRole, horse.sharedFullAccess), "manage_expenses")) {
       hapticError();
       Alert.alert(t("Ajout impossible"), notAllowedMessage());
       return;

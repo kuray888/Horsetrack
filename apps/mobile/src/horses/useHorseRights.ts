@@ -28,7 +28,7 @@ export function useHorseRights() {
   return useMemo(() => {
     const roleFor = (horseId: string | null | undefined): HorseRole => {
       const horse = horseId ? horses.find((h) => h.id === horseId) : undefined;
-      return roleOf(horse?.sharedRole) ?? "OWNER";
+      return roleOf(horse?.sharedRole, horse?.sharedFullAccess) ?? "OWNER";
     };
     return {
       me,

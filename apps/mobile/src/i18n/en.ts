@@ -2201,4 +2201,7 @@ export const EN: Record<string, string> = {
   "{horse}, {role}, modifier": "{horse}, {role}, edit",
   "en attente": "pending",
   "Gérer l'équipe de tous tes chevaux": "Manage the team for all your horses",
+  "Appliquer les droits de {role}": "Apply the {role} rights",
+  "Partage d'avant les rôles : {name} garde l'accès complet d'avant (sauf l'équipe) tant que tu n'appliques pas les droits de son rôle.": "Share from before roles: {name} keeps the full access from before (except the team) until you apply the rights of their role.",
+  "accès complet": "full access",
 };

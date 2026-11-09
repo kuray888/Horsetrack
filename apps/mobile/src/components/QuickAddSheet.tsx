@@ -40,7 +40,8 @@ export function QuickAddSheet({
   const colors = useThemeColors();
   // Cheval actif partagé : seulement ce que son rôle permet (cf.
   // lib/permissions.ts) — une demi-pension n'ajoute pas de dépense.
-  const role = roleOf(useHorses().selectedHorse?.sharedRole);
+  const { selectedHorse } = useHorses();
+  const role = roleOf(selectedHorse?.sharedRole, selectedHorse?.sharedFullAccess);
   const options = (withHorse ? [HORSE_OPTION, ...OPTIONS] : OPTIONS).filter((opt) => quickAddAllowed(role, opt.value));
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

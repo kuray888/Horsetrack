@@ -265,7 +265,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
     const date = apptForm.date;
     if (!apptForm.title.trim() || !date || !horse || submittingAppt) return;
     // Filet de sécurité : la base refuserait ce rendez-vous (cf. lib/permissions.ts).
-    if (!editingApptId && !canCreateAppointment(roleOf(horse?.sharedRole), apptForm.type)) {
+    if (!editingApptId && !canCreateAppointment(roleOf(horse?.sharedRole, horse?.sharedFullAccess), apptForm.type)) {
       hapticError();
       Alert.alert(t("Ajout impossible"), notAllowedMessage());
       return;

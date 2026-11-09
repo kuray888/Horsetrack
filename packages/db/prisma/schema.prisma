@@ -761,6 +761,12 @@ model HorseCollaborator {
   /// Supabase, sinon un propriétaire pourrait le remettre à zéro.
   inviteEmailSentAt DateTime?
 
+  /// Ancien partage (avant les droits par rôle, Écurie Pro v2) : garde les
+  /// droits d'alors — cf. rls.sql protect_full_access. Vrai seulement par
+  /// migration ; le propriétaire peut le retirer (écran Équipe), jamais le
+  /// redonner. Faux pour toute nouvelle invitation.
+  fullAccess Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

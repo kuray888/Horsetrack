@@ -254,17 +254,20 @@ export async function acceptInvite(id: string): Promise<boolean> {
  * lib/cloudSync.ts) : même forme de requête Supabase imbriquée que pour les
  * chevaux possédés, juste un point d'entrée différent (horse_collaborators
  * plutôt que rider_profiles). */
-export async function pullSharedHorses(): Promise<(Horse & { sharedRole: CollaboratorRole })[] | null> {
+export async function pullSharedHorses(): Promise<(Horse & { sharedRole: CollaboratorRole; sharedFullAccess: boolean })[] | null> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) return null;
 
-  const { data, error } = await supabase
-    .from("horse_collaborators")
-    .select("role, horses(*, horse_traits(*), horse_injuries(*))")
-    .eq("collaboratorUserId", userId)
-    .eq("status", "ACCEPTED");
-  if (error || !data) return null;
+  const query = (columns: string) =>
+    supabase.from("horse_collaborators").select(columns).eq("collaboratorUserId", userId).eq("status", "ACCEPTED");
+  const horseColumns = "horses(*, horse_traits(*), horse_injuries(*))";
+  // `fullAccess` : base pas encore migrée (Écurie Pro v2) = colonne absente,
+  // et alors tous les partages gardent les droits d'avant.
+  let result = await query(`role, fullAccess, ${horseColumns}`);
+  if (result.error && /fullaccess/i.test(result.error.message ?? "")) result = await query(`role, ${horseColumns}`);
+  if (result.error || !result.data) return null;
+  const data = result.data as unknown as { role: string; fullAccess?: boolean; horses: unknown }[];
 
   return Promise.all(
     data
@@ -276,6 +279,7 @@ export async function pullSharedHorses(): Promise<(Horse & { sharedRole: Collabo
         // juste parce que SON propriétaire l'a marqué primaire chez lui.
         isPrimary: false,
         sharedRole: row.role as CollaboratorRole,
+        sharedFullAccess: row.fullAccess ?? true,
       }))
   );
 }
@@ -283,25 +287,27 @@ export async function pullSharedHorses(): Promise<(Horse & { sharedRole: Collabo
 /** Partages de plusieurs chevaux (écran Équipe) : ceux que la base laisse
  * voir — les chevaux possédés, et ceux dont on est gérant. null sur échec. */
 export async function listTeamShares(horseIds: string[]): Promise<
-  { id: string; horseId: string; invitedEmail: string; collaboratorUserId: string | null; role: CollaboratorRole; status: CollaboratorStatus }[] | null
+  { id: string; horseId: string; invitedEmail: string; collaboratorUserId: string | null; role: CollaboratorRole; status: CollaboratorStatus; fullAccess?: boolean }[] | null
 > {
   if (horseIds.length === 0) return [];
-  const { data, error } = await supabase
-    .from("horse_collaborators")
-    .select("id, horseId, invitedEmail, collaboratorUserId, role, status")
-    .in("horseId", horseIds);
-  if (error || !data) return null;
-  return data;
+  const query = (columns: string) => supabase.from("horse_collaborators").select(columns).in("horseId", horseIds);
+  const base = "id, horseId, invitedEmail, collaboratorUserId, role, status";
+  let result = await query(`${base}, fullAccess`);
+  // Base pas encore migrée : pas de colonne, donc aucun ancien partage à signaler.
+  if (result.error && /fullaccess/i.test(result.error.message ?? "")) result = await query(base);
+  if (result.error || !result.data) return null;
+  return result.data as unknown as Awaited<ReturnType<typeof listTeamShares>>;
 }
 
 /** Change le rôle d'une personne sur un cheval (propriétaire, ou gérant pour
  * un rôle autre que gérant, cf. rls.sql). */
 export async function changeCollaboratorRole(id: string, horseId: string, role: CollaboratorRole): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("horse_collaborators")
-    .update({ role, updatedAt: new Date().toISOString() })
-    .eq("id", id)
-    .select("id");
+  // Choisir un rôle applique ses droits : l'ancien partage (fullAccess)
+  // s'arrête là, et ne se redonne pas (cf. rls.sql protect_full_access).
+  const update = (patch: Record<string, unknown>) =>
+    supabase.from("horse_collaborators").update({ ...patch, updatedAt: new Date().toISOString() }).eq("id", id).select("id");
+  let result = await update({ role, fullAccess: false });
+  if (result.error && /fullaccess/i.test(result.error.message ?? "")) result = await update({ role });
   invalidateHorseTeam(horseId);
-  return !error && !!data && data.length > 0;
+  return !result.error && !!result.data && result.data.length > 0;
 }

@@ -47,7 +47,10 @@ let syncChain: Promise<void> = Promise.resolve();
 function syncSessionReminders(sessions: TrainingSession[], horses: Horse[], me: string | null): Promise<void> {
   // Sur un cheval partagé, seulement mes séances : une demi-pension ne doit
   // pas recevoir les rappels des séances du propriétaire (cf. lib/permissions.ts).
-  sessions = sessions.filter((s) => isMySession(roleOf(horses.find((h) => h.id === s.horseId)?.sharedRole), s, me));
+  sessions = sessions.filter((s) => {
+    const horse = horses.find((h) => h.id === s.horseId);
+    return isMySession(roleOf(horse?.sharedRole, horse?.sharedFullAccess), s, me);
+  });
   syncChain = syncChain.then(() => runSync(sessions, horses)).catch(() => {});
   return syncChain;
 }

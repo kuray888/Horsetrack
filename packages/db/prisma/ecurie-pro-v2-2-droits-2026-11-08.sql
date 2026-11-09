@@ -14,6 +14,21 @@ alter table public.training_sessions add column if not exists "createdByUserId" 
 alter table public.expenses add column if not exists "createdByUserId" text;
 alter table public.horse_weight_measurements add column if not exists "createdByUserId" text;
 
+-- Anciens partages : tous ceux qui existent à cet instant gardent leurs droits
+-- d'avant (accès complet au cheval, sauf l'équipe). Fait UNE fois : une
+-- relance du script ne redonne rien à ceux dont le propriétaire a appliqué
+-- les droits de leur rôle.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'horse_collaborators' and column_name = 'fullAccess'
+  ) then
+    alter table public.horse_collaborators add column "fullAccess" boolean not null default false;
+    update public.horse_collaborators set "fullAccess" = true;
+  end if;
+end $$;
+
 create or replace function public.protect_horse_collaborator_update()
 returns trigger
 language plpgsql
@@ -78,7 +93,7 @@ as $$
     when auth.uid() is null then null
     when public.owns_horse(_horse_id) then 'OWNER'
     else (
-      select hc.role::text
+      select case when hc."fullAccess" then 'LEGACY' else hc.role::text end
       from public.horse_collaborators hc
       where hc."horseId" = _horse_id
         and hc."collaboratorUserId" = auth.uid()::text
@@ -96,18 +111,19 @@ language sql
 immutable
 as $$
   select coalesce(case _cap
-    when 'read'                then _role in ('OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER', 'GROOM', 'VET', 'FARRIER')
-    when 'edit_details'        then _role in ('OWNER', 'MANAGER')
+    when 'read'                then _role in ('LEGACY', 'OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER', 'GROOM', 'VET', 'FARRIER')
+    when 'edit_details'        then _role in ('LEGACY', 'OWNER', 'MANAGER')
     when 'manage_sharing'      then _role in ('OWNER', 'MANAGER')
-    when 'manage_sessions'     then _role in ('OWNER', 'MANAGER', 'COACH')
-    when 'own_sessions'        then _role in ('OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER')
-    when 'manage_care'         then _role in ('OWNER', 'MANAGER')
-    when 'add_care'            then _role in ('OWNER', 'MANAGER', 'GROOM', 'VET', 'FARRIER')
-    when 'manage_competitions' then _role in ('OWNER', 'MANAGER', 'COACH')
-    when 'manage_journal'      then _role in ('OWNER', 'MANAGER')
-    when 'add_journal'         then _role in ('OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER', 'GROOM', 'VET', 'FARRIER')
-    when 'manage_expenses'     then _role in ('OWNER', 'MANAGER')
+    when 'manage_sessions'     then _role in ('LEGACY', 'OWNER', 'MANAGER', 'COACH')
+    when 'own_sessions'        then _role in ('LEGACY', 'OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER')
+    when 'manage_care'         then _role in ('LEGACY', 'OWNER', 'MANAGER')
+    when 'add_care'            then _role in ('LEGACY', 'OWNER', 'MANAGER', 'GROOM', 'VET', 'FARRIER')
+    when 'manage_competitions' then _role in ('LEGACY', 'OWNER', 'MANAGER', 'COACH')
+    when 'manage_journal'      then _role in ('LEGACY', 'OWNER', 'MANAGER')
+    when 'add_journal'         then _role in ('LEGACY', 'OWNER', 'MANAGER', 'COACH', 'DEMI_PENSION', 'RIDER', 'GROOM', 'VET', 'FARRIER')
+    when 'manage_expenses'     then _role in ('LEGACY', 'OWNER', 'MANAGER')
     when 'moderate'            then _role in ('OWNER', 'MANAGER')
+    when 'manage_fees'         then _role in ('OWNER', 'MANAGER')
     when 'manage_planning'     then _role in ('OWNER', 'MANAGER', 'COACH')
     else false
   end, false);
@@ -429,4 +445,33 @@ create policy "horse_collaborators_owner_insert" on public.horse_collaborators
 drop policy if exists "horse_comments_delete_author_or_owner" on public.horse_comments;
 create policy "horse_comments_delete_author_or_owner" on public.horse_comments
   for delete using ("authorUserId" = auth.uid()::text or public.horse_can("horseId", 'moderate'));
+
+-- Anciens partages (« fullAccess ») : les personnes déjà invitées avant les
+-- droits par rôle gardent exactement leurs droits d'alors, jusqu'à ce que le
+-- propriétaire applique ceux de leur rôle (écran Équipe). Posé une seule fois
+-- par la migration ; l'app ne peut ni l'accorder à une nouvelle invitation ni
+-- le redonner après l'avoir retiré.
+create or replace function public.protect_full_access()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new."fullAccess" := false;
+  else
+    new."fullAccess" := old."fullAccess" and new."fullAccess";
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_full_access on public.horse_collaborators;
+create trigger protect_full_access
+  before insert or update on public.horse_collaborators
+  for each row execute function public.protect_full_access();
 -- <<< droits-par-role

@@ -47,7 +47,7 @@ export default function TeamScreen() {
   const { isActiveOrTrialing } = useSubscription();
   const contacts = useContacts();
   // Chevaux dont on gère l'équipe : les siens, et ceux dont on est gérant.
-  const managed = useMemo(() => horses.filter((h) => can(roleOf(h.sharedRole), "manage_sharing")), [horses]);
+  const managed = useMemo(() => horses.filter((h) => can(roleOf(h.sharedRole, h.sharedFullAccess), "manage_sharing")), [horses]);
   const managedIds = useMemo(() => managed.map((h) => h.id), [managed]);
   const teams = useHorseTeams(managedIds);
   const [rows, setRows] = useState<ShareRow[] | null>(null);
@@ -125,8 +125,30 @@ export default function TeamScreen() {
     const label = person.name ?? person.email;
     Alert.alert(
       t("{name} sur {horse}", { name: label, horse: share.horseName }),
-      ROLE_RIGHTS[share.role],
+      share.fullAccess
+        ? t("Partage d'avant les rôles : {name} garde l'accès complet d'avant (sauf l'équipe) tant que tu n'appliques pas les droits de son rôle.", {
+            name: label,
+          })
+        : ROLE_RIGHTS[share.role],
       [
+        // Ancien partage : garde les droits d'avant les rôles tant que le
+        // propriétaire n'applique pas ceux de son rôle.
+        ...(share.fullAccess
+          ? [
+              {
+                text: t("Appliquer les droits de {role}", { role: ROLE_LABEL[share.role] }),
+                onPress: () => {
+                  changeCollaboratorRole(share.id, share.horseId, share.role).then((ok) => {
+                    if (ok) {
+                      hapticSuccess();
+                      track("team_role_changed", { role: share.role, legacy: true });
+                      refresh();
+                    } else hapticError();
+                  });
+                },
+              },
+            ]
+          : []),
         ...COLLABORATOR_ROLES.filter((r) => r !== share.role && (r !== "MANAGER" || ownsHorse)).map((r) => ({
           text: t("Passer en {role}", { role: ROLE_LABEL[r] }),
           onPress: () => {
@@ -365,6 +387,7 @@ export default function TeamScreen() {
                       <View className="flex-row items-center gap-2">
                         <Text className="text-sm text-muted">
                           {ROLE_LABEL[share.role]}
+                          {share.fullAccess ? ` · ${t("accès complet")}` : ""}
                           {share.status === "PENDING" ? ` · ${t("en attente")}` : ""}
                         </Text>
                         <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />

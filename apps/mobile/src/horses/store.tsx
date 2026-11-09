@@ -76,6 +76,7 @@ export function normalizeRemoteHorse(h: Horse): Horse {
     restDayActivities: h.restDayActivities,
     injuries: h.injuries,
     sharedRole: h.sharedRole,
+    sharedFullAccess: h.sharedFullAccess,
   };
 }
 
@@ -118,6 +119,8 @@ export type Horse = {
    * today.tsx). Un cheval partagé n'est jamais retourné par `pushHorses` (cf.
    * cloudSync.ts), seulement par `pullSharedHorses`. */
   sharedRole: CollaboratorRole | null;
+  /** Partage d'avant les droits par rôle : garde les droits d'alors (cf. lib/permissions.ts). */
+  sharedFullAccess?: boolean;
 };
 
 export type NewHorse = {
@@ -174,6 +177,7 @@ function reviveHorses(horses: Horse[]): Horse[] {
     ...h,
     restDayActivities: h.restDayActivities ?? [],
     sharedRole: h.sharedRole ?? null,
+    sharedFullAccess: h.sharedFullAccess ?? false,
     // Chevaux sauvegardés localement avant l'introduction de photoPath
     // (2026-09-04) : jamais uploadée, photoUrl reste une URI locale valide sur
     // cet appareil (cf. lib/imagePicker.ts, stockage persistant) — rien à

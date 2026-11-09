@@ -157,9 +157,14 @@ Tranchées en autonomie, à la demande du propriétaire du produit :
    en Pro.
 4. **Participation aux frais : suivi + rappel au propriétaire** seulement,
    jamais de relance de paiement envoyée à la DP.
-5. **Les droits par rôle s'appliquent à tout partage** (Premium compris) ;
-   le rôle Gérant est ouvert à tous. Les anciens collaborateurs gardent leur
-   rôle (donc les droits de ce rôle).
+5. **Les droits par rôle s'appliquent à tout NOUVEAU partage** (Premium
+   compris) ; le rôle Gérant est ouvert à tous. **Les partages existants
+   gardent exactement leurs droits d'avant** (colonne `fullAccess`, posée une
+   fois par la migration) : un abonné ne perd rien du jour au lendemain. Le
+   propriétaire passe un ancien partage aux droits de son rôle quand il veut,
+   depuis l'écran Équipe (« Appliquer les droits de … »), sans retour
+   possible depuis l'app. Les nouveautés (frais, créneaux) ne sont jamais
+   ouvertes aux anciens partages.
 6. **Les documents restent privés** (coffre-fort du propriétaire).
 7. **Pour tous** : rôles, séance attribuée, « C'est fait ». **Pro** (appliqué
    en base) : créneaux récurrents, grille semaine, Équipe, tâches, frais,

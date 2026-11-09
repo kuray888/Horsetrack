@@ -13,6 +13,8 @@ export type ShareRow = {
   collaboratorUserId: string | null;
   role: CollaboratorRole;
   status: CollaboratorStatus;
+  /** Ancien partage : garde les droits d'avant les rôles (cf. lib/permissions.ts). */
+  fullAccess?: boolean;
 };
 
 export type TeamPerson = {

@@ -9,7 +9,10 @@ import { t } from "@/i18n";
  * concordent. Logique pure.
  */
 
-export type HorseRole = "OWNER" | CollaboratorRole;
+/** "LEGACY" : partage d'avant les droits par rôle, qui garde les droits
+ * d'alors (tout sur le cheval sauf l'équipe) jusqu'à ce que le propriétaire
+ * applique ceux du rôle — cf. rls.sql, colonne fullAccess. */
+export type HorseRole = "OWNER" | CollaboratorRole | "LEGACY";
 
 export type Capability =
   | "read"
@@ -23,23 +26,25 @@ export type Capability =
   | "manage_journal"
   | "add_journal"
   | "manage_expenses"
+  | "manage_fees"
   | "moderate"
   | "manage_planning";
 
-const ALL: HorseRole[] = ["OWNER", "MANAGER", "COACH", "DEMI_PENSION", "RIDER", "GROOM", "VET", "FARRIER"];
+const ALL: HorseRole[] = ["OWNER", "LEGACY", "MANAGER", "COACH", "DEMI_PENSION", "RIDER", "GROOM", "VET", "FARRIER"];
 
 export const CAPABILITIES: Record<Capability, HorseRole[]> = {
   read: ALL,
-  edit_details: ["OWNER", "MANAGER"],
+  edit_details: ["OWNER", "LEGACY", "MANAGER"],
   manage_sharing: ["OWNER", "MANAGER"],
-  manage_sessions: ["OWNER", "MANAGER", "COACH"],
-  own_sessions: ["OWNER", "MANAGER", "COACH", "DEMI_PENSION", "RIDER"],
-  manage_care: ["OWNER", "MANAGER"],
-  add_care: ["OWNER", "MANAGER", "GROOM", "VET", "FARRIER"],
-  manage_competitions: ["OWNER", "MANAGER", "COACH"],
-  manage_journal: ["OWNER", "MANAGER"],
+  manage_sessions: ["OWNER", "LEGACY", "MANAGER", "COACH"],
+  own_sessions: ["OWNER", "LEGACY", "MANAGER", "COACH", "DEMI_PENSION", "RIDER"],
+  manage_care: ["OWNER", "LEGACY", "MANAGER"],
+  add_care: ["OWNER", "LEGACY", "MANAGER", "GROOM", "VET", "FARRIER"],
+  manage_competitions: ["OWNER", "LEGACY", "MANAGER", "COACH"],
+  manage_journal: ["OWNER", "LEGACY", "MANAGER"],
   add_journal: ALL,
-  manage_expenses: ["OWNER", "MANAGER"],
+  manage_expenses: ["OWNER", "LEGACY", "MANAGER"],
+  manage_fees: ["OWNER", "MANAGER"],
   moderate: ["OWNER", "MANAGER"],
   manage_planning: ["OWNER", "MANAGER", "COACH"],
 };
@@ -103,10 +108,11 @@ export function canWriteWeight(role: HorseRole | null | undefined, createdByUser
 
 /** Rôle sur un cheval de la liste locale, d'après son `sharedRole` :
  * propriétaire si null (non partagé), aucun si undefined (cheval absent).
- * Prend la valeur et non le cheval : le React Compiler suppose sinon que la
+ * `fullAccess` : partage d'avant les droits par rôle (cf. HorseRole). Prend la valeur et non le cheval : le React Compiler suppose sinon que la
  * fonction peut modifier l'objet et renonce à mémoïser le composant. */
-export function roleOf(sharedRole: CollaboratorRole | null | undefined): HorseRole | null {
+export function roleOf(sharedRole: CollaboratorRole | null | undefined, fullAccess?: boolean): HorseRole | null {
   if (sharedRole === undefined) return null;
+  if (sharedRole && fullAccess) return "LEGACY";
   return sharedRole ?? "OWNER";
 }
 
@@ -137,7 +143,7 @@ export function isMySession(
 ): boolean {
   if (session.riderUserId) return !!me && session.riderUserId === me;
   if (session.riderName?.trim()) return false;
-  return !role || role === "OWNER" || isMine(session.createdByUserId, me);
+  return !role || role === "OWNER" || role === "LEGACY" || isMine(session.createdByUserId, me);
 }
 
 /** Message d'un ajout refusé par le rôle (filet de sécurité des formulaires :

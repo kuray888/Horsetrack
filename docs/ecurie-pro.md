@@ -55,8 +55,11 @@ toujours les prix du store : ils se règlent dans App Store Connect.
   en palier PRO.
 - Partage : un 2ᵉ, puis jusqu'au 5ᵉ invité accepté ; le 6ᵉ est refusé.
 - Un compte Premium voit « Passer à Écurie Pro » et n'est pas facturé deux fois.
-- Droits : une demi-pension ne voit plus le Budget, ne peut ni modifier ni
-  supprimer un soin, et coche seulement ses propres séances.
+- Droits, **nouvelle** invitation : une demi-pension ne voit pas le Budget, ne
+  peut ni modifier ni supprimer un soin, et coche seulement ses séances.
+- Droits, **partage existant** : rien ne change (Budget visible, soins
+  modifiables…). Écran Équipe → la personne → « Appliquer les droits de … »
+  pour la passer aux droits de son rôle.
 - Séance attribuée : le propriétaire attribue une séance à la DP ; elle la
   voit (« Tu montes »), la coche ; le propriétaire voit « Monté par Léa ».
 - Créneaux : fiche du cheval → Créneaux réguliers ; les jours de

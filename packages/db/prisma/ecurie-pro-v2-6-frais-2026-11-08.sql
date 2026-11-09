@@ -30,19 +30,19 @@ alter table public.participation_fees enable row level security;
 drop policy if exists "participation_fees_select" on public.participation_fees;
 create policy "participation_fees_select" on public.participation_fees
   for select using (
-    public.horse_can("horseId", 'manage_expenses')
+    public.horse_can("horseId", 'manage_fees')
     or ("payerUserId" = auth.uid()::text and public.can_access_horse("horseId"))
   );
 drop policy if exists "participation_fees_insert" on public.participation_fees;
 create policy "participation_fees_insert" on public.participation_fees
-  for insert with check (public.horse_can("horseId", 'manage_expenses') and public.horse_owner_is_pro("horseId"));
+  for insert with check (public.horse_can("horseId", 'manage_fees') and public.horse_owner_is_pro("horseId"));
 drop policy if exists "participation_fees_update" on public.participation_fees;
 create policy "participation_fees_update" on public.participation_fees
-  for update using (public.horse_can("horseId", 'manage_expenses') and public.horse_owner_is_pro("horseId"))
-  with check (public.horse_can("horseId", 'manage_expenses') and public.horse_owner_is_pro("horseId"));
+  for update using (public.horse_can("horseId", 'manage_fees') and public.horse_owner_is_pro("horseId"))
+  with check (public.horse_can("horseId", 'manage_fees') and public.horse_owner_is_pro("horseId"));
 drop policy if exists "participation_fees_delete" on public.participation_fees;
 create policy "participation_fees_delete" on public.participation_fees
-  for delete using (public.horse_can("horseId", 'manage_expenses') and public.horse_owner_is_pro("horseId"));
+  for delete using (public.horse_can("horseId", 'manage_fees') and public.horse_owner_is_pro("horseId"));
 
 drop trigger if exists set_created_by on public.participation_fees;
 create trigger set_created_by before insert or update on public.participation_fees

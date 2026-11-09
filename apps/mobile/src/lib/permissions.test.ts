@@ -122,3 +122,27 @@ describe("isMySession", () => {
     expect(isMySession("OWNER", { createdByUserId: null, riderName: "Inès" }, "u-owner")).toBe(false);
   });
 });
+
+describe("ancien partage (LEGACY) : les abonnés gardent ce que leurs invités faisaient", () => {
+  it("roleOf : un partage d'avant les rôles est LEGACY, un propriétaire reste OWNER", () => {
+    expect(roleOf("DEMI_PENSION", true)).toBe("LEGACY");
+    expect(roleOf("DEMI_PENSION", false)).toBe("DEMI_PENSION");
+    expect(roleOf(null, true)).toBe("OWNER");
+  });
+  it("tout ce qu'une demi-pension faisait avant reste permis", () => {
+    for (const cap of ["read", "edit_details", "manage_sessions", "own_sessions", "manage_care", "add_care", "manage_competitions", "manage_journal", "add_journal", "manage_expenses"] as const) {
+      expect(can("LEGACY", cap)).toBe(true);
+    }
+    expect(canWriteSession("LEGACY", "u-owner", "u-dp")).toBe(true);
+    expect(canWriteAppointment("LEGACY", "VETO", null, "u-dp")).toBe(true);
+    expect(quickAddAllowed("LEGACY", "depense")).toBe(true);
+  });
+  it("mais jamais l'équipe, ni les nouveautés réservées au propriétaire et au gérant", () => {
+    for (const cap of ["manage_sharing", "moderate", "manage_planning", "manage_fees"] as const) {
+      expect(can("LEGACY", cap)).toBe(false);
+    }
+  });
+  it("rappels de séance : toutes les séances sans cavalier attribué, comme avant", () => {
+    expect(isMySession("LEGACY", { createdByUserId: null }, "u-dp")).toBe(true);
+  });
+});
