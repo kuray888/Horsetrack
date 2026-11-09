@@ -118,7 +118,7 @@ export function JournalCard({
               <TouchableOpacity accessibilityRole="button"
                 onPress={onEdit}
                 activeOpacity={0.8}
-                className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-card border border-border p-3"
               >
                 <MaterialCommunityIcons name="pencil-outline" size={15} color={meta.tint} />
                 <Text className="text-sm font-semibold text-text">{t("Modifier")}</Text>
@@ -127,7 +127,7 @@ export function JournalCard({
                 onPress={onDelete}
                 activeOpacity={0.8}
                 accessibilityLabel={t("Supprimer ce souvenir")}
-                className="flex-row items-center justify-center gap-1.5 rounded-card border border-border px-4"
+                className="flex-row items-center justify-center gap-2 rounded-card border border-border px-4"
               >
                 <MaterialCommunityIcons name="trash-can-outline" size={15} color={STATUS_COLORS.danger} />
                 <Text className="text-sm font-semibold text-danger">{t("Supprimer")}</Text>

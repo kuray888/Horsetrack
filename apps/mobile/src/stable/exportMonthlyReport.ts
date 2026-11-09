@@ -28,7 +28,7 @@ export async function exportMonthlyReport(input: MonthlyReportInput): Promise<bo
     await runNativeInteraction(() => Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" }));
     return true;
   } catch (e) {
-    console.warn("[monthlyReport] export échoué", e);
+    if (__DEV__) console.warn("[monthlyReport] export échoué", e);
     Alert.alert(t("Export impossible"), t("Le rapport n'a pas pu être créé. Réessaie dans un instant."));
     return false;
   }

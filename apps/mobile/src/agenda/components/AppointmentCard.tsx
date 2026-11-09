@@ -240,7 +240,7 @@ export function AppointmentCard({
               {readOnly ? null : (
                 <View className="mt-1 flex-row items-center gap-2">
                   <TextInput
-                    className="flex-1 rounded-card border border-border bg-surface px-3 py-2.5 text-sm text-text"
+                    className="flex-1 rounded-card border border-border bg-surface px-3 py-3 text-sm text-text"
                     placeholder={t("Ajouter un élément…")}
                     value={newItemLabel}
                     onChangeText={setNewItemLabel}

@@ -200,7 +200,7 @@ export function SessionCard({
                     accessibilityRole="button"
                     onPress={() => router.push({ pathname: "/ride", params: { sessionId: session.id } })}
                     activeOpacity={0.8}
-                    className="flex-row items-center justify-center gap-1.5 rounded-card border border-primary/30 p-3"
+                    className="flex-row items-center justify-center gap-2 rounded-card border border-primary/30 p-3"
                   >
                     <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
                     <Text className="text-sm font-bold text-primary">{t("Démarrer en direct")}</Text>
@@ -228,7 +228,7 @@ export function SessionCard({
                   <TouchableOpacity accessibilityRole="button"
                     onPress={onDuplicate}
                     activeOpacity={0.8}
-                    className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
+                    className="flex-1 flex-row items-center justify-center gap-2 rounded-card border border-border p-3"
                   >
                     <MaterialCommunityIcons name="content-copy" size={15} color={colors.textMuted} />
                     <Text className="text-sm font-semibold text-text">{t("Dupliquer +7j")}</Text>
