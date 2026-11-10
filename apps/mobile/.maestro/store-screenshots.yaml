@@ -55,8 +55,8 @@ tags:
 - waitForAnimationToEnd
 # On fait défiler jusqu'aux soins et rendez-vous : c'est ce que promet le titre.
 - swipe:
-    start: 50%, 70%
-    end: 50%, 25%
+    start: 50%, 65%
+    end: 50%, 45%
     duration: 400
 - waitForAnimationToEnd
 - takeScreenshot: sante
@@ -69,6 +69,11 @@ tags:
 # 4. Budget
 - tapOn:
     id: "hub-budget"
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 65%
+    end: 50%, 40%
+    duration: 400
 - waitForAnimationToEnd
 - takeScreenshot: budget
 - swipe:
@@ -122,5 +127,12 @@ tags:
     direction: DOWN
 - tapOn:
     id: "coach-open"
+- waitForAnimationToEnd
+# On pose une vraie question (suggestion) : la réponse vient du serveur.
+- tapOn: "Combien de séances ce mois-ci ?"
+- extendedWaitUntil:
+    visible: "Texte-qui-n-existe-pas"
+    timeout: 12000
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: coach

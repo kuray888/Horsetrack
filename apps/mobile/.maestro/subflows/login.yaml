@@ -22,6 +22,10 @@ appId: com.horsetrack.app
     timeout: 45000
 # Fenêtre système iOS « Enregistrer le mot de passe ? » : elle masque l'app
 # et bloque les touches suivantes.
+- extendedWaitUntil:
+    visible: "Plus tard|Not Now"
+    timeout: 10000
+    optional: true
 - tapOn:
     text: "Plus tard|Not Now"
     optional: true
