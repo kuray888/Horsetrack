@@ -9,7 +9,7 @@ Textes pour App Store Connect (langue : français). Les longueurs respectent les
 | Nom | Horsetrack : suivi du cheval | 28 / 30 |
 | Sous-titre | Soins, planning et concours | 27 / 30 |
 | Mots-clés | `equitation,écurie,véto,maréchal,vaccin,vermifuge,dressage,cso,demi-pension,carnet,budget,cavalier` | 97 / 100 |
-| Texte promotionnel | Nouveau : prends en photo ordonnances et factures, reçois un rappel avant chaque soin, et partage ton cheval avec ta demi-pension en un message. | 144 / 170 |
+| Texte promotionnel | Nouveau : un coach qui connaît ton cheval, tes créneaux de la semaine, le rapport du mois et l'export de tes dépenses en PDF. | 129 / 170 |
 
 Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le sous-titre, Apple les indexe déjà. Pas d'espace après les virgules.
 
@@ -23,11 +23,13 @@ Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le s
 > • Véto, maréchal, ostéo, dentiste, vaccins, vermifuges : tout est noté, avec les prochaines échéances
 > • Un rappel avant chaque rendez-vous (1 à la fois en gratuit, illimités avec Premium)
 > • Carnet de santé exportable en PDF, à envoyer au véto en un geste
+> • Un coach qui répond d'après le carnet de ton cheval : séances, soins, dépenses, poids
 >
 > **PLANNING ET JOURNAL**
 > • Planifie tes séances, coche-les une fois faites
+> • Créneaux réguliers : « mardi 18 h, cours » revient chaque semaine (Premium)
 > • Journal d'entraînement avec la météo du jour
-> • Bilan de la semaine, bilan du mois à partager
+> • Bilan de la semaine, bilan du mois et rapport du mois en PDF à partager
 >
 > **CONCOURS**
 > • Prépare tes concours, épreuve par épreuve (Premium)
@@ -35,29 +37,32 @@ Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le s
 > **PAPIERS ET BUDGET**
 > • Photographie ordonnances et factures, elles sont rangées et retrouvées en deux secondes (Premium)
 > • Suis tes dépenses, et avec Premium, ce qui est payé et ce qui reste à régler
+> • Exporte les dépenses d'une année en PDF ou en tableur (Premium)
 >
 > **À PLUSIEURS**
 > • Partage ton cheval avec ta demi-pension, ton coach ou ton groom (une personne par cheval) : elle retrouve son planning, ses soins et ses rendez-vous (Premium)
 > • Chacun ses droits : ta DP note ses séances, ton groom les soins courants, ton budget reste à toi
-> • Écurie Pro : jusqu'à 5 personnes par cheval (DP, coach, groom, gérant, véto, maréchal) et une vue de toute ton écurie
 >
 > **GRATUIT POUR COMMENCER**
-> La version gratuite suit 1 cheval avec le planning, l'agenda, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute les chevaux illimités, les rappels illimités, le coffre-fort, le partage et les concours détaillés. Essai gratuit d'1 mois, puis 3,99 €/mois ou 39,99 €/an. Écurie Pro, pour gérer une équipe autour de plusieurs chevaux : 14,99 €/mois ou 129,99 €/an, Premium compris. Abonnements renouvelés automatiquement, annulables à tout moment dans Réglages > Abonnements.
+> La version gratuite suit 1 cheval avec le planning, l'agenda, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute les chevaux illimités, les rappels illimités, le coffre-fort, le partage, les concours détaillés, les créneaux réguliers, le rapport du mois et l'export des dépenses. Essai gratuit d'1 mois, puis 3,99 €/mois ou 39,99 €/an. Abonnements renouvelés automatiquement, annulables à tout moment dans Réglages > Abonnements.
 >
 > Conditions : [lien /cgu] · Confidentialité : [lien /confidentialite]
 
-## Captures d'écran (6, dans cet ordre)
+## Captures d'écran (9, dans cet ordre)
 
-Une idée par capture, écrite en gros au-dessus de l'écran. Les deux premières comptent le plus : elles apparaissent dans les résultats de recherche.
+Générées par `tools/store-screenshots` (`npm run render`, sortie dans `out/fr/soins/`, 1290 × 2796 ; les captures brutes sans mise en page sont dans `out/captures-brutes/`, 1320 × 2868). Les trois premières comptent le plus : elles apparaissent dans les résultats de recherche.
 
-1. **Ne rate plus aucun soin.** → Accueil avec « À surveiller » (vaccin dans 10 jours)
-2. **Tous ses papiers, en une photo.** → coffre-fort avec une ordonnance
-3. **Ton planning de la semaine.** → Planning avec séances cochées
-4. **Partage avec ta demi-pension.** → écran de partage
-5. **Prépare tes concours.** → concours détaillé
-6. **Suis ce qu'il te coûte.** → Budget
+1. **Toute sa fiche dans ta poche** (+ médaille « 5,0 · 11 avis » : chiffres à tenir à jour, cf. `RATING` dans `screens.mjs`)
+2. **Ne rate plus aucun soin**
+3. **Ta journée en un coup d'œil**
+4. **Planifie chaque séance**
+5. **Un coach qui connaît ton cheval**
+6. **Sache ce que ton cheval te coûte**
+7. **Partage avec ta demi-pension**
+8. **Garde chaque souvenir**
+9. **Ton cheval, au même endroit** (récapitulatif et bouton de téléchargement)
 
-Utilise une vraie photo de cheval sur les écrans, pas d'avatar vide.
+Jeux d'ordre pour le test de page produit (Product Page Optimization) : `soins` (par défaut), `coach`, `ecurie`.
 
 ## Pages produit personnalisées (une par public)
 
@@ -68,7 +73,6 @@ Utilise une vraie photo de cheval sur les écrans, pas d'avatar vide.
 | Propriétaire avec DP | « Partage ton cheval avec ta demi-pension » | Groupes Facebook et annonces de demi-pension |
 | Compétition (CSO, dressage, CCE) | « Prépare tes concours, épreuve par épreuve » | Publications en saison de concours |
 | Santé | « Ne rate plus un vaccin ni un vermifuge » | Printemps et automne (campagnes de vaccination) |
-| Écurie Pro | « Toute ton équipe, chacun son rôle » | Propriétaires de plusieurs chevaux, gérants d'écurie, groupes de cavaliers propriétaires |
 
 ## Événements in-app (App Store)
 
@@ -83,15 +87,17 @@ Utilise une vraie photo de cheval sur les écrans, pas d'avatar vide.
 
 - **Avis positif** : « Merci beaucoup ! Ravis que Horsetrack t'aide avec [cheval/soins]. Une idée pour la suite ? Écris-nous depuis Profil → Contacter le support. »
 - **Bug** : « Désolés pour ce souci. Écris-nous depuis Profil → Contacter le support (la version de l'app est ajoutée automatiquement) pour qu'on règle ça vite. »
-- **Écurie Pro** : « Merci ! Écurie Pro sert à gérer une équipe autour de plusieurs chevaux : jusqu'à 5 personnes par cheval, chacune avec les droits de son rôle. Pour un seul cheval et une DP, Premium suffit. »
-- **Prix / Premium** : « Merci pour ton retour. La version gratuite reste complète pour 1 cheval, avec un rappel offert ; Premium ajoute les rappels illimités, le coffre-fort, le partage et les chevaux illimités, avec 1 mois d'essai annulable à tout moment. »
+- **Prix / Premium** : « Merci pour ton retour. La version gratuite reste complète pour 1 cheval, avec un rappel offert ; Premium ajoute les rappels illimités, le coffre-fort, le partage, les chevaux illimités et les créneaux réguliers, avec 1 mois d'essai annulable à tout moment. »
 
 ## « Nouveautés » de la version 1.2
 
-> • Écurie Pro : jusqu'à 5 personnes par cheval et une vue de toute ton écurie
-> • Nouveaux rôles : gérant, vétérinaire, maréchal
-> • Chacun ses droits : ta demi-pension note ses séances, le budget reste à toi
+> • Un coach qui répond d'après le carnet de ton cheval
+> • Créneaux réguliers : tes séances de la semaine reviennent chaque semaine
+> • Rapport du mois en PDF, et export de tes dépenses en PDF ou en tableur
 > • Fiche du cheval plus claire, et un widget pour l'écran d'accueil
+> • Partage avec ta demi-pension, ton coach ou ton groom : chacun ses droits
+
+> Écurie Pro (plusieurs personnes par cheval, vue écurie) est en pause : ne pas la mentionner, et ne pas rattacher de produit Pro à la 1.2.0.
 
 ## « Nouveautés » de la version 1.1.x
 
