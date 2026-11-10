@@ -553,9 +553,9 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               onPress={() => router.push(`/horse/${horse.id}/demi-pension`)}
             />
           ) : null}
-          {/* Créneaux réguliers (Écurie Pro v2) : pour qui organise le
+          {/* Créneaux réguliers (Premium) : pour qui organise le
               planning, ou pour toute l'équipe dès qu'il en existe. */}
-          {PRO_ENABLED && (rights.can(horse.id, "manage_planning") || horseSlotCount > 0) ? (
+          {rights.can(horse.id, "manage_planning") || horseSlotCount > 0 ? (
             <HorseModuleRow
               icon="calendar-sync-outline"
               iconColor={colors.primary}
@@ -570,15 +570,13 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           ) : null}
           {/* Rapport du mois en PDF (Écurie Pro v2) : pour toute l'équipe, les
               dépenses n'y figurent que pour qui y a droit. */}
-          {PRO_ENABLED ? (
-            <HorseModuleRow
-              icon="file-chart-outline"
-              iconColor={colors.primary}
-              title={t("Rapport du mois")}
-              value={t("Séances, soins et tâches en PDF")}
-              onPress={() => router.push(`/horse/${horse.id}/rapport`)}
-            />
-          ) : null}
+          <HorseModuleRow
+            icon="file-chart-outline"
+            iconColor={colors.primary}
+            title={t("Rapport du mois")}
+            value={t("Séances, soins et tâches en PDF")}
+            onPress={() => router.push(`/horse/${horse.id}/rapport`)}
+          />
           {/* Participation aux frais (Écurie Pro v2) : suivi mois par mois, pour
               qui gère le cheval. */}
           {PRO_ENABLED && rights.can(horse.id, "manage_fees") && (horse.sharedRole || isPro) ? (

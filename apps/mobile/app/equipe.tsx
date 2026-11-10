@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PRO_ENABLED } from "@/lib/features";
 import { Alert, Linking, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -102,7 +103,9 @@ export default function TeamScreen() {
     else hapticError();
     const parts = [
       sent.length ? t("Invitation envoyée pour {horses}.", { horses: sent.join(", ") }) : "",
-      full.length ? t("Plus de place sur {horses} (5 personnes au plus avec Écurie Pro, 1 avec Premium).", { horses: full.join(", ") }) : "",
+      full.length ? (PRO_ENABLED
+        ? t("Plus de place sur {horses} (5 personnes au plus avec Écurie Pro, 1 avec Premium).", { horses: full.join(", ") })
+        : t("Plus de place sur {horses} (1 personne par cheval avec Premium).", { horses: full.join(", ") })) : "",
       failed.length ? t("Échec pour {horses} : réessaie dans un instant.", { horses: failed.join(", ") }) : "",
     ].filter(Boolean);
     setNotice(parts.join(" "));
@@ -223,7 +226,9 @@ export default function TeamScreen() {
         <View className={`${CARD} gap-3`}>
           <Text className="text-base font-semibold text-text">{t("Partage tes chevaux avec ton équipe")}</Text>
           <Text className="text-sm text-muted">
-            {t("Demi-pension, coach, groom, gérant, vétérinaire : chacun avec les droits de son rôle. Avec Premium (1 personne par cheval) ou Écurie Pro (5).")}
+            {PRO_ENABLED
+              ? t("Demi-pension, coach, groom, gérant, vétérinaire : chacun avec les droits de son rôle. Avec Premium (1 personne par cheval) ou Écurie Pro (5).")
+              : t("Demi-pension, coach, groom, gérant, vétérinaire : chacun avec les droits de son rôle. Avec Premium (1 personne par cheval).")}
           </Text>
           <PrimaryButton label={t("Découvrir les formules")} onPress={() => openPaywall("sharing", { feature: "team" })} />
         </View>

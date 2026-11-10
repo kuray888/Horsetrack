@@ -212,6 +212,8 @@ export const PLANS = {
       "Partage avec votre DP, coach ou groom",
       "Concours détaillés épreuve par épreuve",
       "Dépenses payées et restant à régler",
+      "Créneaux réguliers chaque semaine et rapport du mois en PDF",
+      "Export des dépenses de l'année en PDF ou en tableur",
     ],
   },
   pro: {
@@ -239,7 +241,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Que contient Horsetrack Premium ?",
-    a: `Les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), le détail des concours épreuve par épreuve et le suivi de ce qui est payé ou reste à régler. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
+    a: `Les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), le détail des concours épreuve par épreuve, le suivi de ce qui est payé ou reste à régler, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
   },
   {
     q: "Sur quels appareils fonctionne Horsetrack ?",

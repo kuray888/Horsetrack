@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
-import { Redirect, router, useLocalSearchParams } from "expo-router";
-import { PRO_ENABLED } from "@/lib/features";
+import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -25,6 +24,7 @@ import { endSlot, migrateHorsePartnership, saveSlot, useSlots } from "@/planning
 import { hapticSelection, hapticSuccess } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { track } from "@/lib/analytics";
+import { openPaywall } from "@/subscription/paywall";
 import { notifyPlanning } from "@/planning/planningNotify";
 import { formatDate } from "@/lib/dateFormat";
 import { t } from "@/i18n";
@@ -65,13 +65,13 @@ const EMPTY_DRAFT: Draft = {
  * de séance à l'avance (cf. planning/slots.ts). Modifiables par le coach, le
  * gérant ou le propriétaire d'un compte Écurie Pro ; lisibles par l'équipe.
  */
-function HorseSlotsScreen() {
+export default function HorseSlotsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useThemeColors();
   const { horses } = useHorses();
   const horse = horses.find((h) => h.id === id);
   const rights = useHorseRights();
-  const { isPro } = useSubscription();
+  const { isActiveOrTrialing } = useSubscription();
   const team = useHorseTeam(horse?.id);
   const partnership = useHorseDetails(id)?.partnership ?? null;
   const allSlots = useSlots();
@@ -82,10 +82,10 @@ function HorseSlotsScreen() {
   const migrationTried = useRef(false);
 
   const isOwner = !!horse && !horse.sharedRole;
-  // Le serveur refuse hors Écurie Pro ; pour un cheval partagé, c'est
+  // Le serveur refuse sans abonnement actif ; pour un cheval partagé, c'est
   // l'abonnement de son propriétaire qui compte (inconnu ici) : la base
   // tranche, l'écran propose si le rôle le permet.
-  const canEdit = !!horse && rights.can(horse.id, "manage_planning") && (!isOwner || isPro);
+  const canEdit = !!horse && rights.can(horse.id, "manage_planning") && (!isOwner || isActiveOrTrialing);
   const today = useMemo(() => new Date(), []);
   const slots = useMemo(() => activeSlots(allSlots.filter((s) => s.horseId === id), today), [allSlots, id, today]);
   const week = useMemo(() => {
@@ -93,11 +93,11 @@ function HorseSlotsScreen() {
     return slotOccurrences(slots, sessions, today, end);
   }, [slots, sessions, today]);
 
-  // Première ouverture en Écurie Pro : les jours de demi-pension de la fiche
+  // Première ouverture avec Premium : les jours de demi-pension de la fiche
   // deviennent des créneaux (une fois, sans doublon côté serveur).
   const partnershipDays = partnership?.days.length ?? 0;
   useEffect(() => {
-    if (migrationTried.current || !horse || !isOwner || !isPro || partnershipDays === 0 || slots.length > 0) return;
+    if (migrationTried.current || !horse || !isOwner || !isActiveOrTrialing || partnershipDays === 0 || slots.length > 0) return;
     migrationTried.current = true;
     migrateHorsePartnership(horse.id)
       .then((created) => {
@@ -107,7 +107,7 @@ function HorseSlotsScreen() {
         }
       })
       .catch(() => {});
-  }, [horse, isOwner, isPro, partnershipDays, slots.length]);
+  }, [horse, isOwner, isActiveOrTrialing, partnershipDays, slots.length]);
 
   if (!horse) {
     return (
@@ -203,16 +203,16 @@ function HorseSlotsScreen() {
           </View>
         ) : null}
 
-        {isOwner && !isPro ? (
+        {isOwner && !isActiveOrTrialing ? (
           <FadeInView delay={40}>
             <View className={`${CARD} gap-3`}>
               <Text className="text-base font-semibold text-text">{t("Qui monte, et quand")}</Text>
               <Text className="text-sm text-muted">
-                {t("Fixe les jours de ta demi-pension, de tes cours et de ton cavalier : ils apparaissent chaque semaine dans le planning de chacun. Avec Écurie Pro.")}
+                {t("Fixe les jours de ta demi-pension, de tes cours et de ton cavalier : ils apparaissent chaque semaine dans le planning de chacun. Avec Premium.")}
               </Text>
               <PrimaryButton
-                label={t("Découvrir Écurie Pro")}
-                onPress={() => router.push("/pro")}
+                label={t("Découvrir Premium")}
+                onPress={() => openPaywall("profile", { feature: "ride_slots" })}
               />
             </View>
           </FadeInView>
@@ -365,10 +365,4 @@ function HorseSlotsScreen() {
       <PickerOverlaySlot />
     </>
   );
-}
-
-/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
-export default function HorseSlotsScreenGuard() {
-  if (!PRO_ENABLED) return <Redirect href="/" />;
-  return <HorseSlotsScreen />;
 }

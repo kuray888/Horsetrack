@@ -41,10 +41,16 @@ select t.denied('DP : ne crée pas de créneau', $$insert into public.ride_slots
 select t.allowed('DP : coche une occurrence de son créneau (séance créée à la volée)', $$insert into public.training_sessions (id, "horseId", "activityType", date, time, notes, "slotId", "riderUserId", completed, "updatedAt") values ('dp_h1_2_2026-11-10', 'h1', 'DRESSAGE', '2026-11-10', '18:30', '', 'dp_h1_2', '00000000-0000-0000-0000-000000000002', true, now())$$);
 select t.logout();
 
--- Premium (pas Pro) : pas de créneau, ni de migration.
+-- Premium (pas Pro) : les créneaux lui sont ouverts, la migration aussi ; mais
+-- pas les tâches ni les frais (cf. 60 et 70).
 select t.login('00000000-0000-0000-0000-000000000008', 'premium@test.fr');
-select t.denied('Premium : pas de créneau', $$insert into public.ride_slots (id, "horseId", weekday, "validFrom", "updatedAt") values ('sl8', 'h8', 6, now(), now())$$);
-select t.denied('Premium : pas de migration', $$select public.migrate_partnership_slots('h8')$$);
+select t.allowed('Premium : ajoute un créneau', $$insert into public.ride_slots (id, "horseId", weekday, "validFrom", "updatedAt") values ('sl8', 'h8', 3, now(), now())$$);
+select t.allowed('Premium : modifie son créneau', $$update public.ride_slots set notes = 'x' where id = 'sl8'$$);
+select t.allowed('Premium : supprime son créneau', $$delete from public.ride_slots where id = 'sl8'$$);
+select t.sees('Premium : migration de la demi-pension', $$select 1 from (select public.migrate_partnership_slots('h8') as n) q where n = 1$$, 1);
+select t.logout();
+select t.login('00000000-0000-0000-0000-000000000009', 'dp2@test.fr');
+select t.denied('Demi-pension d''un Premium : ne crée pas de créneau', $$insert into public.ride_slots (id, "horseId", weekday, "validFrom", "updatedAt") values ('sl9', 'h8', 2, now(), now())$$);
 select t.logout();
 
 -- Fin de l'abonnement Pro : lecture seule.
@@ -56,7 +62,7 @@ select t.logout();
 
 -- Migration par le backend (auth.uid() nul) : propriétaire Pro seulement dans
 -- le script, mais la fonction elle-même accepte tout cheval.
-select t.sees('Backend : migration d''un cheval Premium possible', $$select 1 from (select public.migrate_partnership_slots('h8') as n) q where n = 1$$, 1);
+select t.sees('Backend : migration rejouée sur un cheval Premium, sans doublon', $$select 1 from (select public.migrate_partnership_slots('h8') as n) q where n = 0$$, 1);
 select t.sees('Backend : DP unique rattachée', $$select 1 from public.ride_slots where id = 'dp_h8_6' and "riderUserId" = '00000000-0000-0000-0000-000000000009' and "riderName" is null$$, 1);
 
 -- Une personne sortie de l'équipe ne bloque pas la fin de son créneau.

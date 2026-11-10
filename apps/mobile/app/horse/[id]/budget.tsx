@@ -17,6 +17,7 @@ import {
   formatAmount,
   suggestedAppointmentFor as findSuggestedAppointment,
 } from "@/agenda/meta";
+import { BudgetExportCard } from "@/budget/components/BudgetExportCard";
 import { ExpenseForm } from "@/agenda/components/ExpenseForm";
 import { ExpenseCard } from "@/agenda/components/ExpenseCard";
 import { useExpenseForm } from "@/agenda/hooks/useExpenseForm";
@@ -217,6 +218,10 @@ export default function HorseBudgetScreen() {
 
         {sortedExpenses.length > 0 ? (
           <>
+            <FadeInView delay={20}>
+              <BudgetExportCard horseName={horse.name} expenses={sortedExpenses} />
+            </FadeInView>
+
             <FadeInView delay={40}>
               <Locked message={t("Vois d'un coup d'œil ce qui est payé et ce qui reste à régler")} placement="budget" feature="budget_paid_status">
                 <View className={`${CARD} flex-row items-center justify-between`}>

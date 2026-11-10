@@ -49,7 +49,7 @@ export function parsePlacement(value: unknown): PaywallPlacement {
     : "profile";
 }
 
-export type BenefitId = "horses" | "reminders" | "vault" | "sharing" | "competitions" | "budget" | "safety" | "coach";
+export type BenefitId = "horses" | "reminders" | "vault" | "sharing" | "competitions" | "budget" | "safety" | "coach" | "planning";
 
 export const BENEFITS: Record<BenefitId, { icon: string; text: string }> = {
   horses: { icon: "horse-variant", text: tr("Tous tes chevaux, sans limite") },
@@ -59,10 +59,11 @@ export const BENEFITS: Record<BenefitId, { icon: string; text: string }> = {
   competitions: { icon: "trophy-outline", text: tr("Concours détaillés, épreuve par épreuve") },
   budget: { icon: "cash-multiple", text: tr("Budget complet : payé, à régler, répartition") },
   safety: { icon: "shield-account-outline", text: tr("Sécurité en balade : tes proches suivent ta position et sont prévenus si tu ne bouges plus") },
+  planning: { icon: "calendar-sync-outline", text: tr("Créneaux réguliers chaque semaine et rapport du mois en PDF") },
   coach: { icon: "lightbulb-on-outline", text: tr("Ton coach : la prochaine séance expliquée, tes questions sur ton cheval, le résumé du mois") },
 };
 
-const DEFAULT_BENEFIT_ORDER: BenefitId[] = ["horses", "reminders", "coach", "vault", "sharing", "competitions", "budget", "safety"];
+const DEFAULT_BENEFIT_ORDER: BenefitId[] = ["horses", "reminders", "coach", "vault", "sharing", "competitions", "budget", "planning", "safety"];
 
 /** Bénéfice à remonter en tête selon le contexte d'ouverture. */
 const LEAD_BENEFIT: Partial<Record<PaywallPlacement, BenefitId>> = {

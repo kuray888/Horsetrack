@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PRO_ENABLED } from "@/lib/features";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -185,8 +184,7 @@ function PlanningScreen() {
   const [form, setForm] = useState<SessionForm>(emptyForm());
   const rights = useHorseRights();
   const slotList = useSlots();
-  const { isPro } = useSubscription();
-  const showWeekLink = PRO_ENABLED && (isPro || slotList.length > 0 || horses.some((h) => h.sharedRole));
+  const showWeekLink = (isActiveOrTrialing || slotList.length > 0 || horses.some((h) => h.sharedRole));
   /** Verrou de soumission. handleSubmit est synchrone : deux appuis
    * rapprochés sur « Ajouter » sont deux événements distincts qui lisent tous
    * deux l'état d'avant le rendu suivant, et créent deux séances identiques

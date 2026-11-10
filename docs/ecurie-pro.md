@@ -1,5 +1,12 @@
 # Écurie Pro — mise en service
 
+> **En pause (2026-11-10).** L'app 1.2.0 ne propose pas Pro (`PRO_ENABLED =
+> false`, `apps/mobile/src/lib/features.ts`) ; Pro sera proposé plus tard,
+> sous un autre nom. Les créneaux réguliers, le rapport du mois et l'export des
+> dépenses sont ouverts à Premium : exécuter aussi
+> `ecurie-pro-v2-9-creneaux-premium-2026-11-10.sql` (après le 8) avant la
+> mise en ligne de la 1.2.0.
+
 Formule pour les propriétaires de plusieurs chevaux, les demi-pensions
 multiples et les coachs. Tout Premium, plus :
 

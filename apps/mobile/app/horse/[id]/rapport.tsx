@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { Redirect, router, useLocalSearchParams } from "expo-router";
-import { PRO_ENABLED } from "@/lib/features";
+import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -25,6 +24,7 @@ import { exportMonthlyReport } from "@/stable/exportMonthlyReport";
 import { hapticSelection, hapticSuccess } from "@/lib/haptics";
 import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { track } from "@/lib/analytics";
+import { openPaywall } from "@/subscription/paywall";
 import { LOCALE, t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -33,17 +33,17 @@ const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const shiftMonth = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
 
 /**
- * Rapport du mois pour un cheval (Écurie Pro v2), en PDF : séances et
+ * Rapport du mois pour un cheval (Premium), en PDF : séances et
  * cavaliers, soins, pesées, tâches ; dépenses et frais seulement pour qui y a
  * droit. À envoyer au propriétaire, à la demi-pension ou au coach.
  */
-function MonthlyReportScreen() {
+export default function MonthlyReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useThemeColors();
   const { horses } = useHorses();
   const horse = horses.find((h) => h.id === id);
   const rights = useHorseRights();
-  const { isPro } = useSubscription();
+  const { isActiveOrTrialing } = useSubscription();
   const team = useHorseTeam(horse?.id);
   const { appointments, expenses } = useAgenda();
   const { sessions } = useSessions();
@@ -63,7 +63,7 @@ function MonthlyReportScreen() {
       </Screen>
     );
   }
-  const locked = isOwner && !isPro;
+  const locked = isOwner && !isActiveOrTrialing;
   const canMoney = rights.can(horse.id, "manage_expenses");
   const canFees = rights.can(horse.id, "manage_fees");
 
@@ -143,9 +143,9 @@ function MonthlyReportScreen() {
         <View className={`${CARD} gap-3`}>
           <Text className="text-base font-semibold text-text">{t("Un bilan à envoyer, chaque mois")}</Text>
           <Text className="text-sm text-muted">
-            {t("Séances et cavaliers, soins, pesées et tâches du mois en un PDF, à remettre au propriétaire, à la demi-pension ou au coach. Avec Écurie Pro.")}
+            {t("Séances et cavaliers, soins, pesées et tâches du mois en un PDF, à remettre au propriétaire, à la demi-pension ou au coach. Avec Premium.")}
           </Text>
-          <PrimaryButton label={t("Découvrir Écurie Pro")} onPress={() => router.push("/pro")} />
+          <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("profile", { feature: "monthly_report" })} />
         </View>
       ) : (
         <>
@@ -202,10 +202,4 @@ function MonthlyReportScreen() {
       )}
     </Screen>
   );
-}
-
-/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
-export default function MonthlyReportScreenGuard() {
-  if (!PRO_ENABLED) return <Redirect href="/" />;
-  return <MonthlyReportScreen />;
 }

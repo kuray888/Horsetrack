@@ -64,6 +64,12 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
   propriétaire peut « Appliquer les droits de … » depuis l'écran Équipe. Toute
   évolution de droits ou de RLS se rejoue sur l'ancien état de la prod (un
   schéma d'avant, ex. c315fbd) et se couvre par un test `test:rls`.
+- **Écurie Pro est en pause dans l'app** (`PRO_ENABLED = false`,
+  `lib/features.ts`) : la 1.2.0 ne propose que Premium. Base, API et /gestion
+  restent en place ; aucun écran de l'app n'y mène. Ouvert à Premium (jamais
+  à retirer) : créneaux réguliers (`horse_owner_has_premium`, v2-9), rapport du
+  mois en PDF, export des dépenses (PDF, CSV). Tâches, frais, Vue écurie et
+  achat Pro restent derrière l'interrupteur.
 - Écurie Pro v2 (cf. docs/ecurie-pro-v2-cahier-des-charges.md) : tables
   `ride_slots` (créneaux récurrents), `stable_tasks` /
   `stable_task_completions`, `participation_fees` (suivi seulement, jamais de

@@ -119,6 +119,7 @@ export type AnalyticsEvent =
   | "fee_added"
   | "task_created"
   | "monthly_report_shared"
+  | "budget_exported"
   | "task_done"
   | "fee_marked"
   | "week_planning_viewed"
