@@ -12,27 +12,52 @@ tags:
 
 # 1. Accueil
 - tapOn:
-    id: "tab-today"
+    text: "Accueil|Today|Home"
 - waitForAnimationToEnd
 - takeScreenshot: today
 
 # 2. Fiche du cheval (onglet Chevaux : la fiche s'affiche directement pour
 #    un seul cheval, sinon on ouvre le cheval principal).
 - tapOn:
-    id: "tab-chevaux"
+    text: "Chevaux|Horses"
 - waitForAnimationToEnd
 - runFlow:
     when:
       notVisible:
         id: "hub-sante"
     commands:
-      - tapOn: ${HORSE}
+      # La carte du cheval n'expose pas son nom à l'accessibilité : on touche
+      # la première carte de la liste (le cheval principal).
+      - tapOn:
+          point: "50%,22%"
       - waitForAnimationToEnd
+# L'état de l'abonnement se charge juste après la connexion et peut décaler la
+# liste : si le paywall s'est ouvert par erreur, on le ferme et on réessaie.
+- runFlow:
+    when:
+      visible: "Restaurer mes achats|Restore purchases"
+    commands:
+      - tapOn:
+          point: "93%,8%"
+      - waitForAnimationToEnd
+      - tapOn:
+          point: "50%,22%"
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "hub-sante"
+    timeout: 20000
 - takeScreenshot: hub
 
 # 3. Santé
 - tapOn:
     id: "hub-sante"
+- waitForAnimationToEnd
+# On fait défiler jusqu'aux soins et rendez-vous : c'est ce que promet le titre.
+- swipe:
+    start: 50%, 70%
+    end: 50%, 25%
+    duration: 400
 - waitForAnimationToEnd
 - takeScreenshot: sante
 - swipe:
@@ -68,21 +93,28 @@ tags:
           duration: 300
       - waitForAnimationToEnd
 
+# Retour de la fiche du cheval vers les onglets.
+- swipe:
+    start: 2%, 50%
+    end: 90%, 50%
+    duration: 300
+- waitForAnimationToEnd
+
 # 6. Planning
 - tapOn:
-    id: "tab-planning"
+    text: "Planning|Schedule"
 - waitForAnimationToEnd
 - takeScreenshot: planning
 
 # 7. Journal
 - tapOn:
-    id: "tab-journal"
+    text: "Journal"
 - waitForAnimationToEnd
 - takeScreenshot: journal
 
 # 8. Coach (Premium)
 - tapOn:
-    id: "tab-today"
+    text: "Accueil|Today|Home"
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element:

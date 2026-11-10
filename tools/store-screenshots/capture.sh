@@ -15,8 +15,15 @@ mkdir -p "$OUT"
 xcrun simctl status_bar booted override --time "9:41" --dataNetwork wifi --wifiBars 3 \
   --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
 
+# Maestro range les captures dans son dossier de test (…/takeScreenshot/) : on
+# le fixe, puis on les recopie dans raw/<langue>/ même si le parcours échoue
+# en cours de route (les captures déjà prises restent utilisables).
+RUN="$(mktemp -d)"
 cd "$OUT"
-maestro test "$FLOW" -e EMAIL="${EMAIL:?EMAIL manquant}" -e PASSWORD="${PASSWORD:?PASSWORD manquant}" -e HORSE="${HORSE:-}"
+maestro test "$FLOW" --test-output-dir "$RUN" -e EMAIL="${EMAIL:?EMAIL manquant}" -e PASSWORD="${PASSWORD:?PASSWORD manquant}" -e HORSE="${HORSE:-}" || STATUS=$?
+find "$RUN" -path "*takeScreenshot*" -name "*.png" -exec cp {} "$OUT/" \;
+rm -rf "$RUN"
 xcrun simctl status_bar booted clear
+[ -z "${STATUS:-}" ] || { echo "Parcours interrompu (code $STATUS)"; exit "$STATUS"; }
 echo "Captures dans $OUT"
 ls -1 "$OUT"

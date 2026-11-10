@@ -11,11 +11,17 @@ appId: com.horsetrack.app
 - tapOn:
     id: "login-password"
 - inputText: ${PASSWORD}
-- hideKeyboard
+- pressKey: Enter
 - tapOn:
     id: "login-submit"
+    optional: true
 # Les notifications ne sont jamais demandées au lancement (cf. today.tsx) :
 # rien à fermer ici. L'Accueil est atteint quand l'onglet Profil est là.
 - extendedWaitUntil:
     visible: "Profil|Profile"
     timeout: 45000
+# Fenêtre système iOS « Enregistrer le mot de passe ? » : elle masque l'app
+# et bloque les touches suivantes.
+- tapOn:
+    text: "Plus tard|Not Now"
+    optional: true
