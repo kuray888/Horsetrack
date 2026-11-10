@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PRO_ENABLED } from "@/lib/features";
 import { ActivityIndicator, Linking, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -99,7 +100,7 @@ export default function CoachScreen() {
       if (r.questionsLeft !== undefined) setStatus((s) => (s ? { ...s, questionsLeft: r.questionsLeft! } : s));
     } else if (r.status === "quota") {
       setNotice(
-        isPro
+        isPro || !PRO_ENABLED
           ? t("Tu as posé tes {n} questions du mois. Le compteur repart le 1er.", { n: status?.questionsLimit ?? 100 })
           : t("Tu as posé tes {n} questions du mois. Le compteur repart le 1er, ou passe à Écurie Pro pour 100 questions par mois.", { n: status?.questionsLimit ?? 30 })
       );

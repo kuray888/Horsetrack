@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
+import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -37,7 +38,7 @@ function addDays(d: Date, n: number): Date {
  * planning » pour qui monte plusieurs chevaux ; et les contrôles (cf.
  * planning/week.ts) — on avertit, on ne bloque jamais.
  */
-export default function WeekPlanningScreen() {
+function WeekPlanningScreen() {
   const colors = useThemeColors();
   const { horses } = useHorses();
   const { sessions, updateSession, toggleCompleted } = useSessions();
@@ -421,4 +422,10 @@ function warningText(w: PlanWarning, horseName: (id: string) => string): string 
     case "competition_near":
       return t("{name} : séance éprouvante {day}, à côté d'un concours.", { name, day });
   }
+}
+
+/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
+export default function WeekPlanningScreenGuard() {
+  if (!PRO_ENABLED) return <Redirect href="/" />;
+  return <WeekPlanningScreen />;
 }

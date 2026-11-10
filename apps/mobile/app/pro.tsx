@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
+import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton } from "@/components/onboarding";
 import { FadeInView } from "@/components/FadeInView";
@@ -51,7 +52,7 @@ const PRO_FEATURES: { icon: IconName; title: string; text: string }[] = [
  * prix et essai lus dans le store, montant facturé le plus visible,
  * renouvellement et résiliation expliqués, restauration et pages légales.
  */
-export default function ProPaywall() {
+function ProPaywall() {
   const colors = useThemeColors();
   const { isPro, isActiveOrTrialing, promotional } = useSubscription();
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
@@ -213,4 +214,10 @@ export default function ProPaywall() {
       </View>
     </SafeAreaView>
   );
+}
+
+/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
+export default function ProPaywallGuard() {
+  if (!PRO_ENABLED) return <Redirect href="/" />;
+  return <ProPaywall />;
 }

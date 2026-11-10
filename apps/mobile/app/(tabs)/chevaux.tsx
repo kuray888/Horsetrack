@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PRO_ENABLED } from "@/lib/features";
 import { RefreshControl, Text, TouchableOpacity, View } from "react-native";
 import { Link, router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -254,7 +255,7 @@ function ChevauxScreen() {
 
       {/* Vue écurie (Écurie Pro) : utile dès deux chevaux. Ouverte aussi
           sans Pro, où elle présente l'offre (cf. app/ecurie.tsx). */}
-      {ownedHorses.length > 1 ? (
+      {PRO_ENABLED && ownedHorses.length > 1 ? (
         <FadeInView delay={30}>
           <TouchableOpacity
             accessibilityRole="button"

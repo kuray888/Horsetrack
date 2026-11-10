@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -29,7 +30,7 @@ const OTHER = "__other";
  * personne verse, mois par mois, et ce qui reste à recevoir. Du suivi, rien
  * de plus — l'app ne fait transiter aucun argent (cf. fees/feesModel.ts).
  */
-export default function HorseFeesScreen() {
+function HorseFeesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useThemeColors();
   const { horses } = useHorses();
@@ -277,4 +278,10 @@ export default function HorseFeesScreen() {
       <Text className="text-center text-sm text-muted">{t("Un suivi : l'app ne fait transiter aucun argent entre vous.")}</Text>
     </Screen>
   );
+}
+
+/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
+export default function HorseFeesScreenGuard() {
+  if (!PRO_ENABLED) return <Redirect href="/" />;
+  return <HorseFeesScreen />;
 }

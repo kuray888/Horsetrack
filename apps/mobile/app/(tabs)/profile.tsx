@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PRO_ENABLED } from "@/lib/features";
 import { clearExtras } from "@/extras/store";
 import { Alert, Linking, Platform, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
@@ -730,6 +731,8 @@ function ProfileScreen() {
               />
             </>
           ) : null}
+          {PRO_ENABLED ? (
+            <>
           <View className="border-t border-border" />
           <LinkRow
             icon="view-dashboard-outline"
@@ -741,6 +744,8 @@ function ProfileScreen() {
             }
             onPress={() => router.push(subscription.isPro ? "/ecurie" : "/pro")}
           />
+            </>
+          ) : null}
           <View className="border-t border-border" />
           {/* Restauration et pages légales : aussi exigées hors du paywall
               (règles App Store 3.1.1 et 5.1.1) — un cavalier qui réinstalle

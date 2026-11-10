@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -64,7 +65,7 @@ const EMPTY_DRAFT: Draft = {
  * de séance à l'avance (cf. planning/slots.ts). Modifiables par le coach, le
  * gérant ou le propriétaire d'un compte Écurie Pro ; lisibles par l'équipe.
  */
-export default function HorseSlotsScreen() {
+function HorseSlotsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useThemeColors();
   const { horses } = useHorses();
@@ -364,4 +365,10 @@ export default function HorseSlotsScreen() {
       <PickerOverlaySlot />
     </>
   );
+}
+
+/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
+export default function HorseSlotsScreenGuard() {
+  if (!PRO_ENABLED) return <Redirect href="/" />;
+  return <HorseSlotsScreen />;
 }

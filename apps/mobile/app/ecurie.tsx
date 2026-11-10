@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
+import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { FadeInView } from "@/components/FadeInView";
 import { Image } from "@/components/AppImage";
@@ -18,7 +19,7 @@ import { t } from "@/i18n";
 
 /** Vue écurie (Écurie Pro) : chaque cheval sur une ligne, ceux qui demandent
  * de l'attention en tête (cf. stable/stableOverview.ts). */
-export default function StableScreen() {
+function StableScreen() {
   const colors = useThemeColors();
   const { isPro } = useSubscription();
   const horses = useSelectableHorses();
@@ -174,4 +175,10 @@ function StableRow({ row }: { row: StableHorseRow }) {
       </View>
     </TouchableOpacity>
   );
+}
+
+/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
+export default function StableScreenGuard() {
+  if (!PRO_ENABLED) return <Redirect href="/" />;
+  return <StableScreen />;
 }

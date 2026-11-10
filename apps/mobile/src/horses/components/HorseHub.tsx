@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PRO_ENABLED } from "@/lib/features";
 import { Platform, Share, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -554,7 +555,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           ) : null}
           {/* Créneaux réguliers (Écurie Pro v2) : pour qui organise le
               planning, ou pour toute l'équipe dès qu'il en existe. */}
-          {rights.can(horse.id, "manage_planning") || horseSlotCount > 0 ? (
+          {PRO_ENABLED && (rights.can(horse.id, "manage_planning") || horseSlotCount > 0) ? (
             <HorseModuleRow
               icon="calendar-sync-outline"
               iconColor={colors.primary}
@@ -569,16 +570,18 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           ) : null}
           {/* Rapport du mois en PDF (Écurie Pro v2) : pour toute l'équipe, les
               dépenses n'y figurent que pour qui y a droit. */}
-          <HorseModuleRow
-            icon="file-chart-outline"
-            iconColor={colors.primary}
-            title={t("Rapport du mois")}
-            value={t("Séances, soins et tâches en PDF")}
-            onPress={() => router.push(`/horse/${horse.id}/rapport`)}
-          />
+          {PRO_ENABLED ? (
+            <HorseModuleRow
+              icon="file-chart-outline"
+              iconColor={colors.primary}
+              title={t("Rapport du mois")}
+              value={t("Séances, soins et tâches en PDF")}
+              onPress={() => router.push(`/horse/${horse.id}/rapport`)}
+            />
+          ) : null}
           {/* Participation aux frais (Écurie Pro v2) : suivi mois par mois, pour
               qui gère le cheval. */}
-          {rights.can(horse.id, "manage_fees") && (horse.sharedRole || isPro) ? (
+          {PRO_ENABLED && rights.can(horse.id, "manage_fees") && (horse.sharedRole || isPro) ? (
             <HorseModuleRow
               icon="cash-multiple"
               iconColor={colors.success}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { PRO_ENABLED } from "@/lib/features";
 import { Alert, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -287,7 +288,7 @@ export default function ShareHorseModal() {
                 ? t("Limite de 5 personnes par cheval atteinte — révoque un accès pour en inviter une autre.")
                 : t("Limite d'un·e collaborateur·rice par cheval atteinte — révoque l'accès actuel pour en inviter un·e autre.")}
             </Text>
-            {isPro ? null : (
+            {isPro || !PRO_ENABLED ? null : (
               <TouchableOpacity
                 onPress={() => {
                   track("locked_feature_tapped", { feature: "collaborator_limit", placement: "pro" });

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
+import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -44,7 +45,7 @@ const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), 
  * on coche d'un toucher, avec qui et quand. L'app ne propose jamais de
  * posologie : le texte est le vôtre (cf. tasks/tasksModel.ts).
  */
-export default function TasksScreen() {
+function TasksScreen() {
   const colors = useThemeColors();
   const { horses } = useHorses();
   const rights = useHorseRights();
@@ -334,4 +335,10 @@ export default function TasksScreen() {
       <PickerOverlaySlot />
     </>
   );
+}
+
+/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
+export default function TasksScreenGuard() {
+  if (!PRO_ENABLED) return <Redirect href="/" />;
+  return <TasksScreen />;
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -36,7 +37,7 @@ const shiftMonth = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(
  * cavaliers, soins, pesées, tâches ; dépenses et frais seulement pour qui y a
  * droit. À envoyer au propriétaire, à la demi-pension ou au coach.
  */
-export default function MonthlyReportScreen() {
+function MonthlyReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useThemeColors();
   const { horses } = useHorses();
@@ -201,4 +202,10 @@ export default function MonthlyReportScreen() {
       )}
     </Screen>
   );
+}
+
+/** Écurie Pro n'est pas ouvert dans cette version (cf. lib/features.ts). */
+export default function MonthlyReportScreenGuard() {
+  if (!PRO_ENABLED) return <Redirect href="/" />;
+  return <MonthlyReportScreen />;
 }
