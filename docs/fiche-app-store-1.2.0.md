@@ -54,8 +54,8 @@ PAPIERS ET BUDGET
 GRATUIT POUR COMMENCER
 La version gratuite suit 1 cheval avec le planning, l'agenda, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute les chevaux illimités, les rappels illimités, le coach IA, le coffre-fort, le partage, les concours détaillés, les créneaux réguliers, la sécurité en balade, le rapport du mois et l'export des dépenses. Essai gratuit d'1 mois, puis 3,99 €/mois ou 39,99 €/an. Abonnements renouvelés automatiquement, annulables à tout moment dans Réglages > Abonnements.
 
-Conditions d'utilisation : https://horsetrack.fr/cgu
-Politique de confidentialité : https://horsetrack.fr/confidentialite
+Conditions d'utilisation : https://api-mu-tan-94.vercel.app/cgu
+Politique de confidentialité : https://api-mu-tan-94.vercel.app/confidentialite
 
 ### Nouveautés de la version 1.2.0
 
@@ -118,8 +118,8 @@ TOGETHER
 FREE TO START
 The free plan tracks 1 horse with the schedule, calendar, journal, expenses and one reminder at a time. Horsetrack Premium adds unlimited horses, unlimited reminders, the AI coach, the document vault, sharing, detailed competitions, weekly slots, ride safety alerts, the monthly report and expense export. 1-month free trial, then €3.99/month or €39.99/year. Subscriptions renew automatically and can be cancelled at any time in Settings > Subscriptions.
 
-Terms of Use: https://horsetrack.fr/cgu
-Privacy Policy: https://horsetrack.fr/confidentialite
+Terms of Use: https://api-mu-tan-94.vercel.app/cgu
+Privacy Policy: https://api-mu-tan-94.vercel.app/confidentialite
 
 ### What's New in 1.2.0
 
