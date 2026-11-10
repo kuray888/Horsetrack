@@ -12,7 +12,7 @@ const TRUST: { icon: IconName; text: string }[] = [
 ];
 
 export function Pricing() {
-  const { free, premium, pro } = PLANS;
+  const { free, premium } = PLANS;
   return (
     <section id="tarifs" className={`section ${styles.section}`} aria-labelledby="pricing-title">
       <div className="container">
@@ -23,7 +23,7 @@ export function Pricing() {
           </h2>
           <p className="lead">
             Suivez un cheval gratuitement, sans limite de durée. Passez à Premium quand vous voulez, avec{" "}
-            {PRICING.trial} d&apos;essai offert, ou à Écurie Pro pour gérer une équipe.
+            {PRICING.trial} d&apos;essai offert.
           </p>
         </header>
 
@@ -64,31 +64,6 @@ export function Pricing() {
             <ul role="list" className={styles.items}>
               <li className={styles.plus}>Tout le gratuit, et en plus :</li>
               {premium.items.map((item) => (
-                <li key={item}>
-                  <Icon name="check" size={18} strokeWidth={2.4} />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </article>
-
-          <article
-            className={`${styles.plan} ${styles.pro}`}
-            data-reveal
-            style={{ "--reveal-delay": "240ms" } as CSSProperties}
-            aria-labelledby="plan-pro"
-          >
-            <h3 id="plan-pro" className={styles.name}>
-              {pro.name}
-            </h3>
-            <p className={styles.audience}>{pro.audience}</p>
-            <p className={styles.price}>
-              <strong>{pro.price}</strong> <span>{pro.period}</span>
-            </p>
-            <p className={styles.alt}>{pro.alt}</p>
-            <ul role="list" className={styles.items}>
-              <li className={styles.plus}>Tout Premium, et en plus :</li>
-              {pro.items.map((item) => (
                 <li key={item}>
                   <Icon name="check" size={18} strokeWidth={2.4} />
                   {item}

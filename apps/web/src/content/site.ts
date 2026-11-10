@@ -26,7 +26,7 @@ export const SITE_URL = httpsOrigin(
 export const SITE_NAME = "Horsetrack";
 export const SITE_TAGLINE = "Toute votre vie équestre, au même endroit.";
 export const SITE_DESCRIPTION =
-  "Planning, séances, soins, concours, journal et budget : Horsetrack réunit tout le suivi de vos chevaux dans une app iPhone. Gratuit pour 1 cheval, Écurie Pro pour gérer une équipe.";
+  "Planning, séances, soins, concours, journal et budget : Horsetrack réunit tout le suivi de vos chevaux dans une app iPhone. Gratuit pour 1 cheval, Premium pour en suivre autant que vous voulez.";
 
 /** Date de dernière mise à jour du contenu (sitemap). */
 export const CONTENT_UPDATED = "2026-11-08";

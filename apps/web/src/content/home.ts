@@ -242,16 +242,12 @@ export const FAQ: { q: string; a: string }[] = [
     a: `Les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), le détail des concours épreuve par épreuve et le suivi de ce qui est payé ou reste à régler. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
   },
   {
-    q: "Qu'est-ce qu'Écurie Pro ?",
-    a: `La formule pour qui s'occupe de plusieurs chevaux avec une équipe : jusqu'à 5 personnes par cheval (demi-pension, coach, groom, gérant, vétérinaire, maréchal), chacune avec des droits adaptés à son rôle, et une vue de toute l'écurie. Elle comprend tout Premium. ${PRICING_PRO.monthly} par mois ou ${PRICING_PRO.yearly} par an.`,
-  },
-  {
     q: "Sur quels appareils fonctionne Horsetrack ?",
     a: "Horsetrack est une application iPhone, à télécharger gratuitement sur l'App Store.",
   },
   {
     q: "Puis-je partager mon cheval avec ma demi-pension ou mon coach ?",
-    a: "Oui : avec Premium, invitez une personne par cheval, jusqu'à 5 avec Écurie Pro. Chacune retrouve le planning, les soins et les rendez-vous du cheval, avec les droits de son rôle : une demi-pension note ses séances, le budget reste visible par vous seul.",
+    a: "Oui : avec Premium, invitez une personne par cheval. Elle retrouve le planning, les soins et les rendez-vous du cheval, avec les droits de son rôle : une demi-pension note ses séances, le budget reste visible par vous seul.",
   },
   {
     q: "Comment fonctionnent les rappels ?",
