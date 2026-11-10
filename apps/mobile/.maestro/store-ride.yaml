@@ -1,0 +1,27 @@
+# Capture de la séance en direct (traceur) pour l'App Store. Avant de lancer :
+#   xcrun simctl location booted start --speed=3.5 --interval=1 <lat,lon> <lat,lon> …
+appId: com.horsetrack.app
+tags:
+  - store
+---
+- runFlow: subflows/login.yaml
+- waitForAnimationToEnd
+- tapOn:
+    text: "Accueil|Today|Home"
+- waitForAnimationToEnd
+# Séance en direct (traceur)
+- tapOn: ".*Démarrer une séance en direct.*"
+- waitForAnimationToEnd
+- takeScreenshot: ride-setup
+- tapOn: ".*Démarrer.*"
+- tapOn:
+    text: "Autoriser lorsque.*|Allow While Using"
+    optional: true
+- waitForAnimationToEnd
+# Le simulateur déplace la position (simctl location start) : on laisse le
+# chrono, la distance et l'allure se remplir.
+- extendedWaitUntil:
+    visible: "Texte-qui-n-existe-pas"
+    timeout: 150000
+    optional: true
+- takeScreenshot: ride

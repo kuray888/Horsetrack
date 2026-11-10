@@ -9,7 +9,7 @@ Textes pour App Store Connect (langue : français). Les longueurs respectent les
 | Nom | Horsetrack : suivi du cheval | 28 / 30 |
 | Sous-titre | Soins, planning et concours | 27 / 30 |
 | Mots-clés | `equitation,écurie,véto,maréchal,vaccin,vermifuge,dressage,cso,demi-pension,carnet,budget,cavalier` | 97 / 100 |
-| Texte promotionnel | Nouveau : un coach qui connaît ton cheval, tes créneaux de la semaine, le rapport du mois et l'export de tes dépenses en PDF. | 129 / 170 |
+| Texte promotionnel | Nouveau : un coach IA qui connaît ton cheval, la séance en direct avec GPS, tes créneaux de la semaine et l'export de tes dépenses en PDF. | 129 / 170 |
 
 Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le sous-titre, Apple les indexe déjà. Pas d'espace après les virgules.
 
@@ -23,7 +23,8 @@ Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le s
 > • Véto, maréchal, ostéo, dentiste, vaccins, vermifuges : tout est noté, avec les prochaines échéances
 > • Un rappel avant chaque rendez-vous (1 à la fois en gratuit, illimités avec Premium)
 > • Carnet de santé exportable en PDF, à envoyer au véto en un geste
-> • Un coach qui répond d'après le carnet de ton cheval : séances, soins, dépenses, poids
+> • Un coach IA qui répond d'après le carnet de ton cheval : séances, soins, dépenses, poids (il ne remplace pas ton vétérinaire)
+> • Séance en direct : chrono, distance, allures et tracé GPS, même écran verrouillé ; en Premium, tes proches suivent ta position en balade
 >
 > **PLANNING ET JOURNAL**
 > • Planifie tes séances, coche-les une fois faites
@@ -48,19 +49,20 @@ Pour les mots-clés : ne répète pas un mot déjà présent dans le nom ou le s
 >
 > Conditions : [lien /cgu] · Confidentialité : [lien /confidentialite]
 
-## Captures d'écran (9, dans cet ordre)
+## Captures d'écran (10, dans cet ordre)
 
 Générées par `tools/store-screenshots` (`npm run render`, sortie dans `out/fr/soins/`, 1290 × 2796 ; les captures brutes sans mise en page sont dans `out/captures-brutes/`, 1320 × 2868). Les trois premières comptent le plus : elles apparaissent dans les résultats de recherche.
 
 1. **Toute sa fiche dans ta poche** (+ médaille « 5,0 · 11 avis » : chiffres à tenir à jour, cf. `RATING` dans `screens.mjs`)
 2. **Ne rate plus aucun soin**
 3. **Ta journée en un coup d'œil**
-4. **Planifie chaque séance**
-5. **Un coach qui connaît ton cheval**
-6. **Sache ce que ton cheval te coûte**
-7. **Partage avec ta demi-pension**
-8. **Garde chaque souvenir**
-9. **Ton cheval, au même endroit** (récapitulatif et bouton de téléchargement)
+4. **Suis tes balades en direct** (traceur GPS)
+5. **Planifie chaque séance**
+6. **Un coach IA qui connaît ton cheval**
+7. **Sache ce que ton cheval te coûte**
+8. **Partage avec ta demi-pension**
+9. **Garde chaque souvenir**
+10. **Ton cheval, au même endroit** (récapitulatif et bouton de téléchargement)
 
 Jeux d'ordre pour le test de page produit (Product Page Optimization) : `soins` (par défaut), `coach`, `ecurie`.
 
@@ -91,7 +93,8 @@ Jeux d'ordre pour le test de page produit (Product Page Optimization) : `soins` 
 
 ## « Nouveautés » de la version 1.2
 
-> • Un coach qui répond d'après le carnet de ton cheval
+> • Un coach IA qui répond d'après le carnet de ton cheval
+> • Séance en direct avec GPS : chrono, distance, allures et tracé
 > • Créneaux réguliers : tes séances de la semaine reviennent chaque semaine
 > • Rapport du mois en PDF, et export de tes dépenses en PDF ou en tableur
 > • Fiche du cheval plus claire, et un widget pour l'écran d'accueil

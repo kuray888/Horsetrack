@@ -38,6 +38,11 @@ appId: com.horsetrack.app
           commands:
             - tapOn:
                 point: 90%, 48%
+# Fenêtre iOS de position (le simulateur en déplacement la déclenche au
+# lancement) : elle masque l'écran de bienvenue.
+- tapOn:
+    text: "Autoriser lorsque.*|Allow While Using"
+    optional: true
 - extendedWaitUntil:
     visible:
       id: "welcome-start"

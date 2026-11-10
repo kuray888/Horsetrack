@@ -21,12 +21,12 @@ export const SCREENS = {
     features: [
       { icon: "notifications_active", fr: "Rappels de soins", en: "Care reminders" },
       { icon: "calendar_month", fr: "Planning", en: "Schedule" },
-      { icon: "lightbulb", fr: "Coach", en: "Coach" },
+      { icon: "route", fr: "Séance en direct", en: "Live ride" },
+      { icon: "auto_awesome", fr: "Coach IA", en: "AI coach" },
       { icon: "payments", fr: "Budget", en: "Budget" },
       { icon: "photo_camera", fr: "Journal photo", en: "Photo journal" },
       { icon: "group", fr: "Partage d'équipe", en: "Team sharing" },
       { icon: "folder_open", fr: "Coffre-fort", en: "Document vault" },
-      { icon: "emoji_events", fr: "Concours", en: "Competitions" },
     ],
     fr: { kicker: "Horsetrack", title: "Ton cheval,\n**au même endroit**", sub: "Gratuit pour 1 cheval. Premium pour en suivre autant que tu veux.", cta: "Télécharge Horsetrack" },
     en: { kicker: "Horsetrack", title: "Your horse,\n**in one place**", sub: "Free for 1 horse. Premium for as many as you like.", cta: "Download Horsetrack" },
@@ -74,6 +74,19 @@ export const SCREENS = {
     fr: { kicker: "Accueil", title: "Ta journée\n**en un coup d'œil**", sub: "La séance du jour, et ce qui arrive ensuite." },
     en: { kicker: "Home", title: "Your barn day\n**at a glance**", sub: "Today's session, and what's coming next." },
   },
+  ride: {
+    theme: "copper",
+    icon: "route",
+    stickers: [{ icon: "shield_with_heart", label: "Tes proches suivent ta position", x: 70, y: 790, rot: -4 }],
+    arrows: [{ x: 420, y: 850, w: 200, h: 150, rot: 0 }],
+    sparkles: [{ x: 1130, y: 700, s: 56 }, { x: 80, y: 1060, s: 34 }],
+    scene: [
+      { p: "ride-setup", w: 980, x: 40, y: 960, rz: -7, ry: 22, rx: 6, tz: -40 },
+      { c: "ride", crop: [53, 380, 1215, 1340], w: 700, x: 520, y: 1640, rz: 5, ry: -10, rx: 0, tz: 330 },
+    ],
+    fr: { kicker: "Séance en direct", title: "Suis tes balades\n**en direct**", sub: "Chrono, distance, allures et tracé GPS.", chips: ["Chrono", "Distance", "Allures", "GPS"] },
+    en: { kicker: "Live ride", title: "Track your rides\n**live**", sub: "Timer, distance, gaits and GPS route.", chips: ["Timer", "Distance", "Gaits", "GPS"] },
+  },
   planning: {
     theme: "sky",
     icon: "calendar_month",
@@ -87,19 +100,19 @@ export const SCREENS = {
     en: { kicker: "Schedule", title: "Plan\n**every session**", sub: "Your horse's week, organised.", chips: ["Flatwork", "Jumping", "Lunging", "Hacking"] },
   },
   coach: {
-    theme: "copper",
-    icon: "lightbulb",
-    stickers: [{ icon: "auto_awesome", label: "28 questions par mois", x: 640, y: 770, rot: 4 }],
+    theme: "navy",
+    icon: "auto_awesome",
+    stickers: [{ icon: "auto_awesome", label: "Coach IA", x: 640, y: 770, rot: 4 }],
     sparkles: [{ x: 1130, y: 740, s: 62 }, { x: 960, y: 1790, s: 40 }, { x: 70, y: 1750, s: 34 }],
     scene: [
       { p: "coach", w: 990, x: 150, y: 860, rz: -2, ry: 18, rx: 4, tz: 0 },
-      { c: "coach", crop: [53, 1411, 1215, 388], w: 860, x: 160, y: 1890, rz: -3, ry: -8, rx: 0, tz: 330 },
+      { c: "coach", crop: [53, 1411, 1215, 336], w: 860, x: 160, y: 1890, rz: -3, ry: -8, rx: 0, tz: 330 },
     ],
-    fr: { kicker: "Coach", title: "Un coach qui\n**connaît ton cheval**", sub: "Il répond d'après son carnet.", chips: ["Séances", "Soins", "Dépenses", "Poids"] },
-    en: { kicker: "Coach", title: "A coach who\n**knows your horse**", sub: "It answers from their record.", chips: ["Sessions", "Care", "Expenses", "Weight"] },
+    fr: { kicker: "Coach IA", title: "Un coach IA qui\n**connaît ton cheval**", sub: "Une IA qui répond d'après son carnet.", chips: ["Séances", "Soins", "Dépenses", "Poids"] },
+    en: { kicker: "AI coach", title: "An AI coach that\n**knows your horse**", sub: "An AI that answers from their record.", chips: ["Sessions", "Care", "Expenses", "Weight"] },
   },
   budget: {
-    theme: "navy",
+    theme: "cream",
     icon: "payments",
     stickers: [{ icon: "payments", label: "Payé · À régler", x: 70, y: 860, rot: -6 }],
     arrows: [{ x: 360, y: 900, w: 200, h: 150, rot: 0 }],
@@ -112,7 +125,7 @@ export const SCREENS = {
     en: { kicker: "Budget", title: "Know what\nyour horse **costs you**", sub: "What's paid, what's due, where the money goes.", chips: ["Livery", "Farrier", "Vet", "Feed"] },
   },
   partage: {
-    theme: "cream",
+    theme: "blue",
     icon: "group",
     stickers: [{ icon: "group", label: "Demi-pension, coach, groom", x: 70, y: 790, rot: -5 }],
     arrows: [{ x: 440, y: 830, w: 200, h: 150, rot: 0 }],
@@ -125,7 +138,7 @@ export const SCREENS = {
     en: { kicker: "Sharing", title: "Share with your\n**part-loaner**", sub: "They follow the schedule and care.", chips: ["Part-loaner", "Coach", "Groom", "Vet"] },
   },
   journal: {
-    theme: "blue",
+    theme: "copper",
     icon: "photo_camera",
     stickers: [{ icon: "photo_camera", label: "Photos et vidéos", x: 70, y: 790, rot: -5 }],
     arrows: [{ x: 360, y: 830, w: 200, h: 150, rot: 0 }],
@@ -148,9 +161,9 @@ export const SCREENS = {
  * - ecurie : propriétaires de plusieurs chevaux, demi-pension, pros.
  */
 export const SETS = {
-  soins: ["hub", "sante", "today", "planning", "coach", "budget", "partage", "journal", "closing"],
-  coach: ["coach", "today", "sante", "planning", "journal", "hub", "partage", "budget", "closing"],
-  ecurie: ["hub", "partage", "sante", "budget", "planning", "today", "coach", "journal", "closing"],
+  soins: ["hub", "sante", "today", "ride", "planning", "coach", "budget", "partage", "journal", "closing"],
+  coach: ["coach", "today", "ride", "sante", "planning", "journal", "hub", "partage", "budget", "closing"],
+  ecurie: ["hub", "partage", "sante", "budget", "ride", "planning", "today", "coach", "journal", "closing"],
 };
 
 /** Note affichée dans la médaille (vraie : à mettre à jour avec l'App Store). */

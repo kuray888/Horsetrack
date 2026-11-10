@@ -1,0 +1,31 @@
+# Captures complémentaires pour l'App Store : coach IA.
+# Lancé après capture.sh, avec les mêmes EMAIL / PASSWORD.
+appId: com.horsetrack.app
+tags:
+  - store
+---
+- runFlow: subflows/login.yaml
+- waitForAnimationToEnd
+- tapOn:
+    text: "Accueil|Today|Home"
+- waitForAnimationToEnd
+# Coach IA
+- scrollUntilVisible:
+    element:
+      id: "coach-open"
+    direction: DOWN
+- tapOn:
+    id: "coach-open"
+- waitForAnimationToEnd
+- tapOn: "Combien de séances ce mois-ci ?"
+- extendedWaitUntil:
+    visible: "Texte-qui-n-existe-pas"
+    timeout: 12000
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: coach
+- swipe:
+    start: 50%, 20%
+    end: 50%, 95%
+    duration: 300
+- waitForAnimationToEnd
