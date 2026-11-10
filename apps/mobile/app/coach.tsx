@@ -121,11 +121,11 @@ export default function CoachScreen() {
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 gap-1">
             <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-              {t("Ton coach")}
+              {t("Ton coach IA")}
             </Text>
             <Text className="text-sm text-muted">
               {selectedHorse
-                ? t("Il répond d'après le carnet de {name} : séances, soins, dépenses, poids.", { name: selectedHorse.name })
+                ? t("Coach IA : il répond d'après le carnet de {name} (séances, soins, dépenses, poids).", { name: selectedHorse.name })
                 : t("Ajoute d'abord un cheval.")}
             </Text>
           </View>

@@ -106,7 +106,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
             <MaterialCommunityIcons name="lightbulb-on-outline" size={17} color={colors.primary} />
           </View>
           <Text className="flex-1 text-sm font-bold uppercase tracking-wide text-primary" accessibilityRole="header">
-            {t("Ton coach")}
+            {t("Ton coach IA")}
           </Text>
           {loading ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
         </View>

@@ -1,5 +1,8 @@
 import { Text, TouchableOpacity, View } from "react-native";
+import { MaterialCommunityIcons as BaseIcons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
+import { chipIconKind } from "@/components/chipIcon";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { animateNextLayout } from "@/lib/motion";
 import { hapticTap } from "@/lib/haptics";
 
@@ -16,6 +19,7 @@ export function ChipSelect<T extends string>({
   value: T | null;
   onChange: (v: T) => void;
 }) {
+  const colors = useThemeColors();
   return (
     <View className="flex-row flex-wrap gap-2">
       {options.map((opt) => {
@@ -33,9 +37,18 @@ export function ChipSelect<T extends string>({
             }`}
           >
             {typeof opt.icon === "string" ? (
-              <Text className="text-sm" accessibilityElementsHidden importantForAccessibility="no">
-                {opt.icon}
-              </Text>
+              chipIconKind(opt.icon, BaseIcons.glyphMap) === "glyph" ? (
+                <MaterialCommunityIcons
+                  name={opt.icon as IconSpec["name"]}
+                  size={15}
+                  color={colors.primary}
+                  accessibilityElementsHidden
+                />
+              ) : (
+                <Text className="text-sm" accessibilityElementsHidden importantForAccessibility="no">
+                  {opt.icon}
+                </Text>
+              )
             ) : (
               <MaterialCommunityIcons name={opt.icon.name} size={15} color={opt.icon.color} accessibilityElementsHidden />
             )}
