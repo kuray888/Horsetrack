@@ -1,75 +1,90 @@
 /**
  * Contenu des visuels App Store. Chaque visuel : un mot-clé en tête (kicker),
  * un titre court dont les mots entre ** sont soulignés (lisible en vignette
- * dans les résultats de recherche), une phrase de bénéfice, la capture brute
- * correspondante (raw/<langue>/<capture>.png, cf. capture.sh), une
- * composition (layout) et, au besoin, des cartes découpées dans la capture
- * (callouts : [x, y, largeur, hauteur] en pixels de la capture brute).
+ * dans les résultats de recherche), une phrase de bénéfice, des pastilles
+ * (chips) et une scène 3D : des téléphones (p) et des cartes découpées dans
+ * les captures (c), chacun avec sa position, sa taille et ses rotations
+ * (rx, ry, rz en degrés ; tz = profondeur en px).
  *
  * Règles (App Store 2.3.3 et 2.3.7) : l'app réelle en usage — les cartes
  * sont des morceaux de vraies captures —, aucun chiffre ni classement
- * inventé, aucune promesse que l'app ne tient pas.
+ * inventé, aucune promesse que l'app ne tient pas. Les pastilles ne citent
+ * que des choses que l'app propose réellement (types de soins, rôles…).
  */
 export const SCREENS = {
   hub: {
-    capture: "hub",
     theme: "navy",
-    layout: "hero",
-    fr: { kicker: "La fiche du cheval", title: "Toute sa fiche\n**dans ta poche**", sub: "Santé, journal, budget, papiers, poids, alimentation : tout au même endroit." },
-    en: { kicker: "Your horse's profile", title: "Their whole profile\n**in your pocket**", sub: "Health, journal, budget, papers, weight, feeding: all in one place." },
+    scene: [
+      { p: "today", w: 780, x: -70, y: 1180, rz: -9, ry: 20, rx: 4, tz: -60 },
+      { p: "planning", w: 780, x: 580, y: 1180, rz: 9, ry: -20, rx: 4, tz: -60 },
+      { p: "hub", w: 870, x: 210, y: 960, rz: 0, ry: 0, rx: 0, tz: 80 },
+    ],
+    fr: { kicker: "La fiche du cheval", title: "Toute sa fiche\n**dans ta poche**", sub: "Santé, journal, budget, papiers, poids : tout au même endroit." },
+    en: { kicker: "Your horse's profile", title: "Their whole profile\n**in your pocket**", sub: "Health, journal, budget, papers, weight: all in one place." },
   },
   sante: {
-    capture: "sante",
     theme: "cream",
-    layout: "tilt",
-    card: { source: "hub", crop: [53, 1644, 591, 383], width: 560, x: 70, y: 2150, rot: -5 },
-    fr: { kicker: "Rappels", title: "Ne rate plus\n**aucun soin**", sub: "Vaccins, maréchal, véto, dentiste : un rappel avant chaque rendez-vous." },
-    en: { kicker: "Reminders", title: "Never miss\n**a vet visit**", sub: "Vaccines, farrier, vet, dentist: a reminder before every appointment." },
+    scene: [
+      { p: "sante", w: 1040, x: 230, y: 900, rz: 12, ry: -26, rx: 6, tz: 0 },
+      { c: "hub", crop: [53, 1644, 591, 383], w: 470, x: 150, y: 1960, rz: -6, ry: 12, rx: 0, tz: 330 },
+      { c: "sante", crop: [53, 1124, 1215, 225], w: 700, x: 330, y: 2380, rz: -3, ry: -8, rx: 0, tz: 330 },
+    ],
+    fr: { kicker: "Rappels", title: "Ne rate plus\n**aucun soin**", sub: "Un rappel avant chaque rendez-vous.", chips: ["Vaccins", "Maréchal", "Véto", "Dentiste"] },
+    en: { kicker: "Reminders", title: "Never miss\n**a vet visit**", sub: "A reminder before every appointment.", chips: ["Vaccines", "Farrier", "Vet", "Dentist"] },
   },
   today: {
-    capture: "today",
     theme: "blue",
-    layout: "hero",
-    card: { source: "sante", crop: [53, 1124, 1215, 225], width: 900, x: 280, y: 2470, rot: 3 },
-    fr: { kicker: "Accueil", title: "Ta journée\n**en un coup d'œil**", sub: "La séance du jour, la météo, et ce qui arrive ensuite." },
-    en: { kicker: "Home", title: "Your barn day\n**at a glance**", sub: "Today's session, the weather, and what's coming next." },
+    scene: [
+      { p: "planning", w: 820, x: -210, y: 1110, rz: -9, ry: 24, rx: 3, tz: -80 },
+      { p: "today", w: 940, x: 300, y: 820, rz: 6, ry: -16, rx: 3, tz: 60 },
+      { c: "sante", crop: [53, 1124, 1215, 225], w: 700, x: 90, y: 2330, rz: -4, ry: 8, rx: 0, tz: 330 },
+    ],
+    fr: { kicker: "Accueil", title: "Ta journée\n**en un coup d'œil**", sub: "La séance du jour, et ce qui arrive ensuite." },
+    en: { kicker: "Home", title: "Your barn day\n**at a glance**", sub: "Today's session, and what's coming next." },
   },
   planning: {
-    capture: "planning",
     theme: "sky",
-    layout: "tilt",
-    fr: { kicker: "Planning", title: "Planifie\n**chaque séance**", sub: "Dressage, saut, longe, balade : la semaine de ton cheval, organisée." },
-    en: { kicker: "Schedule", title: "Plan\n**every session**", sub: "Flatwork, jumping, lunging, hacks: your horse's week, organised." },
+    scene: [
+      { p: "planning", w: 1140, x: 80, y: 860, rz: -17, ry: -24, rx: 10, tz: 0 },
+    ],
+    fr: { kicker: "Planning", title: "Planifie\n**chaque séance**", sub: "La semaine de ton cheval, organisée.", chips: ["Dressage", "Saut", "Longe", "Balade"] },
+    en: { kicker: "Schedule", title: "Plan\n**every session**", sub: "Your horse's week, organised.", chips: ["Flatwork", "Jumping", "Lunging", "Hacking"] },
   },
   coach: {
-    capture: "coach",
     theme: "copper",
-    layout: "hero",
-    card: { crop: [53, 1411, 1215, 388], width: 960, x: 188, y: 1948, rot: -2 },
-    fr: { kicker: "Coach", title: "Un coach qui\n**connaît ton cheval**", sub: "Il répond d'après son carnet : séances, soins, dépenses, poids." },
-    en: { kicker: "Coach", title: "A coach who\n**knows your horse**", sub: "It answers from their record: sessions, care, expenses, weight." },
+    scene: [
+      { p: "coach", w: 990, x: 150, y: 860, rz: -2, ry: 18, rx: 4, tz: 0 },
+      { c: "coach", crop: [53, 1411, 1215, 388], w: 860, x: 160, y: 1890, rz: -3, ry: -8, rx: 0, tz: 330 },
+    ],
+    fr: { kicker: "Coach", title: "Un coach qui\n**connaît ton cheval**", sub: "Il répond d'après son carnet.", chips: ["Séances", "Soins", "Dépenses", "Poids"] },
+    en: { kicker: "Coach", title: "A coach who\n**knows your horse**", sub: "It answers from their record.", chips: ["Sessions", "Care", "Expenses", "Weight"] },
   },
   budget: {
-    capture: "budget",
     theme: "navy",
-    layout: "tilt",
-    card: { source: "hub", crop: [675, 2060, 593, 383], width: 520, x: 60, y: 1990, rot: -5 },
-    fr: { kicker: "Budget", title: "Sache ce que\nton cheval **te coûte**", sub: "Pension, maréchal, véto : ce qui est payé, ce qui reste, où part l'argent." },
-    en: { kicker: "Budget", title: "Know what\nyour horse **costs you**", sub: "Livery, farrier, vet: what's paid, what's due, where the money goes." },
+    scene: [
+      { p: "budget", w: 1040, x: 240, y: 880, rz: 9, ry: -24, rx: 6, tz: 0 },
+      { c: "hub", crop: [675, 2060, 593, 383], w: 470, x: 150, y: 2000, rz: -6, ry: 12, rx: 0, tz: 330 },
+    ],
+    fr: { kicker: "Budget", title: "Sache ce que\nton cheval **te coûte**", sub: "Ce qui est payé, ce qui reste, où part l'argent.", chips: ["Pension", "Maréchal", "Véto", "Alimentation"] },
+    en: { kicker: "Budget", title: "Know what\nyour horse **costs you**", sub: "What's paid, what's due, where the money goes.", chips: ["Livery", "Farrier", "Vet", "Feed"] },
   },
   partage: {
-    capture: "partage",
     theme: "cream",
-    layout: "hero",
-    fr: { kicker: "Partage", title: "Partage avec ta\n**demi-pension**", sub: "Ta DP, ton coach ou ton groom suivent son planning et ses soins." },
-    en: { kicker: "Sharing", title: "Share with your\n**part-loaner**", sub: "Your sharer, coach or groom follow their schedule and care." },
+    scene: [
+      { p: "hub", w: 820, x: -210, y: 1100, rz: -9, ry: 24, rx: 3, tz: -80 },
+      { p: "partage", w: 940, x: 300, y: 830, rz: 6, ry: -16, rx: 3, tz: 60 },
+    ],
+    fr: { kicker: "Partage", title: "Partage avec ta\n**demi-pension**", sub: "Elle suit son planning et ses soins.", chips: ["Demi-pension", "Coach", "Groom", "Vétérinaire"] },
+    en: { kicker: "Sharing", title: "Share with your\n**part-loaner**", sub: "They follow the schedule and care.", chips: ["Part-loaner", "Coach", "Groom", "Vet"] },
   },
   journal: {
-    capture: "journal",
     theme: "blue",
-    layout: "tilt",
-    fr: { kicker: "Journal", title: "Garde chaque\n**souvenir**", sub: "Photos, vidéos et ressentis de chaque séance, mois après mois." },
-    en: { kicker: "Journal", title: "Keep every\n**memory**", sub: "Photos, videos and notes from every session, month after month." },
+    scene: [
+      { p: "planning", w: 800, x: 640, y: 1100, rz: 10, ry: -22, rx: 3, tz: -90 },
+      { p: "journal", w: 990, x: 200, y: 860, rz: -8, ry: 20, rx: 6, tz: 40 },
+    ],
+    fr: { kicker: "Journal", title: "Garde chaque\n**souvenir**", sub: "Photos et ressentis de chaque séance.", chips: ["Photos", "Vidéos", "Ressentis"] },
+    en: { kicker: "Journal", title: "Keep every\n**memory**", sub: "Photos and notes from every session.", chips: ["Photos", "Videos", "Moods"] },
   },
 };
 
