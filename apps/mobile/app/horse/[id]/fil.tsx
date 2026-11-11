@@ -30,6 +30,8 @@ export default function HorseFeedScreen() {
   const horse = horses.find((h) => h.id === id) ?? null;
   const [feed, setFeed] = useState<Comment[] | null>(null);
   const [failed, setFailed] = useState(false);
+  // « Réessayer » après un échec : relance le chargement ci-dessous.
+  const [attempt, setAttempt] = useState(0);
   const [me, setMe] = useState<string | null>(null);
   const [shared, setShared] = useState<boolean | null>(null);
 
@@ -46,7 +48,7 @@ export default function HorseFeedScreen() {
     return () => {
       cancelled = true;
     };
-  }, [horse]);
+  }, [horse, attempt]);
 
   if (!horse) {
     return (
@@ -94,7 +96,19 @@ export default function HorseFeedScreen() {
       {feed === null && !failed ? (
         <ListSkeleton />
       ) : failed ? (
-        <Text className="text-sm text-muted">{t("Le fil n'a pas pu être chargé. Vérifie ta connexion.")}</Text>
+        <View className="gap-2">
+          <Text className="text-sm text-muted">{t("Le fil n'a pas pu être chargé. Vérifie ta connexion.")}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setFailed(false);
+              setAttempt((n) => n + 1);
+            }}
+            accessibilityRole="button"
+            className="min-h-[44px] self-start justify-center"
+          >
+            <Text className="text-sm font-semibold text-accent">{t("Réessayer")}</Text>
+          </TouchableOpacity>
+        </View>
       ) : feed!.length === 0 ? (
         <Text className="text-sm text-muted">{t("Pas encore d'échange. Ouvre une séance ou un souvenir et touche « Commentaires ».")}</Text>
       ) : (

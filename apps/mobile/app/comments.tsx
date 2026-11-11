@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -55,6 +55,8 @@ export default function CommentsScreen() {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [failed, setFailed] = useState(false);
+  // « Réessayer » après un échec : relance le chargement initial.
+  const [attempt, setAttempt] = useState(0);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -69,7 +71,8 @@ export default function CommentsScreen() {
           return j ? `${t("Souvenir")} · ${formatDate(j.date)}` : null;
         })();
 
-  const load = useCallback(async () => {
+  // Mémoïsé par le React Compiler (pas de useCallback manuel).
+  async function load() {
     const [user, thread] = await Promise.all([myUserId(), fetchThread(horseId, targetType, targetId)]);
     setMe(user);
     setFailed(!thread);
@@ -78,7 +81,7 @@ export default function CommentsScreen() {
       setComments(thread.comments);
       setReactions(thread.reactions);
     }
-  }, [horseId, targetType, targetId]);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -94,7 +97,7 @@ export default function CommentsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [horseId, targetType, targetId]);
+  }, [horseId, targetType, targetId, attempt]);
 
   async function send() {
     const body = cleanCommentBody(text);
@@ -192,7 +195,19 @@ export default function CommentsScreen() {
       {comments === null && !failed ? (
         <ListSkeleton />
       ) : failed ? (
-        <Text className="text-sm text-muted">{t("Le fil n'a pas pu être chargé. Vérifie ta connexion.")}</Text>
+        <View className="gap-2">
+          <Text className="text-sm text-muted">{t("Le fil n'a pas pu être chargé. Vérifie ta connexion.")}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setFailed(false);
+              setAttempt((n) => n + 1);
+            }}
+            accessibilityRole="button"
+            className="min-h-[44px] self-start justify-center"
+          >
+            <Text className="text-sm font-semibold text-accent">{t("Réessayer")}</Text>
+          </TouchableOpacity>
+        </View>
       ) : comments!.length === 0 ? (
         <Text className="text-sm text-muted">{t("Pas encore de commentaire. Lance la conversation !")}</Text>
       ) : (
