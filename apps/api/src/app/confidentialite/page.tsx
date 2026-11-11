@@ -104,7 +104,10 @@ export default function ConfidentialitePage() {
               semaines, soins et échéances, concours, dépenses par catégorie, poids, ressenti du journal, météo prévue) —{" "}
               <strong>jamais</strong> son nom, le vôtre, votre email, ni ses numéros SIRE, de transpondeur ou
               d&apos;assurance, ni vos notes libres. Nous gardons la suggestion du jour et le résumé du mois ; pour chaque
-              appel, seulement des compteurs techniques (taille, coût, issue), jamais le contenu des questions
+              appel, seulement des compteurs techniques (taille, coût, issue), jamais le contenu des questions.{" "}
+              <strong>Rien n&apos;est envoyé sans votre accord</strong> : l&apos;Application vous le demande au premier
+              usage du coach (écran « Autoriser le coach IA ? »), et vous pouvez le retirer à tout moment depuis
+              l&apos;écran du coach
             </td>
             <td>Carte « Ton coach », écran du coach</td>
           </tr>
