@@ -33,6 +33,7 @@ import {
 import type { SubscriptionStatus, BillingPeriod, Persisted } from "./logic";
 import { isStoreRedeemUrl } from "./paywallLogic";
 import { t } from "@/i18n";
+import { serverMessage } from "@/lib/serverMessages";
 import { purchaseFailure } from "@/subscription/purchaseErrors";
 import { getPromoContext, notePromoCodeResult, promoAnalyticsProps } from "@/subscription/promoContext";
 
@@ -379,12 +380,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       notePromoCodeResult(code, !res.ok ? "invalid" : redeemUrl ? "store_offer" : json?.applied ? "applied" : "accepted");
       if (!res.ok) {
         const storeFallbackUrl = json?.unknown && Platform.OS === "ios" ? (appStoreOfferCodeUrl(code) ?? undefined) : undefined;
-        return { ok: false, message: json?.error ?? t("Ce code promo n'est pas valide."), storeFallbackUrl };
+        return { ok: false, message: json?.error ? serverMessage(json.error) : t("Ce code promo n'est pas valide."), storeFallbackUrl };
       }
       if (json.applied && json.trialEndsAt) {
         await persistLocal({ status: "trialing", billingPeriod: null, trialEndsAt: json.trialEndsAt });
       }
-      return { ok: true, message: json.message ?? t("Code appliqué !"), redeemUrl };
+      return { ok: true, message: json.message ? serverMessage(json.message) : t("Code appliqué !"), redeemUrl };
     } catch {
       return { ok: false, message: t("Impossible de vérifier ce code pour le moment.") };
     }

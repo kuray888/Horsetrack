@@ -1,3 +1,5 @@
+import { serverMessage } from "@/lib/serverMessages";
+import { t } from "@/i18n";
 import { supabase } from "@/lib/supabase";
 
 export class AccountError extends Error {
@@ -25,6 +27,6 @@ export async function deleteAccount(options: { appleAuthorizationCode?: string |
 
   if (!res.ok) {
     const json = await res.json().catch(() => null);
-    throw new AccountError(json?.error ?? "Erreur inconnue.", json?.dataDeleted === true);
+    throw new AccountError(json?.error ? serverMessage(json.error) : t("Erreur inconnue."), json?.dataDeleted === true);
   }
 }
