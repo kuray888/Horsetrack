@@ -7,10 +7,12 @@ d'un toucher depuis un rendez-vous, ni savoir quand le maréchal doit repasser, 
 professionnel quand il déménage.
 
 ## Phase 1 — enrichir « Mes contacts » (sans risque, sans donnée de tiers nouvelle)
-- Actions directes : appeler, écrire, itinéraire (adresse ajoutée au contact ; ouvre Plans,
-  aucune carte dans l'app).
-- Lien contact ↔ rendez-vous : choisir le professionnel dans le formulaire de rendez-vous
-  (un formulaire, réutilisé) ; « Rappeler le maréchal » depuis la fiche du contact.
+- **Déjà là** (vérifié le 2026-11-11) : appeler et écrire depuis « Mes contacts » ; puces
+  « choisir dans mes contacts » dans le formulaire de rendez-vous (`ContactShortcuts`) ; bouton
+  d'appel sur la carte du rendez-vous (`contactForAppointment` : par nom, sinon le seul contact
+  du bon métier).
+- **À faire** : itinéraire (adresse ajoutée au contact ; ouvre Plans, aucune carte dans l'app) ;
+  « Prendre rendez-vous » depuis la fiche du contact (formulaire de rendez-vous pré-rempli).
 - **Prochaine visite** : à partir du dernier rendez-vous et d'une fréquence (ferrure 6–8
   semaines, dentiste 1 an, vaccin selon le carnet) → proposition de rendez-vous, **pas** de
   notification nouvelle (les rappels de rendez-vous existants suffisent ; tableau des relances
