@@ -81,3 +81,30 @@ Clé PostHog présente dans les trois profils d'`eas.json` (hôte UE). Rien à c
   cf. mémoire « Compte démo »).
 - Tests réels : achat sandbox, deux appareils (photo), /gestion connecté.
 - Vercel : limitation de débit sur `/api/promo/redeem`.
+
+## 6. Chiffres (RevenueCat, 28 derniers jours au 2026-11-11) et suites données
+
+| Mesure | Valeur |
+|---|---|
+| Nouveaux clients (installations ouvertes) | 177 |
+| Clients actifs | 367 |
+| Essais en cours | 1 |
+| Abonnements actifs | 3 |
+| MRR | 11 € (≈ 1 mensuel + 2 annuels) |
+| Revenu | 84 € (deux pics : achats annuels) |
+
+**Lecture** : environ 1 essai ou achat pour 100 installations. Le goulot est **avant
+l'achat**, pas la rétention des payants. Il reste à savoir où ça casse : il faut l'entonnoir
+PostHog `onboarding_completed → paywall_viewed → paywall_cta_tapped → purchase_completed`
+(et `free_tier_chosen`). Avec ~180 installations par mois, **aucun test A/B ne peut conclure**
+(il faudrait ~1 000 installations par variante) : on corrige sur des constats, pas des
+expériences ; l'expérience « palette par défaut » est abandonnée.
+
+**Suites (2026-11-11)** :
+- Branches fusionnées dans `main` et poussées, tag `build-1.2.0-30` poussé ; build n° 30
+  soumis par toi.
+- API de production déployée : `tools/check-prod.sh` → « TOUT EST EN LIGNE ».
+- Base de production (lecture seule) : schéma conforme à la 1.2.0, SQL de l'audit final déjà
+  passés, aucune fonction `security definer` appelable par un visiteur anonyme (hors
+  déclencheurs).
+- Météo : Open-Meteo remplacé par MET Norway (gratuit, usage commercial permis) en 1.3.0.
