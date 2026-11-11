@@ -35,8 +35,11 @@ quand, et je le couvre comment ? ». Le coach connaît déjà des contraintes m�
   3 h ») ; sans localisation, choix d'une commune (une fois, gardée sur le téléphone).
 
 ## Gratuit / Premium
-Bulletin du jour et 5 jours : gratuit (déjà le cas). Plage idéale et alertes liées au coach :
-Premium. → **Décision pour toi.**
+Bulletin du jour et 5 jours : gratuit (déjà le cas). **Livré gratuit en 1.3.0** (2026-11-11) :
+« Pour monter aujourd'hui : 11 h – 16 h, jusqu'à 12° » et les alertes gel / chaleur / vent /
+orage (`weather/rideWindow.ts`), parce que c'est un motif d'ouvrir l'app chaque jour
+(rétention). Le passer Premium plus tard retirerait une fonction à des gratuits : à décider
+avant la sortie de la 1.3.0 si tu le veux Premium.
 
 ## Données
 Rien de nouveau côté serveur si on reste sur Open-Meteo (appel depuis le téléphone). Avec

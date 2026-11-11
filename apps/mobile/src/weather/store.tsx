@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchWeatherForecast, type DailyForecast } from "@/lib/weather";
+import { fetchWeather, type DailyForecast } from "@/lib/weather";
+import type { WeatherHour } from "@/lib/weatherForecast";
+import { bestRideWindow, weatherAlerts } from "@/weather/rideWindow";
+import { track } from "@/lib/analytics";
 import { isOnboardingCompleted } from "@/onboarding/completion";
 
 /**
@@ -21,6 +24,8 @@ import { isOnboardingCompleted } from "@/onboarding/completion";
 
 type WeatherContextValue = {
   forecast: DailyForecast[] | null;
+  /** Prévision heure par heure (créneau pour monter, alertes). */
+  hours: WeatherHour[] | null;
   loading: boolean;
 };
 
@@ -28,14 +33,20 @@ const WeatherContext = createContext<WeatherContextValue | null>(null);
 
 export function WeatherProvider({ children }: { children: ReactNode }) {
   const [forecast, setForecast] = useState<DailyForecast[] | null>(null);
+  const [hours, setHours] = useState<WeatherHour[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
         if (!(await isOnboardingCompleted())) return;
-        const next = await fetchWeatherForecast(5);
-        setForecast(next);
+        const next = await fetchWeather(5);
+        setForecast(next?.days ?? null);
+        setHours(next?.hours ?? null);
+        if (next) {
+          const now = new Date();
+          track("weather_loaded", { ride_window: bestRideWindow(next.hours, now) !== null, alerts: weatherAlerts(next.hours, now).length });
+        }
       } catch (e) {
         console.warn("[weather] chargement échoué", e);
       } finally {
@@ -44,7 +55,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const value = useMemo<WeatherContextValue>(() => ({ forecast, loading }), [forecast, loading]);
+  const value = useMemo<WeatherContextValue>(() => ({ forecast, hours, loading }), [forecast, hours, loading]);
 
   return <WeatherContext.Provider value={value}>{children}</WeatherContext.Provider>;
 }

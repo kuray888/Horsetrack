@@ -1,6 +1,9 @@
 import { Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useWeather } from "@/weather/store";
-import { t } from "@/i18n";
+import { bestRideWindow, weatherAlerts, type WeatherAlert } from "@/weather/rideWindow";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import { LOCALE, t } from "@/i18n";
 
 const DAY_SHORT_BY_GETDAY = [t("Dim."), t("Lun."), t("Mar."), t("Mer."), t("Jeu."), t("Ven."), t("Sam.")];
 
@@ -12,6 +15,15 @@ function dayLabel(date: Date, index: number): string {
   return DAY_SHORT_BY_GETDAY[date.getDay()];
 }
 
+const ALERTS: Record<WeatherAlert, { icon: "snowflake" | "white-balance-sunny" | "weather-windy" | "weather-lightning"; text: string }> = {
+  frost: { icon: "snowflake", text: t("Gel prévu : sol dur, pense à l'abreuvoir.") },
+  heat: { icon: "white-balance-sunny", text: t("Forte chaleur : monte tôt et fais boire ton cheval.") },
+  wind: { icon: "weather-windy", text: t("Vent fort prévu : cheval souvent plus vif, prudence en extérieur.") },
+  storm: { icon: "weather-lightning", text: t("Orage prévu : ne monte pas pendant l'orage.") },
+};
+
+const hourLabel = (d: Date) => d.toLocaleTimeString(LOCALE, { hour: "numeric" });
+
 /**
  * Aperçu météo des prochains jours — purement indicatif (prévision MET Norway via notre API,
  * même best-effort que lib/weather.ts), pour anticiper les séances et
@@ -20,7 +32,12 @@ function dayLabel(date: Date, index: number): string {
  * état d'erreur — un bonus, jamais un blocage.
  */
 export function WeatherForecastStrip() {
-  const { forecast } = useWeather();
+  const { forecast, hours } = useWeather();
+  const colors = useThemeColors();
+  const now = new Date();
+  // Lecture « cavalier » de la journée (cf. weather/rideWindow.ts).
+  const rideWindow = hours ? bestRideWindow(hours, now) : null;
+  const alerts = hours ? weatherAlerts(hours, now) : [];
 
   if (!forecast || forecast.length === 0) return null;
 
@@ -58,6 +75,24 @@ export function WeatherForecastStrip() {
         </View>
       ))}
     </ScrollView>
+      {rideWindow ? (
+        <View className="flex-row items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-card">
+          <MaterialCommunityIcons name="horse-variant" size={20} color={colors.primary} accessibilityElementsHidden />
+          <Text className="flex-1 text-[15px] text-text">
+            {t("Pour monter aujourd'hui : {from} – {to}, jusqu'à {temp}°", {
+              from: hourLabel(rideWindow.start),
+              to: hourLabel(rideWindow.end),
+              temp: rideWindow.tempC,
+            })}
+          </Text>
+        </View>
+      ) : null}
+      {alerts.map((a) => (
+        <View key={a} className="flex-row items-center gap-3 rounded-card bg-warning/15 px-4 py-3">
+          <MaterialCommunityIcons name={ALERTS[a].icon} size={20} color={colors.warning} accessibilityElementsHidden />
+          <Text className="flex-1 text-[15px] text-text">{ALERTS[a].text}</Text>
+        </View>
+      ))}
       {/* Attribution exigée par la licence des données (CC BY 4.0). */}
       <TouchableOpacity
         onPress={() => void Linking.openURL("https://api.met.no/doc/License")}

@@ -113,6 +113,8 @@ export type AnalyticsEvent =
   | "session_created"
   // Suppression annulable (toast « Annuler ») : part des annulations = suppressions par erreur.
   | "item_deleted"
+  // Météo chargée (une fois par lancement) : créneau pour monter proposé ? alertes ?
+  | "weather_loaded"
   | "deletion_undone"
   // Écurie Pro v2 : séance attribuée à quelqu'un d'autre, et cochée par son cavalier attribué.
   | "session_assigned"

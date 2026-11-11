@@ -83,10 +83,15 @@ export type DailyForecast = { date: Date; tempMaxC: number; tempMinC: number; co
  * pour anticiper les séances/rendez-vous à venir dans le planning. Même
  * permission/position que fetchWeatherSnapshot ; échec silencieux. */
 export async function fetchWeatherForecast(maxDays = 5): Promise<DailyForecast[] | null> {
+  return (await fetchWeather(maxDays))?.days ?? null;
+}
+
+/** Journées ET heures (créneau pour monter, alertes : cf. weather/rideWindow.ts). */
+export async function fetchWeather(maxDays = 5): Promise<{ days: DailyForecast[]; hours: WeatherHour[] } | null> {
   const position = await requestLocationOnce();
   if (!position) return null;
   const hours = await fetchHours(position.lat, position.lon);
   if (!hours) return null;
   const days = dailyFromHours(hours, new Date(), maxDays);
-  return days.length > 0 ? days.map((d) => ({ ...d, ...labelForCode(d.code) })) : null;
+  return days.length > 0 ? { days: days.map((d) => ({ ...d, ...labelForCode(d.code) })), hours } : null;
 }
