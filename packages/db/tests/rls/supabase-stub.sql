@@ -40,3 +40,6 @@ alter table storage.objects enable row level security;
 create or replace function storage.foldername(name text) returns text[] language sql immutable as $$
   select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1];
 $$;
+
+-- Droits par défaut de Supabase sur les fichiers : seule la RLS filtre.
+grant select, insert, update, delete on storage.objects to anon, authenticated;

@@ -2,7 +2,7 @@
 -- requête passe ou qu'elle est refusée.
 
 create schema if not exists t;
-grant usage on schema t to authenticated;
+grant usage on schema t to authenticated, anon;
 
 -- Crée un compte (auth.users → trigger handle_new_user) et son profil.
 create or replace function t.add_user(_id uuid, _email text, _tier text default 'FREE', _status text default 'EXPIRED')
@@ -30,8 +30,8 @@ begin
 end $$;
 
 create table if not exists t.results (n serial, ok boolean, label text, detail text);
-grant all on t.results to authenticated;
-grant usage on sequence t.results_n_seq to authenticated;
+grant all on t.results to authenticated, anon;
+grant usage on sequence t.results_n_seq to authenticated, anon;
 
 -- La requête doit réussir ET toucher au moins une ligne (les refus RLS sur
 -- update/delete ne lèvent pas d'erreur : ils ne touchent rien).
@@ -66,4 +66,4 @@ exception when others then
   insert into t.results (ok, label, detail) values (false, _label, sqlerrm);
 end $$;
 
-grant execute on all functions in schema t to authenticated;
+grant execute on all functions in schema t to authenticated, anon;

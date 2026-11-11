@@ -823,6 +823,16 @@ create policy "documents_storage_all_own" on storage.objects
 -- pouvoir réussir).
 drop policy if exists "horse_photos_write_own" on storage.objects;
 
+-- Lecture : propriétaire et équipe acceptée du cheval. Cette policy avait
+-- disparu de ce fichier lors du découpage en 3 policies d'écriture (commit
+-- d2e0437) alors qu'elle restait la SEULE à ouvrir la lecture : une base
+-- recréée depuis ce fichier ne montrait plus aucune photo de cheval ni de
+-- souvenir, ni sur un second appareil ni chez la demi-pension (cf. audit du
+-- 2026-11-11, tests/rls/80-stockage.test.sql).
+drop policy if exists "horse_photos_select_shared" on storage.objects;
+create policy "horse_photos_select_shared" on storage.objects
+  for select using (bucket_id = 'horse-photos' and public.can_access_horse((storage.foldername(name))[1]));
+
 drop policy if exists "horse_photos_insert_own" on storage.objects;
 create policy "horse_photos_insert_own" on storage.objects
   for insert with check (
