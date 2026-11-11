@@ -139,10 +139,23 @@ vi.mock("@/lib/supabase", () => {
   /** Requête de lecture : `.order(…, { referencedTable })` trie les lignes imbriquées. */
   function query(name: string) {
     const entryOrder: string[] = [];
+    const filters: [string, unknown][] = [];
     const builder = {
       order(column: string, options?: { referencedTable?: string }) {
         if (options?.referencedTable === "competition_entries") entryOrder.push(column);
         return builder;
+      },
+      // Lecture d'une ligne par identifiant (contrôle de conflit avant une
+      // reprise, cf. sync/shared.replayOperation).
+      eq(column: string, value: unknown) {
+        filters.push([column, value]);
+        return builder;
+      },
+      maybeSingle() {
+        return select(name, entryOrder).then(({ data }) => {
+          const row = data.find((r) => filters.every(([c, v]) => r[c] === v));
+          return { data: row ?? null, error: null };
+        });
       },
       then<R>(resolve: (value: { data: Record<string, unknown>[]; error: null }) => R, reject?: (e: unknown) => R) {
         return select(name, entryOrder).then(resolve, reject);
@@ -574,6 +587,49 @@ describe("séance existante modifiée, app fermée tout de suite", () => {
     const server = (await serverSessions())[0];
     expect(server.notes).toBe("v2");
     expect(server.date.getTime()).toBe(after.getTime());
+  });
+});
+
+describe("deux appareils : conflit après un passage hors ligne", () => {
+  const chosen = new Date(2026, 9, 3);
+
+  it("la modification d'un autre appareil, plus récente, n'est pas écrasée par la reprise hors ligne", async () => {
+    let app = await App.launch();
+    app.addSession(session("s1", chosen));
+    await settle();
+    app = await quitAndRelaunch();
+    // A : modification hors ligne (mise en file avec sa date).
+    plan("training_sessions", "offline");
+    app.updateSession({ ...app.session("s1")!, notes: "A hors ligne" });
+    await settle();
+    // B : enregistre plus tard (10 min après) directement sur le serveur.
+    const row = sim.tables.get("training_sessions")!.get("s1")!;
+    const later = new Date(Date.now() + 10 * 60_000).toISOString().replace(/Z$/, "");
+    sim.tables.get("training_sessions")!.set("s1", { ...row, notes: "B plus récent", updatedAt: later });
+    // A revient en ligne : sa reprise ne doit pas écraser B.
+    sim.writes.length = 0;
+    await app.retry();
+    await settle();
+    expect(sim.writes.filter((w) => w.table === "training_sessions")).toEqual([]);
+    expect((await serverSessions())[0].notes).toBe("B plus récent");
+    const { writeConflictCount, clearWriteConflicts } = await import("@/lib/writeConflicts");
+    expect(writeConflictCount()).toBe(1);
+    clearWriteConflicts();
+  });
+
+  it("sans modification plus récente ailleurs, la reprise hors ligne s'applique", async () => {
+    let app = await App.launch();
+    app.addSession(session("s1", chosen));
+    await settle();
+    app = await quitAndRelaunch();
+    plan("training_sessions", "offline");
+    app.updateSession({ ...app.session("s1")!, notes: "A hors ligne" });
+    await settle();
+    await app.retry();
+    await settle();
+    expect((await serverSessions())[0].notes).toBe("A hors ligne");
+    const { writeConflictCount } = await import("@/lib/writeConflicts");
+    expect(writeConflictCount()).toBe(0);
   });
 });
 

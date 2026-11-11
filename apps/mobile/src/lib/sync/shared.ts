@@ -1,8 +1,9 @@
-import { discardSupersededWrites, enqueueFailedWrite, flushSyncQueue, isStillQueued, operationStartedAt, type SyncOperation } from "@/lib/syncQueue";
+import { discardSupersededWrites, enqueueFailedWrite, flushSyncQueue, isNetworkError, isStillQueued, operationStartedAt, type SyncOperation } from "@/lib/syncQueue";
 import { supabase } from "@/lib/supabase";
 import { confirmWrite, hasNewerWrite, loadRemoteIndex, recordWriteSuccess, serializeWrite } from "@/lib/remoteIndex";
 import { clearRejectedWrite } from "@/lib/rejectedWrites";
 import { noteColumnsRead } from "@/lib/schemaGaps";
+import { isStaleWrite, noteWriteConflict } from "@/lib/writeConflicts";
 
 /** Outils communs de la synchronisation (URLs signées, identifiants, règlement des écritures suivies, colonnes facultatives).
  * Extrait de lib/cloudSync.ts (façade) sans changement de comportement. */
@@ -86,6 +87,31 @@ async function replayOperation(
     (appointmentId !== null && hasNewerWrite("appointments", appointmentId, startedAt))
   ) {
     return { error: null };
+  }
+  // Modification faite hors ligne, renvoyée au retour du réseau : si une
+  // version PLUS RÉCENTE de la même ligne est déjà sur le serveur (modifiée
+  // ailleurs entre-temps), elle gagne — sinon le dernier envoi écrasait la
+  // dernière modification (cf. lib/writeConflicts.ts, audit du 2026-11-11).
+  // Seules les reprises de la file sont concernées : une saisie faite en ligne
+  // part avec sa date et reste la plus récente.
+  if (operation.op === "upsert" && typeof operation.row?.updatedAt === "string") {
+    const { data: current, error: readError } = await supabase
+      .from(operation.table)
+      .select("updatedAt")
+      .eq("id", operation.id)
+      .maybeSingle();
+    // Pas de réponse du serveur : on garde l'opération pour plus tard. Toute
+    // autre erreur (colonne absente, droit de lecture) ne dit rien d'un
+    // conflit : on écrit comme avant.
+    if (readError && isNetworkError(readError)) return { error: readError };
+    const serverUpdatedAt = (current as { updatedAt?: unknown } | null)?.updatedAt;
+    if (!readError && isStaleWrite(operation.row.updatedAt, serverUpdatedAt)) {
+      noteWriteConflict(operation.table, operation.id);
+      recordWriteSuccess(operation.table, operation.id, false, startedAt);
+      if (appointmentId !== null) confirmWrite("appointments", appointmentId, startedAt);
+      clearRejectedWrite(operation.table, operation.id);
+      return { error: null };
+    }
   }
   const { error } =
     operation.op === "delete"

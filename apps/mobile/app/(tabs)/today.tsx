@@ -25,7 +25,7 @@ import { useAgenda, type Appointment, type ExpenseCategory } from "@/agenda/stor
 import { suggestedAppointmentFor as findSuggestedAppointment } from "@/agenda/meta";
 import { useSubscription } from "@/subscription/store";
 import { HorseSwitcher } from "@/horses/components/HorseSwitcher";
-import { usePendingSyncCount, useRejectedWriteCount } from "@/lib/useSyncQueue";
+import { usePendingSyncCount, useRejectedWriteCount, useWriteConflictCount } from "@/lib/useSyncQueue";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
 import { RemindersUpsellCard } from "@/subscription/RemindersUpsellCard";
 import { PremiumNudge } from "@/subscription/PremiumNudge";
@@ -91,6 +91,7 @@ function TodayScreen() {
   // Écritures cloud en attente d'un retour du réseau (cf. lib/syncQueue.ts).
   const pendingSync = usePendingSyncCount();
   const rejectedSync = useRejectedWriteCount();
+  const conflictSync = useWriteConflictCount();
   /** Permission de notification refusée : les rappels sont enregistrés mais
    * ne s'afficheront jamais. Cette bannière vivait dans l'écran Agenda,
    * supprimé — sans elle, plus rien ne signalait que des rappels programmés
@@ -326,6 +327,7 @@ function TodayScreen() {
         saveFailed={saveFailed}
         pendingSync={pendingSync}
         rejectedSync={rejectedSync}
+        conflictSync={conflictSync}
         onRetryRejected={() => void refreshFromCloud()}
       />
 

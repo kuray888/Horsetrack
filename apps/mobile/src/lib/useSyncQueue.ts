@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { rejectedWriteCount, subscribeToRejectedWrites } from "@/lib/rejectedWrites";
+import { subscribeToWriteConflicts, writeConflictCount } from "@/lib/writeConflicts";
 import { pendingSyncCount, subscribeToSyncQueue } from "@/lib/syncQueue";
 
 /** Nombre d'écritures cloud en attente de reprise (cf. lib/syncQueue.ts).
@@ -18,5 +19,13 @@ export function usePendingSyncCount(): number {
 export function useRejectedWriteCount(): number {
   const [count, setCount] = useState(rejectedWriteCount);
   useEffect(() => subscribeToRejectedWrites(setCount), []);
+  return count;
+}
+
+/** Modifications faites hors ligne remplacées par une version plus récente
+ * faite sur un autre appareil (cf. lib/writeConflicts.ts). */
+export function useWriteConflictCount(): number {
+  const [count, setCount] = useState(writeConflictCount);
+  useEffect(() => subscribeToWriteConflicts(setCount), []);
   return count;
 }

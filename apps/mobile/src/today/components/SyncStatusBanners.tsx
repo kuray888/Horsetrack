@@ -4,6 +4,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { retryPendingWrites } from "@/lib/cloudSync";
 import { t } from "@/i18n";
+import { clearWriteConflicts } from "@/lib/writeConflicts";
 
 /**
  * État de la sauvegarde, en tête de l'Accueil : rien de ce qui suit ne doit
@@ -13,11 +14,13 @@ export function SyncStatusBanners({
   saveFailed,
   pendingSync,
   rejectedSync,
+  conflictSync,
   onRetryRejected,
 }: {
   saveFailed: boolean;
   pendingSync: number;
   rejectedSync: number;
+  conflictSync: number;
   onRetryRejected: () => void;
 }) {
   const colors = useThemeColors();
@@ -76,6 +79,26 @@ export function SyncStatusBanners({
             </Text>
             <TouchableOpacity accessibilityRole="button" onPress={onRetryRejected} hitSlop={8}>
               <Text className="text-sm font-bold text-danger">{t("Réessayer")}</Text>
+            </TouchableOpacity>
+          </View>
+        </FadeInView>
+      ) : null}
+
+      {/* Modification faite hors ligne remplacée par une version plus récente
+          faite sur un autre appareil : la plus récente gagne, et on le dit
+          plutôt que de laisser la saisie disparaître (cf.
+          lib/writeConflicts.ts). */}
+      {conflictSync > 0 ? (
+        <FadeInView delay={60}>
+          <View className="flex-row items-center gap-3 rounded-card bg-surface p-4">
+            <MaterialCommunityIcons name="sync-alert" size={18} color={colors.primary} />
+            <Text className="flex-1 text-sm text-text">
+              {conflictSync === 1
+                ? t("1 modification faite hors ligne a été remplacée par une version plus récente, faite sur un autre appareil.")
+                : t("{conflictSync} modifications faites hors ligne ont été remplacées par des versions plus récentes, faites sur un autre appareil.", { conflictSync: conflictSync })}
+            </Text>
+            <TouchableOpacity accessibilityRole="button" onPress={clearWriteConflicts} hitSlop={8}>
+              <Text className="text-sm font-bold text-primary">{t("OK")}</Text>
             </TouchableOpacity>
           </View>
         </FadeInView>

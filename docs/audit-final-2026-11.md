@@ -70,11 +70,26 @@ contrôles sont verts après correction :
 Un Premium expiré garde ses 2 chevaux, séances, documents, et sa demi-pension
 voit toujours le cheval ; seul un 3ᵉ cheval est refusé. 12/12.
 
+### 1 bis. Conflit entre deux appareils — corrigé
+- **Avant** : le dernier *envoi* gagnait. A modifie une séance hors ligne à 9 h,
+  B la modifie à 10 h, A se reconnecte à 12 h : la version de 9 h écrasait celle de 10 h.
+- **Maintenant** : la modification la plus récente gagne. Avant de rejouer une
+  modification hors ligne, l'app lit la date de la ligne sur le serveur ; si elle est
+  plus récente (de plus de 2 min, pour tolérer les horloges), la reprise est abandonnée
+  et la version du serveur s'affiche. Une bannière sur l'Accueil le dit (« 1 modification
+  faite hors ligne a été remplacée par une version plus récente… », bouton OK) : rien
+  ne disparaît en silence. Les dates sans fuseau du serveur sont lues en UTC.
+- **Preuve** : `persistenceLifecycle.test.ts` (2 scénarios, échoue sans la correction),
+  `writeConflicts.test.ts` (6 tests, passés sous deux fuseaux).
+- **Limite** : la comparaison est par ligne entière, pas champ par champ ; si A a changé
+  la durée et B les notes de la même séance, la plus récente des deux l'emporte.
+  Aucune règle serveur ni RLS touchée : sans effet sur les droits des abonnés.
+
 ## 2. Décisions à prendre (non corrigé, volontairement)
 
 | Gravité | Sujet | Constat | Proposition |
 |---|---|---|---|
-| Moyen | Conflit entre deux appareils | Règle actuelle : **le dernier envoi gagne**, ligne entière (upsert). A modifie une séance hors ligne à 9 h, B la modifie en ligne à 10 h, A revient en réseau à 12 h : la version de 9 h écrase celle de 10 h. Rien n'est perdu sans conflit (lignes différentes = aucun souci) ; c'est seulement la même ligne modifiée des deux côtés. | Après la 1.2.0 : refuser côté serveur un `updatedAt` plus ancien que celui en base (déclencheur), et marquer la ligne « conflit » dans l'app. Trop risqué juste avant la revue. |
+| ~~Moyen~~ | ~~Conflit entre deux appareils~~ | **Corrigé le 2026-11-11** (voir § 1 bis). | — |
 | Moyen | Codes promo devinables | `/api/promo/redeem` n'a pas de limite de tentatives ; les codes sont choisis à la main (`apps/api/src/app/api/promo/redeem/route.ts:57`). Un compte peut essayer des milliers de mots. | Tout de suite : règle de limitation Vercel (Firewall → Rate limiting) sur `/api/promo/redeem`, ex. 10 requêtes/minute par IP. Plus tard : table des tentatives + codes longs aléatoires. |
 | Faible | Quota du coach dépassable en rafale | Contrôle `questionsUsedThisMonth` puis appel au modèle, sans verrou : 30 questions envoyées en même temps passent toutes. Le plafond mensuel global (`COACH_MONTHLY_BUDGET_USD`, prix Haiku 5.5 vérifiés : 0,10 $ / 0,50 $ par M jetons) borne la dépense. | Verrou consultatif par compte, comme le code promo, après la 1.2.0. |
 | Faible | Coffre-fort figé après la fin de l'abonnement | `documents_delete_own` exige un abonnement actif (rls.sql § documents) : un ancien abonné voit ses documents mais ne peut pas en supprimer un (seulement supprimer tout son compte). | Ouvrir la **suppression** à tous (comme pour les photos de souvenirs). Restrictif vers permissif : sans risque pour les abonnés. À trancher. |

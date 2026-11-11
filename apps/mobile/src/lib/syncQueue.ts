@@ -1,5 +1,6 @@
 import { readJson, writeJson } from "@/lib/localStore";
 import { clearRejectedWrites, noteRejectedWrite } from "@/lib/rejectedWrites";
+import { clearWriteConflicts } from "@/lib/writeConflicts";
 import { clearRemoteIndex } from "@/lib/remoteIndex";
 
 /**
@@ -355,6 +356,7 @@ export async function clearSyncQueue(): Promise<void> {
   // L'état de synchronisation (lignes connues du serveur, suppressions
   // récentes, refus) appartient lui aussi au compte précédent.
   clearRejectedWrites();
+  clearWriteConflicts();
   await clearRemoteIndex();
 }
 
