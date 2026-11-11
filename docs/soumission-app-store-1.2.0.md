@@ -16,14 +16,16 @@ Les textes (nom, sous-titre, mots-clés, description, nouveautés, FR + EN) sont
 
 ## 2. Informations pour l'équipe de revue (« App Review Information »)
 
-Compte de démonstration : ouvre un compte **Premium** (code promo ou essai) et saisis son
-e-mail et son mot de passe dans les deux champs prévus. Apple ne peut pas acheter dans
-l'app sans compte sandbox : le compte doit déjà avoir Premium.
+Compte de démonstration : un compte **gratuit** avec un cheval, des séances, des soins et des
+dépenses suffit. **N'utilise pas `lealilou@icloud.com` comme « compte Premium »** : le serveur
+le marque ACTIVE, mais RevenueCat n'a aucun achat pour lui, donc sur un téléphone neuf l'app
+le montre gratuit (2e cheval grisé, pas de coach). Apple teste l'abonnement lui-même avec un
+achat sandbox depuis le paywall : c'est ce que disent les notes ci-dessous.
 
 **Notes (anglais, à coller)**
 
 > Horsetrack is a horse care log for riders. The demo account has a horse, sessions,
-> care appointments, expenses and Premium unlocked.
+> care appointments and expenses. Premium can be tested with a sandbox purchase from the paywall.
 >
 > Subscriptions (Premium, monthly and yearly, 1-month free trial): Profile > "See Premium"
 > opens the paywall. "Restore purchases", "Terms of Use" and "Privacy Policy" are on the
