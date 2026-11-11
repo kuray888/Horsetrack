@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
@@ -25,6 +25,7 @@ import {
 import { deleteComment, fetchThread, myUserId, postComment, reportComment, toggleReaction } from "@/community/api";
 import { formatDate } from "@/lib/dateFormat";
 import { t } from "@/i18n";
+import { ListSkeleton } from "@/components/Skeleton";
 
 const CARD = "rounded-card bg-surface p-4 shadow-card";
 
@@ -189,7 +190,7 @@ export default function CommentsScreen() {
       </View>
 
       {comments === null && !failed ? (
-        <ActivityIndicator color={colors.textMuted} />
+        <ListSkeleton />
       ) : failed ? (
         <Text className="text-sm text-muted">{t("Le fil n'a pas pu être chargé. Vérifie ta connexion.")}</Text>
       ) : comments!.length === 0 ? (

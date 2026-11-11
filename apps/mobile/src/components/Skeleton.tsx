@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Animated, type DimensionValue } from "react-native";
+import { Animated, View, type DimensionValue } from "react-native";
+import { t } from "@/i18n";
 import { prefersReducedMotion } from "@/lib/motion";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
@@ -38,5 +39,25 @@ export function Skeleton({
       importantForAccessibility="no-hide-descendants"
       style={{ width, height, borderRadius: radius, opacity, backgroundColor: colors.border }}
     />
+  );
+}
+
+/**
+ * Liste en cours de chargement (fils de commentaires…) : la forme des lignes
+ * attendues plutôt qu'une roue seule. Annoncée une fois à VoiceOver.
+ */
+export function ListSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <View className="gap-4" accessible accessibilityLabel={t("Chargement…")} accessibilityRole="progressbar">
+      {Array.from({ length: rows }, (_, i) => (
+        <View key={i} className="flex-row items-start gap-3">
+          <Skeleton width={32} height={32} radius={16} />
+          <View className="flex-1 gap-2">
+            <Skeleton width="40%" height={12} />
+            <Skeleton width={i % 2 === 0 ? "90%" : "70%"} />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }

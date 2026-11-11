@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
@@ -12,6 +12,7 @@ import { formatDate } from "@/lib/dateFormat";
 import { authorLabel, relativeTime, type Comment } from "@/community/model";
 import { fetchHorseFeed, isHorseShared, myUserId } from "@/community/api";
 import { t } from "@/i18n";
+import { ListSkeleton } from "@/components/Skeleton";
 
 const CARD = "rounded-card bg-surface p-4 shadow-card";
 
@@ -91,7 +92,7 @@ export default function HorseFeedScreen() {
       ) : null}
 
       {feed === null && !failed ? (
-        <ActivityIndicator color={colors.textMuted} />
+        <ListSkeleton />
       ) : failed ? (
         <Text className="text-sm text-muted">{t("Le fil n'a pas pu être chargé. Vérifie ta connexion.")}</Text>
       ) : feed!.length === 0 ? (
