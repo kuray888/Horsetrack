@@ -210,7 +210,6 @@ function PlanningScreen() {
   // Confirmation d'enregistrement affichée en haut de l'écran quelques
   // secondes (cf. son rendu plus bas) : le formulaire se contentait de
   // disparaître, sans dire ce qui avait été créé ni où le retrouver.
-  const [savedNotice, setSavedNotice] = useState<{ text: string } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Filtre initial optionnel (cf. app/horse/[id]/index.tsx, dont les cartes
   // Entraînement/Concours poussent directement ici avec ?filter=... — cf.
@@ -291,15 +290,6 @@ function PlanningScreen() {
   useEffect(() => {
     if (showForm) sessionSubmitLock.current = false;
   }, [showForm]);
-
-  // Efface la confirmation après quelques secondes. L'objet `savedNotice` est
-  // recréé à chaque enregistrement (même texte compris), donc deux séances
-  // ajoutées à la suite relancent bien le compte à rebours.
-  useEffect(() => {
-    if (!savedNotice) return;
-    const timer = setTimeout(() => setSavedNotice(null), 4000);
-    return () => clearTimeout(timer);
-  }, [savedNotice]);
 
   const [viewMode, setViewMode] = useState<"list" | "month">("list");
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
@@ -770,15 +760,17 @@ function PlanningScreen() {
     setEditingId(null);
     setForm(emptyForm());
     setShowSessionDetails(false);
-    setSavedNotice({
-      text: editingId
+    // Confirmation en toast, en bas : le bandeau en haut de l'écran restait
+    // hors de vue quand on remplissait le formulaire plus bas.
+    toast.show(
+      editingId
         ? t("Séance modifiée.")
         : createdCount > 1
           ? t("{createdCount} séances enregistrées.", { createdCount: createdCount })
           : form.completed
             ? t("Séance enregistrée comme faite.")
-            : t("Séance planifiée."),
-    });
+            : t("Séance planifiée.")
+    );
     // Une séance créée pour un cheval que la vue n'affiche pas semblerait
     // perdue : on le dit (cf. hiddenTargetsMessage). L'alerte prime sur la
     // confirmation discrète ci-dessus, elle demande un accusé de réception.
@@ -915,10 +907,6 @@ function PlanningScreen() {
         />
       </FadeInView>
 
-      {/* Confirmation d'enregistrement — discrète et éphémère (cf.
-          savedNotice) : dit ce qui vient d'être écrit sans exiger d'accusé de
-          réception, contrairement aux Alert réservées aux cas qui demandent
-          une décision. */}
       <SessionDonePrompt session={prompted} onDismiss={dismissPrompt} />
 
       {/* Planning de la semaine (Écurie Pro v2) : pour qui travaille en équipe
@@ -936,13 +924,6 @@ function PlanningScreen() {
           </Text>
           <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
         </TouchableOpacity>
-      ) : null}
-
-      {savedNotice ? (
-        <View className="flex-row items-center gap-2 rounded-card bg-success/15 px-4 py-3">
-          <MaterialCommunityIcons name="check-circle-outline" size={17} color={colors.success} />
-          <Text className="flex-1 text-sm font-semibold text-text">{savedNotice.text}</Text>
-        </View>
       ) : null}
 
       {/* UN seul sélecteur : choisir un cheval (qui devient le cheval actif
@@ -1086,7 +1067,7 @@ function PlanningScreen() {
                     setEditingId(null);
                     setForm(emptyForm());
                     setShowSessionDetails(false);
-                    setSavedNotice({ text: t("Séance planifiée marquée comme faite.") });
+                    toast.show(t("Séance planifiée marquée comme faite."));
                   }
                 : null
             }
