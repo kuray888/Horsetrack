@@ -41,7 +41,8 @@ import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
 import { useWeight } from "@/horses/weightStore";
 import { useSessions } from "@/sessions/store";
-import { clearSyncQueue } from "@/lib/syncQueue";
+import { clearSyncQueue, ensureSyncQueueLoaded, pendingSyncCount } from "@/lib/syncQueue";
+import { unsentCountBeforeSignOut } from "@/lib/signOutGuard";
 import { clearHorseTeams } from "@/horses/team";
 import { clearSlots } from "@/planning/slotsStore";
 import { clearFees } from "@/fees/feesStore";
@@ -231,6 +232,25 @@ function ProfileScreen() {
     } catch {
       // Best-effort : cf. audit crash SecureStore/modules natifs du 2026-09-08.
     }
+  }
+
+  /** Prévient avant de se déconnecter si des saisies n'ont pas encore
+   * atteint le serveur (cf. lib/signOutGuard.ts). */
+  async function confirmSignOut() {
+    await ensureSyncQueueLoaded().catch(() => {});
+    const unsent = unsentCountBeforeSignOut({ pendingWrites: pendingSyncCount(), documents, journal });
+    if (unsent === 0) {
+      void signOut();
+      return;
+    }
+    Alert.alert(
+      tr("Des modifications ne sont pas encore sauvegardées"),
+      tr("{v} modification(s) attendent le réseau. Elles partiront si tu te reconnectes à ce compte sur ce téléphone, mais seront perdues si un autre compte s'y connecte. Reconnecte-toi à internet et attends quelques secondes avant de te déconnecter.", { v: unsent }),
+      [
+        { text: tr("Annuler"), style: "cancel" },
+        { text: tr("Se déconnecter quand même"), style: "destructive", onPress: () => void signOut() },
+      ]
+    );
   }
 
   async function signOut() {
@@ -782,7 +802,8 @@ function ProfileScreen() {
 
           <TouchableOpacity
             className="items-center rounded-card border border-border bg-surface p-4"
-            onPress={signOut}
+            onPress={() => void confirmSignOut()}
+            accessibilityRole="button"
             activeOpacity={0.85}
           >
             <Text className="font-semibold text-text">{tr("Se déconnecter")}</Text>

@@ -6,7 +6,7 @@ import type { ColumnState } from "@/lib/schemaGaps";
  * Envoi : lib/cloudSync.ts pushJournalEntry ; fusion : agenda/store.tsx.
  */
 
-type JournalMedia = {
+export type JournalMedia = {
   horseId: string | null;
   photoUri: string | null;
   photoPath: string | null;
