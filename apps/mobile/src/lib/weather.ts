@@ -1,6 +1,7 @@
 import * as Location from "expo-location";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { t } from "@/i18n";
+import { currentWeatherUrl, forecastUrl } from "@/lib/weatherRequest";
 
 export type WeatherSnapshot = { tempC: number; code: number; label: string; icon: string };
 
@@ -44,7 +45,7 @@ export async function requestLocationOnce(): Promise<{ lat: number; lon: number 
 /** Open-Meteo : API météo gratuite, sans clé. */
 export async function fetchCurrentWeather(lat: number, lon: number): Promise<WeatherSnapshot | null> {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`;
+    const url = currentWeatherUrl(lat, lon);
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
@@ -82,7 +83,7 @@ export async function fetchWeatherForecast(days = 5): Promise<DailyForecast[] | 
   const position = await requestLocationOnce();
   if (!position) return null;
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${position.lat}&longitude=${position.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=${days}&timezone=auto`;
+    const url = forecastUrl(position.lat, position.lon, days);
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
