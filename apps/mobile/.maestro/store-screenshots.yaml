@@ -14,7 +14,28 @@ tags:
 - tapOn:
     text: "Accueil|Today|Home"
 - waitForAnimationToEnd
+# TODAY_HORSE (facultatif, mettre 1) : le coach ne donne qu'une idée de séance par cheval
+# et par jour, dans la langue de la première demande. Pour le jeu anglais, un
+# cheval sans idée du jour donne une carte en anglais ; on revient ensuite sur le cheval principal.
+- runFlow:
+    when:
+      true: ${TODAY_HORSE}
+    commands:
+      # 2e avatar de la rangée des chevaux (le nom, sur deux lignes, n'est pas repérable).
+      - tapOn:
+          point: 30%,21%
+      - extendedWaitUntil:
+          visible: "Texte-qui-n-existe-pas"
+          timeout: 9000
+          optional: true
 - takeScreenshot: today
+- runFlow:
+    when:
+      true: ${TODAY_HORSE}
+    commands:
+      - tapOn:
+          point: 12%,21%
+      - waitForAnimationToEnd
 
 # 2. Fiche du cheval (onglet Chevaux : la fiche s'affiche directement pour
 #    un seul cheval, sinon on ouvre le cheval principal).
@@ -134,7 +155,7 @@ tags:
     optional: true
 - waitForAnimationToEnd
 # On pose une vraie question (suggestion) : la réponse vient du serveur.
-- tapOn: "Combien de séances ce mois-ci ?"
+- tapOn: "Combien de séances ce mois-ci ?|How many sessions this month?"
 - extendedWaitUntil:
     visible: "Texte-qui-n-existe-pas"
     timeout: 12000

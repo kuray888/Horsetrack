@@ -267,7 +267,7 @@ export function trialDurationLabel(t: TrialPeriod): string {
     case "WEEK":
       return tr("{count} semaine{v}", { count: t.count, v: plural ? "s" : "" });
     case "MONTH":
-      return tr("{count} mois", { count: t.count });
+      return t.count === 1 ? tr("1 mois") : tr("{count} mois", { count: t.count });
     case "YEAR":
       return tr("{count} an{v}", { count: t.count, v: plural ? "s" : "" });
   }

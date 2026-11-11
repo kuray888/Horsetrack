@@ -22,7 +22,7 @@ tags:
     id: "coach-consent-accept"
     optional: true
 - waitForAnimationToEnd
-- tapOn: "Combien de séances ce mois-ci ?"
+- tapOn: "Combien de séances ce mois-ci ?|How many sessions this month?"
 - extendedWaitUntil:
     visible: "Texte-qui-n-existe-pas"
     timeout: 12000

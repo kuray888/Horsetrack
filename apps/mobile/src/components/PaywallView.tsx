@@ -36,7 +36,7 @@ import { t } from "@/i18n";
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 /** « an » / « mois », pour les phrases « 39,99 € par an ». */
-const PERIOD_WORD: Record<BillingPeriod, string> = { MONTHLY: "mois", ANNUAL: "an" };
+const PERIOD_WORD: Record<BillingPeriod, string> = { MONTHLY: t("mois"), ANNUAL: t("an") };
 
 const CANCEL_WHERE = Platform.OS === "ios" ? t("Réglages > Abonnements") : t("Google Play > Abonnements");
 
@@ -303,7 +303,7 @@ export function PlanCard({
 function TrialTimeline({ reminderAt, endAt, priceLine }: { reminderAt: Date | null; endAt: Date; priceLine: string }) {
   const colors = useThemeColors();
   const steps: { icon: IconName; when: string; what: string }[] = [
-    { icon: "lock-open-variant-outline", when: "Aujourd'hui", what: t("Tout Premium est débloqué.") },
+    { icon: "lock-open-variant-outline", when: t("Aujourd'hui"), what: t("Tout Premium est débloqué.") },
     ...(reminderAt
       ? [{ icon: "bell-outline" as IconName, when: formatDayMonth(reminderAt), what: t("On te prévient que l'essai se termine bientôt.") }]
       : []),
@@ -526,7 +526,7 @@ export function PaywallView({
         : isCurrent
         ? t("C'est ta formule actuelle")
         : currentPeriod
-          ? t("Passer au {v} · {priceString}/{v2}", { v: period === "ANNUAL" ? "annuel" : "mensuel", priceString: selected.priceString, v2: PERIOD_WORD[period] })
+          ? t("Passer au {v} · {priceString}/{v2}", { v: period === "ANNUAL" ? t("annuel") : t("mensuel"), priceString: selected.priceString, v2: PERIOD_WORD[period] })
           : trialConfirmed
         ? t("Essayer gratuitement pendant {trialDurationLabel}", { trialDurationLabel: trialDurationLabel(trial) })
         : t("S'abonner · {priceString}/{v}", { priceString: selected.priceString, v: PERIOD_WORD[period] });

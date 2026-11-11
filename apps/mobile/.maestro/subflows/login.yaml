@@ -21,6 +21,11 @@ appId: com.horsetrack.app
 - extendedWaitUntil:
     visible: "Plus tard|Not Now|Profil|Profile"
     timeout: 45000
+# La fenêtre peut arriver quelques secondes après l'Accueil : on la laisse venir.
+- extendedWaitUntil:
+    visible: "Plus tard|Not Now"
+    timeout: 8000
+    optional: true
 - tapOn:
     text: "Plus tard|Not Now"
     optional: true
