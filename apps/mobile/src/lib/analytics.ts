@@ -57,6 +57,9 @@ export type AnalyticsEvent =
   | "coach_session_planned"
   | "coach_question_asked"
   | "coach_summary_viewed"
+  | "coach_consent_given"
+  | "coach_consent_declined"
+  | "coach_consent_revoked"
   // Fil privé d'un cheval
   | "comment_posted"
   | "comment_reported"

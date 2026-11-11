@@ -85,6 +85,14 @@ voit toujours le cheval ; seul un 3ᵉ cheval est refusé. 12/12.
   la durée et B les notes de la même séance, la plus récente des deux l'emporte.
   Aucune règle serveur ni RLS touchée : sans effet sur les droits des abonnés.
 
+### 1 ter. Consentement pour l'IA (règle 5.1.2(i) de l'App Store) — corrigé
+- **Constat** : la carte du coach sur l'Accueil envoyait le carnet du cheval à Anthropic dès
+  l'ouverture de l'app pour un compte Premium, sans demander son accord. Risque de refus à la revue.
+- **Correction** : écran « Autoriser le coach IA ? » (ce qui part, à qui, où, ce qui ne part pas),
+  accord par compte, retirable, effacé à la suppression du compte. `coachApi.ts` refuse tout
+  envoi sans accord, quel que soit l'écran. 12 tests (`consent.test.ts`, `coachApi.consent.test.ts`).
+- Les utilisateurs Premium qui avaient déjà utilisé le coach le revoient une fois.
+
 ## 2. Décisions à prendre (non corrigé, volontairement)
 
 | Gravité | Sujet | Constat | Proposition |

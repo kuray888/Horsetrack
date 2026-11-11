@@ -32,6 +32,7 @@ import { getAppleAuthorizationCode } from "@/lib/appleAuth";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { purgeAccountMediaFiles } from "@/lib/localMedia";
 import { clearLocalDataOwner } from "@/lib/deviceOwner";
+import { clearCoachConsent } from "@/coach/consent";
 import { resetOnboardingCompleted } from "@/onboarding/completion";
 import { formatDate } from "@/lib/dateFormat";
 import { startupTrace, formatTrace, summarizeTrace } from "@/lib/startupTrace";
@@ -327,6 +328,7 @@ function ProfileScreen() {
       clearSlots(),
       clearFees(),
       clearTasks(),
+      clearCoachConsent(),
       clearLocalDataOwner(),
     ]);
     // Photos et pièces du coffre-fort copiées sur l'appareil : les listes

@@ -17,6 +17,11 @@ tags:
 - tapOn:
     id: "coach-open"
 - waitForAnimationToEnd
+# Premier usage : accord pour l'IA (cf. coach/consent.ts), absent s'il est déjà donné.
+- tapOn:
+    id: "coach-consent-accept"
+    optional: true
+- waitForAnimationToEnd
 - tapOn: "Combien de séances ce mois-ci ?"
 - extendedWaitUntil:
     visible: "Texte-qui-n-existe-pas"

@@ -17,6 +17,8 @@ import { animateNextLayout } from "@/lib/motion";
 import { buildMonthFacts, buildRecordsFacts } from "@/coach/facts";
 import { askCoach, fetchCoachStatus, requestMonthSummary, type CoachStatus, type SummaryStatus } from "@/coach/coachApi";
 import { useCoachContext } from "@/coach/useCoachContext";
+import { useCoachConsent } from "@/coach/useCoachConsent";
+import { CoachConsentCard } from "@/coach/components/CoachConsentCard";
 import { monthName } from "@/lib/progress";
 import { LANG, t } from "@/i18n";
 
@@ -48,6 +50,7 @@ export default function CoachScreen() {
   const { selectedHorse } = useHorses();
   const { isActiveOrTrialing, isPro } = useSubscription();
   const contacts = useContacts();
+  const { granted, revoke } = useCoachConsent();
   const ctx = useCoachContext(selectedHorse ?? null);
   const [status, setStatus] = useState<CoachStatus | null>(null);
   const [question, setQuestion] = useState("");
@@ -71,7 +74,7 @@ export default function CoachScreen() {
   }, [isActiveOrTrialing]);
 
   useEffect(() => {
-    if (!isActiveOrTrialing || !ctx || !selectedHorse) return;
+    if (!isActiveOrTrialing || granted !== true || !ctx || !selectedHorse) return;
     let cancelled = false;
     requestMonthSummary(selectedHorse.id, monthKey, LANG, buildMonthFacts(ctx, last.year, last.month)).then((r) => {
       if (cancelled) return;
@@ -83,7 +86,7 @@ export default function CoachScreen() {
     };
     // Une demande par ouverture de l'écran et par cheval.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActiveOrTrialing, selectedHorse?.id, monthKey]);
+  }, [isActiveOrTrialing, granted, selectedHorse?.id, monthKey]);
 
   async function send(text: string) {
     const q = text.trim();
@@ -104,6 +107,8 @@ export default function CoachScreen() {
           ? t("Tu as posé tes {n} questions du mois. Le compteur repart le 1er.", { n: status?.questionsLimit ?? 100 })
           : t("Tu as posé tes {n} questions du mois. Le compteur repart le 1er, ou passe à Écurie Pro pour 100 questions par mois.", { n: status?.questionsLimit ?? 30 })
       );
+    } else if (r.status === "consent") {
+      setNotice(t("Autorise d'abord le coach IA à lire le carnet de ton cheval."));
     } else if (r.status === "premium") {
       openPaywall("coach", { feature: "coach_question" });
     } else if (r.status === "unavailable") {
@@ -143,6 +148,10 @@ export default function CoachScreen() {
             </Text>
             <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("coach", { feature: "coach_screen" })} />
           </View>
+        </FadeInView>
+      ) : granted === null ? null : granted === false ? (
+        <FadeInView delay={40}>
+          <CoachConsentCard onDecline={close} />
         </FadeInView>
       ) : (
         <>
@@ -242,6 +251,19 @@ export default function CoachScreen() {
                 <Text className="text-sm text-muted">{t("Résumé indisponible pour le moment.")}</Text>
               )}
             </View>
+          </FadeInView>
+          <FadeInView delay={100}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              hitSlop={8}
+              className="items-center p-2"
+              onPress={() => {
+                track("coach_consent_revoked");
+                void revoke();
+              }}
+            >
+              <Text className="text-sm font-semibold text-muted">{t("Retirer mon accord pour le coach IA")}</Text>
+            </TouchableOpacity>
           </FadeInView>
         </>
       )}

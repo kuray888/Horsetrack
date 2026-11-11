@@ -18,6 +18,7 @@ import { buildCoachFacts, dayDiff } from "@/coach/facts";
 import { codeSuggestion, plannedSessionFromSuggestion, suggestionRequestBody, type CoachSuggestion } from "@/coach/suggestion";
 import { requestSuggestion, type SuggestionResponse } from "@/coach/coachApi";
 import { useCoachContext } from "@/coach/useCoachContext";
+import { useCoachConsent } from "@/coach/useCoachConsent";
 import { LANG, t } from "@/i18n";
 
 const INTENSITY_LABEL = { LOW: t("légère"), MEDIUM: t("modérée"), HIGH: t("soutenue") } as const;
@@ -47,6 +48,8 @@ export function CoachCard({ horse }: { horse: Horse }) {
   const { isActiveOrTrialing } = useSubscription();
   const { addSession } = useSessions();
   const ctx = useCoachContext(horse);
+  // Le carnet n'est envoyé à l'IA qu'avec l'accord de l'utilisateur (cf. coach/consent.ts).
+  const { granted } = useCoachConsent();
   const [planned, setPlanned] = useState(false);
   const [showExercises, setShowExercises] = useState(false);
   // Incrémenté à l'arrivée d'une réponse : la réponse elle-même est lue dans
@@ -62,12 +65,12 @@ export function CoachCard({ horse }: { horse: Horse }) {
 
   const key = computed ? `${horse.id}:${computed.facts.today}` : null;
   const response = key ? (memory.get(key) ?? null) : null;
-  const loading = isActiveOrTrialing && !!key && !response;
+  const loading = isActiveOrTrialing && granted === true && !!key && !response;
 
   useEffect(() => {
     // Un échec réseau n'est pas gardé pour la journée : nouvel essai au
     // prochain affichage de la carte.
-    if (!isActiveOrTrialing || !computed || !key || pending.has(key)) return;
+    if (!isActiveOrTrialing || granted !== true || !computed || !key || pending.has(key)) return;
     if (memory.has(key) && memory.get(key)?.status !== "network") return;
     pending.add(key);
     requestSuggestion({ horseId: horse.id, ...suggestionRequestBody(computed.facts, computed.constraints, LANG) })
@@ -80,7 +83,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
     // Une demande par cheval et par jour : `computed` change à chaque saisie,
     // la clé seulement quand le jour ou le cheval change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActiveOrTrialing, key]);
+  }, [isActiveOrTrialing, granted, key]);
 
   if (!computed) return null;
   const s: CoachSuggestion = response?.suggestion ?? computed.fallback;
@@ -122,7 +125,9 @@ export function CoachCard({ horse }: { horse: Horse }) {
                   intensity: INTENSITY_LABEL[s.intensity],
                 })}
           </Text>
-          {isActiveOrTrialing ? (
+          {isActiveOrTrialing && granted === false ? (
+            <Text className="text-sm leading-5 text-muted">{t("Suggestion calculée d'après ses séances, sa santé et tes concours. Autorise le coach IA pour qu'il l'explique.")}</Text>
+          ) : isActiveOrTrialing ? (
             <Text className="text-[15px] leading-5 text-text">{s.reason}</Text>
           ) : (
             <Text className="text-sm leading-5 text-muted">{t("Suggestion calculée d'après ses séances, sa santé et tes concours.")}</Text>
@@ -183,7 +188,9 @@ export function CoachCard({ horse }: { horse: Horse }) {
           ) : null}
           {isActiveOrTrialing ? (
             <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/coach")} hitSlop={6} testID="coach-open">
-              <Text className="text-sm font-semibold text-accent">{t("Pose une question sur ton cheval")}</Text>
+              <Text className="text-sm font-semibold text-accent">
+                {granted === false ? t("Activer le coach IA") : t("Pose une question sur ton cheval")}
+              </Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity

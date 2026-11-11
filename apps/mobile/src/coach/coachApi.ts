@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { hasCoachConsent, loadCoachConsent } from "@/coach/consent";
 import type { CoachSuggestion } from "@/coach/suggestion";
 import type { MonthFacts, RecordsFacts } from "@/coach/facts";
 
@@ -10,11 +11,20 @@ import type { MonthFacts, RecordsFacts } from "@/coach/facts";
 
 export type CoachStatus = { available: boolean; premium: boolean; questionsLeft: number; questionsLimit: number };
 
-async function call(path: string, init: RequestInit = {}): Promise<Response | null> {
+/** Pas d'accord pour l'IA : rien n'a été envoyé (cf. coach/consent.ts). */
+const NO_CONSENT = Symbol("no-consent");
+
+/** `/status` ne transmet aucune donnée du cheval : il peut être lu sans accord.
+ * Tout le reste envoie le carnet à l'IA et exige l'accord de l'utilisateur. */
+async function call(path: string, init: RequestInit = {}): Promise<Response | null | typeof NO_CONSENT> {
   try {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return null;
+    if (path !== "/status") {
+      await loadCoachConsent();
+      if (!hasCoachConsent(data.session?.user.id)) return NO_CONSENT;
+    }
     return await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/coach${path}`, {
       ...init,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
@@ -24,26 +34,27 @@ async function call(path: string, init: RequestInit = {}): Promise<Response | nu
   }
 }
 
-async function json<T>(res: Response | null): Promise<T | null> {
-  if (!res) return null;
+async function json<T>(res: Response | null | typeof NO_CONSENT): Promise<T | null> {
+  if (!res || res === NO_CONSENT) return null;
   return ((await res.json().catch(() => null)) as T | null) ?? null;
 }
 
 export async function fetchCoachStatus(): Promise<CoachStatus | null> {
   const res = await call("/status");
-  return res?.ok ? json<CoachStatus>(res) : null;
+  return res && res !== NO_CONSENT && res.ok ? json<CoachStatus>(res) : null;
 }
 
 /** status : ok (réponse du coach ou repli), unavailable (coach en pause),
  * quota, premium, network. La suggestion est toujours présente sauf
  * « premium » et « network ». */
 export type SuggestionResponse = {
-  status: "ok" | "unavailable" | "quota" | "premium" | "network";
+  status: "ok" | "unavailable" | "quota" | "premium" | "network" | "consent";
   suggestion: CoachSuggestion | null;
 };
 
 export async function requestSuggestion(body: unknown): Promise<SuggestionResponse> {
   const res = await call("/suggestion", { method: "POST", body: JSON.stringify(body) });
+  if (res === NO_CONSENT) return { status: "consent", suggestion: null };
   if (!res) return { status: "network", suggestion: null };
   if (res.status === 403) return { status: "premium", suggestion: null };
   const data = await json<{ status: SuggestionResponse["status"]; suggestion: CoachSuggestion }>(res);
@@ -53,10 +64,11 @@ export async function requestSuggestion(body: unknown): Promise<SuggestionRespon
 
 export type AnswerResponse =
   | { status: "ok"; answer: string; found: boolean; medical: boolean; questionsLeft?: number }
-  | { status: "unavailable" | "quota" | "premium" | "network" | "error" };
+  | { status: "unavailable" | "quota" | "premium" | "network" | "error" | "consent" };
 
 export async function askCoach(lang: "fr" | "en", question: string, records: RecordsFacts): Promise<AnswerResponse> {
   const res = await call("/question", { method: "POST", body: JSON.stringify({ lang, question, records }) });
+  if (res === NO_CONSENT) return { status: "consent" };
   if (!res) return { status: "network" };
   if (res.status === 403) return { status: "premium" };
   if (res.status === 429) return { status: "quota" };
@@ -67,7 +79,7 @@ export async function askCoach(lang: "fr" | "en", question: string, records: Rec
   return data ?? { status: "network" };
 }
 
-export type SummaryStatus = "NONE" | "PENDING" | "SUBMITTED" | "DONE" | "FAILED" | "unavailable" | "quota" | "premium" | "network";
+export type SummaryStatus = "NONE" | "PENDING" | "SUBMITTED" | "DONE" | "FAILED" | "unavailable" | "quota" | "premium" | "network" | "consent";
 
 export async function requestMonthSummary(
   horseId: string,
@@ -76,6 +88,7 @@ export async function requestMonthSummary(
   facts: MonthFacts
 ): Promise<{ status: SummaryStatus; summary: string | null }> {
   const res = await call("/summary", { method: "POST", body: JSON.stringify({ horseId, month, lang, facts }) });
+  if (res === NO_CONSENT) return { status: "consent", summary: null };
   if (!res) return { status: "network", summary: null };
   if (res.status === 403) return { status: "premium", summary: null };
   const data = await json<{ status: SummaryStatus; summary: string | null }>(res);

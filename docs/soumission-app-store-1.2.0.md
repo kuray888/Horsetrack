@@ -30,9 +30,11 @@ l'app sans compte sandbox : le compte doit déjà avoir Premium.
 > paywall and in Profile. Account deletion: Profile > Delete my account.
 > Sign in with Apple is offered next to Google sign-in.
 >
-> AI coach (Premium): Home > "Your AI coach" card. It answers questions from the horse's own record
-> (sessions, care, expenses, weight) using a third-party AI model (Anthropic) called by our
-> servers. Messages that mention symptoms are not sent to the model: the app tells the
+> AI coach (Premium): Home > "Your AI coach" card. On first use the app asks the user for
+> explicit consent ("Allow the AI coach?") before anything is sent; consent can be withdrawn
+> on the coach screen. It answers questions from the horse's own record (sessions, care,
+> expenses, weight; no name or email) using a third-party AI model (Anthropic) called by
+> our servers. Messages that mention symptoms are not sent to the model: the app tells the
 > rider to call a vet. The coach gives no medical advice.
 >
 > Live ride and "Notify my contacts" use location only while the rider starts a ride.
@@ -63,15 +65,13 @@ signing out with offline changes.
   - Données d'utilisation et diagnostics : PostHog, Sentry (cf. page de confidentialité).
   - Aucun suivi publicitaire : réponse « Non » à « utilisé pour vous suivre ».
 
-## 5. À décider avant d'envoyer à la revue
+## 5. Consentement pour l'IA (règle 5.1.2(i)) — fait
 
-**Consentement explicite pour l'IA (règle 5.1.2(i) d'Apple).** Le coach envoie le carnet du
-cheval à un prestataire d'IA tiers (Anthropic). Apple demande d'informer l'utilisateur de
-ce partage ET d'obtenir son accord avant l'envoi. L'app le dit dans la politique de
-confidentialité, mais **n'affiche pas de demande d'accord au premier usage du coach**
-(vérifié : aucun écran de consentement dans `app/coach.tsx` ni `src/coach/`).
-Risque : refus de la revue. Recommandation : un écran « J'autorise » au premier usage
-(question, idée de séance, résumé), mémorisé sur l'appareil, puis un nouveau build.
+Le coach envoie le carnet du cheval à un prestataire d'IA tiers (Anthropic). Apple demande
+d'informer l'utilisateur et d'obtenir son accord avant l'envoi. Depuis le build suivant
+cet audit : écran « Autoriser le coach IA ? » au premier usage (Accueil et écran du coach),
+accord mémorisé par compte, retirable depuis l'écran du coach, effacé à la suppression du
+compte, et **aucune requête vers le coach sans accord** (vérifié par test, `coachApi.ts`).
 
 ## 6. Ordre des opérations
 

@@ -128,6 +128,11 @@ tags:
 - tapOn:
     id: "coach-open"
 - waitForAnimationToEnd
+# Premier usage : accord pour l'IA (cf. coach/consent.ts), absent s'il est déjà donné.
+- tapOn:
+    id: "coach-consent-accept"
+    optional: true
+- waitForAnimationToEnd
 # On pose une vraie question (suggestion) : la réponse vient du serveur.
 - tapOn: "Combien de séances ce mois-ci ?"
 - extendedWaitUntil:
