@@ -207,9 +207,9 @@ export default function ShareHorseModal() {
     try {
       const revoked = await revokeCollaborator(horseId, collaborator);
       refresh();
-      if (!revoked) Alert.alert(t("Oups"), t("Impossible de retirer cette personne pour l'instant. Réessaie."));
+      if (!revoked) Alert.alert(t("Erreur"), t("Impossible de retirer cette personne pour l'instant. Réessaie."));
     } catch {
-      Alert.alert(t("Oups"), t("Impossible de retirer cette personne pour l'instant. Réessaie."));
+      Alert.alert(t("Erreur"), t("Impossible de retirer cette personne pour l'instant. Réessaie."));
     }
   }
 

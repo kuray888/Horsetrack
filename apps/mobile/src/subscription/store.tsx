@@ -33,6 +33,7 @@ import {
 import type { SubscriptionStatus, BillingPeriod, Persisted } from "./logic";
 import { isStoreRedeemUrl } from "./paywallLogic";
 import { t } from "@/i18n";
+import { purchaseFailure } from "@/subscription/purchaseErrors";
 import { getPromoContext, notePromoCodeResult, promoAnalyticsProps } from "@/subscription/promoContext";
 
 /**
@@ -452,6 +453,8 @@ export function useSubscribeFlow() {
   // (cf. audit du crash de fin d'onboarding du 2026-09-11, cause exacte
   // non confirmée faute de trace Sentry).
   const mountedRef = useRef(true);
+  // « Restaurer mes achats » proposé depuis le message d'un achat échoué.
+  const restoreRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -534,10 +537,20 @@ export function useSubscribeFlow() {
           track("purchase_cancelled", { period, placement });
           return;
         }
-        track("purchase_failed", { period, placement, reason: "store_error" });
+        const failure = purchaseFailure(e);
+        if (!failure) {
+          track("purchase_cancelled", { period, placement });
+          return;
+        }
+        track("purchase_failed", { period, placement, reason: "store_error", code: String((e as { code?: unknown })?.code ?? "unknown") });
+        // Message selon la cause réelle (paiement refusé, en attente, déjà
+        // abonné…), avec « Restaurer mes achats » quand c'est la bonne issue.
         Alert.alert(
-          t("Oups"),
-          t("Impossible de finaliser l'achat. Vérifie ta connexion et réessaie — si le problème persiste, la boutique est peut-être temporairement indisponible.")
+          failure.title,
+          failure.message,
+          failure.action === "restore"
+            ? [{ text: t("Restaurer mes achats"), onPress: () => void restoreRef.current() }, { text: t("OK"), style: "cancel" }]
+            : [{ text: t("OK") }]
         );
       } finally {
         if (mountedRef.current) setSubmitting(false);
@@ -563,11 +576,15 @@ export function useSubscribeFlow() {
       invalidatePaywallOffer();
       Alert.alert(hasEntitlement ? t("Abonnement restauré") : t("Rien à restaurer"), hasEntitlement ? "" : t("Aucun achat actif trouvé pour ce compte."));
     } catch {
-      Alert.alert(t("Oups"), t("Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie."));
+      Alert.alert(t("Erreur"), t("Impossible de restaurer tes achats pour l'instant. Vérifie ta connexion et réessaie."));
     } finally {
       if (mountedRef.current) setRestoring(false);
     }
   }, [applyCustomerInfo]);
+
+  useEffect(() => {
+    restoreRef.current = restore;
+  }, [restore]);
 
   return { submitting, subscribe, restoring, restore };
 }

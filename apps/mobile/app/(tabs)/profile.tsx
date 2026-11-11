@@ -361,7 +361,7 @@ function ProfileScreen() {
       if (e instanceof AccountError && e.dataDeleted) {
         await wipeLocalAccountData().catch(() => {});
       }
-      Alert.alert(tr("Oups"), e instanceof Error ? translateAuthError(e.message) : tr("Impossible de supprimer le compte pour l'instant."));
+      Alert.alert(tr("Erreur"), e instanceof Error ? translateAuthError(e.message) : tr("Impossible de supprimer le compte pour l'instant."));
     } finally {
       setDeletingAccount(false);
     }
