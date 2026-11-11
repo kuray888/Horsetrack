@@ -37,7 +37,7 @@ const ALERT_CODES = new Set([
 ]);
 
 /** Au-delà, une prévision journalière ne dit plus grand-chose d'utile — et
- * Open-Meteo n'en renvoie que cinq jours (cf. fetchWeatherForecast). */
+ * le magasin météo n'en demande que cinq (cf. weather/store.tsx). */
 export const ALERT_HORIZON_DAYS = 3;
 
 /** Température en dessous de laquelle on signale le froid, même par beau

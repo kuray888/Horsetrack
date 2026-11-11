@@ -259,6 +259,13 @@ export default function ConfidentialitePage() {
             <td>Acheminement des notifications push vers Apple et Google</td>
             <td>Jeton de notification, titre et début du commentaire notifié, nom du cheval</td>
           </tr>
+          <tr>
+            <td><strong>MET Norway</strong> (institut météorologique norvégien)</td>
+            <td>Prévisions météo, interrogées uniquement par nos serveurs</td>
+            <td>
+              Une position approximative (arrondie à environ 1 km), sans identifiant, adresse IP ni donnée de compte
+            </td>
+          </tr>
         </tbody>
       </table>
       <p>

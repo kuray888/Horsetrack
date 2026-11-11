@@ -41,7 +41,7 @@ export type AllowedExercise = Pick<LibraryExercise, "id" | "type" | "phase" | "t
 const minIntensity = (a: SessionIntensity, b: SessionIntensity) =>
   INTENSITY_ORDER.indexOf(a) <= INTENSITY_ORDER.indexOf(b) ? a : b;
 
-/** Codes météo Open-Meteo : neige, grésil, pluie verglaçante ; orages. */
+/** Codes météo WMO (cf. lib/weather.ts) : neige, grésil, pluie verglaçante ; orages. */
 const FREEZING_CODES = new Set([56, 57, 66, 67, 71, 73, 75, 77, 85, 86]);
 const STORM_CODES = new Set([95, 96, 99]);
 

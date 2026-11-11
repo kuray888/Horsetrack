@@ -1,4 +1,4 @@
-import { ScrollView, Text, View } from "react-native";
+import { Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useWeather } from "@/weather/store";
 import { t } from "@/i18n";
 
@@ -13,7 +13,7 @@ function dayLabel(date: Date, index: number): string {
 }
 
 /**
- * Aperçu météo des prochains jours — purement indicatif (prévision Open-Meteo,
+ * Aperçu météo des prochains jours — purement indicatif (prévision MET Norway via notre API,
  * même best-effort que lib/weather.ts), pour anticiper les séances et
  * rendez-vous à venir dans le planning. Se masque entièrement si la position
  * n'est pas disponible (permission refusée, etc.) plutôt que d'afficher un
@@ -25,10 +25,11 @@ export function WeatherForecastStrip() {
   if (!forecast || forecast.length === 0) return null;
 
   return (
-    // Bord à bord (-mx-5 annule le padding de <Screen>) avec une marge
-    // intérieure pour l'ombre des cartes : sans elle, le défilement coupait
-    // l'ombre net et dessinait un rectangle à angles droits derrière les
-    // cartes arrondies.
+    <View className="gap-3">
+    {/* Bord à bord (-mx-5 annule le padding de <Screen>) avec une marge
+        intérieure pour l'ombre des cartes : sans elle, le défilement coupait
+        l'ombre net et dessinait un rectangle à angles droits derrière les
+        cartes arrondies. */}
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -39,7 +40,12 @@ export function WeatherForecastStrip() {
         <View
           key={day.date.toISOString()}
           accessible
-          accessibilityLabel={t("{v} : {tempMaxC} degrés, minimum {tempMinC}", { v: i === 0 ? "Aujourd'hui" : i === 1 ? "Demain" : dayLabel(day.date, i), tempMaxC: day.tempMaxC, tempMinC: day.tempMinC })}
+          accessibilityLabel={t("{v} : {label}, {tempMaxC} degrés, minimum {tempMinC}", {
+            v: i === 0 ? t("Aujourd'hui") : i === 1 ? t("Demain") : dayLabel(day.date, i),
+            label: day.label,
+            tempMaxC: day.tempMaxC,
+            tempMinC: day.tempMinC,
+          })}
           className="w-[72px] items-center gap-1 rounded-card bg-surface p-3 shadow-card"
         >
           <Text className="text-xs font-semibold text-muted" numberOfLines={1}>
@@ -52,5 +58,15 @@ export function WeatherForecastStrip() {
         </View>
       ))}
     </ScrollView>
+      {/* Attribution exigée par la licence des données (CC BY 4.0). */}
+      <TouchableOpacity
+        onPress={() => void Linking.openURL("https://api.met.no/doc/License")}
+        accessibilityRole="link"
+        hitSlop={8}
+        className="self-start"
+      >
+        <Text className="text-[11px] text-muted">{t("Prévisions : MET Norway")}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }

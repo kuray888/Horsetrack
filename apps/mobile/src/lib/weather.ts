@@ -1,11 +1,13 @@
 import * as Location from "expo-location";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { t } from "@/i18n";
-import { currentWeatherUrl, forecastUrl } from "@/lib/weatherRequest";
+import { weatherApiPath } from "@/lib/weatherRequest";
+import { currentFromHours, dailyFromHours, type WeatherHour } from "@/lib/weatherForecast";
+import { supabase } from "@/lib/supabase";
 
 export type WeatherSnapshot = { tempC: number; code: number; label: string; icon: string };
 
-/** Table de correspondance des codes météo WMO (norme utilisée par Open-Meteo)
+/** Table de correspondance des codes météo WMO (notre API les déduit des symboles de MET Norway)
  * vers un libellé FR + emoji — volontairement simplifiée (regroupe les
  * variantes "léger/fort" d'une même famille), suffisant pour un aperçu rapide
  * sur une carte de journal, pas pour un bulletin météo détaillé. */
@@ -42,20 +44,30 @@ export async function requestLocationOnce(): Promise<{ lat: number; lon: number 
   }
 }
 
-/** Open-Meteo : API météo gratuite, sans clé. */
-export async function fetchCurrentWeather(lat: number, lon: number): Promise<WeatherSnapshot | null> {
+/** Prévision horaire (MET Norway) via notre serveur, qui la met en cache et
+ * respecte les conditions de MET (cf. apps/api/src/lib/weather/metno.ts).
+ * Compte non connecté, hors ligne, serveur muet : null, sans erreur. */
+async function fetchHours(lat: number, lon: number): Promise<WeatherHour[] | null> {
   try {
-    const url = currentWeatherUrl(lat, lon);
-    const res = await fetch(url);
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return null;
+    const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}${weatherApiPath(lat, lon)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!res.ok) return null;
-    const data = await res.json();
-    const tempC = data?.current?.temperature_2m;
-    const code = data?.current?.weather_code;
-    if (typeof tempC !== "number" || typeof code !== "number") return null;
-    return { tempC, code, ...labelForCode(code) };
+    const body = await res.json();
+    return Array.isArray(body?.hours) ? (body.hours as WeatherHour[]) : null;
   } catch {
     return null;
   }
+}
+
+export async function fetchCurrentWeather(lat: number, lon: number): Promise<WeatherSnapshot | null> {
+  const hours = await fetchHours(lat, lon);
+  const current = hours ? currentFromHours(hours, new Date()) : null;
+  if (!current) return null;
+  return { tempC: Math.round(current.tempC), code: current.code, ...labelForCode(current.code) };
 }
 
 /** Best-effort complet : position puis météo, null à la moindre étape ratée. */
@@ -67,39 +79,14 @@ export async function fetchWeatherSnapshot(): Promise<WeatherSnapshot | null> {
 
 export type DailyForecast = { date: Date; tempMaxC: number; tempMinC: number; code: number; label: string; icon: string };
 
-/** Parse une date "YYYY-MM-DD" (renvoyée par Open-Meteo) en date locale —
- * éviter `new Date("YYYY-MM-DD")`, qui est interprété en UTC minuit et peut
- * tomber sur la veille une fois reconverti en jour de semaine local dans un
- * fuseau négatif (ex: US). */
-function parseLocalDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
 /** Prévisions des prochains jours (aperçu indicatif, pas un bulletin détaillé) —
  * pour anticiper les séances/rendez-vous à venir dans le planning. Même
  * permission/position que fetchWeatherSnapshot ; échec silencieux. */
-export async function fetchWeatherForecast(days = 5): Promise<DailyForecast[] | null> {
+export async function fetchWeatherForecast(maxDays = 5): Promise<DailyForecast[] | null> {
   const position = await requestLocationOnce();
   if (!position) return null;
-  try {
-    const url = forecastUrl(position.lat, position.lon, days);
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const dates = data?.daily?.time;
-    const codes = data?.daily?.weather_code;
-    const maxs = data?.daily?.temperature_2m_max;
-    const mins = data?.daily?.temperature_2m_min;
-    if (!Array.isArray(dates) || !Array.isArray(codes) || !Array.isArray(maxs) || !Array.isArray(mins)) return null;
-    return dates.map((isoDate: string, i: number) => ({
-      date: parseLocalDate(isoDate),
-      tempMaxC: Math.round(maxs[i]),
-      tempMinC: Math.round(mins[i]),
-      code: codes[i],
-      ...labelForCode(codes[i]),
-    }));
-  } catch {
-    return null;
-  }
+  const hours = await fetchHours(position.lat, position.lon);
+  if (!hours) return null;
+  const days = dailyFromHours(hours, new Date(), maxDays);
+  return days.length > 0 ? days.map((d) => ({ ...d, ...labelForCode(d.code) })) : null;
 }

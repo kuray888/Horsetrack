@@ -6,21 +6,21 @@ météo collée aux entrées du journal. Elle ne répond pas à la question du c
 quand, et je le couvre comment ? ». Le coach connaît déjà des contraintes météo
 (`coach/constraints.ts` : gel, orage), mais elles ne se voient pas sur la météo.
 
-## Trois constats à régler d'abord (conformité)
-1. **Licence** : l'app appelle `api.open-meteo.com` sans clé. L'accès gratuit d'Open-Meteo est
-   réservé à l'usage **non commercial** ; Horsetrack est une app payante. → **Décision pour toi** :
-   souscrire l'offre commerciale d'Open-Meteo (abonnement mensuel, clé d'API, adresse
-   `customer-api.open-meteo.com`) ou changer de fournisseur (ex. Apple WeatherKit : inclus
-   dans le compte développeur jusqu'à un quota d'appels mensuel, attribution Apple obligatoire,
-   appel via le serveur avec une clé privée). Vérifie les conditions et prix du jour avant de
-   choisir.
-2. **Attribution** : les données Open-Meteo sont sous licence CC BY 4.0 ; l'app ne cite la
-   source nulle part. À ajouter sous le bandeau (« Météo : Open-Meteo.com », lien).
-3. **Vie privée** : la position partait exacte chez Open-Meteo ; **corrigé le 2026-11-11**
-   (arrondie au km, `lib/weatherRequest.ts`). La politique de confidentialité ne nomme pas ce
-   destinataire : texte proposé ci-dessous, à valider par toi (juridique).
-   > « Météo : pour afficher la météo, une position approximative (à environ 1 km) est
-   > envoyée à notre fournisseur de prévisions, Open-Meteo (Suisse), sans aucun identifiant. »
+## Fournisseur — décidé le 2026-11-11 (aucun budget)
+- **Avant** : `api.open-meteo.com` appelé depuis le téléphone, sans clé. L'accès gratuit
+  d'Open-Meteo exclut « les apps qui ont des abonnements » ; aucune attribution ; position GPS
+  exacte envoyée (arrondie au km depuis le 11/11).
+- **Maintenant (1.3.0)** : **MET Norway** (Locationforecast 2.0), données sous NLOD 2.0 et
+  CC BY 4.0, qui permettent l'usage commercial, gratuites, monde entier, 9 jours.
+  Conditions de MET respectées : les apps ne l'appellent pas directement, notre route
+  `GET /api/weather` (connexion exigée) l'interroge avec un User-Agent identifié, garde chaque
+  réponse jusqu'à `Expires` puis redemande avec `If-Modified-Since`, et n'envoie que la position
+  arrondie à 0,01°. Moins de 20 requêtes/s au total : très loin des volumes actuels.
+- Attribution « Prévisions : MET Norway » sous le bandeau, lien vers la licence.
+- Politique de confidentialité : ligne MET Norway ajoutée (section 5).
+- **La 1.2.0 en revue appelle encore Open-Meteo** ; à remplacer par la 1.3.0 au plus vite.
+- WeatherKit d'Apple (gratuit jusqu'à un quota) reste possible plus tard, mais il demande une
+  clé à créer dans le compte développeur et le logo Apple Weather.
 
 ## Proposition
 - **Aujourd'hui en un coup d'œil** sur l'Accueil : la meilleure plage pour monter dans les
