@@ -1891,3 +1891,23 @@ create trigger stable_task_completion_rules
   before insert on public.stable_task_completions
   for each row execute function public.stable_task_completion_rules();
 -- <<< taches
+
+-- Durcissement des fonctions (recopie de durcissement-fonctions-2026-10-28.sql,
+-- exécuté en prod le 2026-10-28) : absent de ce fichier jusqu'au 2026-11-11,
+-- une base recréée d'ici laissait ces cinq fonctions appelables par un
+-- visiteur non connecté (cf. tests/rls/90-fonctions.test.sql).
+do $$
+declare
+  f text;
+begin
+  foreach f in array array[
+    'public.owns_horse(text)',
+    'public.owns_rider_profile(text)',
+    'public.rider_is_active_or_trialing(text)',
+    'public.horse_owner_is_active_or_trialing(text)',
+    'public.effective_horse_limit(text)'
+  ] loop
+    execute format('revoke execute on function %s from public, anon', f);
+    execute format('grant execute on function %s to authenticated, service_role', f);
+  end loop;
+end $$;
