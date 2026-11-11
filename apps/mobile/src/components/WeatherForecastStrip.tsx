@@ -1,4 +1,5 @@
 import { Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { weatherIconName } from "@/lib/weatherForecast";
 import { useWeather } from "@/weather/store";
 import { bestRideWindow, weatherAlerts, type WeatherAlert } from "@/weather/rideWindow";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -32,14 +33,33 @@ const hourLabel = (d: Date) => d.toLocaleTimeString(LOCALE, { hour: "numeric" })
  * état d'erreur — un bonus, jamais un blocage.
  */
 export function WeatherForecastStrip() {
-  const { forecast, hours } = useWeather();
+  const { forecast, hours, canEnable, enable } = useWeather();
   const colors = useThemeColors();
   const now = new Date();
   // Lecture « cavalier » de la journée (cf. weather/rideWindow.ts).
   const rideWindow = hours ? bestRideWindow(hours, now) : null;
   const alerts = hours ? weatherAlerts(hours, now) : [];
 
-  if (!forecast || forecast.length === 0) return null;
+  if (!forecast || forecast.length === 0) {
+    // Localisation jamais demandée : on propose, et la demande système ne
+    // part qu'au toucher, avec son contexte sous les yeux.
+    if (!canEnable) return null;
+    return (
+      <TouchableOpacity
+        onPress={() => void enable()}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        className="flex-row items-center gap-3 rounded-card bg-surface p-4 shadow-card"
+      >
+        <MaterialCommunityIcons name="weather-partly-cloudy" size={24} color={colors.primary} accessibilityElementsHidden />
+        <View className="flex-1 gap-1">
+          <Text className="text-[15px] font-semibold text-text">{t("Afficher la météo")}</Text>
+          <Text className="text-[13px] text-muted">{t("Prévisions et meilleur moment pour monter, là où tu es.")}</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} accessibilityElementsHidden />
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <View className="gap-3">
@@ -57,20 +77,31 @@ export function WeatherForecastStrip() {
         <View
           key={day.date.toISOString()}
           accessible
-          accessibilityLabel={t("{v} : {label}, {tempMaxC} degrés, minimum {tempMinC}", {
-            v: i === 0 ? t("Aujourd'hui") : i === 1 ? t("Demain") : dayLabel(day.date, i),
-            label: day.label,
-            tempMaxC: day.tempMaxC,
-            tempMinC: day.tempMinC,
-          })}
+          accessibilityLabel={
+            day.partial
+              ? t("{v} : {label}, {tempMaxC} degrés", { v: t("Aujourd'hui"), label: day.label, tempMaxC: day.tempMaxC })
+              : t("{v} : {label}, {tempMaxC} degrés, minimum {tempMinC}", {
+                  v: i === 0 ? t("Aujourd'hui") : i === 1 ? t("Demain") : dayLabel(day.date, i),
+                  label: day.label,
+                  tempMaxC: day.tempMaxC,
+                  tempMinC: day.tempMinC,
+                })
+          }
           className="w-[72px] items-center gap-1 rounded-card bg-surface p-3 shadow-card"
         >
           <Text className="text-xs font-semibold text-muted" numberOfLines={1}>
             {dayLabel(day.date, i)}
           </Text>
-          <Text className="text-2xl">{day.icon}</Text>
+          <MaterialCommunityIcons
+            name={weatherIconName(day.code)}
+            size={28}
+            color={day.code >= 95 ? colors.warning : colors.accent}
+            accessibilityElementsHidden
+          />
+          {/* Journée entamée (le soir) : il ne reste que quelques heures, le
+              minimum ne décrirait pas la journée (« 9° 9° »). */}
           <Text className="text-sm font-bold text-text">
-            {day.tempMaxC}° <Text className="text-xs font-semibold text-muted">{day.tempMinC}°</Text>
+            {day.tempMaxC}°{day.partial ? null : <Text className="text-xs font-semibold text-muted"> {day.tempMinC}°</Text>}
           </Text>
         </View>
       ))}

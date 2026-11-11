@@ -27,9 +27,13 @@ function labelForCode(code: number): { label: string; icon: string } {
 
 /** Échec silencieux (permission refusée, position indisponible) : la météo
  * est un bonus sur une entrée de journal, jamais un blocage à l'enregistrement. */
-export async function requestLocationOnce(): Promise<{ lat: number; lon: number } | null> {
+export async function requestLocationOnce(options: { ask?: boolean } = {}): Promise<{ lat: number; lon: number } | null> {
   try {
     const current = await Location.getForegroundPermissionsAsync();
+    // Sans `ask`, on ne fait que lire l'autorisation : la demande système ne
+    // doit venir que d'un geste de l'utilisateur (CLAUDE.md, jamais sans
+    // contexte). Elle apparaissait dès l'ouverture de l'Accueil.
+    if (!current.granted && !options.ask) return null;
     // `runNativeInteraction` : la boîte de dialogue de permission Android met
     // notre activité en pause, ce qui rejouerait le verrou biométrique au
     // retour (cf. lib/nativeInteraction.ts). Sans effet sur iOS.
@@ -77,7 +81,7 @@ export async function fetchWeatherSnapshot(): Promise<WeatherSnapshot | null> {
   return fetchCurrentWeather(position.lat, position.lon);
 }
 
-export type DailyForecast = { date: Date; tempMaxC: number; tempMinC: number; code: number; label: string; icon: string };
+export type DailyForecast = { date: Date; tempMaxC: number; tempMinC: number; code: number; partial: boolean; label: string; icon: string };
 
 /** Prévisions des prochains jours (aperçu indicatif, pas un bulletin détaillé) —
  * pour anticiper les séances/rendez-vous à venir dans le planning. Même
@@ -87,11 +91,25 @@ export async function fetchWeatherForecast(maxDays = 5): Promise<DailyForecast[]
 }
 
 /** Journées ET heures (créneau pour monter, alertes : cf. weather/rideWindow.ts). */
-export async function fetchWeather(maxDays = 5): Promise<{ days: DailyForecast[]; hours: WeatherHour[] } | null> {
-  const position = await requestLocationOnce();
+export async function fetchWeather(
+  maxDays = 5,
+  options: { ask?: boolean } = {}
+): Promise<{ days: DailyForecast[]; hours: WeatherHour[] } | null> {
+  const position = await requestLocationOnce(options);
   if (!position) return null;
   const hours = await fetchHours(position.lat, position.lon);
   if (!hours) return null;
   const days = dailyFromHours(hours, new Date(), maxDays);
   return days.length > 0 ? { days: days.map((d) => ({ ...d, ...labelForCode(d.code) })), hours } : null;
+}
+
+/** L'utilisateur a-t-il déjà répondu à la demande de localisation ?
+ * (« undetermined » : l'app peut proposer d'activer la météo.) */
+export async function locationPermissionStatus(): Promise<"granted" | "denied" | "undetermined"> {
+  try {
+    const p = await Location.getForegroundPermissionsAsync();
+    return p.granted ? "granted" : p.canAskAgain ? "undetermined" : "denied";
+  } catch {
+    return "denied";
+  }
 }

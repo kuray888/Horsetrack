@@ -54,7 +54,15 @@ export function dayCode(hours: WeatherHour[]): number {
   return [...counts].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
 }
 
-export type DayForecast = { date: Date; tempMinC: number; tempMaxC: number; code: number };
+export type DayForecast = {
+  date: Date;
+  tempMinC: number;
+  tempMaxC: number;
+  code: number;
+  /** Moins de 4 relevés (le soir, il ne reste que quelques heures du jour) :
+   * min et max ne décrivent plus la journée, on n'affiche que la température. */
+  partial: boolean;
+};
 
 /** Journées à partir d'aujourd'hui (minuit local), `days` au plus. */
 export function dailyFromHours(hours: WeatherHour[], now: Date, days: number): DayForecast[] {
@@ -77,6 +85,22 @@ export function dailyFromHours(hours: WeatherHour[], now: Date, days: number): D
         tempMinC: Math.round(Math.min(...temps)),
         tempMaxC: Math.round(Math.max(...temps)),
         code: dayCode(list),
+        partial: list.length < 4,
       };
     });
+}
+
+/** Icône de l'app (Material Community) pour un code WMO — remplace les emoji. */
+export function weatherIconName(code: number) {
+  if (code >= 95) return "weather-lightning-rainy" as const;
+  if (code === 75 || code === 86) return "weather-snowy-heavy" as const;
+  if ((code >= 71 && code <= 77) || code === 85) return "weather-snowy" as const;
+  if (code === 66 || code === 67 || code === 56 || code === 57) return "weather-snowy-rainy" as const;
+  if (code === 65 || code === 82) return "weather-pouring" as const;
+  if ((code >= 61 && code <= 63) || code === 80 || code === 81) return "weather-rainy" as const;
+  if (code >= 51 && code <= 55) return "weather-partly-rainy" as const;
+  if (code === 45 || code === 48) return "weather-fog" as const;
+  if (code === 3) return "weather-cloudy" as const;
+  if (code === 1 || code === 2) return "weather-partly-cloudy" as const;
+  return "weather-sunny" as const;
 }

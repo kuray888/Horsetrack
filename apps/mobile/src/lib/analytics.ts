@@ -115,6 +115,8 @@ export type AnalyticsEvent =
   | "item_deleted"
   // Météo chargée (une fois par lancement) : créneau pour monter proposé ? alertes ?
   | "weather_loaded"
+  // « Afficher la météo » touché (la demande de localisation vient de ce geste).
+  | "weather_enable_tapped"
   | "deletion_undone"
   // Écurie Pro v2 : séance attribuée à quelqu'un d'autre, et cochée par son cavalier attribué.
   | "session_assigned"
