@@ -1,3 +1,4 @@
+import { summaryNeedsTranslation } from "@/lib/coach/language";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
@@ -29,7 +30,8 @@ export async function POST(req: NextRequest) {
     where: { userId_horseId_month: { userId, horseId: body.horseId, month: body.month } },
   });
   // Un résumé en échec se relance (il compte déjà dans le quota du mois).
-  const retry = existing ? canRetrySummary(existing) : false;
+  // Un résumé terminé dans une autre langue que celle de l'app se refait aussi.
+  const retry = existing ? canRetrySummary(existing) || summaryNeedsTranslation(existing, body.lang) : false;
   if (existing && !retry) return NextResponse.json({ status: existing.status, summary: existing.summary });
 
   if (!(await coachAvailable())) return NextResponse.json({ status: "unavailable" });

@@ -244,7 +244,11 @@ export default function CoachScreen() {
               ) : summary.status === "PENDING" || summary.status === "SUBMITTED" ? (
                 <Text className="text-sm text-muted">{t("Ton résumé est en préparation. Il sera prêt d'ici quelques heures.")}</Text>
               ) : summary.status === "quota" ? (
-                <Text className="text-sm text-muted">{t("Résumés de ce mois déjà demandés pour 3 chevaux.")}</Text>
+                <Text className="text-sm text-muted">
+                  {status?.summaryHorsesPerMonth
+                    ? t("Résumés de ce mois déjà demandés pour {n} chevaux.", { n: status.summaryHorsesPerMonth })
+                    : t("Résumés de ce mois déjà demandés pour tes chevaux.")}
+                </Text>
               ) : summary.status === "unavailable" ? (
                 <Text className="text-sm text-muted">{t("Le coach fait une pause pour le moment. Réessaie plus tard.")}</Text>
               ) : (

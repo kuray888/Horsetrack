@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { cachedSuggestionUsable } from "@/lib/coach/language";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
@@ -32,14 +33,20 @@ export async function POST(req: NextRequest) {
 
   const day = suggestionDay(body.facts.today);
   const cached = await db.coachSuggestion.findUnique({ where: { userId_horseId_day: { userId, horseId: body.horseId, day } } });
-  if (cached) return NextResponse.json({ status: "ok", suggestion: cached.result, cached: true });
+  // Servie du cache, sauf si elle a été écrite dans une autre langue que celle
+  // de l'app (cf. lib/coach/language.ts) : elle est alors refaite, sans compter
+  // une idée de plus dans le quota du jour (la ligne existe déjà).
+  if (cached && cachedSuggestionUsable(cached.result, body.lang)) {
+    return NextResponse.json({ status: "ok", suggestion: cached.result, cached: true });
+  }
+  const replacing = !!cached;
 
   if (!(await coachAvailable())) return NextResponse.json({ status: "unavailable", suggestion: fallback });
 
   let suggestion: CoachSuggestion = fallback;
   if (!body.constraints.restRequired) {
     const today = await db.coachSuggestion.count({ where: { userId, day } });
-    if (today >= quotas.suggestionHorsesPerDay) return NextResponse.json({ status: "quota", suggestion: fallback });
+    if (!replacing && today >= quotas.suggestionHorsesPerDay) return NextResponse.json({ status: "quota", suggestion: fallback });
 
     const result = await runSuggestion(new Anthropic(), body);
     await logCall({
@@ -55,8 +62,14 @@ export async function POST(req: NextRequest) {
     suggestion = result.value;
   }
 
+  // La langue est gardée avec l'idée, pour la relire dans la bonne langue.
+  const stored = { ...suggestion, lang: body.lang };
   try {
-    await db.coachSuggestion.create({ data: { userId, horseId: body.horseId, day, result: suggestion } });
+    if (replacing) {
+      await db.coachSuggestion.update({ where: { userId_horseId_day: { userId, horseId: body.horseId, day } }, data: { result: stored } });
+    } else {
+      await db.coachSuggestion.create({ data: { userId, horseId: body.horseId, day, result: stored } });
+    }
   } catch (e) {
     // Deux demandes simultanées : la première gagne, sa réponse est relue.
     if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;

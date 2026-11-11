@@ -9,7 +9,14 @@ import type { MonthFacts, RecordsFacts } from "@/coach/facts";
  * et l'interrupteur d'arrêt.
  */
 
-export type CoachStatus = { available: boolean; premium: boolean; questionsLeft: number; questionsLimit: number };
+export type CoachStatus = {
+  available: boolean;
+  premium: boolean;
+  questionsLeft: number;
+  questionsLimit: number;
+  /** Absent d'un serveur plus ancien : l'app n'écrit alors aucun nombre. */
+  summaryHorsesPerMonth?: number;
+};
 
 /** Pas d'accord pour l'IA : rien n'a été envoyé (cf. coach/consent.ts). */
 const NO_CONSENT = Symbol("no-consent");

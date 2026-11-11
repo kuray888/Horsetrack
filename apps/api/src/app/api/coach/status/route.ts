@@ -10,10 +10,13 @@ export async function GET(req: NextRequest) {
   const [available, quotas, used] = await Promise.all([coachAvailable(), coachAccess(userId), questionsUsedThisMonth(userId)]);
   // Sans Premium, la limite affichée reste celle de Premium (ce que l'offre ouvrirait).
   const limit = (quotas ?? QUOTAS).questionsPerMonth;
+  const summaryLimit = (quotas ?? QUOTAS).summaryHorsesPerMonth;
   return NextResponse.json({
     available,
     premium: quotas !== null,
     questionsLimit: limit,
+    // Chevaux dont le résumé du mois peut être demandé (l'app ne l'écrit plus en dur).
+    summaryHorsesPerMonth: summaryLimit,
     questionsLeft: Math.max(0, limit - used),
   });
 }
