@@ -206,7 +206,7 @@ function HorseFeesScreen() {
                 accessibilityLabel={t("{name}, {amount}, reçu", { name: nameOf(f), amount: formatEuros(f.amount, LOCALE) })}
                 className={`h-7 w-7 items-center justify-center rounded-full ${f.paidAt ? "bg-success" : "border-2 border-border"}`}
               >
-                {f.paidAt ? <MaterialCommunityIcons name="check" size={17} color="#ffffff" /> : null}
+                {f.paidAt ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
               </TouchableOpacity>
               <View className="flex-1 gap-1">
                 <Text className="text-base font-semibold text-text">{nameOf(f)}</Text>

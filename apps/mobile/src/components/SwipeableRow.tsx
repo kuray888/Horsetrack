@@ -4,6 +4,7 @@ import ReanimatedSwipeable, { type SwipeableMethods } from "react-native-gesture
 import Animated, { Extrapolation, interpolate, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { hapticTap } from "@/lib/haptics";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 export type SwipeAction = {
   label: string;
@@ -96,6 +97,7 @@ function ActionPanel({
   side: "leading" | "trailing";
   onPress?: () => void;
 }) {
+  const colors = useThemeColors();
   // L'icône grossit à mesure que le panneau s'ouvre : on sent le seuil
   // approcher avant de le franchir.
   const contentStyle = useAnimatedStyle(() => ({
@@ -105,8 +107,8 @@ function ActionPanel({
 
   const content = (
     <Animated.View style={[{ alignItems: "center", gap: 4 }, contentStyle]}>
-      <MaterialCommunityIcons name={action.icon} size={22} color="#ffffff" />
-      <Text className="text-xs font-bold text-white">{action.label}</Text>
+      <MaterialCommunityIcons name={action.icon} size={22} color={colors.textOnStatus} />
+      <Text className="text-xs font-bold text-on-status">{action.label}</Text>
     </Animated.View>
   );
 

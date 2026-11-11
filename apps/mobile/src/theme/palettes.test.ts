@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DARK_PALETTES, PALETTES, THEME_ORDER, cssVarsForTheme, statusColorsFor } from "./palettes";
+import { DARK_PALETTES, PALETTES, THEME_ORDER, cssVarsForTheme, onStatusColorFor, statusColorsFor } from "./palettes";
 
 function luminance(hex: string): number {
   const c = hex.replace("#", "");
@@ -42,6 +42,19 @@ describe("palettes", () => {
         }
       });
     }
+  }
+
+  // Coche d'une séance faite (bg-success), libellé « Supprimer » du balayage
+  // (fond danger) : en sombre, les couleurs d'état sont claires et le blanc
+  // n'y faisait plus que 2,9:1.
+  for (const scheme of ["light", "dark"] as const) {
+    it(`le texte posé sur une couleur d'état reste lisible (${scheme})`, () => {
+      const on = onStatusColorFor(scheme);
+      for (const c of Object.values(statusColorsFor(scheme))) {
+        expect(contrast(on, c)).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(cssVarsForTheme("marine", scheme)["--color-text-on-status"]).toBeDefined();
+    });
   }
 
   it("le mode sombre a une vraie surface sombre", () => {

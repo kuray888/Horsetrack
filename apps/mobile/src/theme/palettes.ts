@@ -39,6 +39,9 @@ export type ThemeColors = PaletteColors & {
   success: string;
   warning: string;
   danger: string;
+  /** Texte ou icône posé SUR une couleur d'état (coche d'une séance faite,
+   * « Supprimer » du balayage) : blanc en clair, presque noir en sombre. */
+  textOnStatus: string;
 };
 
 export const THEME_ORDER: ThemeId[] = ["marine", "bordeaux", "paturage", "ardoise", "coucher-de-soleil", "lavande"];
@@ -231,6 +234,13 @@ export function statusColorsFor(scheme: ColorScheme): typeof STATUS_COLORS {
   return scheme === "dark" ? DARK_STATUS_COLORS : STATUS_COLORS;
 }
 
+/** Couleur du texte posé sur success/warning/danger. En sombre, ces couleurs
+ * sont éclaircies pour rester lisibles sur fond foncé : le blanc n'y faisait
+ * plus que 2,9:1 (coche d'une séance faite, balayage « Supprimer »). */
+export function onStatusColorFor(scheme: ColorScheme): string {
+  return scheme === "dark" ? "#111418" : "#ffffff";
+}
+
 export const DEFAULT_THEME: ThemeId = "marine";
 
 function hexToRgbTriplet(hex: string): string {
@@ -265,5 +275,6 @@ export function cssVarsForTheme(id: ThemeId, scheme: ColorScheme = "light"): Rec
     "--color-success": hexToRgbTriplet(status.success),
     "--color-warning": hexToRgbTriplet(status.warning),
     "--color-danger": hexToRgbTriplet(status.danger),
+    "--color-text-on-status": hexToRgbTriplet(onStatusColorFor(scheme)),
   };
 }

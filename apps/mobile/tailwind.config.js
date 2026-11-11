@@ -35,6 +35,8 @@ module.exports = {
         // alias kebab-case pour les classes (text-muted, text-on-primary…)
         muted: themed("--color-text-muted"),
         "on-primary": themed("--color-text-on-primary"),
+        // Texte posé sur bg-success / bg-warning / bg-danger (blanc en clair, foncé en sombre).
+        "on-status": themed("--color-text-on-status"),
       },
       // Police d'affichage (titres d'écran, en-têtes de section, titre du
       // paywall) — chargée dans app/_layout.tsx (useFonts). Volontairement

@@ -225,7 +225,7 @@ function TasksScreen() {
                       accessibilityLabel={`${o.task.title}, ${horseName(o.task.horseId)}`}
                       className={`h-7 w-7 items-center justify-center rounded-full ${done ? "bg-success" : "border-2 border-border"}`}
                     >
-                      {done ? <MaterialCommunityIcons name="check" size={17} color="#ffffff" /> : null}
+                      {done ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
                     </TouchableOpacity>
                     <View className="flex-1 gap-1">
                       <Text className={`text-base font-semibold ${done ? "text-muted line-through" : "text-text"}`}>{o.task.title}</Text>

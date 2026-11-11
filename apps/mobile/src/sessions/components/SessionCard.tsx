@@ -138,7 +138,7 @@ export function SessionCard({
           {!canToggleDone ? (
             session.completed ? (
               <View accessibilityLabel={t("Séance faite")} className="h-7 w-7 items-center justify-center rounded-full bg-success">
-                <MaterialCommunityIcons name="check" size={17} color="#ffffff" />
+                <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} />
               </View>
             ) : null
           ) : (
@@ -153,7 +153,7 @@ export function SessionCard({
                 session.completed ? "bg-success" : "border-2 border-border"
               }`}
             >
-              {session.completed ? <MaterialCommunityIcons name="check" size={17} color="#ffffff" /> : null}
+              {session.completed ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
             </TouchableOpacity>
           )}
         </View>

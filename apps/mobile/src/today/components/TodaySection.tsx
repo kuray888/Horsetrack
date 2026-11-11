@@ -150,7 +150,7 @@ export function TodaySection({
                         session.completed ? "bg-success" : "border-2 border-border"
                       }`}
                     >
-                      {session.completed ? <MaterialCommunityIcons name="check" size={17} color="#ffffff" /> : null}
+                      {session.completed ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
                     </TouchableOpacity>
                   ) : (
                     <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
