@@ -209,7 +209,7 @@ export async function scheduleWeeklySummary(
     if (total === 0) {
       suffix = t("Pas de séance prévue cette semaine.");
     } else if (done === total) {
-      suffix = t("Semaine parfaite — exceptionnel ! 🎉");
+      suffix = t("Semaine parfaite — exceptionnel !");
     } else if (pct >= 60) {
       suffix = t("Super semaine, continue comme ça ! ⭐");
     } else if (done > 0) {

@@ -33,7 +33,7 @@ export function YearReviewBanner({ horse, year }: { horse: Horse; year: number }
           <MaterialCommunityIcons name="party-popper" size={20} color={colors.primary} />
         </View>
         <Text className="flex-1 text-[15px] font-semibold text-text">
-          {t("Ton année {year} avec {name} est prête 🎉", { year, name: horse.name })}
+          {t("Ton année {year} avec {name} est prête", { year, name: horse.name })}
         </Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
       </TouchableOpacity>

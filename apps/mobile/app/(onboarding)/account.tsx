@@ -191,7 +191,7 @@ export default function OnboardingAccount() {
       await afterAccountObtained(result.userId);
       await continueAfterAuth();
     } catch (e) {
-      Alert.alert(t("Erreur"), e instanceof Error ? e.message : t("Connexion avec Apple impossible."));
+      Alert.alert(t("Erreur"), e instanceof Error ? translateAuthError(e.message) : t("Connexion avec Apple impossible."));
     } finally {
       setLoading(false);
     }
@@ -205,7 +205,7 @@ export default function OnboardingAccount() {
       await afterAccountObtained(result.userId);
       await continueAfterAuth();
     } catch (e) {
-      Alert.alert(t("Erreur"), e instanceof Error ? e.message : t("Connexion avec Google impossible."));
+      Alert.alert(t("Erreur"), e instanceof Error ? translateAuthError(e.message) : t("Connexion avec Google impossible."));
     } finally {
       setLoading(false);
     }
@@ -297,7 +297,7 @@ export default function OnboardingAccount() {
       // `loading` — cause du bouton "Création..." bloqué indéfiniment.
       Alert.alert(
         t("Erreur"),
-        e instanceof Error ? e.message : t("Impossible de créer le compte pour l'instant. Vérifie ta connexion et réessaie.")
+        e instanceof Error ? translateAuthError(e.message) : t("Impossible de créer le compte pour l'instant. Vérifie ta connexion et réessaie.")
       );
     } finally {
       setLoading(false);
@@ -323,10 +323,10 @@ export default function OnboardingAccount() {
       if (error && isEmailNotConfirmedError(error.message)) {
         setNotConfirmedYet(true);
       } else if (error) {
-        Alert.alert(t("Erreur"), error.message);
+        Alert.alert(t("Erreur"), translateAuthError(error.message));
       }
     } catch (e) {
-      Alert.alert(t("Erreur"), e instanceof Error ? e.message : t("Impossible de vérifier pour l'instant. Vérifie ta connexion et réessaie."));
+      Alert.alert(t("Erreur"), e instanceof Error ? translateAuthError(e.message) : t("Impossible de vérifier pour l'instant. Vérifie ta connexion et réessaie."));
     } finally {
       setCheckingConfirmation(false);
     }
@@ -339,7 +339,7 @@ export default function OnboardingAccount() {
     try {
       const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
       if (error) {
-        setResendResult({ ok: false, message: error.message });
+        setResendResult({ ok: false, message: translateAuthError(error.message) });
       } else {
         setResendResult({ ok: true, message: t("Un nouvel e-mail de confirmation a été envoyé.") });
         setResendCooldown(RESEND_COOLDOWN_SECONDS);
@@ -347,7 +347,7 @@ export default function OnboardingAccount() {
     } catch (e) {
       setResendResult({
         ok: false,
-        message: e instanceof Error ? e.message : t("Impossible d'envoyer l'e-mail pour l'instant."),
+        message: e instanceof Error ? translateAuthError(e.message) : t("Impossible d'envoyer l'e-mail pour l'instant."),
       });
     } finally {
       setResending(false);

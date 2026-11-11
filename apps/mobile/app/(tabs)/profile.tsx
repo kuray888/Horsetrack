@@ -1,3 +1,4 @@
+import { translateAuthError } from "@/lib/authErrors";
 import { useEffect, useState } from "react";
 import { PRO_ENABLED } from "@/lib/features";
 import { clearExtras } from "@/extras/store";
@@ -360,7 +361,7 @@ function ProfileScreen() {
       if (e instanceof AccountError && e.dataDeleted) {
         await wipeLocalAccountData().catch(() => {});
       }
-      Alert.alert(tr("Oups"), e instanceof Error ? e.message : tr("Impossible de supprimer le compte pour l'instant."));
+      Alert.alert(tr("Oups"), e instanceof Error ? translateAuthError(e.message) : tr("Impossible de supprimer le compte pour l'instant."));
     } finally {
       setDeletingAccount(false);
     }

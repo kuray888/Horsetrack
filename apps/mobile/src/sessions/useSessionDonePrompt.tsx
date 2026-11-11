@@ -112,7 +112,7 @@ function SessionDoneBanner({ session, onDismiss }: { session: TrainingSession; o
     >
       <Animated.View style={{ transform: [{ scale }] }}>
         {weekComplete ? (
-          <Text className="text-lg">{milestone ? "🏅" : "🎉"}</Text>
+          <MaterialCommunityIcons name={milestone ? "medal-outline" : "star-circle-outline"} size={22} color={colors.success} />
         ) : (
           <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
         )}

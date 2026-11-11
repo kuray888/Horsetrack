@@ -1,3 +1,4 @@
+import { translateAuthError } from "@/lib/authErrors";
 import { useState } from "react";
 import { Alert, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,7 +35,7 @@ export default function ForgotPasswordScreen() {
       // planter l'app (cf. audit du 2026-09-08).
       Alert.alert(
         t("Erreur"),
-        e instanceof Error ? e.message : t("Impossible d'envoyer le lien pour l'instant. Vérifie ta connexion et réessaie.")
+        e instanceof Error ? translateAuthError(e.message) : t("Impossible d'envoyer le lien pour l'instant. Vérifie ta connexion et réessaie.")
       );
     } finally {
       setLoading(false);

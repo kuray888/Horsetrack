@@ -30,7 +30,7 @@ export function greeting(now: Date = new Date()): string {
 export function weeklyRecapMessage(done: number, total: number): string {
   if (total === 0) return t("Aucune séance planifiée cette semaine.");
   if (done === 0) return t("La semaine commence — à toi de planifier la première séance !");
-  if (done === total) return t("Semaine parfaite ! Les {total} séances planifiées sont faites. 🎉", { total: total });
+  if (done === total) return t("Semaine parfaite ! Les {total} séances planifiées sont faites.", { total: total });
   return t("{done}/{total} séances faites cette semaine. Encore {left} pour finir en beauté.", {
     done,
     total,

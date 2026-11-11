@@ -94,7 +94,7 @@ export default function PremiumWelcome() {
         <FadeInView>
           <View className="gap-2">
             <Text className="text-3xl font-display leading-tight tracking-tight text-text" testID="premium-welcome-title">
-              {t("Bienvenue dans Premium 🎉")}
+              {t("Bienvenue dans Premium")}
             </Text>
             <Text className="text-base text-muted">
               {trialing && end

@@ -128,7 +128,7 @@ export default function Summary() {
         <FadeInView>
           <View className="gap-2">
             <Text className="text-3xl font-display leading-tight tracking-tight text-text">
-              {t("L'écurie de ")}{horseName} {t(" est prête 🎉")}
+              {t("L'écurie de ")}{horseName} {t(" est prête")}
             </Text>
             <Text className="text-base text-muted">
               {/* L'objectif n'est plus demandé à l'inscription (cf.

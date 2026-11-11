@@ -20,6 +20,6 @@ describe("textes de l'Accueil", () => {
     expect(weeklyRecapMessage(0, 0)).toBe("Aucune séance planifiée cette semaine.");
     expect(weeklyRecapMessage(0, 3)).toBe("La semaine commence — à toi de planifier la première séance !");
     expect(weeklyRecapMessage(1, 3)).toBe("1/3 séances faites cette semaine. Encore 2 pour finir en beauté.");
-    expect(weeklyRecapMessage(3, 3)).toBe("Semaine parfaite ! Les 3 séances planifiées sont faites. 🎉");
+    expect(weeklyRecapMessage(3, 3)).toBe("Semaine parfaite ! Les 3 séances planifiées sont faites.");
   });
 });

@@ -61,7 +61,17 @@ export function translateAuthError(message: string): string {
   if (m.includes("email rate limit") || m.includes("for security purposes") || m.includes("can only request this")) {
     return t("Trop de tentatives — réessaie dans quelques instants.");
   }
-  if (m.includes("network request failed") || m.includes("network error") || m.includes("fetch failed")) {
+  if (
+    m.includes("network request failed") ||
+    m.includes("network error") ||
+    m.includes("fetch failed") ||
+    m.includes("load failed") ||
+    m.includes("internet connection appears to be offline") ||
+    m.includes("network connection was lost") ||
+    m.includes("timed out") ||
+    /\btimeout\b/.test(m) ||
+    m === "aborted"
+  ) {
     return t("Connexion impossible. Vérifie ta connexion internet et réessaie.");
   }
   if (m.includes("token has expired") || m.includes("invalid or expired") || m.includes("token is invalid")) {

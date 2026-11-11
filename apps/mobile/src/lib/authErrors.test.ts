@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isEmailAlreadyRegisteredError, isEmailNotConfirmedError } from "@/lib/authErrors";
+import { isEmailAlreadyRegisteredError, isEmailNotConfirmedError, translateAuthError } from "@/lib/authErrors";
 
 /**
  * Régression : le bouton "Création..." restait bloqué indéfiniment sur
@@ -44,5 +44,31 @@ describe("isEmailAlreadyRegisteredError", () => {
 
   it("ne matche pas une erreur de mot de passe invalide", () => {
     expect(isEmailAlreadyRegisteredError("Password should be at least 6 characters")).toBe(false);
+  });
+});
+
+/**
+ * Un message technique brut (anglais, système) ne doit jamais atteindre
+ * l'utilisateur : coupure de réseau, délai dépassé, requête interrompue.
+ */
+describe("translateAuthError — pannes réseau", () => {
+  const connexion = "Connexion impossible. Vérifie ta connexion internet et réessaie.";
+
+  it.each([
+    "Network request failed",
+    "The Internet connection appears to be offline.",
+    "The network connection was lost.",
+    "Request timed out",
+    "timeout of 15000ms exceeded",
+    "Aborted",
+    "Load failed",
+  ])("« %s » devient un message de connexion", (raw) => {
+    expect(translateAuthError(raw)).toBe(connexion);
+  });
+
+  it("un message déjà compréhensible est gardé tel quel", () => {
+    expect(translateAuthError("La restauration prend plus de temps que prévu.")).toBe(
+      "La restauration prend plus de temps que prévu."
+    );
   });
 });
