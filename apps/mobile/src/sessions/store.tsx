@@ -110,6 +110,10 @@ type SessionsContextValue = {
    * Renvoie l'id de la séance. */
   saveRide: (input: SaveRideInput) => string;
   deleteSession: (sessionId: string) => void;
+  /** Suppression annulable (toast « Annuler ») : la séance quitte l'écran tout
+   * de suite, le serveur n'est touché qu'au `commit`. `undo` la remet telle
+   * quelle. Null si la séance n'existe pas. */
+  removeSessionUndoable: (sessionId: string) => { commit: () => void; undo: () => void } | null;
   toggleCompleted: (sessionId: string) => void;
   /** Prochaine(s) séance(s) à venir pour le cheval sélectionné, triées par
    * date/heure — utilisé par Today pour la carte "prochaine séance". */
@@ -288,6 +292,27 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     deleteTrainingSessionRemote(sessionId).catch(() => {});
   }, []);
 
+  // Séances retirées de l'écran dont la suppression attend encore son
+  // « Annuler » : une relecture du serveur pendant ces secondes ne doit pas
+  // les faire réapparaître (cf. mergeFromCloud).
+  const pendingRemovalRef = useRef(new Set<string>());
+  const removeSessionUndoable = useCallback((sessionId: string) => {
+    const snapshot = sessionsRef.current.find((s) => s.id === sessionId);
+    if (!snapshot) return null;
+    pendingRemovalRef.current.add(sessionId);
+    setSessions((list) => list.filter((s) => s.id !== sessionId));
+    return {
+      commit: () => {
+        pendingRemovalRef.current.delete(sessionId);
+        deleteTrainingSessionRemote(sessionId).catch(() => {});
+      },
+      undo: () => {
+        pendingRemovalRef.current.delete(sessionId);
+        setSessions((list) => (list.some((s) => s.id === sessionId) ? list : [...list, snapshot]));
+      },
+    };
+  }, []);
+
   const toggleCompleted = useCallback(
     (sessionId: string) => {
       const target = sessions.find((s) => s.id === sessionId);
@@ -326,7 +351,8 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     // relecture ratée) : le parcours local est gardé, pas effacé.
     const preserve = (l: TrainingSession, r: TrainingSession) =>
       keepLocalRide(l, { ...r, activityType: mergeActivityType(l.activityType, r.activityType, kindState).type });
-    setSessions((list) => mergeRemote(list, remote, guard, preserve).items);
+    const hidden = pendingRemovalRef.current;
+    setSessions((list) => mergeRemote(list, remote, guard, preserve).items.filter((s) => !hidden.has(s.id)));
     noteRemoteSnapshot("training_sessions", remote.map((s) => s.id), pullStartedAt);
     const remoteById = new Map(remote.map((r) => [r.id, r]));
     for (const session of sessionsRef.current) {
@@ -379,6 +405,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       updateSession,
       saveRide,
       deleteSession,
+      removeSessionUndoable,
       toggleCompleted,
       upcomingForSelectedHorse,
       hydrateFromCloud,
@@ -394,6 +421,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       updateSession,
       saveRide,
       deleteSession,
+      removeSessionUndoable,
       toggleCompleted,
       upcomingForSelectedHorse,
       hydrateFromCloud,

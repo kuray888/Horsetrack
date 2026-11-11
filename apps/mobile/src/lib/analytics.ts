@@ -111,6 +111,9 @@ export type AnalyticsEvent =
   // Usage (rétention : J1/J7/J30 se calculent sur app_opened dans PostHog)
   | "app_opened"
   | "session_created"
+  // Suppression annulable (toast « Annuler ») : part des annulations = suppressions par erreur.
+  | "item_deleted"
+  | "deletion_undone"
   // Écurie Pro v2 : séance attribuée à quelqu'un d'autre, et cochée par son cavalier attribué.
   | "session_assigned"
   | "assigned_session_done"

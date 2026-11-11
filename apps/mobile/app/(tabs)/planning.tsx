@@ -11,6 +11,7 @@ import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { NEVER_RECURRENCE, computeRecurrenceDates } from "@/lib/recurrence";
 import { animateNextLayout } from "@/lib/motion";
+import { hapticTap } from "@/lib/haptics";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDuration } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
@@ -76,6 +77,7 @@ import { JournalForm } from "@/agenda/components/JournalForm";
 import { lazyTab } from "@/components/LazyTab";
 import { ScreenTitle } from "@/components/ScreenTitle";
 import { t } from "@/i18n";
+import { useToast } from "@/components/Toast";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -154,7 +156,8 @@ function PlanningScreen() {
     [showingAllHorses, targetHorse]
   );
   const { isActiveOrTrialing } = useSubscription();
-  const { sessions, addSession, updateSession, deleteSession, toggleCompleted } = useSessions();
+  const { sessions, addSession, updateSession, removeSessionUndoable, toggleCompleted } = useSessions();
+  const toast = useToast();
   // Cf. today.tsx : cocher une séance propose d'en dire un mot.
   const { toggleSessionDone, prompted, dismissPrompt } = useSessionDonePrompt();
   const {
@@ -809,11 +812,22 @@ function PlanningScreen() {
     return selectableHorses.find((h) => h.id === horseId)?.name ?? null;
   }
 
+  // Suppression immédiate + « Annuler » pendant 5 s, au lieu d'une alerte
+  // bloquante (audit UX premium § 3.1) : rien ne part au serveur avant.
   function confirmDelete(session: TrainingSession) {
-    Alert.alert(t("Supprimer cette séance ?"), t("Cette action est définitive."), [
-      { text: t("Annuler"), style: "cancel" },
-      { text: t("Supprimer"), style: "destructive", onPress: () => deleteSession(session.id) },
-    ]);
+    const removal = removeSessionUndoable(session.id);
+    if (!removal) return;
+    hapticTap();
+    animateNextLayout();
+    track("item_deleted", { kind: "session", undoable: true });
+    toast.showUndo(t("Séance supprimée"), {
+      commit: removal.commit,
+      undo: () => {
+        animateNextLayout();
+        removal.undo();
+        track("deletion_undone", { kind: "session" });
+      },
+    });
   }
 
   // Nombre de séances que la soumission va créer : occurrences × chevaux

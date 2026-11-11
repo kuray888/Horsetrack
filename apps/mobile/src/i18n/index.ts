@@ -54,3 +54,15 @@ export function translate(lang: Lang, fr: string, params?: Record<string, string
 export function t(fr: string, params?: Record<string, string | number>): string {
   return translate(LANG, fr, params);
 }
+
+/** Même texte français, deux sens en anglais (« Annuler » : Cancel d'une
+ * alerte, Undo d'un toast). Le dictionnaire porte la clé « contexte|texte » ;
+ * le français affiché reste `fr`. Vérifié par i18n.test.ts comme t(). */
+export function translateInContext(lang: Lang, context: string, fr: string, params?: Record<string, string | number>): string {
+  if (lang === "fr") return interpolate(fr, params);
+  return interpolate(EN[`${context}|${fr}`] ?? EN[fr] ?? fr, params);
+}
+
+export function tc(context: string, fr: string, params?: Record<string, string | number>): string {
+  return translateInContext(LANG, context, fr, params);
+}

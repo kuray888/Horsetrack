@@ -55,6 +55,7 @@ import { NotificationRouter } from "@/components/NotificationRouter";
 import { SessionReminders } from "@/sessions/SessionReminders";
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
+import { ToastProvider } from "@/components/Toast";
 import { CrashFallback } from "@/components/CrashFallback";
 import { retryPendingWrites } from "@/lib/cloudSync";
 import { registerPushToken } from "@/lib/pushRegistration";
@@ -164,6 +165,9 @@ function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider>
     <PickerOverlayProvider>
+    {/* Toasts (« Séance supprimée · Annuler ») : rendus après tout l'arbre,
+        donc au-dessus des écrans. */}
+    <ToastProvider>
     <GlossaryProvider>
       <SubscriptionProvider>
         <TrialLifecycleSync />
@@ -200,6 +204,7 @@ function RootLayout() {
         </RiderProfileProvider>
       </SubscriptionProvider>
     </GlossaryProvider>
+    </ToastProvider>
     </PickerOverlayProvider>
     </ThemeProvider>
     </GestureHandlerRootView>

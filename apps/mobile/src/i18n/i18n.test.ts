@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { EN } from "@/i18n/en";
-import { interpolate, translate } from "@/i18n";
+import { interpolate, translate, translateInContext } from "@/i18n";
 import {
   HEALTH_CONDITIONS,
   HORSE_TEMPERAMENTS,
@@ -29,6 +29,10 @@ function translatedKeys(): Map<string, string> {
   for (const file of [...sourceFiles(path.join(ROOT, "app")), ...sourceFiles(path.join(ROOT, "src"))]) {
     const text = readFileSync(file, "utf8");
     for (const m of text.matchAll(re)) keys.set(JSON.parse(m[1]) as string, path.relative(ROOT, file));
+    // tc("contexte", "texte") : clé « contexte|texte ».
+    for (const m of text.matchAll(/\btc\(\s*("(?:[^"\\]|\\.)*")\s*,\s*("(?:[^"\\]|\\.)*")/g)) {
+      keys.set(`${JSON.parse(m[1]) as string}|${JSON.parse(m[2]) as string}`, path.relative(ROOT, file));
+    }
   }
   return keys;
 }
@@ -37,6 +41,15 @@ const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1
 
 describe("traduction anglaise", () => {
   const keys = translatedKeys();
+
+  it("tc() : même français, anglais selon le contexte", () => {
+    expect(translateInContext("fr", "undo", "Annuler")).toBe("Annuler");
+    expect(translateInContext("en", "undo", "Annuler")).toBe("Undo");
+    expect(translate("en", "Annuler")).toBe("Cancel");
+    // Sans entrée de contexte, retombe sur la traduction ordinaire.
+    expect(translateInContext("en", "inconnu", "Annuler")).toBe("Cancel");
+    expect(keys.get("undo|Annuler")).toBe("src/components/Toast.tsx");
+  });
 
   it("trouve les textes de l'app", () => {
     expect(keys.size).toBeGreaterThan(1000);

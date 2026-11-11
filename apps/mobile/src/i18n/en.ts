@@ -249,6 +249,8 @@ export const EN: Record<string, string> = {
   "Annuel": "Yearly",
   "Annulable à tout moment dans ": "Cancel anytime in ",
   "Annuler": "Cancel",
+  "Séance supprimée": "Session deleted",
+  "undo|Annuler": "Undo",
   "Année de naissance": "Year of birth",
   "Antécédents": "History",
   "Appui long pour supprimer ou signaler": "Long press to delete or report",
