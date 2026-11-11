@@ -3,8 +3,17 @@
 appId: com.horsetrack.app
 ---
 - runFlow: launch.yaml
-- tapOn:
-    id: "welcome-login"
+# Le toucher juste après le lancement peut se perdre (JavaScript pas prêt) :
+# on le répète jusqu'à l'ouverture de l'écran de connexion.
+- retry:
+    maxRetries: 4
+    commands:
+      - tapOn:
+          id: "welcome-login"
+      - extendedWaitUntil:
+          visible:
+            id: "login-email"
+          timeout: 6000
 - tapOn:
     id: "login-email"
 - inputText: ${EMAIL}

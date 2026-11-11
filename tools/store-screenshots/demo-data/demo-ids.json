@@ -1,0 +1,37 @@
+{
+  "training_sessions": [
+    "demo_store_s1",
+    "demo_store_s2",
+    "demo_store_s3",
+    "demo_store_s4",
+    "demo_store_s5",
+    "demo_store_s6",
+    "demo_store_s7",
+    "demo_store_s8",
+    "demo_store_s9"
+  ],
+  "appointments": [
+    "demo_store_a10",
+    "demo_store_a11",
+    "demo_store_a12",
+    "demo_store_a13"
+  ],
+  "expenses": [
+    "demo_store_e14",
+    "demo_store_e15",
+    "demo_store_e16",
+    "demo_store_e17",
+    "demo_store_e18",
+    "demo_store_e19",
+    "demo_store_e20",
+    "demo_store_e21",
+    "demo_store_e22",
+    "demo_store_e23",
+    "demo_store_e24"
+  ],
+  "journal_entries": [
+    "demo_store_j25",
+    "demo_store_j26",
+    "demo_store_j27"
+  ]
+}
