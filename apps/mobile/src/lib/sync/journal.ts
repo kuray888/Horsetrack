@@ -4,6 +4,7 @@ import { parseServerDate } from "@/lib/serverDate";
 import type { JournalEntry } from "@/agenda/store";
 import { activityFromServer, activityToServer } from "@/agenda/activityKinds";
 import { selectWithOptionalColumns, settleWrite, signPaths, upsertWithOptionalColumns } from "./shared";
+import { journalMediaPrefix, versionedMediaPath } from "./mediaPath";
 
 /** Journal : souvenirs, photos et vidéos.
  * Extrait de lib/cloudSync.ts (façade) sans changement de comportement. */
@@ -19,12 +20,15 @@ function moodFromDb(mood: string): JournalEntry["mood"] {
  * sous-dossier "journal/" : les policies horse_photos_select_shared/write_own
  * ne filtrent que sur le premier segment du chemin (horseId), donc ce
  * sous-dossier est déjà couvert sans modification RLS. Chemin déterministe
- * "{horseId}/journal/{entryId}.jpg" — un nouvel upload écrase l'ancien objet
- * (upsert), même logique que uploadHorsePhoto/uploadDocumentPhoto. */
+ * "{horseId}/journal/{entryId}-{nom local}.jpg" (cf. mediaPath.ts) : le même
+ * fichier renvoyé écrase l'objet (upsert), une nouvelle photo change de
+ * chemin. */
 async function uploadJournalPhoto(horseId: string, entryId: string, localUri: string): Promise<string | null> {
   try {
     const bytes = await new File(localUri).bytes();
-    const path = `${horseId}/journal/${entryId}.jpg`;
+    // Chemin propre à chaque photo choisie (cf. mediaPath.ts) : remplacée,
+    // elle change de chemin et les autres appareils la voient.
+    const path = versionedMediaPath(`${horseId}/journal`, journalMediaPrefix(entryId), localUri, "jpg");
     const { error } = await supabase.storage.from("horse-photos").upload(path, bytes, {
       contentType: "image/jpeg",
       upsert: true,
@@ -39,7 +43,7 @@ async function uploadJournalPhoto(horseId: string, entryId: string, localUri: st
 async function uploadJournalVideo(horseId: string, entryId: string, localUri: string): Promise<string | null> {
   try {
     const bytes = await new File(localUri).bytes();
-    const path = `${horseId}/journal/${entryId}.mp4`;
+    const path = versionedMediaPath(`${horseId}/journal`, journalMediaPrefix(entryId), localUri, "mp4");
     const { error } = await supabase.storage.from("horse-photos").upload(path, bytes, {
       contentType: "video/mp4",
       upsert: true,
@@ -112,9 +116,20 @@ export async function deleteJournalEntryRemoteImpl(entryId: string, horseId: str
   const { error } = await supabase.from("journal_entries").delete().eq("id", entryId);
   await settleWrite("deleteJournalEntryRemote", "journal_entries", entryId, error, undefined, stamp);
   if (horseId) {
+    // Tous les médias du souvenir : chemins historiques fixes et chemins
+    // propres à chaque photo/vidéo choisie (cf. mediaPath.ts).
+    const prefix = journalMediaPrefix(entryId);
+    const { data: files } = await supabase.storage
+      .from("horse-photos")
+      .list(`${horseId}/journal`, { limit: 100, search: prefix })
+      .catch(() => ({ data: null }));
+    const versioned = (files ?? [])
+      .map((f) => f.name)
+      .filter((name) => name.startsWith(`${prefix}-`))
+      .map((name) => `${horseId}/journal/${name}`);
     await supabase.storage
       .from("horse-photos")
-      .remove([`${horseId}/journal/${entryId}.jpg`, `${horseId}/journal/${entryId}.mp4`]);
+      .remove([`${horseId}/journal/${entryId}.jpg`, `${horseId}/journal/${entryId}.mp4`, ...versioned]);
   }
 }
 type JournalRow = {

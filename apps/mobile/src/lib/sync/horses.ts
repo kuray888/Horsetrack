@@ -5,6 +5,7 @@ import { parseServerDateOrNull } from "@/lib/serverDate";
 import type { RiderProfile } from "@/rider/store";
 import type { Horse } from "@/horses/store";
 import { SIGNED_URL_TTL_SECONDS, generateId, getOwnerProfile, settleWrite } from "./shared";
+import { versionedMediaPath } from "./mediaPath";
 
 /** Profil cavalier et chevaux (photos, traits, blessures) : envoi et relecture.
  * Extrait de lib/cloudSync.ts (façade) sans changement de comportement. */
@@ -45,7 +46,9 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
 async function uploadHorsePhoto(horseId: string, localUri: string): Promise<string | null> {
   try {
     const bytes = await new File(localUri).bytes();
-    const path = `${horseId}/photo.jpg`;
+    // Chemin propre à chaque photo choisie (cf. mediaPath.ts) : une photo
+    // remplacée doit changer de chemin pour que les autres appareils la voient.
+    const path = versionedMediaPath(horseId, "photo", localUri, "jpg");
     const { error } = await supabase.storage.from("horse-photos").upload(path, bytes, {
       contentType: "image/jpeg",
       upsert: true,
@@ -65,8 +68,17 @@ async function uploadHorsePhoto(horseId: string, localUri: string): Promise<stri
  */
 export async function deleteHorseRemoteImpl(horseId: string, stamp?: number): Promise<void> {
   try {
-    const { data: journalFiles } = await supabase.storage.from("horse-photos").list(`${horseId}/journal`, { limit: 1000 });
-    const paths = [`${horseId}/photo.jpg`, ...(journalFiles ?? []).map((f) => `${horseId}/journal/${f.name}`)];
+    const [{ data: rootFiles }, { data: journalFiles }] = await Promise.all([
+      supabase.storage.from("horse-photos").list(horseId, { limit: 1000 }),
+      supabase.storage.from("horse-photos").list(`${horseId}/journal`, { limit: 1000 }),
+    ]);
+    // Photos de profil (anciennes et actuelle, cf. mediaPath.ts) : tout
+    // fichier du dossier racine ; les sous-dossiers n'ont pas d'`id`.
+    const paths = [
+      `${horseId}/photo.jpg`,
+      ...(rootFiles ?? []).filter((f) => f.id).map((f) => `${horseId}/${f.name}`),
+      ...(journalFiles ?? []).map((f) => `${horseId}/journal/${f.name}`),
+    ];
     await supabase.storage.from("horse-photos").remove(paths);
   } catch {
     // best-effort : cf. commentaire de deleteHorsePhotoRemote
@@ -77,8 +89,10 @@ export async function deleteHorseRemoteImpl(horseId: string, stamp?: number): Pr
 /** Best-effort : si l'objet ne se supprime pas, RLS empêche de toute façon
  * tout accès à qui que ce soit d'autre que le propriétaire/un collaborateur du
  * cheval déjà supprimé — pas une fuite. */
-export async function deleteHorsePhotoRemote(horseId: string): Promise<void> {
-  await supabase.storage.from("horse-photos").remove([`${horseId}/photo.jpg`]);
+export async function deleteHorsePhotoRemote(horseId: string, photoPath?: string | null): Promise<void> {
+  const paths = [`${horseId}/photo.jpg`];
+  if (photoPath && photoPath !== paths[0]) paths.push(photoPath);
+  await supabase.storage.from("horse-photos").remove(paths);
 }
 async function pushHorseTraitsAndInjuries(horse: Horse): Promise<void> {
   const traitRows = [
@@ -214,14 +228,18 @@ export async function pushHorsesImpl(
       if (uploaded) photoPath = uploaded;
       else uploadAfterSave = true;
     } else if (h.photoUrl === null && h.photoPath) {
-      await deleteHorsePhotoRemote(h.id);
+      await deleteHorsePhotoRemote(h.id, h.photoPath);
       photoPath = null;
     }
     const { error } = await supabase.from("horses").upsert({
       id: h.id,
       ownerId: profile.id,
       name: h.name,
-      photoPath,
+      // Seulement si CET appareil a changé la photo (envoi ou suppression) :
+      // renvoyer le chemin connu d'ici écrasait celui qu'un autre appareil
+      // venait de poser (photo remplacée ou supprimée ailleurs, pas encore
+      // relue ici). Sans la colonne, l'upsert garde la valeur du serveur.
+      ...(photoPath !== h.photoPath ? { photoPath } : {}),
       birthYear: h.birthYear,
       sex: h.sex,
       breed: h.breed,
@@ -260,6 +278,11 @@ export async function pushHorsesImpl(
       // local même quand l'upsert échouait juste après, faisant croire à une
       // synchro réussie alors que la ligne serveur n'avait pas bougé.
       photoUpdates.push({ id: h.id, photoPath });
+      // L'ancien fichier n'est PAS supprimé ici : un appareil resté sur une
+      // version précédente de l'app renvoie encore son `photoPath` à chaque
+      // modification du cheval ; supprimé, il aurait pointé vers un fichier
+      // disparu. Il part avec le cheval ou le compte (deleteHorseRemoteImpl,
+      // /api/account).
     }
   }
 

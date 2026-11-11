@@ -55,6 +55,8 @@ select t.logout();
 select t.login('00000000-0000-0000-0000-000000000084', 'gratuit@test.fr');
 select t.allowed('Gratuit : photo de son cheval', $$insert into storage.objects (bucket_id, name) values ('horse-photos', 'hg/photo.jpg')$$);
 select t.denied('Gratuit : pas de photo de souvenir', $$insert into storage.objects (bucket_id, name) values ('horse-photos', 'hg/journal/j.jpg')$$);
+select t.allowed('Gratuit : nouvelle photo (chemin versionné)', $$insert into storage.objects (bucket_id, name) values ('horse-photos', 'hg/photo-horse-1731320000000.jpg')$$);
+select t.denied('Gratuit : pas de souvenir versionné', $$insert into storage.objects (bucket_id, name) values ('horse-photos', 'hg/journal/j-journal-1731320000000.jpg')$$);
 select t.logout();
 
 -- Visiteur non connecté (clé anon) : rien.
