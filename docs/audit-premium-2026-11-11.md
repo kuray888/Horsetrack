@@ -4,7 +4,7 @@ Branche `release/1.3.0`. **Méthode de ce passage** : mesures automatiques sur l
 et composants (`app/`, `src/`), lecture ciblée, corrections testées. **Pas encore fait** : la
 grille de notes écran par écran avec captures avant/après sur simulateur. Elle demande une
 build Release du simulateur (la dernière date du 27/10) et le mot de passe du compte démo ;
-aucun flux Maestro n'existe encore dans le dépôt (`.maestro/` absent).
+les parcours Maestro existent dans `apps/mobile/.maestro/` (connexion, paywall, captures) ; Maestro demande `JAVA_HOME=/opt/homebrew/opt/openjdk@17`.
 
 Contrôles après corrections : `tsc` 0 erreur, 87 fichiers / 739 tests verts, eslint propre
 (hors avertissements `import/first` déjà présents dans `_layout.tsx`).
@@ -42,7 +42,7 @@ d'onglets, mode sombre, VoiceOver, « Réduire les animations »).
 
 | # | Chantier | Impact | Effort | Risque | Mesure de succès |
 |---|---|---|---|---|---|
-| P1 | **Captures de référence** : flux Maestro (Accueil, fiche cheval, planning, paywall, profil) × clair/sombre × FR/EN, build Release simulateur | Débloque tout le reste de l'audit visuel et les visuels anglais de l'App Store | ½ j | Nul | Jeu de captures commité dans `tools/` |
+| P1 | **Captures de référence** : flux Maestro existants complétés (Accueil, fiche cheval, planning, paywall, profil) × clair/sombre × FR/EN, build Release simulateur | Débloque tout le reste de l'audit visuel et les visuels anglais de l'App Store | ½ j | Nul | Jeu de captures commité dans `tools/` |
 | P2 | Toast « Annuler » étendu aux autres suppressions (journal, rendez-vous, poids, dépenses, contacts), même mécanique | Ressenti de qualité, moins d'erreurs irréversibles | ½ j | Faible (mêmes garanties que la séance) | `deletion_undone / item_deleted` |
 | P3 | **Échelle typographique** : décider entre (a) aligner `tailwind.config.js` sur 11/13/15/17/20/28/34 (change toute l'app d'un coup) ou (b) corriger CLAUDE.md sur l'échelle réelle. Recommandation : (a), après P1, avec captures avant/après | Finition « iOS natif » | ½ j + relecture | Moyen (visuel global) | Captures |
 | P4 | Squelettes à la place des `ActivityIndicator` sur les écrans de contenu (équipe, documents, coach, rapport) | Perception de vitesse | ½ j | Faible | — |
