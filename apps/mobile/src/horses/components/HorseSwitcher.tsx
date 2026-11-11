@@ -124,7 +124,7 @@ export function HorseSwitcher({
               )}
               {locked ? (
                 <View className="absolute inset-0 items-center justify-center bg-surface/50">
-                  <Text className="text-sm">🔒</Text>
+                  <MaterialCommunityIcons name="lock" size={18} color={colors.text} accessibilityElementsHidden />
                 </View>
               ) : null}
             </View>

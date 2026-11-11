@@ -249,9 +249,12 @@ export function WeekRecapCard({
           <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Cette semaine")}</Text>
           <Text className="text-[13px] leading-[17px] text-text">{weeklyRecapMessage(done, total)}</Text>
           {streak >= 2 ? (
-            <Text className="text-[13px] font-semibold text-primary">
-              🔥 {streak} {t(" semaines d'affilée avec ")}{horseName ?? t("ton cheval")}
-            </Text>
+            <View className="flex-row items-center gap-1">
+              <MaterialCommunityIcons name="fire" size={14} color={colors.primary} accessibilityElementsHidden />
+              <Text className="flex-1 text-[13px] font-semibold text-primary">
+                {streak} {t(" semaines d'affilée avec ")}{horseName ?? t("ton cheval")}
+              </Text>
+            </View>
           ) : null}
         </View>
       </View>

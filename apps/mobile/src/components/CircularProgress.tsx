@@ -9,8 +9,9 @@ type Props = {
   progress: number;
   size?: number;
   strokeWidth?: number;
-  trackColor?: string;
-  progressColor?: string;
+  /** Couleurs du thème, obligatoires : un défaut écrit en dur ignorerait la palette. */
+  trackColor: string;
+  progressColor: string;
   children?: ReactNode;
 };
 
@@ -18,8 +19,8 @@ export function CircularProgress({
   progress,
   size = 150,
   strokeWidth = 14,
-  trackColor = "#eee",
-  progressColor = "#000",
+  trackColor,
+  progressColor,
   children,
 }: Props) {
   const radius = (size - strokeWidth) / 2;

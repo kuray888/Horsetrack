@@ -22,9 +22,15 @@ function lowerFirst(label: string): string {
 }
 
 function PlanRow({ text, premium = false }: { text: string; premium?: boolean }) {
+  const colors = useThemeColors();
   return (
     <View className="flex-row items-start gap-3 py-2.5">
-      <Text className={`text-base ${premium ? "text-primary" : "text-success"}`}>{premium ? "★" : "✓"}</Text>
+      <MaterialCommunityIcons
+        name={premium ? "star" : "check"}
+        size={18}
+        color={premium ? colors.primary : colors.success}
+        accessibilityElementsHidden
+      />
       <Text className="flex-1 text-base text-text">{text}</Text>
     </View>
   );
