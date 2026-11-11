@@ -60,3 +60,19 @@ d'onglets, mode sombre, VoiceOver, « Réduire les animations »).
 
 Matrice des pires moments écran par écran, notifications et tableau de relances, widget et
 pistes iOS (Live Activity), ASO, observabilité : au prochain passage, après P1.
+
+## 5. Revue sur simulateur (2026-11-11 soir, build Release, compte démo, mode sombre)
+
+| Écran | Constat | Suite |
+|---|---|---|
+| Accueil | **Demande de localisation dès l'ouverture**, sans contexte | Corrigé : carte « Afficher la météo », demande au toucher (`38215c0`) |
+| Accueil, météo | MET Norway via `/api/weather` en production : fonctionne. Le soir, « Auj. 9° 9° » ; icônes en emoji | Corrigé (`38215c0`) |
+| Planning, formulaire | Prérempli (type, date, 45 min, cheval) : saisie minimale conforme | — |
+| Planning, après « Planifier » | Confirmation en bandeau en haut, hors de vue | Corrigé : toast (`cb43d67`) |
+| Planning, balayage | « Supprimer » lisible en sombre (texte foncé sur rouge éclairci) | Correction du contraste confirmée |
+| Journal, Profil | Rendu correct en sombre ; Profil conforme (restauration, Terms, Privacy, suppression du compte) | — |
+| Profil, bas | La barre d'onglets réduite d'iOS 26 chevauche un peu « Supprimer mon compte » | Natif, bouton accessible ; à surveiller |
+
+Non vérifié : le toast de suppression lui-même (la suppression sur le compte réel est
+bloquée par le garde-fou de l'agent ; une séance de test « Pansage / soins » du 11/11 y est
+restée), l'anglais, VoiceOver, les grandes tailles de texte.
