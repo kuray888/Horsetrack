@@ -29,6 +29,7 @@ check POST /api/push/register 401
 check POST /api/horse-invites 401
 check POST /api/revenuecat/webhook 401
 check GET  /api/cron/email-reminders 401
+check GET  /api/weather 401          # 1.3.0 : météo MET Norway (cf. docs/meteo-repensee.md)
 check GET  /admin 401
 
 echo "Pages publiques (adresses saisies dans App Store Connect)"
