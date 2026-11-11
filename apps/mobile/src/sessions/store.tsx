@@ -1,3 +1,4 @@
+import { undoableRemoval, withoutPending } from "@/lib/undo/undoableRemoval";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { mergeRemote, unsyncedLocalIds } from "@/lib/mergeRemote";
@@ -296,22 +297,18 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   // « Annuler » : une relecture du serveur pendant ces secondes ne doit pas
   // les faire réapparaître (cf. mergeFromCloud).
   const pendingRemovalRef = useRef(new Set<string>());
-  const removeSessionUndoable = useCallback((sessionId: string) => {
-    const snapshot = sessionsRef.current.find((s) => s.id === sessionId);
-    if (!snapshot) return null;
-    pendingRemovalRef.current.add(sessionId);
-    setSessions((list) => list.filter((s) => s.id !== sessionId));
-    return {
-      commit: () => {
-        pendingRemovalRef.current.delete(sessionId);
-        deleteTrainingSessionRemote(sessionId).catch(() => {});
-      },
-      undo: () => {
-        pendingRemovalRef.current.delete(sessionId);
-        setSessions((list) => (list.some((s) => s.id === sessionId) ? list : [...list, snapshot]));
-      },
-    };
-  }, []);
+  const removeSessionUndoable = useCallback(
+    (sessionId: string) =>
+      undoableRemoval<TrainingSession>({
+        find: (id) => sessionsRef.current.find((s) => s.id === id),
+        setList: setSessions,
+        commitRemote: (s) => {
+          deleteTrainingSessionRemote(s.id).catch(() => {});
+        },
+        pending: pendingRemovalRef.current,
+      })(sessionId),
+    []
+  );
 
   const toggleCompleted = useCallback(
     (sessionId: string) => {
@@ -352,7 +349,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     const preserve = (l: TrainingSession, r: TrainingSession) =>
       keepLocalRide(l, { ...r, activityType: mergeActivityType(l.activityType, r.activityType, kindState).type });
     const hidden = pendingRemovalRef.current;
-    setSessions((list) => mergeRemote(list, remote, guard, preserve).items.filter((s) => !hidden.has(s.id)));
+    setSessions((list) => withoutPending(mergeRemote(list, remote, guard, preserve).items, hidden));
     noteRemoteSnapshot("training_sessions", remote.map((s) => s.id), pullStartedAt);
     const remoteById = new Map(remote.map((r) => [r.id, r]));
     for (const session of sessionsRef.current) {

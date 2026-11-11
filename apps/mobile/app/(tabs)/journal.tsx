@@ -15,11 +15,14 @@ import { JournalForm } from "@/agenda/components/JournalForm";
 import { JournalCard } from "@/agenda/components/JournalCard";
 import { useHorseRights } from "@/horses/useHorseRights";
 import { animateNextLayout } from "@/lib/motion";
+import { track } from "@/lib/analytics";
+import { hapticTap } from "@/lib/haptics";
 import { lazyTab } from "@/components/LazyTab";
 import { ScreenTitle } from "@/components/ScreenTitle";
 import { SwipeableRow } from "@/components/SwipeableRow";
 import { QuickAddSheet, openQuickAddFromTab, type QuickAddOption } from "@/components/QuickAddSheet";
 import { t } from "@/i18n";
+import { useToast } from "@/components/Toast";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -39,7 +42,8 @@ const JOURNAL_PAGE_SIZE = 25;
 function JournalScreen() {
   const colors = useThemeColors();
   const { horses, selectedHorse } = useHorses();
-  const { journal, addJournalEntry, updateJournalEntry, deleteJournalEntry } = useAgenda();
+  const { journal, addJournalEntry, updateJournalEntry, removeJournalEntryUndoable } = useAgenda();
+  const toast = useToast();
   // Sur un cheval partagé, chacun modifie ses propres souvenirs (cf. lib/permissions.ts).
   const rights = useHorseRights();
   // Filtre initial optionnel (cf. app/horse/[id]/journal.tsx, qui renvoie ici
@@ -108,11 +112,21 @@ function JournalScreen() {
     return horses.find((h) => h.id === horseId)?.name ?? "?";
   }
 
+  // Suppression immédiate + « Annuler » (cf. components/Toast.tsx).
   function confirmDeleteJournalEntry(entry: JournalEntry) {
-    Alert.alert(t("Supprimer cette entrée ?"), t("Cette action est définitive."), [
-      { text: t("Annuler"), style: "cancel" },
-      { text: t("Supprimer"), style: "destructive", onPress: () => deleteJournalEntry(entry.id) },
-    ]);
+    const removal = removeJournalEntryUndoable(entry.id);
+    if (!removal) return;
+    hapticTap();
+    animateNextLayout();
+    track("item_deleted", { kind: "journal", undoable: true });
+    toast.showUndo(t("Entrée supprimée"), {
+      commit: removal.commit,
+      undo: () => {
+        animateNextLayout();
+        removal.undo();
+        track("deletion_undone", { kind: "journal" });
+      },
+    });
   }
 
   // Même « + » que partout (cf. components/QuickAddSheet.tsx) : un souvenir

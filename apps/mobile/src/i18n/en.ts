@@ -250,6 +250,8 @@ export const EN: Record<string, string> = {
   "Annulable à tout moment dans ": "Cancel anytime in ",
   "Annuler": "Cancel",
   "Séance supprimée": "Session deleted",
+  "Entrée supprimée": "Entry deleted",
+  "Dépense supprimée": "Expense deleted",
   "undo|Annuler": "Undo",
   "Année de naissance": "Year of birth",
   "Antécédents": "History",

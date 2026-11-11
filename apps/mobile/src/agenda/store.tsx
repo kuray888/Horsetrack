@@ -1,3 +1,4 @@
+import { undoableRemoval, withoutPending } from "@/lib/undo/undoableRemoval";
 import {
   createContext,
   useCallback,
@@ -402,10 +403,13 @@ type AgendaContextValue = {
     patch: Partial<Omit<JournalEntry, "id" | "horseId" | "photoPath" | "videoPath">>
   ) => void;
   deleteJournalEntry: (entryId: string) => void;
+  /** Suppression annulable (toast « Annuler »), cf. lib/undo/undoableRemoval.ts. */
+  removeJournalEntryUndoable: (entryId: string) => { commit: () => void; undo: () => void } | null;
   /** `horseId` optionnel — même rôle que dans `addAppointment` ci-dessus. */
   addExpense: (expense: NewExpense & { horseId?: string | null }) => void;
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, "id" | "horseId" | "isPaid" | "documentId">>) => void;
   deleteExpense: (expenseId: string) => void;
+  removeExpenseUndoable: (expenseId: string) => { commit: () => void; undo: () => void } | null;
   toggleExpensePaid: (expenseId: string) => void;
   linkExpenseDocument: (expenseId: string, documentId: string | null) => void;
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
@@ -1048,6 +1052,35 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // Souvenirs et dépenses retirés dont la suppression attend son « Annuler » :
+  // écartés des relectures du serveur (cf. mergeFromCloud).
+  const pendingJournalRemovalRef = useRef(new Set<string>());
+  const pendingExpenseRemovalRef = useRef(new Set<string>());
+  const removeJournalEntryUndoable = useCallback(
+    (entryId: string) =>
+      undoableRemoval<JournalEntry>({
+        find: (id) => journalRef.current.find((j) => j.id === id),
+        setList: setJournal,
+        commitRemote: (j) => {
+          deleteJournalEntryRemote(j.id, j.horseId ?? null).catch(() => {});
+        },
+        pending: pendingJournalRemovalRef.current,
+      })(entryId),
+    []
+  );
+  const removeExpenseUndoable = useCallback(
+    (expenseId: string) =>
+      undoableRemoval<Expense>({
+        find: (id) => expensesRef.current.find((e) => e.id === id),
+        setList: setExpenses,
+        commitRemote: (e) => {
+          deleteExpenseRemote(e.id).catch(() => {});
+        },
+        pending: pendingExpenseRemovalRef.current,
+      })(expenseId),
+    []
+  );
+
   const deleteExpense = useCallback((expenseId: string) => {
     setExpenses((list) => list.filter((e) => e.id !== expenseId));
     deleteExpenseRemote(expenseId).catch(() => {});
@@ -1156,7 +1189,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       };
       const preserve = (l: JournalEntry, r: JournalEntry): JournalEntry => mergeEntry(l, r).entry;
       const unsyncedJournal = new Set(unsyncedLocalIds(journalRef.current, remoteJournal, guard, (j) => isHorseOnServer(j.horseId)));
-      setJournal((list) => mergeRemote(list, remoteJournal, guard, preserve).items);
+      const hiddenJournal = pendingJournalRemovalRef.current;
+      setJournal((list) => withoutPending(mergeRemote(list, remoteJournal, guard, preserve).items, hiddenJournal));
       noteRemoteSnapshot("journal_entries", remoteJournal.map((j) => j.id), pullStartedAt);
       const remoteJournalById = new Map(remoteJournal.map((j) => [j.id, j]));
       const toSend: JournalEntry[] = [];
@@ -1186,7 +1220,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       const remoteExpenses = remote.expenses;
       const guard = syncGuard("expenses", pullStartedAt, pendingIdsFor("expenses"));
       const unsyncedExpenses = unsyncedLocalIds(expensesRef.current, remoteExpenses, guard, (e) => isHorseOnServer(e.horseId));
-      setExpenses((list) => mergeRemote(list, remoteExpenses, guard).items);
+      const hiddenExpenses = pendingExpenseRemovalRef.current;
+      setExpenses((list) => withoutPending(mergeRemote(list, remoteExpenses, guard).items, hiddenExpenses));
       noteRemoteSnapshot("expenses", remoteExpenses.map((e) => e.id), pullStartedAt);
       for (const id of unsyncedExpenses) {
         const expense = expensesRef.current.find((e) => e.id === id);
@@ -1245,9 +1280,11 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addJournalEntry,
       updateJournalEntry,
       deleteJournalEntry,
+      removeJournalEntryUndoable,
       addExpense,
       updateExpense,
       deleteExpense,
+      removeExpenseUndoable,
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
@@ -1283,9 +1320,11 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       addJournalEntry,
       updateJournalEntry,
       deleteJournalEntry,
+      removeJournalEntryUndoable,
       addExpense,
       updateExpense,
       deleteExpense,
+      removeExpenseUndoable,
       removeHorseData,
       toggleExpensePaid,
       linkExpenseDocument,

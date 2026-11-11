@@ -25,6 +25,10 @@ import { t, LOCALE } from "@/i18n";
 import { useHorseDetails } from "@/extras/store";
 import { netMonthlyCost } from "@/extras/model";
 import { can, roleOf } from "@/lib/permissions";
+import { useToast } from "@/components/Toast";
+import { hapticTap } from "@/lib/haptics";
+import { animateNextLayout } from "@/lib/motion";
+import { track } from "@/lib/analytics";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -48,11 +52,12 @@ export default function HorseBudgetScreen() {
     expenses,
     addExpense,
     updateExpense,
-    deleteExpense,
+    removeExpenseUndoable,
     toggleExpensePaid,
     addDocument,
     linkExpenseDocument,
   } = useAgenda();
+  const toast = useToast();
 
   const horse = horses.find((h) => h.id === id);
   const horseId = horse?.id ?? null;
@@ -189,11 +194,21 @@ export default function HorseBudgetScreen() {
     return findSuggestedAppointment(horseAppointments, category);
   }
 
+  // Suppression immédiate + « Annuler » (cf. components/Toast.tsx).
   function confirmDeleteExpense(expense: Expense) {
-    Alert.alert(t("Supprimer cette dépense ?"), t("Cette action est définitive."), [
-      { text: t("Annuler"), style: "cancel" },
-      { text: t("Supprimer"), style: "destructive", onPress: () => deleteExpense(expense.id) },
-    ]);
+    const removal = removeExpenseUndoable(expense.id);
+    if (!removal) return;
+    hapticTap();
+    animateNextLayout();
+    track("item_deleted", { kind: "expense", undoable: true });
+    toast.showUndo(t("Dépense supprimée"), {
+      commit: removal.commit,
+      undo: () => {
+        animateNextLayout();
+        removal.undo();
+        track("deletion_undone", { kind: "expense" });
+      },
+    });
   }
 
   return (
