@@ -39,7 +39,7 @@ export function SafetySetupCard({
         <View className="flex-1 gap-0.5">
           <Text className="text-base font-semibold text-text">{t("Prévenir mes proches")}</Text>
           <Text className="text-xs text-muted">
-            {t("Ils suivent ta position et reçoivent une alerte si tu ne bouges plus. Premium.")}
+            {t("Ils suivent ta position et reçoivent une alerte si tu ne bouges plus. Avec Premium.")}
           </Text>
         </View>
         <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} />

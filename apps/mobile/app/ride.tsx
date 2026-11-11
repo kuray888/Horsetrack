@@ -166,7 +166,7 @@ function RideSetupView({ sessionId, horseIdParam }: { sessionId: string | null; 
           Alert.alert(
             t("Suivi non partagé"),
             res.reason === "premium"
-              ? t("La sécurité en balade est réservée aux comptes Premium.")
+              ? t("La sécurité en balade est réservée à Premium.")
               : res.reason === "limit"
                 ? t("Trop de balades suivies aujourd'hui. La séance est enregistrée, sans partage.")
                 : t("Pas de réseau pour prévenir tes proches. La séance est enregistrée, sans partage.")

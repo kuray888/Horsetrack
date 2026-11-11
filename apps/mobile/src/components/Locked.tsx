@@ -53,19 +53,33 @@ export function Locked({
   return (
     <View className="relative overflow-hidden rounded-card">
       {/* Contenu réel en aperçu, atténué et non interactif */}
-      <View pointerEvents="none" className="opacity-30">
+      {/* Masqué à VoiceOver : un aperçu atténué que l'on ne peut pas utiliser
+          ne doit pas être lu comme un contrôle ; le cadenas ci-dessous dit
+          ce que la fonction apporte. */}
+      <View
+        pointerEvents="none"
+        className="opacity-30"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         {children}
       </View>
 
       {/* Overlay de déverrouillage */}
-      <View className="absolute inset-0 items-center justify-center gap-3 bg-surface/40 p-4">
-        <View className="h-11 w-11 items-center justify-center rounded-full bg-surface">
+      <View className="absolute inset-0 items-center justify-center gap-3 bg-surface/40 p-4" accessible={false}>
+        <View
+          className="h-11 w-11 items-center justify-center rounded-full bg-surface"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={t("Réservé à Premium")}
+        >
           <MaterialCommunityIcons name="lock-outline" size={20} color={colors.primary} />
         </View>
         <Text className="text-center text-sm font-semibold text-text">{message}</Text>
         <Animated.View style={{ transform: [{ scale }] }}>
           <TouchableOpacity
             onPress={() => openPaywall(placement, { feature, horseId })}
+            accessibilityRole="button"
             onPressIn={onPressIn}
             onPressOut={onPressOut}
             activeOpacity={0.85}

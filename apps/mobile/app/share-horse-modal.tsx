@@ -67,7 +67,7 @@ function ShareLocked({ horseId, horseName }: { horseId?: string; horseName?: str
         </View>
         <Text className="text-center text-xl font-bold text-text">{t("Partage ")}{horseName ?? t("ton cheval")} {t(" avec ta demi-pension")}</Text>
         <Text className="text-center text-sm text-muted">
-          {t("Ta DP, ton coach ou ton groom retrouvent son planning, ses soins et ses rendez-vous. Disponible avec Premium.")}
+          {t("Ta DP, ton coach ou ton groom retrouvent son planning, ses soins et ses rendez-vous. Avec Premium.")}
         </Text>
         <TouchableOpacity
           activeOpacity={0.85}
