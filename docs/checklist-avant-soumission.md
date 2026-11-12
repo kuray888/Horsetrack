@@ -10,6 +10,10 @@ Chaque ligne vient d'un oubli réel (1.2.0). Cocher dans l'ordre.
 - [ ] SQL Supabase exécutés (cf. `docs/ecurie-pro.md`, `packages/db/prisma/*-2026-*.sql`)
       et `pnpm --filter @cheval/db test:rls` vert.
 
+- [ ] **1.3.0** : l'API de `release/1.3.0` est en production AVANT la publication (fusion dans
+      `main`, puis `tools/check-prod.sh`) : questions offertes du coach, séance en direct offerte
+      une fois, ligne « 3 questions offertes » de la politique de confidentialité.
+
 ## Ce qui est DANS le build
 - [ ] `apps/mobile` : `npx tsc --noEmit`, `pnpm test`, eslint des fichiers modifiés.
 - [ ] `apps/api` et `apps/web` : `npx tsc --noEmit`, `npx vitest run`, `npx next build`.
