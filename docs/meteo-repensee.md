@@ -35,11 +35,11 @@ quand, et je le couvre comment ? ». Le coach connaît déjà des contraintes m�
   3 h ») ; sans localisation, choix d'une commune (une fois, gardée sur le téléphone).
 
 ## Gratuit / Premium
-Bulletin du jour et 5 jours : gratuit (déjà le cas). **Livré gratuit en 1.3.0** (2026-11-11) :
+Bulletin du jour et 5 jours : gratuit (déjà le cas). **Décidé le 2026-11-13 : créneau Premium, alertes gratuites.** Livré d'abord gratuit (2026-11-11) :
 « Pour monter aujourd'hui : 11 h – 16 h, jusqu'à 12° » et les alertes gel / chaleur / vent /
 orage (`weather/rideWindow.ts`), parce que c'est un motif d'ouvrir l'app chaque jour
 (rétention). Le passer Premium plus tard retirerait une fonction à des gratuits : à décider
-avant la sortie de la 1.3.0 si tu le veux Premium.
+avant la sortie de la 1.3.0 si tu le veux Premium. Un compte gratuit voit « Le meilleur moment pour monter aujourd'hui » avec un cadenas, qui ouvre le paywall `weather` (paywall contextuel du tableau des relances). Les alertes gel / chaleur / vent / orage restent gratuites : sécurité du cheval. Limite d'affichage seulement : les heures de prévision servent aussi au bandeau gratuit et aux alertes, il n'y a rien à protéger côté serveur.
 
 ## Données
 Rien de nouveau côté serveur si on reste sur Open-Meteo (appel depuis le téléphone). Avec

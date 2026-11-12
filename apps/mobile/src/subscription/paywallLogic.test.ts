@@ -99,6 +99,15 @@ describe("textes du paywall", () => {
     expect(orderedBenefits("profile")[0]).toBe("horses");
   });
 
+  it("séance en direct et créneau météo : leur propre titre et leur bénéfice en tête", () => {
+    expect(parsePlacement("live_ride")).toBe("live_ride");
+    expect(parsePlacement("weather")).toBe("weather");
+    expect(orderedBenefits("live_ride")[0]).toBe("ride");
+    expect(orderedBenefits("weather")[0]).toBe("weather");
+    expect(paywallCopy("live_ride", ["Tornado"]).title).toBe("Chaque sortie avec Tornado, enregistrée.");
+    expect(paywallCopy("weather").title).toBe("Le bon moment pour monter, chaque jour.");
+  });
+
   it("retombe sur « profile » pour un contexte inconnu", () => {
     expect(parsePlacement("sharing")).toBe("sharing");
     expect(parsePlacement("n'importe quoi")).toBe("profile");

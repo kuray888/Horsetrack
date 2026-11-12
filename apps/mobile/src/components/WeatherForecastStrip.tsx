@@ -4,6 +4,8 @@ import { useWeather } from "@/weather/store";
 import { bestRideWindow, weatherAlerts, type WeatherAlert } from "@/weather/rideWindow";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { useSubscription } from "@/subscription/store";
+import { openPaywall } from "@/subscription/paywall";
 import { LOCALE, t } from "@/i18n";
 
 const DAY_SHORT_BY_GETDAY = [t("Dim."), t("Lun."), t("Mar."), t("Mer."), t("Jeu."), t("Ven."), t("Sam.")];
@@ -35,6 +37,7 @@ const hourLabel = (d: Date) => d.toLocaleTimeString(LOCALE, { hour: "numeric" })
 export function WeatherForecastStrip() {
   const { forecast, hours, canEnable, enable } = useWeather();
   const colors = useThemeColors();
+  const { isActiveOrTrialing } = useSubscription();
   const now = new Date();
   // Lecture « cavalier » de la journée (cf. weather/rideWindow.ts).
   const rideWindow = hours ? bestRideWindow(hours, now) : null;
@@ -106,7 +109,10 @@ export function WeatherForecastStrip() {
         </View>
       ))}
     </ScrollView>
-      {rideWindow ? (
+      {/* Meilleur créneau pour monter : Premium (décision du 2026-11-13). Un
+          compte gratuit voit qu'il existe et peut l'ouvrir ; les alertes
+          ci-dessous restent gratuites (sécurité du cheval). */}
+      {rideWindow && isActiveOrTrialing ? (
         <View className="flex-row items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-card">
           <MaterialCommunityIcons name="horse-variant" size={20} color={colors.primary} accessibilityElementsHidden />
           <Text className="flex-1 text-[15px] text-text">
@@ -117,6 +123,18 @@ export function WeatherForecastStrip() {
             })}
           </Text>
         </View>
+      ) : rideWindow ? (
+        <TouchableOpacity
+          onPress={() => openPaywall("weather", { feature: "weather_ride_window" })}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t("Voir le meilleur moment pour monter aujourd'hui, avec Premium")}
+          className="flex-row items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-card"
+        >
+          <MaterialCommunityIcons name="horse-variant" size={20} color={colors.primary} accessibilityElementsHidden />
+          <Text className="flex-1 text-[15px] text-text">{t("Le meilleur moment pour monter aujourd'hui")}</Text>
+          <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} accessibilityElementsHidden />
+        </TouchableOpacity>
       ) : null}
       {alerts.map((a) => (
         <View key={a} className="flex-row items-center gap-3 rounded-card bg-warning/15 px-4 py-3">
