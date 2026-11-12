@@ -15,6 +15,7 @@ import { telUrl } from "@/extras/model";
 import { track } from "@/lib/analytics";
 import { animateNextLayout } from "@/lib/motion";
 import { buildMonthFacts, buildRecordsFacts } from "@/coach/facts";
+import { coachGate } from "@/coach/coachGate";
 import { askCoach, fetchCoachStatus, requestMonthSummary, type CoachStatus, type SummaryStatus } from "@/coach/coachApi";
 import { useCoachContext } from "@/coach/useCoachContext";
 import { useCoachConsent } from "@/coach/useCoachConsent";
@@ -68,10 +69,16 @@ export default function CoachScreen() {
   }, []);
   const monthKey = `${last.year}-${String(last.month + 1).padStart(2, "0")}`;
 
+  // Lu aussi pour un compte gratuit : il dit combien de questions offertes
+  // il lui reste (/status n'envoie aucune donnée du cheval).
   useEffect(() => {
-    if (!isActiveOrTrialing) return;
     fetchCoachStatus().then(setStatus);
   }, [isActiveOrTrialing]);
+  // Une fois les questions offertes épuisées pendant la visite, on reste sur
+  // l'écran de questions : les réponses reçues ne doivent pas disparaître.
+  const rawGate = coachGate(isActiveOrTrialing, status);
+  const gate = rawGate === "locked" && !isActiveOrTrialing && history.length > 0 ? "free" : rawGate;
+  const freeExhausted = gate === "free" && status?.freeQuestionsLeft === 0;
 
   useEffect(() => {
     if (!isActiveOrTrialing || granted !== true || !ctx || !selectedHorse) return;
@@ -95,12 +102,16 @@ export default function CoachScreen() {
     setNotice(null);
     const r = await askCoach(LANG, q, buildRecordsFacts(ctx));
     setAsking(false);
-    track("coach_question_asked", { status: r.status, medical: r.status === "ok" && r.medical });
+    track("coach_question_asked", { status: r.status, medical: r.status === "ok" && r.medical, free: gate === "free" });
     if (r.status === "ok") {
       animateNextLayout();
       setHistory((h) => [{ question: q, answer: r.answer, found: r.found, medical: r.medical }, ...h]);
       setQuestion("");
-      if (r.questionsLeft !== undefined) setStatus((s) => (s ? { ...s, questionsLeft: r.questionsLeft! } : s));
+      if (r.questionsLeft !== undefined) {
+        const left = r.questionsLeft;
+        // Compte gratuit : le compteur des questions offertes baisse.
+        setStatus((s) => (s ? (gate === "free" ? { ...s, freeQuestionsLeft: left } : { ...s, questionsLeft: left }) : s));
+      }
     } else if (r.status === "quota") {
       setNotice(
         isPro || !PRO_ENABLED
@@ -140,11 +151,13 @@ export default function CoachScreen() {
         </View>
       </FadeInView>
 
-      {!isActiveOrTrialing ? (
+      {gate === "loading" ? null : gate === "locked" ? (
         <FadeInView delay={40}>
           <View className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
-              {t("Pose une question sur ton cheval, et reçois chaque mois un résumé de votre travail. Réservé à Premium.")}
+              {status?.freeQuestionsLeft === 0
+                ? t("Tu as utilisé tes questions offertes. Avec Premium, pose-en jusqu'à 30 par mois et reçois chaque mois un résumé de votre travail.")
+                : t("Pose une question sur ton cheval, et reçois chaque mois un résumé de votre travail. Réservé à Premium.")}
             </Text>
             <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("coach", { feature: "coach_screen" })} />
           </View>
@@ -194,7 +207,13 @@ export default function CoachScreen() {
               </View>
               <View className="flex-row items-center justify-between">
                 <Text className="text-xs text-muted">
-                  {status ? t("{n} questions restantes ce mois-ci", { n: status.questionsLeft }) : " "}
+                  {gate === "free" && status?.freeQuestionsLeft != null
+                    ? status.freeQuestionsLeft === 1
+                      ? t("1 question offerte restante")
+                      : t("{n} questions offertes restantes", { n: status.freeQuestionsLeft })
+                    : status
+                      ? t("{n} questions restantes ce mois-ci", { n: status.questionsLeft })
+                      : " "}
                 </Text>
                 <TouchableOpacity
                   accessibilityRole="button"
@@ -207,6 +226,14 @@ export default function CoachScreen() {
                 </TouchableOpacity>
               </View>
               {notice ? <Text className="text-sm text-muted">{notice}</Text> : null}
+              {freeExhausted ? (
+                <View className="gap-3">
+                  <Text className="text-sm text-text">
+                    {t("Tu as utilisé tes questions offertes. Avec Premium, pose-en jusqu'à 30 par mois.")}
+                  </Text>
+                  <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("coach", { feature: "coach_free_used" })} />
+                </View>
+              ) : null}
               <Text className="text-[11px] leading-4 text-muted">
                 {t("Le coach ne remplace pas ton vétérinaire et ne donne aucun avis médical.")}
               </Text>
@@ -237,7 +264,12 @@ export default function CoachScreen() {
               <Text className="text-sm font-bold uppercase tracking-wide text-primary">
                 {t("Ton mois de {month}", { month: monthName(last.month) })}
               </Text>
-              {summary === null ? (
+              {gate === "free" ? (
+                <View className="gap-3">
+                  <Text className="text-sm text-muted">{t("Le résumé de ton mois est réservé à Premium.")}</Text>
+                  <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("coach", { feature: "coach_summary" })} />
+                </View>
+              ) : summary === null ? (
                 <ActivityIndicator size="small" color={colors.textMuted} />
               ) : summary.status === "DONE" && summary.text ? (
                 <Text className="text-[15px] leading-5 text-text">{summary.text}</Text>

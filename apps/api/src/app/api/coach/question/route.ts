@@ -4,10 +4,12 @@ import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { runQuestion } from "@/lib/coach/engine";
 import { mentionsSymptom, vetMessage } from "@/lib/coach/safety";
 import { questionRequestSchema } from "@/lib/coach/schemas";
-import { coachAvailable, coachAccess, logCall, questionsUsedThisMonth } from "@/lib/coach/store";
+import { questionAllowance } from "@/lib/coach/allowance";
+import { coachAvailable, coachAccess, logCall, questionsUsedEver, questionsUsedThisMonth } from "@/lib/coach/store";
 
 /**
- * « Pose une question sur ton cheval » (Premium, 30 par mois). Réponses tirées
+ * « Pose une question sur ton cheval » (Premium, 30 par mois ; un compte
+ * gratuit a 3 questions offertes en tout, cf. coach/allowance.ts). Réponses tirées
  * uniquement du carnet envoyé par l'app. Un symptôme ou une demande de soin
  * reçoit « appelle ton vétérinaire », sans appel au modèle ni quota consommé.
  */
@@ -20,7 +22,13 @@ export async function POST(req: NextRequest) {
   const body = parsed.data;
 
   const quotas = await coachAccess(userId);
-  if (!quotas) return NextResponse.json({ status: "premium" }, { status: 403 });
+  const [usedThisMonth, usedEver] = await Promise.all([
+    questionsUsedThisMonth(userId),
+    quotas ? Promise.resolve(0) : questionsUsedEver(userId),
+  ]);
+  const allowance = questionAllowance({ quotas, usedThisMonth, usedEver });
+  // Compte gratuit sans question offerte restante : l'app ouvre le paywall.
+  if (allowance.free && !allowance.allowed) return NextResponse.json({ status: "premium" }, { status: 403 });
 
   // Avant tout le reste : même coach coupé, un symptôme mène au vétérinaire.
   if (mentionsSymptom(body.question)) {
@@ -30,10 +38,7 @@ export async function POST(req: NextRequest) {
 
   if (!(await coachAvailable())) return NextResponse.json({ status: "unavailable" });
 
-  const used = await questionsUsedThisMonth(userId);
-  if (used >= quotas.questionsPerMonth) {
-    return NextResponse.json({ status: "quota", questionsLeft: 0 }, { status: 429 });
-  }
+  if (!allowance.allowed) return NextResponse.json({ status: "quota", questionsLeft: 0 }, { status: 429 });
 
   const result = await runQuestion(new Anthropic(), body);
   await logCall({
@@ -50,6 +55,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     status: "ok",
     ...result.value,
-    questionsLeft: Math.max(0, quotas.questionsPerMonth - used - (counted ? 1 : 0)),
+    questionsLeft: Math.max(0, allowance.left - (counted ? 1 : 0)),
+    freeQuestions: allowance.free,
   });
 }

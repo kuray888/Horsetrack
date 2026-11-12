@@ -97,7 +97,7 @@ export default function ConfidentialitePage() {
             <td>Séance en direct</td>
           </tr>
           <tr>
-            <td>Coach (Premium)</td>
+            <td>Coach (Premium, et 3 questions offertes aux comptes gratuits)</td>
             <td>
               Les questions que vous posez au coach. Pour y répondre, l&apos;Application envoie des faits calculés sur
               votre cheval (âge, niveau, discipline, conditions de santé, blessures en cours, séances des dernières
@@ -182,7 +182,7 @@ export default function ConfidentialitePage() {
           le fil de ce cheval (avec notification des participants, et traitement des signalements sous 24 h).
         </li>
         <li>
-          Faire fonctionner le coach (Premium) : proposer la prochaine séance, répondre à vos questions sur le carnet
+          Faire fonctionner le coach (Premium, et 3 questions offertes aux comptes gratuits) : proposer la prochaine séance, répondre à vos questions sur le carnet
           du cheval, résumer chaque mois. Le coach ne donne aucun avis vétérinaire.
         </li>
         <li>Gérer votre abonnement et votre période d&apos;essai.</li>

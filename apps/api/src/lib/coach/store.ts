@@ -65,6 +65,12 @@ export async function questionsUsedThisMonth(userId: string): Promise<number> {
   });
 }
 
+/** Toutes les questions qui ont coûté un appel, depuis toujours : décompte des
+ * questions offertes à un compte gratuit (cf. coach/allowance.ts). */
+export async function questionsUsedEver(userId: string): Promise<number> {
+  return db.coachCall.count({ where: { userId, kind: "question", status: { in: ["ok", "fallback", "refusal"] } } });
+}
+
 export async function logCall(input: {
   userId: string;
   kind: "suggestion" | "question" | "summary";

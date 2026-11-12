@@ -118,6 +118,8 @@ export type AnalyticsEvent =
   | "item_deleted"
   // Météo chargée (une fois par lancement) : créneau pour monter proposé ? alertes ?
   | "weather_loaded"
+  // Compte gratuit qui ouvre le coach avec ses questions offertes.
+  | "coach_free_opened"
   // « Afficher la météo » touché (la demande de localisation vient de ce geste).
   | "weather_enable_tapped"
   | "deletion_undone"

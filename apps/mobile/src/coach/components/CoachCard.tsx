@@ -16,7 +16,7 @@ import { exerciseById } from "@/coach/exerciseLibrary";
 import { buildConstraints } from "@/coach/constraints";
 import { buildCoachFacts, dayDiff } from "@/coach/facts";
 import { codeSuggestion, plannedSessionFromSuggestion, suggestionRequestBody, type CoachSuggestion } from "@/coach/suggestion";
-import { requestSuggestion, type SuggestionResponse } from "@/coach/coachApi";
+import { fetchCoachStatus, requestSuggestion, type SuggestionResponse } from "@/coach/coachApi";
 import { useCoachContext } from "@/coach/useCoachContext";
 import { useCoachConsent } from "@/coach/useCoachConsent";
 import { LANG, t } from "@/i18n";
@@ -51,6 +51,18 @@ export function CoachCard({ horse }: { horse: Horse }) {
   // Le carnet n'est envoyé à l'IA qu'avec l'accord de l'utilisateur (cf. coach/consent.ts).
   const { granted } = useCoachConsent();
   const [planned, setPlanned] = useState(false);
+  // Compte gratuit : questions offertes au coach (lu une fois, sans donnée du cheval).
+  const [freeLeft, setFreeLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (isActiveOrTrialing) return;
+    let cancelled = false;
+    fetchCoachStatus().then((st) => {
+      if (!cancelled) setFreeLeft(st?.freeQuestionsLeft ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isActiveOrTrialing]);
   const [showExercises, setShowExercises] = useState(false);
   // Incrémenté à l'arrivée d'une réponse : la réponse elle-même est lue dans
   // `memory`, pendant le rendu.
@@ -190,6 +202,21 @@ export function CoachCard({ horse }: { horse: Horse }) {
             <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/coach")} hitSlop={6} testID="coach-open">
               <Text className="text-sm font-semibold text-accent">
                 {granted === false ? t("Activer le coach IA") : t("Pose une question sur ton cheval")}
+              </Text>
+            </TouchableOpacity>
+          ) : freeLeft !== null && freeLeft > 0 ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => {
+                track("coach_free_opened", { left: freeLeft });
+                router.push("/coach");
+              }}
+              hitSlop={6}
+            >
+              <Text className="text-sm font-semibold text-accent">
+                {freeLeft === 1
+                  ? t("Pose une question au coach : 1 offerte")
+                  : t("Pose une question au coach : {n} offertes", { n: freeLeft })}
               </Text>
             </TouchableOpacity>
           ) : (

@@ -16,6 +16,9 @@ export type CoachStatus = {
   questionsLimit: number;
   /** Absent d'un serveur plus ancien : l'app n'écrit alors aucun nombre. */
   summaryHorsesPerMonth?: number;
+  /** Compte gratuit : questions offertes restantes (null pour un Premium,
+   * absent d'un serveur plus ancien), cf. coach/coachGate.ts. */
+  freeQuestionsLeft?: number | null;
 };
 
 /** Pas d'accord pour l'IA : rien n'a été envoyé (cf. coach/consent.ts). */
