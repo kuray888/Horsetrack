@@ -10,9 +10,16 @@ Chaque ligne vient d'un oubli réel (1.2.0). Cocher dans l'ordre.
 - [ ] SQL Supabase exécutés (cf. `docs/ecurie-pro.md`, `packages/db/prisma/*-2026-*.sql`)
       et `pnpm --filter @cheval/db test:rls` vert.
 
-- [ ] **1.3.0** : l'API de `release/1.3.0` est en production AVANT la publication (fusion dans
-      `main`, puis `tools/check-prod.sh`) : questions offertes du coach, séance en direct offerte
-      une fois, ligne « 3 questions offertes » de la politique de confidentialité.
+- [ ] **1.3.0, dans cet ordre** :
+      1. Supabase : `seance-direct-premium-1-colonne-2026-11-13.sql` (sans effet visible ; la
+         colonne doit exister AVANT l'API, Prisma la lit).
+      2. API de `release/1.3.0` en production (fusion dans `main`, `tools/check-prod.sh`) :
+         questions offertes du coach, route météo, politique de confidentialité.
+      3. Publier la 1.3.0 dans App Store Connect.
+      4. Le même jour : `seance-direct-premium-2-activation-2026-11-13.sql` (les comptes créés
+         ensuite ont la 1re séance en direct offerte, puis Premium ; tous les comptes d'avant
+         gardent tout).
+      5. Site : publier la mise à jour préparée (tarifs : séance en direct, coach, créneau météo).
 
 ## Ce qui est DANS le build
 - [ ] `apps/mobile` : `npx tsc --noEmit`, `pnpm test`, eslint des fichiers modifiés.

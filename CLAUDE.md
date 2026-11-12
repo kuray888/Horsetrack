@@ -57,6 +57,13 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
   apps/api/src/lib/plans.ts) ET reflétée dans l'app (subscription/logic.ts) —
   jamais seulement dans l'app.
 
+- **Décisions du 2026-11-13 (1.3.0)** : les nouveautés sont Premium. Créneau
+  « pour monter » de la météo : Premium (les alertes restent gratuites).
+  Coach IA : 3 questions offertes en tout à un compte gratuit
+  (`coach/allowance.ts`, serveur). Séance en direct : Premium pour les
+  comptes créés après la 1.3.0, la 1re offerte ; les comptes d'avant gardent
+  tout (`rider_profiles.liveRideFree`, `horse_owner_can_live_ride` dans
+  rls.sql, `rides/liveRideAccess.ts`). Essai : 1 mois, inchangé.
 - **Rétrocompatibilité des droits (règle absolue)** : un abonné existant ne
   perd jamais une fonctionnalité. Les partages existants gardent leurs droits
   d'avant (`horse_collaborators.fullAccess`, rôle `LEGACY` dans rls.sql) ; les

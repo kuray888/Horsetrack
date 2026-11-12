@@ -51,6 +51,9 @@ import { RouteTrace } from "@/rides/components/RouteTrace";
 import { GAIT_LABEL, GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { SafetySetupCard } from "@/rides/components/SafetySetupCard";
 import { t } from "@/i18n";
+import { PrimaryButton } from "@/components/onboarding";
+import { openPaywall } from "@/subscription/paywall";
+import { useLiveRideAccess } from "@/rides/useLiveRideAccess";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -77,15 +80,65 @@ function closeRide() {
 export default function RideScreen() {
   const params = useLocalSearchParams<{ sessionId?: string; horseId?: string }>();
   const draft = useRideDraft();
+  const access = useLiveRideAccess();
 
+  // Une séance commencée ou à enregistrer n'est jamais bloquée.
   if (draft?.endedAt != null) return <RideSummaryView draft={draft} endedAt={draft.endedAt} />;
   if (draft) return <RideLiveView draft={draft} />;
-  return <RideSetupView sessionId={params.sessionId ?? null} horseIdParam={params.horseId ?? null} />;
+  if (access === "locked") return <RideLockedView />;
+  return <RideSetupView sessionId={params.sessionId ?? null} horseIdParam={params.horseId ?? null} firstFree={access === "first_free"} />;
+}
+
+/** Nouveau compte gratuit dont la séance offerte est passée (cf. rides/liveRideAccess.ts). */
+function RideLockedView() {
+  const colors = useThemeColors();
+  useEffect(() => {
+    track("live_ride_locked_viewed");
+  }, []);
+  return (
+    <Screen>
+      <FadeInView>
+        <View className="flex-row items-start justify-between gap-3">
+          <Text className="flex-1 text-2xl font-display tracking-tight text-text" accessibilityRole="header">
+            {t("Séance en direct")}
+          </Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={() => closeRide()} hitSlop={10}>
+            <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </FadeInView>
+      <FadeInView delay={40}>
+        <View className={`${CARD} items-center gap-4`}>
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-highlight">
+            <MaterialCommunityIcons name="map-marker-path" size={28} color={colors.primary} accessibilityElementsHidden />
+          </View>
+          <Text className="text-center text-[17px] font-semibold text-text">
+            {t("Ta séance en direct offerte est passée.")}
+          </Text>
+          <Text className="text-center text-[15px] text-muted">
+            {t("Avec Premium, enregistre chaque sortie : chrono, distance, vitesse, allures et tracé GPS, et tes proches veillent en balade.")}
+          </Text>
+          <View className="self-stretch">
+            <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("live_ride", { feature: "live_ride" })} />
+          </View>
+        </View>
+      </FadeInView>
+    </Screen>
+  );
 }
 
 // --- Préparation ---------------------------------------------------------------
 
-function RideSetupView({ sessionId, horseIdParam }: { sessionId: string | null; horseIdParam: string | null }) {
+function RideSetupView({
+  sessionId,
+  horseIdParam,
+  firstFree,
+}: {
+  sessionId: string | null;
+  horseIdParam: string | null;
+  /** Nouveau compte gratuit : sa première séance en direct est offerte. */
+  firstFree: boolean;
+}) {
   const colors = useThemeColors();
   const { selectedHorse } = useHorses();
   const horses = useSelectableHorses();
@@ -189,6 +242,9 @@ function RideSetupView({ sessionId, horseIdParam }: { sessionId: string | null; 
             <Text className="text-sm text-muted">
               {t("Chrono, distance et allures, même écran verrouillé. La séance s'ajoute à ton planning.")}
             </Text>
+            {firstFree ? (
+              <Text className="text-sm font-semibold text-primary">{t("Ta première séance en direct est offerte.")}</Text>
+            ) : null}
           </View>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={() => closeRide()} hitSlop={10}>
             <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />

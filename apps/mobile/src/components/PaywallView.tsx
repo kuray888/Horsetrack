@@ -18,6 +18,7 @@ import {
   DEFAULT_TRIAL,
   FALLBACK_PRICE,
   annualSavingsPercent,
+  comparisonBullets,
   formatDayMonth,
   formatFullDate,
   orderedBenefits,
@@ -32,6 +33,7 @@ import { hapticError, hapticSelection, hapticSuccess } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { getPromoContext, promoAnalyticsProps } from "@/subscription/promoContext";
 import { t } from "@/i18n";
+import { useLiveRideAccess } from "@/rides/useLiveRideAccess";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -40,36 +42,14 @@ const PERIOD_WORD: Record<BillingPeriod, string> = { MONTHLY: t("mois"), ANNUAL:
 
 const CANCEL_WHERE = Platform.OS === "ios" ? t("Réglages > Abonnements") : t("Google Play > Abonnements");
 
-/** Palier gratuit — cf. rls.sql, tout ce qui n'appelle pas
- * rider_is_active_or_trialing. */
-const FREE_BULLETS: string[] = [
-  t("1 cheval"),
-  t("Planning & agenda"),
-  t("1 rappel à la fois"),
-  t("Journal d'entraînement"),
-  t("Séances en direct (chrono, GPS, allures)"),
-  t("Dépenses de base"),
-  t("Objectifs"),
-];
-
-/** Palier Premium — n'inclut QUE ce qui n'est pas déjà dans le palier
- * gratuit ci-dessus. */
-const PREMIUM_BULLETS: string[] = [
-  t("Chevaux illimités"),
-  t("Rappels illimités (notification et e-mail)"),
-  t("Coffre-fort numérique"),
-  t("Partage de chaque cheval avec une personne (demi-pension, coach ou groom)"),
-  t("Concours multi-épreuves"),
-  t("Budget détaillé"),
-  t("Sécurité en balade : position partagée, alerte si tu ne bouges plus"),
-  t("Coach : séance du jour expliquée, questions sur ton cheval, résumé du mois"),
-];
-
 /** Comparatif gratuit/Premium — replié par défaut sous les bénéfices : il
  * répond à « qu'est-ce que je garde gratuitement ? » pour qui le cherche, sans
  * que la colonne gratuite ne concurrence visuellement l'offre à l'ouverture. */
 function ComparisonCard() {
   const colors = useThemeColors();
+  // Compte d'avant la 1.3.0 : la séance en direct reste gratuite pour lui.
+  const liveRide = useLiveRideAccess();
+  const { free: FREE_BULLETS, premium: PREMIUM_BULLETS } = comparisonBullets(liveRide === "allowed" || liveRide === "loading");
   return (
     <View className="flex-row overflow-hidden rounded-card border border-border">
       <View className="flex-1 gap-3 bg-surface p-4">

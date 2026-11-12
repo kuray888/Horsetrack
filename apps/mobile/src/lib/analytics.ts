@@ -120,6 +120,8 @@ export type AnalyticsEvent =
   | "weather_loaded"
   // Compte gratuit qui ouvre le coach avec ses questions offertes.
   | "coach_free_opened"
+  // Nouveau compte gratuit qui ouvre la séance en direct après sa séance offerte.
+  | "live_ride_locked_viewed"
   // « Afficher la météo » touché (la demande de localisation vient de ce geste).
   | "weather_enable_tapped"
   | "deletion_undone"
