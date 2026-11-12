@@ -12,12 +12,17 @@ export const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "calendar",
     title: "Planning",
-    text: "Séances, soins et concours réunis dans un seul planning, en liste ou par mois, avec des filtres pour tout retrouver.",
+    text: "Séances, soins et concours réunis dans un seul planning, en liste ou par mois. Avec Premium, vos créneaux réguliers reviennent seuls chaque semaine.",
   },
   {
-    icon: "timer",
-    title: "Séances",
-    text: "Dressage, CSO, balade, longe ou repos : choisissez la durée et l'intensité, répétez la séance si besoin, cochez-la une fois faite.",
+    icon: "route",
+    title: "Séance en direct",
+    text: "Lancez le chrono en selle : distance, vitesse, allures et tracé GPS s'enregistrent, même écran verrouillé.",
+  },
+  {
+    icon: "bulb",
+    title: "Coach IA",
+    text: "Posez vos questions sur votre cheval : le coach répond d'après son carnet et vous propose une idée de séance (Premium).",
   },
   {
     icon: "syringe",
@@ -37,17 +42,12 @@ export const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "wallet",
     title: "Budget",
-    text: "Notez chaque dépense et sachez enfin ce que coûte votre cheval. Avec Premium, voyez ce qui est payé et ce qui reste à régler.",
-  },
-  {
-    icon: "sun",
-    title: "Suivi quotidien",
-    text: "Chaque jour, l'accueil vous montre la météo, ce qui est à surveiller et vos prochains rendez-vous.",
+    text: "Chaque dépense notée, et le total du mois. Avec Premium, la répartition par poste, le rapport du mois en PDF et l'export en tableur.",
   },
   {
     icon: "users",
     title: "À plusieurs",
-    text: "Suivez tous vos chevaux et partagez l'accès avec votre demi-pension, votre coach ou votre groom (Premium).",
+    text: "Suivez tous vos chevaux et partagez-en un avec votre demi-pension, votre coach ou votre groom, chacun avec ses droits (Premium).",
   },
 ];
 
@@ -63,23 +63,37 @@ export type Story = {
 
 export const STORIES: Story[] = [
   {
-    id: "seances",
-    eyebrow: "Séances",
+    id: "seance-direct",
+    eyebrow: "Séance en direct",
     tone: "blue",
-    title: ["Planifiez", "vos séances."],
-    text: "Dressage, CSO, balade, longe ou repos : une séance se crée en quelques secondes. Choisissez la date, la durée et l'intensité, répétez-la si besoin, puis cochez-la une fois faite.",
+    title: ["Montez.", "L'app compte pour vous."],
+    text: "Choisissez le cheval et l'activité, touchez « Démarrer » : chrono, distance, vitesse et allures s'enregistrent pendant que vous montez, même téléphone en poche. À la fin, la séance rejoint votre planning avec son tracé.",
     bullets: [
-      "Six types de séance, de la longe au jour de repos",
-      "Durée et intensité en un geste",
-      "Séances répétées automatiquement",
-      "Votre objectif de la semaine sur l'accueil",
+      "Chrono, distance, vitesse et allures estimées",
+      "Le tracé GPS de votre parcours",
+      "Fonctionne écran verrouillé, et sans GPS en manège",
+      "En balade, « Prévenir mes proches » : une alerte si vous ne bougez plus (Premium)",
     ],
-    screens: ["nouvelleSeance"],
+    screens: ["seanceDirectDepart", "seanceDirect"],
+  },
+  {
+    id: "coach",
+    eyebrow: "Coach IA",
+    tone: "copper",
+    title: ["Un coach qui connaît", "votre cheval."],
+    text: "Quand a-t-il été vermifugé ? Combien avez-vous dépensé en maréchal cette année ? Le coach répond d'après le carnet de votre cheval, propose une idée de séance adaptée et résume votre mois. Il ne s'active qu'avec votre accord, et ne remplace jamais votre vétérinaire.",
+    bullets: [
+      "Des réponses tirées de vos séances, soins et dépenses",
+      "Une idée de séance chaque jour, expliquée",
+      "Le résumé de votre mois",
+      "Rien n'est envoyé sans votre accord (Premium)",
+    ],
+    screens: ["coach"],
   },
   {
     id: "soins",
     eyebrow: "Soins & santé",
-    tone: "copper",
+    tone: "sky",
     title: ["N'oubliez plus", "aucun soin."],
     text: "Maréchal, véto, ostéo, dentiste, vaccins, vermifuges : tout est noté sur la fiche de votre cheval, avec la prochaine échéance bien visible. Un rappel vous prévient avant chaque rendez-vous.",
     bullets: [
@@ -91,18 +105,19 @@ export const STORIES: Story[] = [
     screens: ["ficheCheval"],
   },
   {
-    id: "concours",
-    eyebrow: "Concours",
-    tone: "sky",
-    title: ["Préparez", "vos concours."],
-    text: "Vos concours prennent place dans le planning, à côté des séances et des soins. Détaillez-les épreuve par épreuve et activez un rappel pour ne rien laisser au hasard.",
+    id: "planning",
+    eyebrow: "Planning & concours",
+    tone: "blue",
+    title: ["Toute la semaine,", "d'un coup d'œil."],
+    text: "Séances, soins et concours prennent place dans un même planning. Cochez une séance d'un geste une fois faite, suivez votre semaine, et laissez vos créneaux réguliers revenir tout seuls.",
     bullets: [
-      "Concours, soins et séances dans un même planning",
-      "Le détail épreuve par épreuve (Premium)",
-      "Un rappel activé en un geste",
-      "Des filtres pour n'afficher que ce qui compte",
+      "Séances, soins et concours au même endroit",
+      "La semaine en cours : faites et à venir",
+      "Un widget : la séance du jour sur l'écran d'accueil",
+      "Créneaux réguliers chaque semaine (Premium)",
+      "Concours détaillés épreuve par épreuve (Premium)",
     ],
-    screens: ["planningConcours"],
+    screens: ["planning"],
   },
   {
     id: "journal",
@@ -119,17 +134,32 @@ export const STORIES: Story[] = [
     screens: ["journal"],
   },
   {
-    id: "chevaux",
-    eyebrow: "Vos chevaux",
-    tone: "blue",
-    title: ["Tous vos chevaux.", "Une seule app."],
-    text: "Une fiche complète par cheval : discipline, niveau, race, mais aussi tempérament et points à travailler. Pour mieux le connaître, et le faire connaître à celles et ceux qui s'en occupent avec vous.",
+    id: "budget",
+    eyebrow: "Budget",
+    tone: "sky",
+    title: ["Sachez enfin ce que", "coûte votre cheval."],
+    text: "Pension, maréchal, véto, alimentation : notez chaque dépense et voyez le total du mois et de l'année. Avec Premium, voyez où part votre budget poste par poste, ce qui reste à régler, et exportez tout pour vos comptes.",
     bullets: [
-      "Tempérament et points à travailler",
-      "Chevaux illimités avec Premium",
-      "Partage avec votre demi-pension, votre coach ou votre groom (Premium)",
+      "Le total du mois et de l'année",
+      "La répartition par catégorie et ce qui reste à régler (Premium)",
+      "Le rapport du mois en PDF (Premium)",
+      "L'export de l'année en PDF ou en tableur (Premium)",
     ],
-    screens: ["chevaux", "ajouterCheval"],
+    screens: ["budget"],
+  },
+  {
+    id: "partage",
+    eyebrow: "À plusieurs",
+    tone: "blue",
+    title: ["Partagez votre cheval.", "Gardez la main."],
+    text: "Invitez votre demi-pension, votre coach ou votre groom : il retrouve le planning, les soins et les rendez-vous du cheval. Chacun a les droits de son rôle, et votre budget reste à vous.",
+    bullets: [
+      "Une personne invitée par cheval (Premium)",
+      "Des droits selon le rôle : la DP note ses séances",
+      "Votre budget et vos documents restent privés",
+      "Chevaux illimités avec Premium",
+    ],
+    screens: ["partage"],
   },
 ];
 
@@ -191,10 +221,11 @@ export const PLANS = {
     audience: "Pour suivre un cheval au quotidien.",
     items: [
       "1 cheval",
-      "Planning et séances",
-      "Agenda des soins et rendez-vous",
+      "Planning, séances et agenda des soins",
+      "Séances en direct : chrono, GPS, allures",
       "Journal avec météo",
       "Suivi des dépenses",
+      "Objectifs",
       "1 rappel à la fois",
     ],
   },
@@ -207,13 +238,14 @@ export const PLANS = {
     audience: "Pour tout suivre, à plusieurs et sans limite.",
     items: [
       "Chevaux illimités",
+      "Coach IA : questions sur votre cheval, idée de séance, résumé du mois",
       "Rappels illimités, par notification et email",
       "Coffre-fort : ordonnances et factures en photo",
       "Partage avec votre DP, coach ou groom",
+      "Sécurité en balade : vos proches prévenus si vous ne bougez plus",
       "Concours détaillés épreuve par épreuve",
-      "Dépenses payées et restant à régler",
-      "Créneaux réguliers chaque semaine et rapport du mois en PDF",
-      "Export des dépenses de l'année en PDF ou en tableur",
+      "Budget détaillé, rapport du mois en PDF et export en tableur",
+      "Créneaux réguliers chaque semaine",
     ],
   },
   pro: {
@@ -237,11 +269,11 @@ export const PLANS = {
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Horsetrack est-il gratuit ?",
-    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
+    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, les séances en direct avec GPS, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
   },
   {
     q: "Que contient Horsetrack Premium ?",
-    a: `Les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), le détail des concours épreuve par épreuve, le suivi de ce qui est payé ou reste à régler, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
+    a: `Le coach IA, les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), la sécurité en balade, le détail des concours épreuve par épreuve, le budget détaillé, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
   },
   {
     q: "Sur quels appareils fonctionne Horsetrack ?",
@@ -250,6 +282,14 @@ export const FAQ: { q: string; a: string }[] = [
   {
     q: "Puis-je partager mon cheval avec ma demi-pension ou mon coach ?",
     a: "Oui : avec Premium, invitez une personne par cheval. Elle retrouve le planning, les soins et les rendez-vous du cheval, avec les droits de son rôle : une demi-pension note ses séances, le budget reste visible par vous seul.",
+  },
+  {
+    q: "Comment fonctionne le coach IA ?",
+    a: "Avec Premium, posez une question sur votre cheval : le coach répond d'après son carnet (séances, soins, dépenses, poids), propose une idée de séance et résume votre mois. Il ne s'active qu'après votre accord explicite, retirable à tout moment : seuls les faits utiles sont envoyés à notre prestataire d'IA, sans votre nom ni votre email. Il ne donne aucun avis médical ; pour un symptôme, il vous oriente vers votre vétérinaire.",
+  },
+  {
+    q: "La séance en direct consomme-t-elle ma batterie ?",
+    a: "Le GPS ne fonctionne que pendant la séance que vous avez lancée, et s'arrête dès que vous la terminez. En manège couvert, coupez le suivi du parcours : le chrono fonctionne sans GPS.",
   },
   {
     q: "Comment fonctionnent les rappels ?",
@@ -275,6 +315,8 @@ export const FAQ: { q: string; a: string }[] = [
 
 export const MARQUEE = [
   "Planning",
+  "Séance en direct",
+  "Coach IA",
   "Séances",
   "Soins & santé",
   "Concours",

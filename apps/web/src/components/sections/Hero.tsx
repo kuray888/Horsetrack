@@ -15,8 +15,9 @@ export function Hero() {
             <span>Toute votre vie</span> <span>équestre.</span> <span className="accent">Au même endroit.</span>
           </h1>
           <p className={`lead ${styles.lead}`}>
-            Séances, soins, concours, journal et budget : Horsetrack réunit le suivi de vos chevaux dans une seule app.
-            Fini les ordonnances perdues, le vermifuge oublié ou le carnet resté à l&apos;écurie.
+            Séances en direct avec GPS, soins, concours, journal, budget et un coach IA qui connaît votre cheval :
+            Horsetrack réunit tout son suivi dans une seule app. Fini les ordonnances perdues, le vermifuge oublié ou
+            le carnet resté à l&apos;écurie.
           </p>
           <div className={styles.actions}>
             <AppStoreBadge id="hero-cta" size="lg" />
@@ -52,7 +53,7 @@ export function Hero() {
           </div>
           <div className={`${styles.phone} ${styles.right}`}>
             <div className={styles.float}>
-              <Screen name="planningConcours" decorative sizes="(min-width: 960px) 250px, 34vw" />
+              <Screen name="planning" decorative sizes="(min-width: 960px) 250px, 34vw" />
             </div>
           </div>
           <div className={`${styles.phone} ${styles.main}`}>

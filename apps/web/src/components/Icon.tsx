@@ -51,6 +51,20 @@ const PATHS = {
       <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </>
   ),
+  // Coach : une ampoule, comme dans l'app.
+  bulb: (
+    <>
+      <path d="M9 18h6M10 21.5h4M12 2.5a6.5 6.5 0 0 0-3.9 11.7c.6.5.9 1.1.9 1.8v.5h6V16c0-.7.3-1.3.9-1.8A6.5 6.5 0 0 0 12 2.5Z" />
+    </>
+  ),
+  // Séance en direct : un tracé entre deux points.
+  route: (
+    <>
+      <circle cx="6" cy="19" r="2.5" />
+      <circle cx="18" cy="5" r="2.5" />
+      <path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5" />
+    </>
+  ),
   bell: (
     <>
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
