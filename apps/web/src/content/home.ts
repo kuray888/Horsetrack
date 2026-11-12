@@ -17,12 +17,12 @@ export const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "route",
     title: "Séance en direct",
-    text: "Lancez le chrono en selle : distance, vitesse, allures et tracé GPS s'enregistrent, même écran verrouillé.",
+    text: "Lancez le chrono en selle : distance, vitesse, allures et tracé GPS s'enregistrent, même écran verrouillé. La première séance est offerte, les suivantes avec Premium.",
   },
   {
     icon: "bulb",
     title: "Coach IA",
-    text: "Posez vos questions sur votre cheval : le coach répond d'après son carnet et vous propose une idée de séance (Premium).",
+    text: "Posez vos questions sur votre cheval : le coach répond d'après son carnet. 3 questions offertes pour l'essayer, puis Premium.",
   },
   {
     icon: "syringe",
@@ -72,6 +72,7 @@ export const STORIES: Story[] = [
       "Chrono, distance, vitesse et allures estimées",
       "Le tracé GPS de votre parcours",
       "Fonctionne écran verrouillé, et sans GPS en manège",
+      "La première séance offerte, puis avec Premium",
       "En balade, « Prévenir mes proches » : une alerte si vous ne bougez plus (Premium)",
     ],
     screens: ["seanceDirectDepart", "seanceDirect"],
@@ -86,7 +87,8 @@ export const STORIES: Story[] = [
       "Des réponses tirées de vos séances, soins et dépenses",
       "Une idée de séance chaque jour, expliquée",
       "Le résumé de votre mois",
-      "Rien n'est envoyé sans votre accord (Premium)",
+      "3 questions offertes pour l'essayer, puis Premium",
+      "Rien n'est envoyé sans votre accord",
     ],
     screens: ["coach"],
   },
@@ -222,7 +224,8 @@ export const PLANS = {
     items: [
       "1 cheval",
       "Planning, séances et agenda des soins",
-      "Séances en direct : chrono, GPS, allures",
+      "1 séance en direct offerte",
+      "3 questions offertes au coach IA",
       "Journal avec météo",
       "Suivi des dépenses",
       "Objectifs",
@@ -238,7 +241,9 @@ export const PLANS = {
     audience: "Pour tout suivre, à plusieurs et sans limite.",
     items: [
       "Chevaux illimités",
-      "Coach IA : questions sur votre cheval, idée de séance, résumé du mois",
+      "Séances en direct : chrono, GPS, allures et tracé",
+      "Coach IA : 30 questions par mois, idée de séance, résumé du mois",
+      "Le meilleur moment pour monter, chaque jour, d'après la météo",
       "Rappels illimités, par notification et email",
       "Coffre-fort : ordonnances et factures en photo",
       "Partage avec votre DP, coach ou groom",
@@ -269,11 +274,11 @@ export const PLANS = {
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Horsetrack est-il gratuit ?",
-    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, les séances en direct avec GPS, le journal, les dépenses et un rappel à la fois. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
+    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, le journal, les dépenses, un rappel à la fois, une séance en direct et 3 questions au coach IA offertes. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
   },
   {
     q: "Que contient Horsetrack Premium ?",
-    a: `Le coach IA, les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), la sécurité en balade, le détail des concours épreuve par épreuve, le budget détaillé, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
+    a: `Les séances en direct avec GPS, le coach IA, le meilleur moment pour monter selon la météo, les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), la sécurité en balade, le détail des concours épreuve par épreuve, le budget détaillé, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
   },
   {
     q: "Sur quels appareils fonctionne Horsetrack ?",
@@ -285,7 +290,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Comment fonctionne le coach IA ?",
-    a: "Avec Premium, posez une question sur votre cheval : le coach répond d'après son carnet (séances, soins, dépenses, poids), propose une idée de séance et résume votre mois. Il ne s'active qu'après votre accord explicite, retirable à tout moment : seuls les faits utiles sont envoyés à notre prestataire d'IA, sans votre nom ni votre email. Il ne donne aucun avis médical ; pour un symptôme, il vous oriente vers votre vétérinaire.",
+    a: "Posez une question sur votre cheval (3 questions offertes, puis 30 par mois avec Premium) : le coach répond d'après son carnet (séances, soins, dépenses, poids), propose une idée de séance et résume votre mois. Il ne s'active qu'après votre accord explicite, retirable à tout moment : seuls les faits utiles sont envoyés à notre prestataire d'IA, sans votre nom ni votre email. Il ne donne aucun avis médical ; pour un symptôme, il vous oriente vers votre vétérinaire.",
   },
   {
     q: "La séance en direct consomme-t-elle ma batterie ?",
