@@ -53,6 +53,9 @@ export type AnalyticsEvent =
   | "winback_offer_viewed"
   | "winback_offer_tapped"
   | "winback_offer_dismissed"
+  // Synchronisation : profil serveur recréé (envoi de fin d'onboarding perdu,
+  // cf. lib/sync/profileRepair.ts) — mesure combien de comptes étaient touchés.
+  | "sync_profile_repaired"
   // Coach IA
   | "coach_session_planned"
   | "coach_question_asked"

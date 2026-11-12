@@ -41,7 +41,7 @@ export { pullAppointments } from "./sync/appointments";
 export { pullDocuments } from "./sync/documents";
 export { pullExpenses } from "./sync/expenses";
 export { pullHorseDetails, pullContacts } from "./sync/extras";
-export { pushRiderProfile, deleteHorsePhotoRemote, pullCloudData, type RemoteTrait, type RemoteInjury, type RemoteHorse, mapRemoteHorse } from "./sync/horses";
+export { pushRiderProfile, readOwnerProfileState, deleteHorsePhotoRemote, pullCloudData, type RemoteTrait, type RemoteInjury, type RemoteHorse, mapRemoteHorse } from "./sync/horses";
 export { pullJournalEntries } from "./sync/journal";
 export { pullTrainingSessions } from "./sync/sessions";
 export { retryPendingWrites, settleRemoteWrite } from "./sync/shared";

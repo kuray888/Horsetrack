@@ -10,10 +10,13 @@ import { versionedMediaPath } from "./mediaPath";
 /** Profil cavalier et chevaux (photos, traits, blessures) : envoi et relecture.
  * Extrait de lib/cloudSync.ts (façade) sans changement de comportement. */
 
-export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
+/** Vrai si le serveur a enregistré le profil (cf. sync/profileRepair.ts, qui
+ * s'en sert pour savoir si le renvoi a abouti). Ne lève pas pour une erreur
+ * du serveur. */
+export async function pushRiderProfile(rider: RiderProfile): Promise<boolean> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) return;
+  if (!userId) return false;
 
   const now = new Date().toISOString();
   const existing = await getOwnerProfile(userId);
@@ -33,6 +36,24 @@ export async function pushRiderProfile(rider: RiderProfile): Promise<void> {
     ? await supabase.from("rider_profiles").update(fields).eq("id", existing.id)
     : await supabase.from("rider_profiles").insert({ id: generateId(), userId, ...fields });
   if (error) console.warn("[cloudSync] pushRiderProfile échoué", error);
+  return !error;
+}
+
+/** Profil serveur du compte connecté, pour sync/profileRepair.ts : null s'il
+ * n'existe pas, et une ERREUR levée si on n'a pas pu le lire — contrairement
+ * à getOwnerProfile, qui confond les deux. */
+export async function readOwnerProfileState(): Promise<{ id: string; onboardingCompletedAt: string | null } | null> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const userId = userData.user?.id;
+  if (!userId) throw new Error("pas de session");
+  const { data, error } = await supabase
+    .from("rider_profiles")
+    .select("id, onboardingCompletedAt")
+    .eq("userId", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
 }
 /**
  * Photo de profil du cheval : même logique que le coffre-fort (upload à la

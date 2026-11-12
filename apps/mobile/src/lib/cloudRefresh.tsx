@@ -13,9 +13,14 @@ import {
   pullJournalEntries,
   pullTrainingSessions,
   pullWeightMeasurements,
+  pushRiderProfile,
+  readOwnerProfileState,
   resendUnconfirmedDeletes,
   retryPendingWrites,
 } from "@/lib/cloudSync";
+import { ensureServerRiderProfile } from "@/lib/sync/profileRepair";
+import { useRiderProfile } from "@/rider/store";
+import { track } from "@/lib/analytics";
 import { pullSharedHorses } from "@/lib/sharing";
 import { loadRemoteIndex, noteServerHorses } from "@/lib/remoteIndex";
 import { ensureSyncQueueLoaded } from "@/lib/syncQueue";
@@ -68,6 +73,7 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
   const sessions = useSessions();
   const weight = useWeight();
   const goals = useGoals();
+  const rider = useRiderProfile();
   const [refreshing, setRefreshing] = useState(false);
   const running = useRef<Promise<void> | null>(null);
   const lastRunAt = useRef(0);
@@ -80,12 +86,13 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
 
   // Dernières versions des stores, lues au moment de la fusion (après les
   // relectures réseau) plutôt que capturées au départ.
-  const stores = useRef({ horses, agenda, sessions, weight, goals });
+  const stores = useRef({ horses, agenda, sessions, weight, goals, rider });
   useEffect(() => {
-    stores.current = { horses, agenda, sessions, weight, goals };
-  }, [horses, agenda, sessions, weight, goals]);
+    stores.current = { horses, agenda, sessions, weight, goals, rider };
+  }, [horses, agenda, sessions, weight, goals, rider]);
 
-  const ready = !horses.loading && agenda.syncReady && !sessions.loading && !weight.loading && !goals.loading;
+  const ready =
+    !horses.loading && agenda.syncReady && !sessions.loading && !weight.loading && !goals.loading && !rider.loading;
 
   const run = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -95,6 +102,15 @@ export function CloudRefreshProvider({ children }: { children: ReactNode }) {
     if (!(await isOnboardingCompleted())) return;
 
     await Promise.all([loadRemoteIndex(), ensureSyncQueueLoaded()]);
+    // Profil serveur absent (envoi de fin d'onboarding perdu) : sans lui,
+    // chevaux et documents ne partent jamais, et la fusion plus bas ne les
+    // rattrape pas (cf. sync/profileRepair.ts). Recréé depuis le profil local
+    // — les données locales sont bien celles de ce compte (vérifié plus haut).
+    const profileRepair = await ensureServerRiderProfile({
+      readProfile: readOwnerProfileState,
+      pushProfile: () => pushRiderProfile(stores.current.rider.riderProfile),
+    });
+    if (profileRepair === "repaired") track("sync_profile_repaired");
     // Envoyer d'abord ce qui attend : moins de lignes « protégées » à la
     // fusion, et le serveur relu contient déjà nos dernières écritures.
     await retryPendingWrites().catch(() => {});
