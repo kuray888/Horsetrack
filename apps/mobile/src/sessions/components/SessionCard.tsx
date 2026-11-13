@@ -13,6 +13,7 @@ import type { SessionRide } from "@/rides/types";
 import { decodePolyline, formatDistance, formatSpeed } from "@/rides/rideMath";
 import { GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { RouteTrace } from "@/rides/components/RouteTrace";
+import { parseTrace } from "@/rides/trace";
 import { exportRideGpx } from "@/rides/exportRideGpx";
 import { hapticTap } from "@/lib/haptics";
 import { t } from "@/i18n";
@@ -169,7 +170,7 @@ export function SessionCard({
               </View>
             ) : null}
             {session.notes.trim() ? <Text className="text-sm leading-5 text-text">{session.notes}</Text> : null}
-            {session.ride?.gps ? <RideDetails ride={session.ride} name={session.customActivityLabel || meta.label} /> : null}
+            {session.ride?.gps ? <RideDetails ride={session.ride} name={session.customActivityLabel || meta.label} sessionId={session.id} /> : null}
             <CommentsButton horseId={session.horseId} targetType="session" targetId={session.id} />
             {readOnly && canToggleDone ? (
               <>
@@ -253,15 +254,31 @@ export function SessionCard({
 }
 
 /** Allures et tracé d'une séance enregistrée en direct (cf. rides/). */
-function RideDetails({ ride, name }: { ride: SessionRide; name: string }) {
+function RideDetails({ ride, name, sessionId }: { ride: SessionRide; name: string; sessionId: string }) {
   const colors = useThemeColors();
   const route = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
+  const trace = useMemo(() => parseTrace(ride.trace, route.length), [ride.trace, route.length]);
   return (
     <View className="gap-3">
       <GaitBreakdown
         seconds={{ walk: ride.walkSeconds, trot: ride.trotSeconds, canter: ride.canterSeconds, halt: ride.haltSeconds }}
       />
       {route.length > 1 ? <RouteTrace coords={route} height={140} /> : null}
+      {trace ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t("Relire la séance")}
+          onPress={() => {
+            hapticTap();
+            router.push({ pathname: "/ride-replay" as never, params: { sessionId } });
+          }}
+          hitSlop={8}
+          className="flex-row items-center gap-2 self-start"
+        >
+          <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.accent} />
+          <Text className="text-sm font-semibold text-accent">{t("Relire la séance")}</Text>
+        </TouchableOpacity>
+      ) : null}
       {route.length > 1 ? (
         <TouchableOpacity
           accessibilityRole="button"

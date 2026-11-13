@@ -125,6 +125,8 @@ export type AnalyticsEvent =
   | "ride_shared"
   // Tracé d'une séance exporté en GPX.
   | "ride_gpx_exported"
+  // Relecture d'une séance en direct (cf. app/ride-replay.tsx).
+  | "ride_replay_opened"
   // Écran Progression de la fiche d'un cheval.
   | "horse_progress_viewed"
   | "referral_nudge_viewed"

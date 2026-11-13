@@ -20,6 +20,8 @@ export type RidePoint = {
   acc: number | null;
   /** Vitesse instantanée en m/s donnée par le GPS (null ou < 0 si inconnue). */
   speed: number | null;
+  /** Altitude en mètres (GPS ; absente des séances d'avant la 1.3.0). */
+  alt?: number | null;
 };
 
 export type RidePause = { start: number; end: number | null };
@@ -93,7 +95,7 @@ export function activeSeconds(startedAt: number, pauses: RidePause[], now: numbe
 /** Vitesse d'un segment en km/h : la vitesse Doppler du GPS quand il la
  * donne (plus fiable que la distance entre deux points bruités), sinon la
  * distance parcourue rapportée au temps. */
-function segmentSpeedKmh(a: RidePoint, b: RidePoint): number {
+export function segmentSpeedKmh(a: RidePoint, b: RidePoint): number {
   if (b.speed !== null && b.speed >= 0) return b.speed * 3.6;
   const dt = (b.t - a.t) / 1000;
   return dt > 0 ? (haversineMeters(a, b) / dt) * 3.6 : 0;

@@ -33,6 +33,22 @@ describe("buildGpx", () => {
   });
 });
 
+describe("buildGpx avec trace détaillée", () => {
+  it("écrit les vraies heures et l'altitude de chaque point", () => {
+    const gpx = buildGpx({
+      name: "x", startedAt: new Date("2026-11-13T10:00:00Z"), endedAt: new Date("2026-11-13T10:30:00Z"), route: ROUTE,
+      trace: { t: [0, 60, 1800], s: [0, 50, 100], a: [1000, 1012, 1050] },
+    });
+    expect(gpx).toContain("<time>2026-11-13T10:01:00.000Z</time>");
+    expect(gpx).toContain("<ele>101.2</ele>");
+  });
+  it("trace de longueur différente : retombe sur les heures réparties", () => {
+    const gpx = buildGpx({ name: "x", startedAt: new Date("2026-11-13T10:00:00Z"), endedAt: new Date("2026-11-13T10:30:00Z"), route: ROUTE, trace: { t: [0], s: [0], a: null } });
+    expect(gpx).toContain("<time>2026-11-13T10:15:00.000Z</time>");
+    expect(gpx).not.toContain("<ele>");
+  });
+});
+
 describe("gpxFileName", () => {
   it("garde un nom lisible et sans caractère interdit", () => {
     expect(gpxFileName("Tornado / été", new Date("2026-11-13T10:00:00Z"))).toBe("Tornado ete - 2026-11-13.gpx");

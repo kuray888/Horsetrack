@@ -5,6 +5,7 @@ import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { track } from "@/lib/analytics";
 import { buildGpx, gpxFileName } from "@/rides/gpx";
 import { decodePolyline } from "@/rides/rideMath";
+import { parseTrace } from "@/rides/trace";
 import type { SessionRide } from "@/rides/types";
 import { t } from "@/i18n";
 
@@ -23,7 +24,7 @@ export async function exportRideGpx(ride: SessionRide, name: string): Promise<vo
     const file = new File(Paths.cache, gpxFileName(name, ride.startedAt));
     if (file.exists) file.delete();
     file.create();
-    file.write(buildGpx({ name, startedAt: ride.startedAt, endedAt: ride.endedAt, route }));
+    file.write(buildGpx({ name, startedAt: ride.startedAt, endedAt: ride.endedAt, route, trace: parseTrace(ride.trace, route.length) }));
     await runNativeInteraction(() => Sharing.shareAsync(file.uri, { mimeType: "application/gpx+xml", UTI: "com.topografix.gpx" }));
     track("ride_gpx_exported", { points: route.length });
   } catch (e) {

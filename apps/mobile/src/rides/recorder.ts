@@ -1,3 +1,4 @@
+import { buildTrace } from "@/rides/trace";
 import { Platform } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
@@ -94,7 +95,7 @@ function persist(force = false) {
   else void removeJson(DRAFT_KEY);
 }
 
-type TaskLocation = { timestamp: number; coords: { latitude: number; longitude: number; accuracy: number | null; speed: number | null } };
+type TaskLocation = { timestamp: number; coords: { latitude: number; longitude: number; accuracy: number | null; speed: number | null; altitude?: number | null } };
 
 export function appendLocations(locations: TaskLocation[]): void {
   if (!draft || draft.endedAt !== null || isRidePaused()) return;
@@ -106,6 +107,7 @@ export function appendLocations(locations: TaskLocation[]): void {
       lng: loc.coords.longitude,
       acc: loc.coords.accuracy ?? null,
       speed: loc.coords.speed ?? null,
+      alt: loc.coords.altitude ?? null,
     };
     if (p.t < draft.startedAt) continue;
     const prev = draft.points[draft.points.length - 1] ?? null;
@@ -229,6 +231,7 @@ export function buildSessionRide(d: RideDraft, endedAt: number): SessionRide {
     gps: d.gps,
     // ~600 points : de quoi dessiner le tracé, quelques Ko une fois encodé.
     route: d.gps && d.points.length > 1 ? encodePolyline(downsample(d.points, 600)) : null,
+    trace: d.gps ? buildTrace(d.points, d.startedAt, 600) : null,
   };
 }
 

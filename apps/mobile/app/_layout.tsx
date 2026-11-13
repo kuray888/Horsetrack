@@ -238,6 +238,7 @@ function AppStack() {
       <Stack.Screen name="goal-modal" options={{ presentation: "modal" }} />
       <Stack.Screen name="session-note-modal" options={{ presentation: "modal" }} />
       <Stack.Screen name="ride" options={{ presentation: "modal" }} />
+      <Stack.Screen name="ride-replay" options={{ presentation: "modal" }} />
       <Stack.Screen name="contacts" options={{ presentation: "modal" }} />
       <Stack.Screen name="referral" options={{ presentation: "modal" }} />
       <Stack.Screen name="coach" options={{ presentation: "modal" }} />

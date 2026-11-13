@@ -67,6 +67,7 @@ export async function pushSessionRideImpl(sessionId: string, horseId: string, ri
     avgSpeedKmh: ride.avgSpeedKmh,
     gps: ride.gps,
     route: ride.route,
+    trace: ride.trace ?? null,
     updatedAt: new Date().toISOString(),
   };
   const { error } = await supabase.from("training_session_rides").upsert(row);
@@ -86,6 +87,7 @@ type RideRow = {
   avgSpeedKmh: number;
   gps: boolean;
   route: string | null;
+  trace: string | null;
 };
 /** Parcours visibles (mêmes règles de partage que les séances), par séance ;
  * null si la lecture échoue (table absente comprise). */
@@ -93,7 +95,7 @@ async function pullSessionRides(): Promise<Map<string, SessionRide> | null> {
   const { data, error } = await supabase
     .from("training_session_rides")
     .select(
-      "sessionId, startedAt, endedAt, durationSeconds, distanceMeters, walkSeconds, trotSeconds, canterSeconds, haltSeconds, maxSpeedKmh, avgSpeedKmh, gps, route"
+      "sessionId, startedAt, endedAt, durationSeconds, distanceMeters, walkSeconds, trotSeconds, canterSeconds, haltSeconds, maxSpeedKmh, avgSpeedKmh, gps, route, trace"
     );
   if (error || !data) return null;
   return new Map(
@@ -112,6 +114,7 @@ async function pullSessionRides(): Promise<Map<string, SessionRide> | null> {
         avgSpeedKmh: row.avgSpeedKmh,
         gps: row.gps,
         route: row.route ?? null,
+        trace: row.trace ?? null,
       },
     ])
   );

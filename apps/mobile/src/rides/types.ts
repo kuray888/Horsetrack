@@ -19,4 +19,6 @@ export type SessionRide = {
   gps: boolean;
   /** Polyligne encodée (cf. rideMath.encodePolyline), null sans GPS. */
   route: string | null;
+  /** Trace détaillée alignée sur `route` (cf. rides/trace.ts) ; absente avant la 1.3.0. */
+  trace?: string | null;
 };
