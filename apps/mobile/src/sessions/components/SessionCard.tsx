@@ -279,6 +279,19 @@ function RideDetails({ ride, name, sessionId }: { ride: SessionRide; name: strin
           <Text className="text-sm font-semibold text-accent">{t("Relire la séance")}</Text>
         </TouchableOpacity>
       ) : null}
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={t("Partager ma séance")}
+        onPress={() => {
+          hapticTap();
+          router.push({ pathname: "/ride-share", params: { sessionId } } as never);
+        }}
+        hitSlop={8}
+        className="flex-row items-center gap-2 self-start"
+      >
+        <MaterialCommunityIcons name="share-variant-outline" size={16} color={colors.accent} />
+        <Text className="text-sm font-semibold text-accent">{t("Partager ma séance")}</Text>
+      </TouchableOpacity>
       {route.length > 1 ? (
         <TouchableOpacity
           accessibilityRole="button"

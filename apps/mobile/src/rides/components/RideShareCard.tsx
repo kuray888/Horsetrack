@@ -7,11 +7,11 @@ import { formatClock, formatDistance, formatSpeed, projectRoute } from "@/rides/
 import { GAIT_LABEL } from "@/rides/components/GaitBreakdown";
 import type { SessionRide } from "@/rides/types";
 import { formatDate } from "@/lib/dateFormat";
+import { cardSize, shareLabel, type ShareFormat } from "@/rides/shareCardLogic";
 import { t } from "@/i18n";
 
 /** Largeur affichée ; la capture est agrandie à 1080 px (story Instagram 9:16). */
 export const SHARE_CARD_WIDTH = 300;
-const HEIGHT = Math.round((SHARE_CARD_WIDTH * 16) / 9);
 const ROUTE_H = 170;
 const WHITE = "#ffffff";
 
@@ -28,9 +28,16 @@ export const RideShareCard = forwardRef<View, {
   horseName: string | null;
   horsePhoto: string | null;
   activity: string;
-}>(function RideShareCard({ ride, route, horseName, horsePhoto, activity }, ref) {
+  format?: ShareFormat;
+  /** Code de parrainage affiché au pied de la carte ; omis sans code. */
+  code?: string | null;
+}>(function RideShareCard({ ride, route, horseName, horsePhoto, activity, format = "story", code = null }, ref) {
+  const size = cardSize(format, SHARE_CARD_WIDTH);
+  const square = format === "square";
+  const codeLine = shareLabel(code);
   const inner = SHARE_CARD_WIDTH - 40;
-  const points = useMemo(() => (route.length > 1 ? projectRoute(route, inner, ROUTE_H, 10) : []), [route, inner]);
+  const routeH = square ? 110 : ROUTE_H;
+  const points = useMemo(() => (route.length > 1 ? projectRoute(route, inner, routeH, 10) : []), [route, inner, routeH]);
   const gaits = (["walk", "trot", "canter"] as const)
     .map((g) => ({ g, s: g === "walk" ? ride.walkSeconds : g === "trot" ? ride.trotSeconds : ride.canterSeconds }))
     .filter((x) => x.s > 0);
@@ -41,7 +48,7 @@ export const RideShareCard = forwardRef<View, {
     <View
       ref={ref}
       collapsable={false}
-      style={{ width: SHARE_CARD_WIDTH, height: HEIGHT, backgroundColor: "#274c77", borderRadius: 20, padding: 20, overflow: "hidden" }}
+      style={{ width: size.width, height: size.height, backgroundColor: "#274c77", borderRadius: 20, padding: 20, overflow: "hidden" }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         {horsePhoto ? (
@@ -58,17 +65,17 @@ export const RideShareCard = forwardRef<View, {
         </View>
       </View>
 
-      <View style={{ marginTop: 22, gap: 14 }}>
-        <Big label={t("Durée")} value={formatClock(ride.durationSeconds)} />
+      <View style={{ marginTop: square ? 12 : 22, gap: 14, flexDirection: square ? "row" : "column", flexWrap: "wrap" }}>
+        <Big label={t("Durée")} value={formatClock(ride.durationSeconds)} small={square} />
         {ride.gps ? (
-          <View style={{ flexDirection: "row", gap: 18 }}>
-            <Big label={t("Distance")} value={formatDistance(ride.distanceMeters)} />
-            <Big label={t("Vitesse moy.")} value={formatSpeed(ride.avgSpeedKmh)} />
+          <View style={{ flexDirection: "row", gap: square ? 14 : 18 }}>
+            <Big label={t("Distance")} value={formatDistance(ride.distanceMeters)} small={square} />
+            <Big label={t("Vitesse moy.")} value={formatSpeed(ride.avgSpeedKmh)} small={square} />
           </View>
         ) : null}
       </View>
 
-      {gaitTotal > 0 ? (
+      {gaitTotal > 0 && !square ? (
         <View style={{ marginTop: 18, gap: 6 }}>
           <View style={{ flexDirection: "row", height: 8, borderRadius: 4, overflow: "hidden", gap: 2 }}>
             {gaits.map((x) => (
@@ -83,7 +90,7 @@ export const RideShareCard = forwardRef<View, {
 
       <View style={{ flex: 1, justifyContent: "center" }}>
         {points.length > 1 ? (
-          <Svg width={inner} height={ROUTE_H}>
+          <Svg width={inner} height={routeH}>
             <Polyline
               points={points.map((p) => `${p.x},${p.y}`).join(" ")}
               fill="none"
@@ -101,17 +108,17 @@ export const RideShareCard = forwardRef<View, {
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <BrandMark size={22} style={{ tintColor: WHITE }} />
         <Text style={{ color: WHITE, fontSize: 15, fontFamily: "BricolageGrotesque_800ExtraBold" }}>Horsetrack</Text>
-        <Text style={{ color: "#a3cef1", fontSize: 12, marginLeft: "auto" }}>horsetrack.fr</Text>
+        <Text style={{ color: "#a3cef1", fontSize: 12, marginLeft: "auto" }}>{codeLine ?? "horsetrack.fr"}</Text>
       </View>
     </View>
   );
 });
 
-function Big({ label, value }: { label: string; value: string }) {
+function Big({ label, value, small = false }: { label: string; value: string; small?: boolean }) {
   return (
     <View>
       <Text style={{ color: "#a3cef1", fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }}>{label}</Text>
-      <Text style={{ color: WHITE, fontSize: 34, fontFamily: "BricolageGrotesque_800ExtraBold" }}>{value}</Text>
+      <Text style={{ color: WHITE, fontSize: small ? 22 : 34, fontFamily: "BricolageGrotesque_800ExtraBold" }}>{value}</Text>
     </View>
   );
 }

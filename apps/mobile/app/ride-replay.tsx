@@ -188,6 +188,21 @@ export default function RideReplayScreen() {
         </View>
       </FadeInView>
 
+      <FadeInView delay={100}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t("Partager ma séance")}
+          onPress={() => {
+            hapticSelection();
+            router.push({ pathname: "/ride-share", params: { sessionId, from: "replay" } } as never);
+          }}
+          className="min-h-[44px] flex-row items-center justify-center gap-2 self-center rounded-full border border-primary px-5 py-2"
+        >
+          <MaterialCommunityIcons name="share-variant-outline" size={18} color={colors.primary} />
+          <Text className="text-[15px] font-bold text-primary">{t("Partager ma séance")}</Text>
+        </TouchableOpacity>
+      </FadeInView>
+
       {alts && altLine.length > 1 ? (
         <FadeInView delay={80}>
           <View
