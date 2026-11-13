@@ -11,8 +11,10 @@ Chaque ligne vient d'un oubli réel (1.2.0). Cocher dans l'ordre.
       et `pnpm --filter @cheval/db test:rls` vert.
 
 - [ ] **1.3.0, dans cet ordre** :
-      1. Supabase : `invitation-gratuite-2026-11-13.sql` (rôle lecture seule ; sans effet sur les
-         partages existants). La séance en direct reste gratuite pour tous : aucun SQL pour elle.
+      1. Supabase, dans cet ordre : `invitation-gratuite-2026-11-13.sql` (rôle lecture seule ; sans
+         effet sur les partages existants), puis `relecture-et-annuaire-2026-11-13.sql` (colonnes
+         `trace` et `address`, additive, rejouable ; OBLIGATOIRE avant l'app : sans elle, la synchro
+         des contacts et des séances de la 1.3.0 échoue). La séance en direct reste gratuite pour tous.
       2. API de `release/1.3.0` en production (fusion dans `main`, `tools/check-prod.sh`) :
          questions offertes du coach, route météo, politique de confidentialité.
       3. Publier la 1.3.0 dans App Store Connect.

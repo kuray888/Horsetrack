@@ -11,13 +11,18 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { deleteContact, saveContact, useContacts } from "@/extras/store";
 import { telUrl, type Contact, type ContactRole } from "@/extras/model";
 import { CONTACT_ROLES, roleMeta } from "@/extras/contactRoles";
+import { mapsUrl, nextVisitFor } from "@/extras/nextVisit";
+import { useAgenda } from "@/agenda/store";
+import { formatDate } from "@/lib/dateFormat";
+import { hapticTap } from "@/lib/haptics";
+import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
-type Draft = { id?: string; name: string; role: ContactRole; phone: string; email: string; notes: string };
-const EMPTY: Draft = { name: "", role: "veto", phone: "", email: "", notes: "" };
+type Draft = { id?: string; name: string; role: ContactRole; phone: string; email: string; notes: string; address: string };
+const EMPTY: Draft = { name: "", role: "veto", phone: "", email: "", notes: "", address: "" };
 
 /**
  * Carnet de contacts : véto, maréchal, ostéo, coach… Un toucher pour appeler.
@@ -27,6 +32,8 @@ const EMPTY: Draft = { name: "", role: "veto", phone: "", email: "", notes: "" }
 export default function ContactsScreen() {
   const colors = useThemeColors();
   const contacts = useContacts();
+  const { appointments } = useAgenda();
+  const now = new Date();
   const [draft, setDraft] = useState<Draft | null>(null);
 
   const sorted = [...contacts].sort(
@@ -44,6 +51,7 @@ export default function ContactsScreen() {
       phone: draft.phone.trim(),
       email: draft.email.trim(),
       notes: draft.notes.trim(),
+      address: draft.address.trim(),
     });
     setDraft(null);
   }
@@ -110,6 +118,16 @@ export default function ContactsScreen() {
                 placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 maxLength={30}
+              />
+            </Field>
+            <Field label={t("Adresse (optionnel)")}>
+              <TextInput
+                className={INPUT}
+                value={draft.address}
+                onChangeText={(address) => setDraft({ ...draft, address })}
+                placeholder={t("Ex : 12 rue du Haras, 49400 Saumur")}
+                placeholderTextColor={colors.textMuted}
+                maxLength={200}
               />
             </Field>
             <Field label={t("Email (optionnel)")}>
@@ -179,6 +197,8 @@ export default function ContactsScreen() {
       {sorted.map((c, i) => {
         const meta = roleMeta(c.role);
         const tel = telUrl(c.phone);
+        const route = mapsUrl(c.address ?? "");
+        const next = nextVisitFor(c, contacts, appointments, now);
         return (
           <FadeInView key={c.id} delay={Math.min(i, 8) * 30}>
             <View className={`${CARD} gap-3`}>
@@ -186,7 +206,7 @@ export default function ContactsScreen() {
                 className="flex-row items-center gap-3"
                 accessibilityRole="button"
                 accessibilityLabel={t("{name}, {role}. Modifier", { name: c.name, role: meta.label })}
-                onPress={() => setDraft({ id: c.id, name: c.name, role: c.role, phone: c.phone, email: c.email, notes: c.notes })}
+                onPress={() => setDraft({ id: c.id, name: c.name, role: c.role, phone: c.phone, email: c.email, notes: c.notes, address: c.address ?? "" })}
               >
                 <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
                   <MaterialCommunityIcons name={meta.icon} size={20} color={colors.primary} />
@@ -199,7 +219,15 @@ export default function ContactsScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
-              {tel || c.email ? (
+              {c.address ? <Text className="text-[13px] text-muted">{c.address}</Text> : null}
+              {next ? (
+                <Text className={`text-[13px] ${next.overdue ? "font-semibold text-warning" : "text-muted"}`}>
+                  {next.overdue
+                    ? t("Dernière visite le {d} : une visite est à prévoir.", { d: formatDate(next.last) })
+                    : t("Dernière visite le {d} : la suivante est conseillée vers le {s}.", { d: formatDate(next.last), s: formatDate(next.suggested) })}
+                </Text>
+              ) : null}
+              {tel || c.email || route ? (
                 <View className="flex-row gap-2">
                   {tel ? (
                     <TouchableOpacity
@@ -210,6 +238,21 @@ export default function ContactsScreen() {
                     >
                       <MaterialCommunityIcons name="phone" size={16} color={colors.textOnPrimary} />
                       <Text className="text-sm font-bold text-on-primary">{t("Appeler")}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {route ? (
+                    <TouchableOpacity
+                      className="flex-1 flex-row items-center justify-center gap-2 rounded-card border border-border p-3"
+                      accessibilityRole="button"
+                      accessibilityLabel={t("Itinéraire vers {name}", { name: c.name })}
+                      onPress={() => {
+                        hapticTap();
+                        track("contact_route_opened");
+                        void Linking.openURL(route);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="map-marker-outline" size={16} color={colors.text} />
+                      <Text className="text-sm font-semibold text-text">{t("Itinéraire")}</Text>
                     </TouchableOpacity>
                   ) : null}
                   {c.email ? (

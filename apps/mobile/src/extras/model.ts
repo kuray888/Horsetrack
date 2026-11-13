@@ -64,6 +64,8 @@ export type Contact = {
   phone: string;
   email: string;
   notes: string;
+  /** Adresse, pour l'itinéraire (1.3.0) ; absente des contacts d'avant. */
+  address?: string;
   updatedAt: string;
 };
 

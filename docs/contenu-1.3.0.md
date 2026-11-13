@@ -8,6 +8,10 @@
 - Coach IA : 3 questions offertes à un compte gratuit.
 - Partage : un compte gratuit invite une personne par cheval en lecture seule ; texte
   d'introduction corrigé ; site à jour.
+- Séance relue : trace détaillée (heure, vitesse, altitude), écran « Relire la séance » (tracé par
+  allure, curseur, dénivelé lissé), GPX avec vraies heures et altitudes.
+- Annuaire (phase 1) : adresse du contact, bouton Itinéraire (Plans), prochaine visite conseillée
+  (maréchal 7 semaines, dentiste 1 an) ; appel et rendez-vous existaient déjà.
 - Progression du cheval : écran dans la fiche (régularité, temps de travail sur 12 semaines, poids).
 - Annulation d'une suppression (séance, journal, dépense) pendant 5 s ; synchro : profil serveur recréé.
 - Carte de parrainage de l'Accueil.
@@ -19,16 +23,13 @@
 - Relire en anglais : Progression, export GPX, texte de partage.
 
 ## À reporter (1.3.x ou 1.4)
-- Séance relue : altitude, dénivelé lissé, tracé coloré par allure, curseur de relecture
-  (demande une colonne `training_session_rides` : trace détaillée, migration additive + test:rls).
-- Fond de carte (build de développement requis).
+- Fond de carte (build de développement requis) ; 3D.
 - Progression : carte partageable, concours / soins / budget, courbes 6 et 12 mois ;
-  gratuit / Premium à décider (proposition du cahier : historique complet et carte en Premium).
-- Annuaire phase 1 : itinéraire (colonne `address`), « Prendre rendez-vous » depuis un contact,
-  prochaine visite (migration additive + test:rls). Phase 2 : à valider avant tout code.
+  gratuit / Premium à décider.
+- Annuaire : « Prendre rendez-vous » depuis un contact (formulaire pré-rempli) ; phase 2 (annuaire partagé).
 
 ## À faire à la main avant le build
-1. Supabase : `invitation-gratuite-2026-11-13.sql` (aucun SQL pour la séance en direct).
+1. Supabase, dans l'ordre : `invitation-gratuite-2026-11-13.sql` puis `relecture-et-annuaire-2026-11-13.sql`.
 2. Déployer l'API de `release/1.3.0` (fusion dans `main` sur ton accord), puis `tools/check-prod.sh`.
 3. App Store Connect : version 1.3.0, notes de revue (compte gratuit avec données).
 4. Publier le site après la sortie.

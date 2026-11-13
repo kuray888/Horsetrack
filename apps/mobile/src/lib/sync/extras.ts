@@ -41,7 +41,7 @@ export async function deleteContactRemoteImpl(id: string, stamp?: number): Promi
 export async function pullContacts(): Promise<Contact[] | null> {
   const { data, error } = await supabase
     .from("rider_contacts")
-    .select("id, name, role, phone, email, notes, updatedAt");
+    .select("id, name, role, phone, email, notes, address, updatedAt");
   if (error || !data) return null;
   return data as Contact[];
 }
