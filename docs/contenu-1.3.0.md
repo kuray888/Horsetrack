@@ -20,6 +20,8 @@
 - Carte de parrainage de l'Accueil.
 
 ## À finir avant soumission
+- (2026-11-14) Fait : audit sécurité, correctifs, site recentré, lien public (nom du cheval masqué par défaut).
+  Reste : revue sur simulateur et anglais, cf. `soumission-app-store-1.3.0.md`.
 - Vérifier le partage à deux comptes sur simulateur (lecture seule gratuit, rôle Premium).
 - Revue Maestro et captures avant/après sur simulateur ; matrice des pires moments (cf. prompt).
 - Bannière « non synchronisé » : audit des chemins qui laissent une donnée seulement sur le téléphone.

@@ -41,13 +41,13 @@ Accueil — FR et EN (compte démo : cf. mémoire, il est gratuit sur simulateur
 
 ## Checklist finale
 
-**Fait par moi** : site recentré (commit `90613d0`), correctifs API (`d8ab5fb`), lien public révoqué à la
+**Fait par moi** : nom du cheval masqué par défaut sur le lien public (interrupteur) ; Next 15.5.29 ; site recentré (commit `90613d0`), correctifs API (`d8ab5fb`), lien public révoqué à la
 suppression de séance, audit (`audit-securite-1.3.0.md`), textes ci-dessus, tests verts
 (API 168, mobile 818, RLS 15 fichiers, web 11).
 
 **À faire par toi, dans l'ordre**
 1. Coller `tools/verif-prod-lecture-seule.sql` dans Supabase (lecture seule) et me donner le résultat.
-2. Décisions : nom du cheval sur la page publique (oui/non) ; Vercel : règle de débit.
+2. Vercel : règle de débit (cf. audit § à décider 3).
 3. Relire `pnpm audit` chez toi (cf. audit § à décider 4).
 4. Ton accord pour : push `release/1.3.0`, fusion `main`, déploiement API puis `tools/check-prod.sh`.
 5. Revue sur simulateur (liste ci-dessous), puis ton accord pour le build EAS.
