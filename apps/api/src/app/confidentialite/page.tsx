@@ -136,7 +136,7 @@ export default function ConfidentialitePage() {
           <tr>
             <td>Lien public d&apos;une séance (facultatif)</td>
             <td>
-              Si vous créez un lien pour partager une balade : le nom du cheval, le type de séance, la date, la durée, la
+              Si vous créez un lien pour partager une balade : le nom du cheval (seulement si vous activez « Afficher le nom du cheval sur le lien »), le type de séance, la date, la durée, la
               distance, les allures et le tracé (sans le départ ni l&apos;arrivée si vous avez choisi de les masquer),
               jamais votre nom ni votre email. Toute personne qui a le lien peut le voir ; la page n&apos;est pas
               indexée par les moteurs de recherche et n&apos;utilise aucun fond de carte tiers. Conservé jusqu&apos;à ce

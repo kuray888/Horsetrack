@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { revokeLinksForSessions } from "./publicLink";
 
 const store: Record<string, unknown> = {};
 vi.mock("@/lib/localStore", () => ({
@@ -11,8 +12,6 @@ vi.mock("@/lib/localStore", () => ({
 vi.mock("@/lib/supabase", () => ({
   supabase: { auth: { getSession: async () => ({ data: { session: { access_token: "jwt" } } }) } },
 }));
-
-import { revokeLinksForSessions } from "./publicLink";
 
 const KEY = "public_ride_links_v1";
 

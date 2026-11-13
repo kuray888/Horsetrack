@@ -38,9 +38,8 @@ est à coller dans le SQL Editor (lecture seule).
 
 ## À décider / à faire par toi
 
-1. **Nom du cheval sur la page publique** : affiché (« Séance avec Quasar ») et déclaré dans la
-   politique. Ton cahier des charges le comptait comme donnée personnelle : veux-tu un interrupteur
-   « Afficher le nom du cheval » (décision produit, petit changement) ou garder tel quel ?
+1. **Nom du cheval sur la page publique** : décidé (cohérence avec « pas de donnée personnelle ») : masqué par défaut,
+   le cavalier peut l'afficher avec un interrupteur sur la carte de partage ; politique de confidentialité mise à jour.
 2. **Masquage départ/arrivée** : fait par l'app avant l'envoi ; le serveur ne peut pas le vérifier.
    Risque connu (un client modifié enverrait le tracé complet) : acceptable, c'est le choix de l'utilisateur.
 3. **Vercel WAF** : règle de débit sur `/api/promo/redeem`, `/api/public-ride`, `/api/weather`

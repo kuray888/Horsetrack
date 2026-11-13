@@ -5,7 +5,7 @@ import type { SessionRide } from "@/rides/types";
 /**
  * Lien public d'une séance (cf. apps/api/src/lib/publicRide.ts) : créé
  * volontairement depuis la carte à partager, supprimable à tout moment. Ne part
- * que ce que la carte montre déjà — jamais de nom, de position brute ni d'email.
+ * que ce que la carte montre déjà — jamais de nom de cavalier, de nom de cheval sauf demande, de position brute ni d'email.
  */
 export type PublicRidePayload = {
   sessionId: string;
@@ -29,12 +29,14 @@ export function buildPublicRidePayload(input: {
   activity: string;
   fullRoute: { lat: number; lng: number }[];
   hideEnds: boolean;
+  /** Faux par défaut : le nom du cheval n'apparaît sur la page publique que si le cavalier le demande. */
+  showHorseName?: boolean;
 }): PublicRidePayload {
   const { ride, hideEnds } = input;
   const shown = hideEnds ? maskRouteEnds(input.fullRoute, 200) : input.fullRoute;
   return {
     sessionId: input.sessionId,
-    horseName: input.horseName ?? "",
+    horseName: input.showHorseName ? (input.horseName ?? "") : "",
     activity: input.activity,
     startedAt: ride.startedAt.toISOString(),
     durationSeconds: Math.max(1, ride.durationSeconds),

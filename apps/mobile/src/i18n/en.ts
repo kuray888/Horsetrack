@@ -901,6 +901,8 @@ export const EN: Record<string, string> = {
   "Story": "Story",
   "Carré": "Square",
   "Masquer le départ et l'arrivée": "Hide start and finish",
+  "Afficher le nom du cheval sur le lien": "Show the horse's name on the link",
+  "Par défaut, la page web du lien ne montre pas le nom de ton cheval.": "By default, the link's web page does not show your horse's name.",
   "Retire les 200 premiers et derniers mètres du tracé, pour qu'on ne devine pas d'où tu pars.": "Removes the first and last 200 m of the route, so nobody can tell where you start from.",
   "Afficher mon code de parrainage": "Show my referral code",
   "Quand un ami l'utilise et s'abonne, tu gagnes un mois de Premium.": "When a friend uses it and subscribes, you get a month of Premium.",

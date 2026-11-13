@@ -45,6 +45,7 @@ export function RideShareBlock({
   const [format, setFormat] = useState<ShareFormat>("story");
   const [hideEnds, setHideEnds] = useState(true);
   const [withCode, setWithCode] = useState(true);
+  const [showHorseName, setShowHorseName] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [link, setLink] = useState<PublicLink | null>(null);
@@ -117,7 +118,7 @@ export function RideShareBlock({
           onPress: async () => {
             setLinkBusy(true);
             const created = await createPublicLink(
-              buildPublicRidePayload({ ride, sessionId, horseName, activity, fullRoute, hideEnds })
+              buildPublicRidePayload({ ride, sessionId, horseName, activity, fullRoute, hideEnds, showHorseName })
             );
             setLinkBusy(false);
             if (!created) {
@@ -198,6 +199,15 @@ export function RideShareBlock({
               <Text className="text-[13px] text-muted">{t("Retire les 200 premiers et derniers mètres du tracé, pour qu'on ne devine pas d'où tu pars.")}</Text>
             </View>
             <Switch value={hideEnds} onValueChange={(v) => { hapticSelection(); setHideEnds(v); }} accessibilityLabel={t("Masquer le départ et l'arrivée")} />
+          </View>
+        ) : null}
+        {horseName ? (
+          <View className="flex-row items-center justify-between gap-4">
+            <View className="flex-1 gap-1">
+              <Text className="text-[15px] font-semibold text-text">{t("Afficher le nom du cheval sur le lien")}</Text>
+              <Text className="text-[13px] text-muted">{t("Par défaut, la page web du lien ne montre pas le nom de ton cheval.")}</Text>
+            </View>
+            <Switch value={showHorseName} onValueChange={(v) => { hapticSelection(); setShowHorseName(v); }} accessibilityLabel={t("Afficher le nom du cheval sur le lien")} />
           </View>
         ) : null}
         {code ? (

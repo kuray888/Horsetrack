@@ -19,6 +19,11 @@ const ride: SessionRide = {
 const route = Array.from({ length: 101 }, (_, i) => ({ lat: 48 + i * 0.0001, lng: 2 }));
 
 describe("buildPublicRidePayload", () => {
+  it("n'envoie le nom du cheval que si le cavalier l'a demandé", () => {
+    const base = { ride, sessionId: "s1", horseName: "Tornado", activity: "Balade", fullRoute: route, hideEnds: true };
+    expect(buildPublicRidePayload(base).horseName).toBe("");
+    expect(buildPublicRidePayload({ ...base, showHorseName: true }).horseName).toBe("Tornado");
+  });
   it("envoie le tracé amputé du départ et de l'arrivée quand on les masque", () => {
     const masked = buildPublicRidePayload({ ride, sessionId: "s1", horseName: "Tornado", activity: "Balade", fullRoute: route, hideEnds: true });
     const open = buildPublicRidePayload({ ride, sessionId: "s1", horseName: "Tornado", activity: "Balade", fullRoute: route, hideEnds: false });
@@ -36,7 +41,7 @@ describe("buildPublicRidePayload", () => {
       ["activity", "avgSpeedKmh", "canterSeconds", "distanceMeters", "durationSeconds", "endsHidden", "horseName", "route", "sessionId", "startedAt", "trotSeconds", "walkSeconds"].sort()
     );
     expect(p.startedAt).toBe("2026-11-13T10:00:00.000Z");
-    expect(p.horseName).toBe("Tornado");
+    expect(p.horseName).toBe("");
   });
   it("séance sans GPS : pas de tracé", () => {
     const p = buildPublicRidePayload({ ride: { ...ride, gps: false, route: null }, sessionId: "s1", horseName: null, activity: "Manège", fullRoute: [], hideEnds: true });
