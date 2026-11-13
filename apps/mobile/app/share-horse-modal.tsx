@@ -199,7 +199,7 @@ export default function ShareHorseModal() {
           </TouchableOpacity>
         </View>
         <Text className="text-sm text-muted">
-          {t("Connecte une demi-pension, un coach, une cavalière ou un groom pour qu'il·elle puisse lire et écrire sur le planning, les concours, le journal et le budget de ce cheval, et consulter sa fiche santé. Le coffre-fort de documents reste réservé au propriétaire.")}
+          {t("Invite une personne à suivre ce cheval. Gratuitement, elle lit le planning, les soins et le journal. Avec Premium, choisis son rôle : ses droits en dépendent (voir ci-dessous). Le coffre-fort de documents reste réservé au propriétaire.")}
         </Text>
 
         {!loaded ? null : loadError ? (
