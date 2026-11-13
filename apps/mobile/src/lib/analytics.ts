@@ -123,6 +123,8 @@ export type AnalyticsEvent =
   // Carte de parrainage de l'Accueil (cf. referralNudgeLogic.ts).
   // Carte de séance partagée en story (cf. RideShareCard).
   | "ride_shared"
+  // Tracé d'une séance exporté en GPX.
+  | "ride_gpx_exported"
   | "referral_nudge_viewed"
   | "referral_nudge_opened"
   | "referral_nudge_dismissed"

@@ -13,6 +13,8 @@ import type { SessionRide } from "@/rides/types";
 import { decodePolyline, formatDistance, formatSpeed } from "@/rides/rideMath";
 import { GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { RouteTrace } from "@/rides/components/RouteTrace";
+import { exportRideGpx } from "@/rides/exportRideGpx";
+import { hapticTap } from "@/lib/haptics";
 import { t } from "@/i18n";
 import { CommentsButton } from "@/community/components/CommentsButton";
 
@@ -167,7 +169,7 @@ export function SessionCard({
               </View>
             ) : null}
             {session.notes.trim() ? <Text className="text-sm leading-5 text-text">{session.notes}</Text> : null}
-            {session.ride?.gps ? <RideDetails ride={session.ride} /> : null}
+            {session.ride?.gps ? <RideDetails ride={session.ride} name={session.customActivityLabel || meta.label} /> : null}
             <CommentsButton horseId={session.horseId} targetType="session" targetId={session.id} />
             {readOnly && canToggleDone ? (
               <>
@@ -251,7 +253,8 @@ export function SessionCard({
 }
 
 /** Allures et tracé d'une séance enregistrée en direct (cf. rides/). */
-function RideDetails({ ride }: { ride: SessionRide }) {
+function RideDetails({ ride, name }: { ride: SessionRide; name: string }) {
+  const colors = useThemeColors();
   const route = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
   return (
     <View className="gap-3">
@@ -259,6 +262,21 @@ function RideDetails({ ride }: { ride: SessionRide }) {
         seconds={{ walk: ride.walkSeconds, trot: ride.trotSeconds, canter: ride.canterSeconds, halt: ride.haltSeconds }}
       />
       {route.length > 1 ? <RouteTrace coords={route} height={140} /> : null}
+      {route.length > 1 ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t("Exporter le tracé en GPX")}
+          onPress={() => {
+            hapticTap();
+            void exportRideGpx(ride, name);
+          }}
+          hitSlop={8}
+          className="flex-row items-center gap-2 self-start"
+        >
+          <MaterialCommunityIcons name="export-variant" size={16} color={colors.accent} />
+          <Text className="text-sm font-semibold text-accent">{t("Exporter le tracé en GPX")}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
