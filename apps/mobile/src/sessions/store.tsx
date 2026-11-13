@@ -13,6 +13,7 @@ import { keepLocalRide, reviveRide } from "@/rides/rideSync";
 import { useHorses } from "@/horses/store";
 import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { track } from "@/lib/analytics";
+import { revokeLinksForSessions } from "@/rides/publicLink";
 
 /**
  * Séances d'entraînement planifiées manuellement par le cavalier — remplace
@@ -291,6 +292,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const deleteSession = useCallback((sessionId: string) => {
     setSessions((list) => list.filter((s) => s.id !== sessionId));
     deleteTrainingSessionRemote(sessionId).catch(() => {});
+    revokeLinksForSessions([sessionId]).catch(() => {});
   }, []);
 
   // Séances retirées de l'écran dont la suppression attend encore son
@@ -304,6 +306,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         setList: setSessions,
         commitRemote: (s) => {
           deleteTrainingSessionRemote(s.id).catch(() => {});
+          revokeLinksForSessions([s.id]).catch(() => {});
         },
         pending: pendingRemovalRef.current,
       })(sessionId),
@@ -375,6 +378,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeHorseData = useCallback((horseId: string) => {
+    revokeLinksForSessions(sessionsRef.current.filter((s) => s.horseId === horseId).map((s) => s.id)).catch(() => {});
     setSessions((list) => list.filter((s) => s.horseId !== horseId));
   }, []);
 

@@ -49,3 +49,17 @@ export async function revokePublicLink(sessionId: string, token: string): Promis
   await storeLink(sessionId, null);
   return true;
 }
+
+/**
+ * Séance(s) supprimée(s) : leur lien public disparaît aussi, sinon la page du
+ * parcours resterait en ligne alors que le cavalier croit l'avoir effacé.
+ * Hors ligne, le lien reste enregistré (rien n'est perdu) et la suppression du
+ * compte l'efface de toute façon côté serveur.
+ */
+export async function revokeLinksForSessions(sessionIds: string[]): Promise<void> {
+  const map = await readJson<Record<string, PublicLink>>(KEY, {});
+  for (const id of sessionIds) {
+    const link = map[id];
+    if (link) await revokePublicLink(id, link.token);
+  }
+}
