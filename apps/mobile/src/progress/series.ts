@@ -93,3 +93,21 @@ export function weightTrend(
   const lastKg = inRange[inRange.length - 1].weightKg;
   return { firstKg, lastKg, deltaKg: lastKg - firstKg, count: inRange.length };
 }
+
+/** Hauteurs des barres d'un histogramme (0 pour une semaine vide, au moins 3 px sinon). */
+export function barHeights(values: number[], maxHeight: number): number[] {
+  const max = Math.max(0, ...values);
+  if (max <= 0) return values.map(() => 0);
+  return values.map((v) => (v <= 0 ? 0 : Math.max(3, Math.round((v / max) * maxHeight))));
+}
+
+/** Points d'une courbe (x de 0 à `width`, y inversé), pour une pesée par point. */
+export function linePoints(values: number[], width: number, height: number, padding = 4): { x: number; y: number }[] {
+  if (values.length === 0) return [];
+  const min = Math.min(...values);
+  const span = Math.max(...values) - min;
+  return values.map((v, i) => ({
+    x: values.length === 1 ? width / 2 : padding + (i * (width - 2 * padding)) / (values.length - 1),
+    y: span === 0 ? height / 2 : height - padding - ((v - min) / span) * (height - 2 * padding),
+  }));
+}

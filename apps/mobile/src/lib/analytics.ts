@@ -125,6 +125,8 @@ export type AnalyticsEvent =
   | "ride_shared"
   // Tracé d'une séance exporté en GPX.
   | "ride_gpx_exported"
+  // Écran Progression de la fiche d'un cheval.
+  | "horse_progress_viewed"
   | "referral_nudge_viewed"
   | "referral_nudge_opened"
   | "referral_nudge_dismissed"

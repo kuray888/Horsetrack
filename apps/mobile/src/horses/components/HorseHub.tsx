@@ -531,6 +531,13 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
             onPress={() => router.push(`/horse/${horse.id}/documents`)}
           />
           <HorseModuleRow
+            icon="chart-line"
+            iconColor={colors.primary}
+            title={t("Progression")}
+            value={t("Régularité, temps de travail, poids")}
+            onPress={() => router.push(`/horse/${horse.id}/progression`)}
+          />
+          <HorseModuleRow
             icon="scale-bathroom"
             iconColor={colors.accent}
             title={t("Poids")}

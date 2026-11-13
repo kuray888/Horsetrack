@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comparePeriods, regularity, weeklySeries, weightTrend, type SessionLike } from "./series";
+import { barHeights, linePoints, comparePeriods, regularity, weeklySeries, weightTrend, type SessionLike } from "./series";
 
 const s = (y: number, m: number, d: number, minutes: number | null, extra: Partial<SessionLike> = {}): SessionLike => ({
   horseId: "h1",
@@ -65,5 +65,29 @@ describe("progression : poids", () => {
   it("moins de deux pesées : pas de tendance", () => {
     expect(weightTrend([m(2026, 11, 1, 512)], NOW, 6)).toBeNull();
     expect(weightTrend([], NOW, 6)).toBeNull();
+  });
+});
+
+describe("barHeights", () => {
+  it("proportionnelles au maximum, semaine vide à 0, minimum 3 px", () => {
+    expect(barHeights([0, 30, 60], 60)).toEqual([0, 30, 60]);
+    expect(barHeights([1, 600], 60)).toEqual([3, 60]);
+  });
+  it("aucune donnée : rien à dessiner", () => {
+    expect(barHeights([0, 0], 60)).toEqual([0, 0]);
+    expect(barHeights([], 60)).toEqual([]);
+  });
+});
+
+describe("linePoints", () => {
+  it("la valeur la plus haute est en haut, étalée sur la largeur", () => {
+    const p = linePoints([500, 510], 100, 40, 4);
+    expect(p[0]).toEqual({ x: 4, y: 36 });
+    expect(p[1]).toEqual({ x: 96, y: 4 });
+  });
+  it("valeurs identiques : ligne au milieu ; un point : centré", () => {
+    expect(linePoints([500, 500], 100, 40).map((p) => p.y)).toEqual([20, 20]);
+    expect(linePoints([500], 100, 40)[0].x).toBe(50);
+    expect(linePoints([], 100, 40)).toEqual([]);
   });
 });
