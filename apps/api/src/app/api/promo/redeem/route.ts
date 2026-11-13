@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db, PromoKind, PromoRedemptionStatus, SubscriptionStatus } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
+import { createRateLimiter } from "@/lib/rateLimit";
 import { checkPromoAvailability, isPremiumNow, normalizePromoCode, storeRedeemUrl } from "@/lib/promoRules";
 
 const schema = z.object({
@@ -9,6 +10,9 @@ const schema = z.object({
   // Absent sur les versions de l'app antérieures aux codes d'offre store.
   platform: z.enum(["ios", "android"]).optional(),
 });
+
+/** 10 essais par compte et par 10 min : empêche de deviner des codes en rafale. */
+const allowAttempt = createRateLimiter({ max: 10, windowMs: 10 * 60_000 });
 
 /** Identifiant App Store public de Horsetrack (cf. apps/mobile/eas.json). */
 const APP_STORE_ID = process.env.APP_STORE_ID ?? "6786889092";
@@ -36,6 +40,10 @@ export async function POST(req: NextRequest) {
   const userId = await getUserIdFromRequest(req);
   if (!userId) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
+  if (!allowAttempt(userId)) {
+    return NextResponse.json({ error: "Trop d'essais. Réessaie dans quelques minutes." }, { status: 429 });
   }
 
   const body = await req.json().catch(() => null);

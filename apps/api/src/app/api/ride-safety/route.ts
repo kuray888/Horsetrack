@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
   const parsed = startSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   const profile = await db.riderProfile.findUnique({
     where: { userId },

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (!isShareToken(token)) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   const parsed = updateSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   const share = await db.rideShare.findUnique({ where: { id: token } });
   if (!share || share.userId !== userId) return NextResponse.json({ error: "Introuvable" }, { status: 404 });

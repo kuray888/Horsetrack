@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { secretMatches } from "@/lib/rateLimit";
 import { z } from "zod";
 import { db, Prisma, SubscriptionStatus, SubscriptionTier } from "@cheval/db";
 import { analyticsEventForRevenueCat, captureServerEvent } from "@/lib/analytics";
@@ -83,7 +84,7 @@ type RevenueCatEvent = z.infer<typeof eventSchema>;
 export async function POST(req: NextRequest) {
   const expected = process.env.REVENUECAT_WEBHOOK_SECRET;
   const auth = req.headers.get("authorization");
-  if (!expected || auth !== `Bearer ${expected}`) {
+  if (!secretMatches(auth, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = eventSchema.safeParse(body.event ?? {});
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+      return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
     }
     event = parsed.data;
   } catch {

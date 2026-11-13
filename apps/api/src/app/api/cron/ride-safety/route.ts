@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { secretMatches } from "@/lib/rateLimit";
 import { db } from "@cheval/db";
 import { sendEmail } from "@/lib/resend";
 import {
@@ -20,7 +21,7 @@ import {
  */
 export async function GET(req: NextRequest) {
   const expected = process.env.CRON_SECRET;
-  if (!expected || req.headers.get("authorization") !== `Bearer ${expected}`) {
+  if (!secretMatches(req.headers.get("authorization"), expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { secretMatches } from "@/lib/rateLimit";
 import { Prisma, db } from "@cheval/db";
 import { coachEnabled, monthlyBudgetUsd } from "@/lib/coach/config";
 import { estimateCostUsd, type CoachUsage } from "@/lib/coach/cost";
@@ -15,7 +16,7 @@ import { logCall, monthSpendUsd } from "@/lib/coach/store";
  */
 export async function GET(req: NextRequest) {
   const expected = process.env.CRON_SECRET;
-  if (!expected || req.headers.get("authorization") !== `Bearer ${expected}`) {
+  if (!secretMatches(req.headers.get("authorization"), expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!coachEnabled()) return NextResponse.json({ skipped: "coach_disabled" });

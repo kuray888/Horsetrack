@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { secretMatches } from "@/lib/rateLimit";
 import { db } from "@cheval/db";
 import { sendEmail } from "@/lib/resend";
 import { getAuthEmail } from "@/lib/supabaseAdmin";
@@ -15,7 +16,7 @@ import { getAuthEmail } from "@/lib/supabaseAdmin";
 export async function GET(req: NextRequest) {
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
-  if (!expected || auth !== `Bearer ${expected}`) {
+  if (!secretMatches(auth, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

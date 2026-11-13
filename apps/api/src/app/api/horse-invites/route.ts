@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+    return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
   }
   const { horseId, invitedEmail, role } = parsed.data;
 
