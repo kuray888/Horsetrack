@@ -11,7 +11,7 @@ PRISMA_DIR="$HERE/../../prisma"
 DB="${RLS_TEST_DB:-horsetrack_rls_test}"
 export PGHOST="${PGHOST:-/tmp}"
 export PGOPTIONS="-c client_min_messages=warning"
-PSQL=(psql -v ON_ERROR_STOP=1 -q -X -d "$DB")
+PSQL=(psql -v ON_ERROR_STOP=1 -v "PRISMA_DIR=$PRISMA_DIR" -q -X -d "$DB")
 
 # Les migrations de prod recopient des sections de rls.sql : elles doivent
 # rester identiques.
