@@ -11,7 +11,7 @@ select 'DEFINER appelable par anon (hors déclencheurs): ' || p.proname from pg_
    and pg_get_function_result(p.oid) <> 'trigger';
 select '1.3.0 présent: public_rides' where to_regclass('public.public_rides') is not null;
 select '1.3.0 présent: ' || table_name || '.' || column_name from information_schema.columns
- where table_schema = 'public' and ((table_name = 'training_sessions' and column_name = 'trace') or (table_name = 'contacts' and column_name = 'address'));
+ where table_schema = 'public' and ((table_name = 'training_session_rides' and column_name = 'trace') or (table_name = 'rider_contacts' and column_name = 'address'));
 select 'public_rides: RLS=' || relrowsecurity || ', policies=' || (select count(*) from pg_policy where polrelid = c.oid)
   from pg_class c where oid = to_regclass('public.public_rides');
 select 'buckets: ' || id || ' public=' || public from storage.buckets;
