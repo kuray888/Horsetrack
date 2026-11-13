@@ -47,7 +47,7 @@ export const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "users",
     title: "À plusieurs",
-    text: "Suivez tous vos chevaux et partagez-en un avec votre demi-pension, votre coach ou votre groom, chacun avec ses droits (Premium).",
+    text: "Invitez gratuitement une personne par cheval en lecture seule. Avec Premium, choisissez son rôle : demi-pension, coach ou groom, chacun avec ses droits.",
   },
 ];
 
@@ -156,8 +156,8 @@ export const STORIES: Story[] = [
     title: ["Partagez votre cheval.", "Gardez la main."],
     text: "Invitez votre demi-pension, votre coach ou votre groom : il retrouve le planning, les soins et les rendez-vous du cheval. Chacun a les droits de son rôle, et votre budget reste à vous.",
     bullets: [
-      "Une personne invitée par cheval (Premium)",
-      "Des droits selon le rôle : la DP note ses séances",
+      "Une personne invitée par cheval, gratuitement, en lecture seule",
+      "Avec Premium, un rôle et des droits : la DP note ses séances",
       "Votre budget et vos documents restent privés",
       "Chevaux illimités avec Premium",
     ],
@@ -225,6 +225,7 @@ export const PLANS = {
       "1 cheval",
       "Planning, séances et agenda des soins",
       "1 séance en direct offerte",
+      "Partage d'un cheval en lecture seule",
       "3 questions offertes au coach IA",
       "Journal avec météo",
       "Suivi des dépenses",
@@ -286,7 +287,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Puis-je partager mon cheval avec ma demi-pension ou mon coach ?",
-    a: "Oui : avec Premium, invitez une personne par cheval. Elle retrouve le planning, les soins et les rendez-vous du cheval, avec les droits de son rôle : une demi-pension note ses séances, le budget reste visible par vous seul.",
+    a: "Oui. Gratuitement, invitez une personne par cheval en lecture seule : elle retrouve le planning, les soins et les rendez-vous. Avec Premium, choisissez son rôle et ses droits : une demi-pension note ses séances, un coach planifie, le budget reste visible par vous seul.",
   },
   {
     q: "Comment fonctionne le coach IA ?",
