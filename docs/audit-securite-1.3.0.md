@@ -45,10 +45,21 @@ est à coller dans le SQL Editor (lecture seule).
    Risque connu (un client modifié enverrait le tracé complet) : acceptable, c'est le choix de l'utilisateur.
 3. **Vercel WAF** : règle de débit sur `/api/promo/redeem`, `/api/public-ride`, `/api/weather`
    (la limite en mémoire repart de zéro à chaque instance). Action Vercel : à toi.
-4. **`pnpm audit`** : plante par manque de mémoire dans cet environnement (aucun résultat) ; à relancer
-   chez toi : `NODE_OPTIONS=--max-old-space-size=8192 pnpm audit --prod`. De plus, pnpm signale que
-   `pnpm.overrides` (sharp) du `package.json` racine **n'est plus lu** : à déplacer dans
-   `pnpm-workspace.yaml` (`overrides:`) ; sans effet sur la sécurité tant que le verrou fixe la version.
+4. **`pnpm audit --prod`** (lancé avec `NODE_OPTIONS=--max-old-space-size=8192`) : 2 critiques, ~30 élevées.
+   - **À corriger avant le déploiement de l'API : `next` 15.5.25 → ≥ 15.5.28** (critique GHSA-2464-fhr4-w9xw,
+     élevée GHSA-p3m5-59mp-jv5r ; le serveur de production est concerné). Essayé : `pnpm update next@^15.5.28`
+     sur `apps/api` et `apps/web` passe `tsc`, les tests et `next build` (15.5.29), mais **réécrit 1 400 lignes
+     du verrou, dont metro (outil de build de l'app)** : annulé, car cela touche le build iOS. À faire en
+     une étape dédiée, avec ton accord, puis `pnpm install`, tests, et un build de développement de l'app.
+   - Même mise à jour : `postcss`, `nanoid`, `sharp` (dépendances de Next).
+   - `zod` 3 (DoS mémoire sur très gros tableaux : correctif seulement en 4.x) : justifié, chaque schéma
+     de l'API borne ses tailles (`max()`), et il faut un compte connecté.
+   - Outils de build seulement, non embarqués dans l'app ni en production : `shell-quote` (critique, serveur
+     de développement de React Native), `@xmldom/xmldom`, `brace-expansion`, `browserslist`, `compression`,
+     `js-yaml`, `node-forge`, `image-size`, `decode-uri-component`, `deepmerge-ts` (CLI Expo/Prisma).
+     À remonter avec la prochaine mise à jour d'Expo, sans urgence.
+   - `pnpm.overrides` (sharp) du `package.json` racine **n'est plus lu** par pnpm : à déplacer dans
+     `pnpm-workspace.yaml` (`overrides:`).
 5. **Base de production** : lancer `tools/verif-prod-lecture-seule.sql` ; ou m'autoriser un accès lecture seule.
 6. Variables à contrôler dans Vercel (je ne peux pas les lister) : `SUPABASE_SERVICE_ROLE_KEY`,
    `DATABASE_URL`, `REVENUECAT_WEBHOOK_SECRET`, `CRON_SECRET`, `ADMIN_USER`, `ADMIN_PASSWORD` (≥ 16),
