@@ -56,6 +56,7 @@ import { SessionReminders } from "@/sessions/SessionReminders";
 import { GlossaryProvider } from "@/glossary/GlossaryProvider";
 import { PickerOverlayProvider } from "@/components/PickerOverlay";
 import { ToastProvider } from "@/components/Toast";
+import { markReferralFirstSeen } from "@/lib/referralNudge";
 import { CrashFallback } from "@/components/CrashFallback";
 import { retryPendingWrites } from "@/lib/cloudSync";
 import { registerPushToken } from "@/lib/pushRegistration";
@@ -68,6 +69,7 @@ import { initRideSafety } from "@/rides/safety";
 // Analytics produit (cf. lib/analytics.ts) : inactives sans clé PostHog.
 startAnalytics();
 markFirstSeen();
+markReferralFirstSeen();
 
 function RootLayout() {
   const [fontsLoaded] = useFonts({ BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold });

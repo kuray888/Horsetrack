@@ -250,6 +250,8 @@ export const EN: Record<string, string> = {
   "Annulable à tout moment dans ": "Cancel anytime in ",
   "Annuler": "Cancel",
   "Séance supprimée": "Session deleted",
+  "Un ami cavalier aimerait Horsetrack ?": "Know a rider who'd love Horsetrack?",
+  "Partage ton code : quand il s'abonne, tu gagnes un mois de Premium.": "Share your code: when they subscribe, you get a month of Premium.",
   "1 séance en direct offerte": "1 free live ride",
   "3 questions offertes au coach IA": "3 free questions to the AI coach",
   "Séances en direct : chrono, GPS, allures et tracé": "Live rides: timer, GPS, gaits and track",

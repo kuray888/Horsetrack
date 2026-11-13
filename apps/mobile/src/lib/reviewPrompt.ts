@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import { withKeyLock } from "@/lib/keyLock";
 import { safeJsonParse } from "@/lib/safeJsonParse";
 import { track } from "@/lib/analytics";
+import { countReferralPositiveMoment } from "@/lib/referralNudge";
 import { initialReviewState, registerPositiveMoment, type ReviewPromptState } from "./reviewPromptLogic";
 
 const KEY = "review_prompt_v1";
@@ -30,6 +31,8 @@ function loadStoreReview(): StoreReviewModule | null {
  * pour ne pas couper l'action en cours. Fire-and-forget, ne rejette jamais.
  */
 export function recordPositiveMoment(kind: PositiveMoment): void {
+  // Le même moment compte pour la carte de parrainage (cf. referralNudgeLogic.ts).
+  countReferralPositiveMoment();
   withKeyLock(KEY, async () => {
     const now = new Date();
     const raw = await SecureStore.getItemAsync(KEY);

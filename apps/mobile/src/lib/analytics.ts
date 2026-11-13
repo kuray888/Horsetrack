@@ -122,6 +122,10 @@ export type AnalyticsEvent =
   | "coach_free_opened"
   // Nouveau compte gratuit qui ouvre la séance en direct après sa séance offerte.
   | "live_ride_locked_viewed"
+  // Carte de parrainage de l'Accueil (cf. referralNudgeLogic.ts).
+  | "referral_nudge_viewed"
+  | "referral_nudge_opened"
+  | "referral_nudge_dismissed"
   // « Afficher la météo » touché (la demande de localisation vient de ce geste).
   | "weather_enable_tapped"
   | "deletion_undone"
