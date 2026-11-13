@@ -50,7 +50,10 @@ est à coller dans le SQL Editor (lecture seule).
      `apps/api` et `apps/web`, version fixée sans `^`. Verrou : seule la ligne `next` change (45 lignes, aucun
      outil de l'app touché) ; `tsc`, tests (API 168, web 11) et `next build` passent. Un `pnpm update` simple
      avait, lui, réécrit 1 400 lignes dont metro : évité. **Reste à faire : déployer l'API** (sur ton accord).
-   - Même mise à jour : `postcss`, `nanoid`, `sharp` (dépendances de Next).
+   - Relancé après la correction : plus de critique côté API ni site. Restent 4 « élevées » hors mobile :
+     `postcss`, `source-map-js` (compilation CSS de Next, pas exécutés en production), `sharp` (optimisation
+     d'images de Next, que l'API n'utilise pas), `deepmerge-ts` (CLI Prisma). Non exploitables en l'état ;
+     à lever avec la prochaine montée de Next/Prisma.
    - `zod` 3 (DoS mémoire sur très gros tableaux : correctif seulement en 4.x) : justifié, chaque schéma
      de l'API borne ses tailles (`max()`), et il faut un compte connecté.
    - Outils de build seulement, non embarqués dans l'app ni en production : `shell-quote` (critique, serveur
