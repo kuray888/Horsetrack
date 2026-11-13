@@ -46,11 +46,10 @@ est à coller dans le SQL Editor (lecture seule).
 3. **Vercel WAF** : règle de débit sur `/api/promo/redeem`, `/api/public-ride`, `/api/weather`
    (la limite en mémoire repart de zéro à chaque instance). Action Vercel : à toi.
 4. **`pnpm audit --prod`** (lancé avec `NODE_OPTIONS=--max-old-space-size=8192`) : 2 critiques, ~30 élevées.
-   - **À corriger avant le déploiement de l'API : `next` 15.5.25 → ≥ 15.5.28** (critique GHSA-2464-fhr4-w9xw,
-     élevée GHSA-p3m5-59mp-jv5r ; le serveur de production est concerné). Essayé : `pnpm update next@^15.5.28`
-     sur `apps/api` et `apps/web` passe `tsc`, les tests et `next build` (15.5.29), mais **réécrit 1 400 lignes
-     du verrou, dont metro (outil de build de l'app)** : annulé, car cela touche le build iOS. À faire en
-     une étape dédiée, avec ton accord, puis `pnpm install`, tests, et un build de développement de l'app.
+   - **Corrigé : `next` 15.5.25 → 15.5.29** (critique GHSA-2464-fhr4-w9xw, élevée GHSA-p3m5-59mp-jv5r) dans
+     `apps/api` et `apps/web`, version fixée sans `^`. Verrou : seule la ligne `next` change (45 lignes, aucun
+     outil de l'app touché) ; `tsc`, tests (API 168, web 11) et `next build` passent. Un `pnpm update` simple
+     avait, lui, réécrit 1 400 lignes dont metro : évité. **Reste à faire : déployer l'API** (sur ton accord).
    - Même mise à jour : `postcss`, `nanoid`, `sharp` (dépendances de Next).
    - `zod` 3 (DoS mémoire sur très gros tableaux : correctif seulement en 4.x) : justifié, chaque schéma
      de l'API borne ses tailles (`max()`), et il faut un compte connecté.
