@@ -1,6 +1,6 @@
 import type { IconName } from "@/components/Icon";
 import type { ScreenName } from "@/content/screens";
-import { PRICING, PRICING_PRO } from "@/content/site";
+import { PRICING } from "@/content/site";
 
 /**
  * Textes de la page d'accueil. Chaque promesse correspond à une fonction
@@ -224,6 +224,7 @@ export const PLANS = {
       "1 cheval",
       "Planning, séances et agenda des soins",
       "Séances en direct : chrono, GPS, allures",
+      "Relecture de la séance et carte à partager",
       "Partage d'un cheval en lecture seule",
       "3 questions offertes au coach IA",
       "Journal avec météo",
@@ -250,22 +251,6 @@ export const PLANS = {
       "Concours détaillés épreuve par épreuve",
       "Budget détaillé, rapport du mois en PDF et export en tableur",
       "Créneaux réguliers chaque semaine",
-    ],
-  },
-  pro: {
-    name: "Écurie Pro",
-    price: PRICING_PRO.monthly,
-    period: "par mois",
-    alt: `ou ${PRICING_PRO.yearly} par an, soit ${(PRICING_PRO.yearlyValue / 12).toFixed(2).replace(".", ",")} € par mois`,
-    audience: "Pour plusieurs chevaux et toute une équipe autour d'eux.",
-    items: [
-      "Jusqu'à 5 personnes par cheval",
-      "Un rôle pour chacun : DP, coach, groom, gérant, véto, maréchal",
-      "Des droits adaptés : chacun note ses séances, le budget reste à vous",
-      "Vue écurie : retards, échéances et dépenses de tous vos chevaux",
-      "Tâches d'écurie, créneaux réguliers et planning de la semaine",
-      "Espace gestionnaire sur ordinateur : planning et exports CSV",
-      "Coach : trois fois plus de questions",
     ],
   },
 } as const;

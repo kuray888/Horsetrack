@@ -61,15 +61,6 @@ export const PRICING = {
   trial: "1 mois",
 } as const;
 
-/** Écurie Pro (cf. docs/ecurie-pro.md), mêmes règles que PRICING. Pas d'essai
- * annoncé ici : il dépend de la configuration App Store, l'app l'affiche. */
-export const PRICING_PRO = {
-  monthly: "14,99 €",
-  yearly: "129,99 €",
-  monthlyValue: 14.99,
-  yearlyValue: 129.99,
-} as const;
-
 /** Éditeur et hébergeur (mentions légales, LCEN art. 6). */
 export const PUBLISHER = {
   name: "Léa Lilou VERCASSON",

@@ -5,7 +5,7 @@ import styles from "@/components/gestion/Gestion.module.css";
 // Page privée : jamais indexée, jamais dans le plan du site.
 export const metadata: Metadata = {
   title: "Espace gestionnaire",
-  description: "Le planning de votre écurie sur grand écran, avec Écurie Pro.",
+  description: "Espace réservé aux équipes d'écurie.",
   robots: { index: false, follow: false },
   alternates: { canonical: "/gestion" },
 };

@@ -110,21 +110,6 @@
   color: var(--sky);
 }
 
-/* Écurie Pro : carte claire, liseré cuivre (la carte sombre reste Premium,
-   l'offre la plus choisie). */
-.pro {
-  border-color: var(--copper, var(--line));
-  border-width: 2px;
-}
-
-.pro .alt {
-  color: var(--muted);
-}
-
-.pro .items .plus {
-  color: var(--muted);
-}
-
 .items .plus {
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
