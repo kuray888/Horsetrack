@@ -8,7 +8,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { listCollaborators } from "@/lib/sharing";
 import { track } from "@/lib/analytics";
 import { useSubscription } from "@/subscription/store";
-import { openPaywall } from "@/subscription/paywall";
 import { t } from "@/i18n";
 
 const DISMISS_DAYS = 30;
@@ -18,7 +17,7 @@ const dismissKey = (horseId: string) => `invite_partner_dismissed_${horseId}`;
  * La fiche Demi-pension nomme déjà la cavalière, mais le cheval n'est
  * partagé avec personne : on propose de l'inviter. Chaque invitée devient
  * une utilisatrice (le partage fait connaître l'app) et le propriétaire
- * gagne un planning commun. Gratuit : la carte mène au paywall « partage ».
+ * gagne un planning commun. Gratuit : une invitation en lecture seule.
  * Rien n'est affiché sans confirmation du serveur qu'aucun collaborateur
  * n'existe (hors ligne : rien), ni pendant 30 jours après une fermeture.
  */
@@ -56,8 +55,8 @@ export function InvitePartnerCard({ horseId, horseName, partnerName }: { horseId
 
   function invite() {
     track("invite_partner_card_tapped", { premium: isActiveOrTrialing });
-    if (isActiveOrTrialing) router.push(`/share-horse-modal?horseId=${horseId}`);
-    else openPaywall("sharing", { feature: "invite_partner_card", horseId });
+    // Gratuit aussi : une invitation en lecture seule (cf. lib/shareRoles.ts).
+    router.push(`/share-horse-modal?horseId=${horseId}`);
   }
 
   function dismiss() {
