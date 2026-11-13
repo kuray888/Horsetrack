@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Linking, Share, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
@@ -51,6 +51,10 @@ import { RouteTrace } from "@/rides/components/RouteTrace";
 import { GAIT_LABEL, GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { SafetySetupCard } from "@/rides/components/SafetySetupCard";
 import { t } from "@/i18n";
+import { runNativeInteraction } from "@/lib/nativeInteraction";
+import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
+import { RideShareCard } from "@/rides/components/RideShareCard";
 import { PrimaryButton } from "@/components/onboarding";
 import { openPaywall } from "@/subscription/paywall";
 import { useLiveRideAccess } from "@/rides/useLiveRideAccess";
@@ -478,6 +482,26 @@ function RideSummaryView({ draft, endedAt }: { draft: RideDraft; endedAt: number
   const ride = useMemo(() => buildSessionRide(draft, endedAt), [draft, endedAt]);
   const horse = horses.find((h) => h.id === draft.horseId) ?? null;
   const route = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
+  const shareRef = useRef<View>(null);
+  const [sharing, setSharing] = useState(false);
+
+  // Carte en story (cf. RideShareCard) : chaque partage montre l'app à
+  // d'autres cavaliers. Le tracé n'a pas de fond de carte : aucun lieu visible.
+  async function handleShare() {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const uri = await captureRef(shareRef, { format: "png", quality: 1, result: "tmpfile", width: 1080 });
+      if (await Sharing.isAvailableAsync()) {
+        await runNativeInteraction(() => Sharing.shareAsync(uri, { mimeType: "image/png", UTI: "public.png" }));
+        track("ride_shared", { gps: ride.gps, minutes: Math.round(ride.durationSeconds / 60) });
+      }
+    } catch {
+      Alert.alert(t("Partage impossible"), t("L'image n'a pas pu être préparée. Réessaie dans un instant."));
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function handleSave() {
     if (saving) return;
@@ -546,6 +570,29 @@ function RideSummaryView({ draft, endedAt }: { draft: RideDraft; endedAt: number
           <RouteTrace coords={route} />
         </FadeInView>
       ) : null}
+
+      <FadeInView delay={100}>
+        <View className="items-center gap-3">
+          <RideShareCard
+            ref={shareRef}
+            ride={ride}
+            route={route}
+            horseName={horse?.name ?? null}
+            horsePhoto={horse?.photoUrl ?? null}
+            activity={ACTIVITY_META[draft.activityType].label}
+          />
+          <TouchableOpacity
+            onPress={() => void handleShare()}
+            disabled={sharing}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: sharing }}
+            className="min-h-[44px] flex-row items-center gap-2 rounded-full border border-primary px-5 py-2"
+          >
+            <MaterialCommunityIcons name="share-variant-outline" size={18} color={colors.primary} accessibilityElementsHidden />
+            <Text className="text-[15px] font-bold text-primary">{sharing ? t("Un instant…") : t("Partager ma séance")}</Text>
+          </TouchableOpacity>
+        </View>
+      </FadeInView>
 
       <FadeInView delay={120}>
         <Field label={t("Un mot sur la séance (facultatif)")}>

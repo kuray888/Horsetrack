@@ -64,6 +64,8 @@ describe("système de design", () => {
       "app/(tabs)/profile.tsx": 1,
       // Anneau sur la carte bg-primary : textOnPrimary vaut blanc dans toutes les palettes.
       "app/(tabs)/planning.tsx": 1,
+      // Image partagée en story : couleurs de la marque, identiques quel que soit le thème choisi.
+      "src/rides/components/RideShareCard.tsx": 9,
     });
   });
 
