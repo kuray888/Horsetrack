@@ -120,8 +120,6 @@ export type AnalyticsEvent =
   | "weather_loaded"
   // Compte gratuit qui ouvre le coach avec ses questions offertes.
   | "coach_free_opened"
-  // Nouveau compte gratuit qui ouvre la séance en direct après sa séance offerte.
-  | "live_ride_locked_viewed"
   // Carte de parrainage de l'Accueil (cf. referralNudgeLogic.ts).
   // Carte de séance partagée en story (cf. RideShareCard).
   | "ride_shared"

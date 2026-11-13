@@ -17,7 +17,7 @@ export const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "route",
     title: "Séance en direct",
-    text: "Lancez le chrono en selle : distance, vitesse, allures et tracé GPS s'enregistrent, même écran verrouillé. La première séance est offerte, les suivantes avec Premium.",
+    text: "Lancez le chrono en selle : distance, vitesse, allures et tracé GPS s'enregistrent, même écran verrouillé.",
   },
   {
     icon: "bulb",
@@ -72,7 +72,6 @@ export const STORIES: Story[] = [
       "Chrono, distance, vitesse et allures estimées",
       "Le tracé GPS de votre parcours",
       "Fonctionne écran verrouillé, et sans GPS en manège",
-      "La première séance offerte, puis avec Premium",
       "En balade, « Prévenir mes proches » : une alerte si vous ne bougez plus (Premium)",
     ],
     screens: ["seanceDirectDepart", "seanceDirect"],
@@ -224,7 +223,7 @@ export const PLANS = {
     items: [
       "1 cheval",
       "Planning, séances et agenda des soins",
-      "1 séance en direct offerte",
+      "Séances en direct : chrono, GPS, allures",
       "Partage d'un cheval en lecture seule",
       "3 questions offertes au coach IA",
       "Journal avec météo",
@@ -242,7 +241,6 @@ export const PLANS = {
     audience: "Pour tout suivre, à plusieurs et sans limite.",
     items: [
       "Chevaux illimités",
-      "Séances en direct : chrono, GPS, allures et tracé",
       "Coach IA : 30 questions par mois, idée de séance, résumé du mois",
       "Le meilleur moment pour monter, chaque jour, d'après la météo",
       "Rappels illimités, par notification et email",
@@ -275,11 +273,11 @@ export const PLANS = {
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Horsetrack est-il gratuit ?",
-    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, le journal, les dépenses, un rappel à la fois, une séance en direct et 3 questions au coach IA offertes. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
+    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, le journal, les dépenses, un rappel à la fois, les séances en direct avec GPS et 3 questions au coach IA offertes. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
   },
   {
     q: "Que contient Horsetrack Premium ?",
-    a: `Les séances en direct avec GPS, le coach IA, le meilleur moment pour monter selon la météo, les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), la sécurité en balade, le détail des concours épreuve par épreuve, le budget détaillé, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
+    a: `Le coach IA, le meilleur moment pour monter selon la météo, les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), la sécurité en balade, le détail des concours épreuve par épreuve, le budget détaillé, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
   },
   {
     q: "Sur quels appareils fonctionne Horsetrack ?",

@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   annualSavingsPercent,
-  comparisonBullets,
   formatDayMonth,
   formatFullDate,
   joinNames,
@@ -184,28 +183,5 @@ describe("isStoreRedeemUrl", () => {
     expect(isStoreRedeemUrl("https://apps.apple.com.evil.fr/redeem?code=A")).toBe(false);
     expect(isStoreRedeemUrl("https://evil.fr/?https://apps.apple.com/redeem?")).toBe(false);
     expect(isStoreRedeemUrl("javascript:alert(1)")).toBe(false);
-  });
-});
-
-describe("comparatif gratuit / Premium", () => {
-  it("compte d'avant la 1.3.0 : la séance en direct reste dans la colonne gratuite", () => {
-    const { free, premium } = comparisonBullets(true);
-    expect(free).toContain("Séances en direct (chrono, GPS, allures)");
-    expect(premium.some((b) => b.startsWith("Séances en direct"))).toBe(false);
-  });
-
-  it("nouveau compte : une séance offerte, les suivantes avec Premium", () => {
-    const { free, premium } = comparisonBullets(false);
-    expect(free).toContain("1 séance en direct offerte");
-    expect(free).not.toContain("Séances en direct (chrono, GPS, allures)");
-    expect(premium).toContain("Séances en direct : chrono, GPS, allures et tracé");
-  });
-
-  it("les questions offertes au coach sont dites, sans double emploi", () => {
-    for (const legacy of [true, false]) {
-      const { free, premium } = comparisonBullets(legacy);
-      expect(free).toContain("3 questions offertes au coach IA");
-      expect(new Set([...free, ...premium]).size).toBe(free.length + premium.length);
-    }
   });
 });

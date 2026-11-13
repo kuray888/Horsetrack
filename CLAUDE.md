@@ -60,10 +60,10 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
 - **Décisions du 2026-11-13 (1.3.0)** : les nouveautés sont Premium. Créneau
   « pour monter » de la météo : Premium (les alertes restent gratuites).
   Coach IA : 3 questions offertes en tout à un compte gratuit
-  (`coach/allowance.ts`, serveur). Séance en direct : Premium pour les
-  comptes créés après la 1.3.0, la 1re offerte ; les comptes d'avant gardent
-  tout (`rider_profiles.liveRideFree`, `horse_owner_can_live_ride` dans
-  rls.sql, `rides/liveRideAccess.ts`). Essai : 1 mois, inchangé.
+  (`coach/allowance.ts`, serveur). Séance en direct (GPS, relecture, carte,
+  export) : GRATUITE pour tous, anciens et nouveaux comptes — lancée et
+  annoncée gratuite en 1.2.0 ; seule la sécurité en balade (alerte à un
+  proche) reste Premium. Ne jamais la verrouiller. Essai : 1 mois, inchangé.
   Invitation : un compte gratuit invite UNE personne par cheval en lecture
   seule (rôle `VIEWER`) ; les rôles qui écrivent restent Premium, et passer un
   VIEWER à un autre rôle demande Premium (`lib/shareRoles.ts`, rls.sql

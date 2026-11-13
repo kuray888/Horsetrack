@@ -423,31 +423,3 @@ export function hasFreeReminderSlot(
 export function isStoreRedeemUrl(url: string): boolean {
   return /^https:\/\/(apps\.apple\.com|play\.google\.com)\/redeem\?/.test(url);
 }
-
-/** Comparatif gratuit / Premium du paywall. `liveRideInFree` : compte d'avant
- * la 1.3.0 (séance en direct gratuite pour lui), cf. rides/liveRideAccess.ts.
- * La colonne Premium n'inclut que ce qui n'est pas déjà gratuit. */
-export function comparisonBullets(liveRideInFree: boolean): { free: string[]; premium: string[] } {
-  const free = [
-    tr("1 cheval"),
-    tr("Planning & agenda"),
-    tr("1 rappel à la fois"),
-    tr("Journal d'entraînement"),
-    liveRideInFree ? tr("Séances en direct (chrono, GPS, allures)") : tr("1 séance en direct offerte"),
-    tr("3 questions offertes au coach IA"),
-    tr("Dépenses de base"),
-    tr("Objectifs"),
-  ];
-  const premium = [
-    tr("Chevaux illimités"),
-    ...(liveRideInFree ? [] : [tr("Séances en direct : chrono, GPS, allures et tracé")]),
-    tr("Rappels illimités (notification et e-mail)"),
-    tr("Coffre-fort numérique"),
-    tr("Partage de chaque cheval avec une personne (demi-pension, coach ou groom)"),
-    tr("Concours multi-épreuves"),
-    tr("Budget détaillé"),
-    tr("Sécurité en balade : position partagée, alerte si tu ne bouges plus"),
-    tr("Coach : séance du jour expliquée, questions sur ton cheval, résumé du mois"),
-  ];
-  return { free, premium };
-}

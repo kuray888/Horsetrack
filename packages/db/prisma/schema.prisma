@@ -64,12 +64,6 @@ model RiderProfile {
   /// Add-on "cheval supplémentaire" acheté à la carte — vient en plus du
   /// quota de chevaux du palier (cf. HORSE_LIMITS côté mobile).
   extraHorseSlots    Int                @default(0)
-  /// Compte d'avant la 1.3.0 : la séance en direct reste gratuite pour lui
-  /// (décision du 2026-11-13). Posé à vrai pour tous les comptes existants par
-  /// seance-direct-premium-1-colonne-2026-11-13.sql ; protégé comme les champs
-  /// d'abonnement (protect_rider_profile_entitlements). Cf. rls.sql
-  /// horse_owner_can_live_ride.
-  liveRideFree       Boolean            @default(false)
   /// Horodatage (event_timestamp_ms RevenueCat) du dernier événement webhook
   /// appliqué à ce profil — sert de garde anti-réordonnancement : un retry
   /// tardif d'un événement plus ancien que celui déjà appliqué (livraison
