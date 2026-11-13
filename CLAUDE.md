@@ -64,6 +64,10 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
   comptes créés après la 1.3.0, la 1re offerte ; les comptes d'avant gardent
   tout (`rider_profiles.liveRideFree`, `horse_owner_can_live_ride` dans
   rls.sql, `rides/liveRideAccess.ts`). Essai : 1 mois, inchangé.
+  Invitation : un compte gratuit invite UNE personne par cheval en lecture
+  seule (rôle `VIEWER`) ; les rôles qui écrivent restent Premium, et passer un
+  VIEWER à un autre rôle demande Premium (`lib/shareRoles.ts`, rls.sql
+  section invitation-gratuite).
 - **Rétrocompatibilité des droits (règle absolue)** : un abonné existant ne
   perd jamais une fonctionnalité. Les partages existants gardent leurs droits
   d'avant (`horse_collaborators.fullAccess`, rôle `LEGACY` dans rls.sql) ; les

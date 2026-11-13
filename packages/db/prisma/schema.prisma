@@ -978,6 +978,10 @@ enum HorseCollaboratorRole {
   /// Professionnels de santé : ajoutent soins et poids, lisent le reste.
   VET
   FARRIER
+  /// Lecture seule (2026-11-13) : la seule invitation ouverte à un compte
+  /// gratuit (une personne par cheval). Voit planning, soins, rendez-vous,
+  /// journal ; n'écrit rien, ne voit ni budget ni documents.
+  VIEWER
 
   @@map("horse_collaborator_role")
 }

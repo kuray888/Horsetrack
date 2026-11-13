@@ -27,6 +27,7 @@ import {
   type CollaboratorRole,
 } from "@/lib/sharing";
 import { t } from "@/i18n";
+import { defaultInviteRole, inviteRoleAvailable } from "@/lib/shareRoles";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -39,6 +40,7 @@ const ROLE_ICON: Record<CollaboratorRole, keyof typeof MaterialCommunityIcons.gl
   MANAGER: "account-tie-outline",
   VET: "stethoscope",
   FARRIER: "anvil",
+  VIEWER: "eye-outline",
 };
 const ROLE_META: Record<CollaboratorRole, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
   DEMI_PENSION: { label: ROLE_LABEL.DEMI_PENSION, icon: ROLE_ICON.DEMI_PENSION },
@@ -48,41 +50,13 @@ const ROLE_META: Record<CollaboratorRole, { label: string; icon: keyof typeof Ma
   MANAGER: { label: ROLE_LABEL.MANAGER, icon: ROLE_ICON.MANAGER },
   VET: { label: ROLE_LABEL.VET, icon: ROLE_ICON.VET },
   FARRIER: { label: ROLE_LABEL.FARRIER, icon: ROLE_ICON.FARRIER },
+  VIEWER: { label: ROLE_LABEL.VIEWER, icon: ROLE_ICON.VIEWER },
 };
 
 const STATUS_META: Record<Collaborator["status"], string> = {
   PENDING: t("En attente"),
   ACCEPTED: t("Actif"),
 };
-
-/** Réservé aux comptes Premium, et 1 collaborateur par cheval (cf. grille
- * tarifaire) — même pattern d'upsell que add-horse-modal.tsx pour la limite
- * de chevaux. */
-function ShareLocked({ horseId, horseName }: { horseId?: string; horseName?: string }) {
-  return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-1 items-center justify-center gap-4 px-6">
-        <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
-          <MaterialCommunityIcons name="lock-outline" size={28} color={colors.primary} />
-        </View>
-        <Text className="text-center text-xl font-bold text-text">{t("Partage ")}{horseName ?? t("ton cheval")} {t(" avec ta demi-pension")}</Text>
-        <Text className="text-center text-sm text-muted">
-          {t("Ta DP, ton coach ou ton groom retrouvent son planning, ses soins et ses rendez-vous. Avec Premium.")}
-        </Text>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => openPaywall("sharing", { feature: "share_horse", horseId })}
-          className="rounded-full bg-primary px-6 py-3"
-        >
-          <Text className="text-sm font-bold text-on-primary">{t("Découvrir Premium")}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Text className="text-sm font-semibold text-muted">{t("Retour")}</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
-}
 
 export default function ShareHorseModal() {
   const { horseId } = useLocalSearchParams<{ horseId: string }>();
@@ -95,7 +69,8 @@ export default function ShareHorseModal() {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<CollaboratorRole>("DEMI_PENSION");
+  // Compte gratuit : une invitation en lecture seule (cf. lib/shareRoles.ts).
+  const [role, setRole] = useState<CollaboratorRole>(() => defaultInviteRole(isActiveOrTrialing));
   const [submitting, setSubmitting] = useState(false);
 
   const refresh = useCallback(() => {
@@ -121,9 +96,6 @@ export default function ShareHorseModal() {
     refresh();
   }, [refresh]);
 
-  if (!isActiveOrTrialing) {
-    return <ShareLocked horseId={horseId} horseName={horse?.name} />;
-  }
   if (!horse) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
@@ -322,28 +294,37 @@ export default function ShareHorseModal() {
                 {COLLABORATOR_ROLES.map((value) => {
                   const meta = ROLE_META[value];
                   const selected = role === value;
+                  const locked = !inviteRoleAvailable(value, isActiveOrTrialing);
                   return (
                     <TouchableOpacity
                       key={value}
                       onPress={() => {
                         hapticSelection();
-                        setRole(value);
+                        // Rôle qui écrit, compte gratuit : c'est Premium.
+                        if (locked) openPaywall("sharing", { feature: `share_role_${value.toLowerCase()}`, horseId });
+                        else setRole(value);
                       }}
                       activeOpacity={0.8}
                       accessibilityRole="radio"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={meta.label}
+                      accessibilityState={{ selected, disabled: locked }}
+                      accessibilityLabel={locked ? t("{role}, avec Premium", { role: meta.label }) : meta.label}
                       className={`w-[48%] flex-row items-center justify-center gap-2 rounded-full border px-4 py-2 ${
                         selected ? "border-primary bg-highlight" : "border-border bg-surface"
                       }`}
                     >
                       <MaterialCommunityIcons name={meta.icon} size={15} color={selected ? colors.primary : colors.textMuted} />
-                      <Text className={`text-sm font-semibold ${selected ? "text-primary" : "text-text"}`}>{meta.label}</Text>
+                      <Text className={`text-sm font-semibold ${selected ? "text-primary" : locked ? "text-muted" : "text-text"}`}>{meta.label}</Text>
+                      {locked ? <MaterialCommunityIcons name="lock-outline" size={13} color={colors.textMuted} accessibilityElementsHidden /> : null}
                     </TouchableOpacity>
                   );
                 })}
               </View>
               <Text className="mt-2 text-sm text-muted">{ROLE_RIGHTS[role]}</Text>
+              {!isActiveOrTrialing ? (
+                <Text className="mt-2 text-sm text-text">
+                  {t("Gratuit : une personne en lecture seule. Avec Premium, choisis son rôle : elle pourra noter ses séances, ajouter des soins…")}
+                </Text>
+              ) : null}
             </Field>
             <PrimaryButton
               label={submitting ? "Envoi…" : t("Envoyer l'invitation")}

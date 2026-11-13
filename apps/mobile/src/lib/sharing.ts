@@ -4,7 +4,7 @@ import type { Horse } from "@/horses/store";
 import { t } from "@/i18n";
 import { invalidateHorseTeam } from "@/horses/team";
 
-export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM" | "MANAGER" | "VET" | "FARRIER";
+export type CollaboratorRole = "DEMI_PENSION" | "COACH" | "RIDER" | "GROOM" | "MANAGER" | "VET" | "FARRIER" | "VIEWER";
 
 /** Ordre d'affichage des rôles proposés à l'invitation. Droits de chacun :
  * lib/permissions.ts (copie de rls.sql). */
@@ -16,6 +16,8 @@ export const COLLABORATOR_ROLES: CollaboratorRole[] = [
   "MANAGER",
   "VET",
   "FARRIER",
+  // Lecture seule : la seule invitation d'un compte gratuit (cf. lib/shareRoles.ts).
+  "VIEWER",
 ];
 /** "duplicate"/"quota"/"not_premium" distinguent les causes réelles d'un
  * insert refusé par la base (contrainte unique horseId+invitedEmail, quota
@@ -40,6 +42,7 @@ export const ROLE_LABEL: Record<CollaboratorRole, string> = {
   MANAGER: t("Gérant·e"),
   VET: t("Vétérinaire"),
   FARRIER: t("Maréchal-ferrant"),
+  VIEWER: t("Lecture seule"),
 };
 
 export const ROLE_LABEL_SHORT: Record<CollaboratorRole, string> = {
@@ -50,6 +53,7 @@ export const ROLE_LABEL_SHORT: Record<CollaboratorRole, string> = {
   MANAGER: t("gérant·e"),
   VET: t("vétérinaire"),
   FARRIER: t("maréchal-ferrant"),
+  VIEWER: t("lecture seule"),
 };
 
 /** Ce que chaque rôle peut faire, en une phrase (choix du rôle à
@@ -62,6 +66,7 @@ export const ROLE_RIGHTS: Record<CollaboratorRole, string> = {
   MANAGER: t("Gère tout comme toi : séances, soins, dépenses, fiche et équipe. Ne peut pas supprimer le cheval."),
   VET: t("Ajoute ses soins et les pesées, voit le reste de la fiche."),
   FARRIER: t("Ajoute ses passages et voit le reste de la fiche."),
+  VIEWER: t("Voit le planning, les soins, les rendez-vous et le journal. Ne modifie rien et ne voit pas les dépenses."),
 };
 
 export type Collaborator = {

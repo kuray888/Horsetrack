@@ -34,7 +34,8 @@ export type Capability =
 const ALL: HorseRole[] = ["OWNER", "LEGACY", "MANAGER", "COACH", "DEMI_PENSION", "RIDER", "GROOM", "VET", "FARRIER"];
 
 export const CAPABILITIES: Record<Capability, HorseRole[]> = {
-  read: ALL,
+  // VIEWER (invitation gratuite, lecture seule) : lire, rien d'autre.
+  read: [...ALL, "VIEWER"],
   edit_details: ["OWNER", "LEGACY", "MANAGER"],
   manage_sharing: ["OWNER", "MANAGER"],
   manage_sessions: ["OWNER", "LEGACY", "MANAGER", "COACH"],

@@ -31,6 +31,7 @@ const ROLE_LABEL: Record<CollaboratorRole, string> = {
   MANAGER: "en tant que gérant·e",
   VET: "en tant que vétérinaire",
   FARRIER: "en tant que maréchal-ferrant",
+  VIEWER: "en lecture seule",
 };
 
 /**

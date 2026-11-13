@@ -12,7 +12,8 @@ Chaque ligne vient d'un oubli réel (1.2.0). Cocher dans l'ordre.
 
 - [ ] **1.3.0, dans cet ordre** :
       1. Supabase : `seance-direct-premium-1-colonne-2026-11-13.sql` (sans effet visible ; la
-         colonne doit exister AVANT l'API, Prisma la lit).
+         colonne doit exister AVANT l'API, Prisma la lit) et `invitation-gratuite-2026-11-13.sql`
+         (rôle lecture seule ; sans effet sur les partages existants).
       2. API de `release/1.3.0` en production (fusion dans `main`, `tools/check-prod.sh`) :
          questions offertes du coach, route météo, politique de confidentialité.
       3. Publier la 1.3.0 dans App Store Connect.

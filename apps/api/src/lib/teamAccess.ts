@@ -5,7 +5,7 @@
  * gérant. Logique pure, testée.
  */
 
-export const COLLABORATOR_ROLES = ["DEMI_PENSION", "COACH", "RIDER", "GROOM", "MANAGER", "VET", "FARRIER"] as const;
+export const COLLABORATOR_ROLES = ["DEMI_PENSION", "COACH", "RIDER", "GROOM", "MANAGER", "VET", "FARRIER", "VIEWER"] as const;
 export type CollaboratorRole = (typeof COLLABORATOR_ROLES)[number];
 
 export type TeamActor = "owner" | "manager";

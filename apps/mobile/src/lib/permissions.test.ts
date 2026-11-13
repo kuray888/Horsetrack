@@ -19,7 +19,9 @@ import {
 /** Matrice telle qu'écrite dans rls.sql (horse_role_can), qui fait foi. */
 function sqlMatrix(): Record<string, string[]> {
   const sql = readFileSync(join(__dirname, "../../../../packages/db/prisma/rls.sql"), "utf8");
-  const start = sql.indexOf("create or replace function public.horse_role_can");
+  // La DERNIÈRE définition fait foi : une section ajoutée en fin de fichier
+  // (ex. invitation-gratuite) remplace celle d'une section déjà en production.
+  const start = sql.lastIndexOf("create or replace function public.horse_role_can");
   const body = sql.slice(start, sql.indexOf("$$;", start));
   const matrix: Record<string, string[]> = {};
   for (const m of body.matchAll(/when '(\w+)'\s+then _role in \(([^)]*)\)/g)) {
