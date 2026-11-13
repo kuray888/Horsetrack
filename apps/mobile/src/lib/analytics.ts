@@ -125,6 +125,10 @@ export type AnalyticsEvent =
   | "ride_shared"
   // Tracé d'une séance exporté en GPX.
   | "ride_gpx_exported"
+  // Lien public d'une séance : créé, partagé, supprimé (cf. RideShareBlock).
+  | "ride_link_created"
+  | "ride_link_shared"
+  | "ride_link_revoked"
   // Itinéraire ouvert depuis un contact.
   | "contact_route_opened"
   // Relecture d'une séance en direct (cf. app/ride-replay.tsx).

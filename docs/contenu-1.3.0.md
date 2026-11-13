@@ -12,6 +12,9 @@
   allure, curseur, dénivelé lissé), GPX avec vraies heures et altitudes.
 - Annuaire (phase 1) : adresse du contact, bouton Itinéraire (Plans), prochaine visite conseillée
   (maréchal 7 semaines, dentiste 1 an) ; appel et rendez-vous existaient déjà.
+- Partage façon Strava : carte story ou carré depuis toute séance enregistrée, code de parrainage et
+  masquage du départ / de l'arrivée au choix ; **lien public** `/s/<jeton>` (page web du parcours,
+  sans fond de carte tiers, supprimable, supprimé avec le compte).
 - Progression du cheval : écran dans la fiche (régularité, temps de travail sur 12 semaines, poids).
 - Annulation d'une suppression (séance, journal, dépense) pendant 5 s ; synchro : profil serveur recréé.
 - Carte de parrainage de l'Accueil.
@@ -29,7 +32,7 @@
 - Annuaire : « Prendre rendez-vous » depuis un contact (formulaire pré-rempli) ; phase 2 (annuaire partagé).
 
 ## À faire à la main avant le build
-1. Supabase, dans l'ordre : `invitation-gratuite-2026-11-13.sql` puis `relecture-et-annuaire-2026-11-13.sql`.
+1. Supabase, dans l'ordre : `invitation-gratuite-2026-11-13.sql`, `relecture-et-annuaire-2026-11-13.sql`, puis `lien-public-seance-2026-11-13.sql`.
 2. Déployer l'API de `release/1.3.0` (fusion dans `main` sur ton accord), puis `tools/check-prod.sh`.
 3. App Store Connect : version 1.3.0, notes de revue (compte gratuit avec données).
 4. Publier le site après la sortie.

@@ -40,6 +40,7 @@ export default function RideShareScreen() {
             horsePhoto={horse?.photoUrl ?? null}
             activity={session.customActivityLabel || ACTIVITY_META[session.activityType].label}
             source={source}
+            sessionId={session.id}
           />
         ) : (
           <View className="items-center gap-3 rounded-card bg-surface p-5 shadow-card">

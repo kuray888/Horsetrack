@@ -15,6 +15,8 @@ Chaque ligne vient d'un oubli réel (1.2.0). Cocher dans l'ordre.
          effet sur les partages existants), puis `relecture-et-annuaire-2026-11-13.sql` (colonnes
          `trace` et `address`, additive, rejouable ; OBLIGATOIRE avant l'app : sans elle, la synchro
          des contacts et des séances de la 1.3.0 échoue). La séance en direct reste gratuite pour tous.
+         Puis `lien-public-seance-2026-11-13.sql` (table des liens publics ; OBLIGATOIRE avant l'API :
+         sans elle, la page /s/<jeton> et la création d'un lien échouent).
       2. API de `release/1.3.0` en production (fusion dans `main`, `tools/check-prod.sh`) :
          questions offertes du coach, route météo, politique de confidentialité.
       3. Publier la 1.3.0 dans App Store Connect.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -9,6 +9,8 @@ import { maskRouteEnds, type ShareFormat } from "@/rides/shareCardLogic";
 import { decodePolyline } from "@/rides/rideMath";
 import type { SessionRide } from "@/rides/types";
 import { fetchReferral } from "@/lib/referral";
+import { createPublicLink, getStoredLink, revokePublicLink, type PublicLink } from "@/rides/publicLink";
+import { buildPublicRidePayload } from "@/rides/publicLinkLogic";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { hapticSelection } from "@/lib/haptics";
 import { track } from "@/lib/analytics";
@@ -28,12 +30,15 @@ export function RideShareBlock({
   horsePhoto,
   activity,
   source,
+  sessionId,
 }: {
   ride: SessionRide;
   horseName: string | null;
   horsePhoto: string | null;
   activity: string;
   source: ShareSource;
+  /** Séance enregistrée : permet le lien public (pas à la fin d'une séance, pas encore enregistrée). */
+  sessionId?: string;
 }) {
   const colors = useThemeColors();
   const shareRef = useRef<View>(null);
@@ -42,6 +47,8 @@ export function RideShareBlock({
   const [withCode, setWithCode] = useState(true);
   const [code, setCode] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [link, setLink] = useState<PublicLink | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
 
   // Le code vient du serveur : sans réseau (ou hors connexion), la carte n'en a simplement pas.
   useEffect(() => {
@@ -55,6 +62,19 @@ export function RideShareBlock({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    getStoredLink(sessionId)
+      .then((l) => {
+        if (!cancelled) setLink(l);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   const fullRoute = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
   const route = useMemo(() => (hideEnds ? maskRouteEnds(fullRoute, 200) : fullRoute), [fullRoute, hideEnds]);
@@ -79,6 +99,56 @@ export function RideShareBlock({
       Alert.alert(t("Partage impossible"), t("L'image n'a pas pu être préparée. Réessaie dans un instant."));
     } finally {
       setSharing(false);
+    }
+  }
+
+  // Lien public : toujours volontaire, expliqué avant l'envoi, supprimable.
+  function handleCreateLink() {
+    if (!sessionId || linkBusy) return;
+    Alert.alert(
+      t("Créer un lien public ?"),
+      t("Toute personne qui a le lien verra le nom du cheval, la date, la durée, la distance et le tracé{ends}. Pas ton nom. Tu peux supprimer le lien quand tu veux.", {
+        ends: hideEnds ? t(" (sans le départ ni l'arrivée)") : "",
+      }),
+      [
+        { text: t("Annuler"), style: "cancel" },
+        {
+          text: t("Créer le lien"),
+          onPress: async () => {
+            setLinkBusy(true);
+            const created = await createPublicLink(
+              buildPublicRidePayload({ ride, sessionId, horseName, activity, fullRoute, hideEnds })
+            );
+            setLinkBusy(false);
+            if (!created) {
+              Alert.alert(t("Lien impossible"), t("Le lien n'a pas pu être créé. Vérifie ta connexion et réessaie."));
+              return;
+            }
+            setLink(created);
+            track("ride_link_created", { ends_hidden: hideEnds, source });
+            await Share.share({ message: t("Ma balade sur Horsetrack : {url}", { url: created.url }) }).catch(() => {});
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleShareLink() {
+    if (!link) return;
+    track("ride_link_shared", { source });
+    await Share.share({ message: t("Ma balade sur Horsetrack : {url}", { url: link.url }) }).catch(() => {});
+  }
+
+  async function handleRevokeLink() {
+    if (!link || !sessionId || linkBusy) return;
+    setLinkBusy(true);
+    const ok = await revokePublicLink(sessionId, link.token);
+    setLinkBusy(false);
+    if (ok) {
+      setLink(null);
+      track("ride_link_revoked", { source });
+    } else {
+      Alert.alert(t("Suppression impossible"), t("Le lien n'a pas pu être supprimé. Vérifie ta connexion et réessaie."));
     }
   }
 
@@ -151,6 +221,47 @@ export function RideShareBlock({
         <MaterialCommunityIcons name="share-variant-outline" size={18} color={colors.primary} accessibilityElementsHidden />
         <Text className="text-[15px] font-bold text-primary">{sharing ? t("Un instant…") : t("Partager ma séance")}</Text>
       </TouchableOpacity>
+
+      {sessionId && ride.gps ? (
+        <View className="gap-3 self-stretch rounded-card bg-surface p-5 shadow-card">
+          <Text className="text-[17px] font-semibold text-text">{t("Lien à partager")}</Text>
+          <Text className="text-[13px] text-muted">
+            {link
+              ? t("Ton lien est actif : ceux qui l'ont voient ta balade sur une page Horsetrack.")
+              : t("Une page web de ta balade (tracé, durée, distance), à envoyer par message. Tu choisis de la créer, et tu peux la supprimer.")}
+          </Text>
+          {link ? (
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => void handleShareLink()}
+                accessibilityRole="button"
+                className="min-h-[44px] flex-1 items-center justify-center rounded-full border border-primary"
+              >
+                <Text className="text-[15px] font-bold text-primary">{t("Partager le lien")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void handleRevokeLink()}
+                disabled={linkBusy}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: linkBusy }}
+                className="min-h-[44px] flex-1 items-center justify-center rounded-full border border-border"
+              >
+                <Text className="text-[15px] font-semibold text-danger">{linkBusy ? t("Un instant…") : t("Supprimer le lien")}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={handleCreateLink}
+              disabled={linkBusy}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: linkBusy }}
+              className="min-h-[44px] items-center justify-center rounded-full border border-primary"
+            >
+              <Text className="text-[15px] font-bold text-primary">{linkBusy ? t("Un instant…") : t("Créer un lien à partager")}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
