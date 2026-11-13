@@ -429,6 +429,8 @@ alter table public.referral_codes enable row level security;
 alter table public.referral_uses enable row level security;
 -- ride_shares : sans aucune policy, réservée à l'API (cf. seances-en-direct-2026-10-27.sql).
 alter table public.ride_shares enable row level security;
+-- public_rides : liens publics de séances, sans aucune policy, réservés à l'API (cf. lien-public-seance-2026-11-13.sql).
+alter table public.public_rides enable row level security;
 -- promo_codes / promo_code_redemptions : aucune policy plus bas, volontairement
 -- (même traitement que revenuecat_webhook_events ci-dessus) — la validation et
 -- l'application d'un code promo passent exclusivement par /api/promo/redeem

@@ -23,6 +23,7 @@ check POST /api/coach/suggestion 401
 check POST /api/coach/summary 401
 check POST /api/planning/notify 401
 check POST /api/ride-safety 401
+check POST /api/public-ride 401
 check POST /api/subscription/sync 401
 check POST /api/promo/redeem 401
 check POST /api/push/register 401

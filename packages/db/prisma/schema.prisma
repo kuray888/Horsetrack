@@ -20,6 +20,7 @@ model User {
   riderProfile     RiderProfile?
   emailReminders   EmailReminder[]
   rideShares       RideShare[]
+  publicRides      PublicRide[]
   referralCode     ReferralCode?
   contacts         RiderContact[]
   coachCalls       CoachCall[]
@@ -1093,6 +1094,32 @@ model EmailReminder {
 /// une séance en direct, et alerte quand le cavalier ne bouge plus. Réservée à
 /// l'API (RLS sans policy). L'id est le jeton du lien de suivi /suivi/<id>.
 /// Seule la dernière position est gardée.
+/// Lien public d'une séance (cf. lien-public-seance-2026-11-13.sql, apps/api
+/// lib/publicRide.ts). L'id est le jeton de l'adresse /s/<jeton>. API seulement
+/// (RLS sans policy).
+model PublicRide {
+  id              String   @id
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId       String?
+  horseName       String   @default("")
+  activity        String   @default("")
+  startedAt       DateTime
+  durationSeconds Int
+  distanceMeters  Int      @default(0)
+  avgSpeedKmh     Float    @default(0)
+  walkSeconds     Int      @default(0)
+  trotSeconds     Int      @default(0)
+  canterSeconds   Int      @default(0)
+  /// Polyligne encodée, déjà amputée du départ et de l'arrivée si `endsHidden`.
+  route           String?
+  endsHidden      Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@map("public_rides")
+}
+
 model RideShare {
   id     String @id
   userId String

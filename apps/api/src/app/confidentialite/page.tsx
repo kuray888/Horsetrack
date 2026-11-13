@@ -134,6 +134,17 @@ export default function ConfidentialitePage() {
             <td>Séance en direct avec « Prévenir mes proches » activé</td>
           </tr>
           <tr>
+            <td>Lien public d&apos;une séance (facultatif)</td>
+            <td>
+              Si vous créez un lien pour partager une balade : le nom du cheval, le type de séance, la date, la durée, la
+              distance, les allures et le tracé (sans le départ ni l&apos;arrivée si vous avez choisi de les masquer),
+              jamais votre nom ni votre email. Toute personne qui a le lien peut le voir ; la page n&apos;est pas
+              indexée par les moteurs de recherche et n&apos;utilise aucun fond de carte tiers. Conservé jusqu&apos;à ce
+              que vous supprimiez le lien (depuis l&apos;app) ou votre compte
+            </td>
+            <td>Vous touchez « Créer un lien à partager » sur une séance</td>
+          </tr>
+          <tr>
             <td>Fiche complémentaire du cheval</td>
             <td>
               Numéros SIRE, UELN et de transpondeur, assureur et numéro de contrat, écurie, ration alimentaire,
