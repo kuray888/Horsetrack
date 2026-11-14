@@ -2,13 +2,14 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { Link, router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Image } from "@/components/AppImage";
+import { IconButton } from "@/components/IconButton";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Horse } from "@/horses/store";
 import { greeting } from "@/today/todayFormat";
 import { t } from "@/i18n";
 
 /** En-tête de l'Accueil : salutation, recherche, photo du cheval actif. */
-export function TodayHeader({ horse }: { horse: Horse | null }) {
+export function TodayHeader({ horse, onAdd }: { horse: Horse | null; onAdd?: () => void }) {
   const colors = useThemeColors();
   return (
     <View className="gap-4 rounded-card bg-primary p-5">
@@ -19,19 +20,25 @@ export function TodayHeader({ horse }: { horse: Horse | null }) {
             {t("Prêt pour une séance avec ")}{horse?.name ?? t("ton cheval")} ?
           </Text>
         </View>
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-1">
           {/* Recherche transversale (cf. app/search.tsx) — dans l'en-tête
               plutôt que dans un onglet : elle traverse toutes les
               sections, elle n'appartient à aucune. */}
-          <TouchableOpacity
-            onPress={() => router.push("/search")}
-            accessibilityLabel={t("Rechercher")}
-            accessibilityRole="button"
-            hitSlop={8}
-            className="h-10 w-10 items-center justify-center rounded-full bg-on-primary/15"
-          >
-            <MaterialCommunityIcons name="magnify" size={20} color={colors.textOnPrimary} />
-          </TouchableOpacity>
+          <IconButton onPress={() => router.push("/search")} accessibilityLabel={t("Rechercher")} haptic="none">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-on-primary/15">
+              <MaterialCommunityIcons name="magnify" size={20} color={colors.textOnPrimary} />
+            </View>
+          </IconButton>
+          {/* Ajout rapide : en haut à droite, comme le « + » de Planning,
+              Journal et Chevaux. Il était tout en bas de l'Accueil, sous
+              une dizaine de cartes. */}
+          {onAdd ? (
+            <IconButton onPress={onAdd} accessibilityLabel={t("Ajouter")} testID="today-add">
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-on-primary/15">
+                <MaterialCommunityIcons name="plus" size={24} color={colors.textOnPrimary} />
+              </View>
+            </IconButton>
+          ) : null}
           {/* Raccourci vers la fiche du cheval : la photo est l'élément
               le plus visible de l'en-tête, on s'attend à pouvoir la toucher. */}
           {horse ? (

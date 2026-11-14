@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Linking, Platform, Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +11,7 @@ import { useSubscription } from "@/subscription/store";
 import { formatFullDate } from "@/subscription/paywallLogic";
 import { noteWinbackOfferShown } from "@/subscription/promoContext";
 import { t } from "@/i18n";
+import { useEngagementSlot } from "@/today/EngagementSlot";
 
 type WinbackOffer = { code: string; headline: string | null; description: string | null; expiresAt: string | null };
 
@@ -53,15 +54,24 @@ export function WinbackCard() {
       if (cancelled) return;
       animateNextLayout();
       setOffer(next);
-      track("winback_offer_viewed", { code: next.code });
-      noteWinbackOfferShown(next.code);
     })().catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [loading, isActiveOrTrialing]);
 
-  if (!offer || isActiveOrTrialing) return null;
+  // Une seule carte d'engagement à la fois sur l'Accueil (cf.
+  // engagementSlotLogic.ts) : l'offre n'est comptée vue que si elle s'affiche.
+  const shown = useEngagementSlot("winback", !!offer && !isActiveOrTrialing);
+  const viewedCode = useRef<string | null>(null);
+  useEffect(() => {
+    if (!shown || !offer || viewedCode.current === offer.code) return;
+    viewedCode.current = offer.code;
+    track("winback_offer_viewed", { code: offer.code });
+    noteWinbackOfferShown(offer.code);
+  }, [shown, offer]);
+
+  if (!shown || !offer) return null;
 
   async function claim() {
     if (!offer || busy) return;

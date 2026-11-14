@@ -12,6 +12,7 @@ import { useSubscription } from "./store";
 import { openPaywall } from "./paywall";
 import { shouldShowRemindersUpsell } from "./paywallLogic";
 import { t } from "@/i18n";
+import { useEngagementSlot } from "@/today/EngagementSlot";
 
 const DISMISSED_KEY = "reminders_upsell_dismissed_at_v1";
 
@@ -44,14 +45,17 @@ export function RemindersUpsellCard() {
     dismissedAt !== undefined &&
     shouldShowRemindersUpsell({ premium: isActiveOrTrialing, healthAppointments: healthCount, dismissedAt });
 
+  // Une seule carte d'engagement à la fois sur l'Accueil (cf. engagementSlotLogic.ts).
+  const shown = useEngagementSlot("reminders_upsell", visible);
+
   useEffect(() => {
-    if (visible && !viewed.current) {
+    if (shown && !viewed.current) {
       viewed.current = true;
       track("upsell_card_viewed", { card: "reminders", health_appointments: healthCount });
     }
-  }, [visible, healthCount]);
+  }, [shown, healthCount]);
 
-  if (!visible) return null;
+  if (!shown) return null;
 
   function dismiss() {
     const now = new Date();

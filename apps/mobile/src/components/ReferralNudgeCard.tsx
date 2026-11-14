@@ -9,6 +9,7 @@ import { hapticTap } from "@/lib/haptics";
 import { closeReferralNudgeCard, readReferralNudge } from "@/lib/referralNudge";
 import { shouldShowReferralNudge } from "@/lib/referralNudgeLogic";
 import { t } from "@/i18n";
+import { useEngagementSlot } from "@/today/EngagementSlot";
 
 /**
  * « Un ami monte aussi ? » sur l'Accueil, après plusieurs moments positifs
@@ -26,14 +27,17 @@ export function ReferralNudgeCard() {
       .catch(() => {});
   }, []);
 
+  // Une seule carte d'engagement à la fois sur l'Accueil (cf. engagementSlotLogic.ts).
+  const shown = useEngagementSlot("referral", visible);
+
   useEffect(() => {
-    if (visible && !viewed.current) {
+    if (shown && !viewed.current) {
       viewed.current = true;
       track("referral_nudge_viewed");
     }
-  }, [visible]);
+  }, [shown]);
 
-  if (!visible) return null;
+  if (!shown) return null;
 
   function close(how: "dismissed" | "opened") {
     setVisible(false);

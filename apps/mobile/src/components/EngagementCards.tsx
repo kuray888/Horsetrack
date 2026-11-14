@@ -15,6 +15,7 @@ import {
   shouldShowMonthlyRecap,
 } from "@/lib/progress";
 import { t } from "@/i18n";
+import { useEngagementSlot } from "@/today/EngagementSlot";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -80,13 +81,15 @@ export function FirstStepsCard({
     },
   ];
   const doneCount = steps.filter((s) => s.done).length;
-  if (dismissed !== false || doneCount === steps.length) return null;
+  // Une seule carte d'engagement à la fois sur l'Accueil (cf. engagementSlotLogic.ts).
+  const shown = useEngagementSlot("first_steps", dismissed === false && doneCount < steps.length);
+  if (!shown) return null;
 
   return (
     <FadeInView delay={57}>
       <View className="gap-3 rounded-card bg-surface p-4 shadow-card">
         <View className="flex-row items-center gap-2">
-          <Text className="flex-1 text-sm font-bold uppercase tracking-wide text-accent">
+          <Text className="flex-1 text-sm font-bold uppercase tracking-wide text-link">
             {t("Premiers pas · ")}{doneCount}/{steps.length}
           </Text>
           <TouchableOpacity
@@ -159,7 +162,8 @@ export function MonthlyRecapCard({
   const recap = useMemo(() => previousMonthRecap(sessions, appointments, horseId), [sessions, appointments, horseId]);
   const [dismissed, dismiss] = useDismissed(`monthly_recap_${recap.year}_${recap.month}_${horseId}`);
 
-  if (dismissed !== false || !shouldShowMonthlyRecap(recap)) return null;
+  const shown = useEngagementSlot("monthly_recap", dismissed === false && shouldShowMonthlyRecap(recap));
+  if (!shown) return null;
 
   async function share() {
     track("monthly_recap_shared", { sessions: recap.sessionsDone });

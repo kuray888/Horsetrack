@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { AppState, RefreshControl, Text, TouchableOpacity, View } from "react-native";
+import { AppState, RefreshControl, View } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { RideInProgressBanner } from "@/rides/components/RideInProgressBanner";
 import {
   getNotificationPermissionState,
@@ -40,13 +39,13 @@ import { useJournalForm } from "@/agenda/hooks/useJournalForm";
 import { JournalForm } from "@/agenda/components/JournalForm";
 import { lazyTab } from "@/components/LazyTab";
 import { WinbackCard } from "@/subscription/WinbackCard";
-import { t } from "@/i18n";
 import { featuredReviewYear } from "@/review/yearReview";
 import { useHorseDetails } from "@/extras/store";
 import { isPartnerDay } from "@/extras/model";
 import { useTodayOverview } from "@/today/useTodayOverview";
 import { CoachCard } from "@/coach/components/CoachCard";
 import { TodayHeader } from "@/today/components/TodayHeader";
+import { EngagementSlotProvider } from "@/today/EngagementSlot";
 import { SyncStatusBanners } from "@/today/components/SyncStatusBanners";
 import { TodaySection } from "@/today/components/TodaySection";
 import {
@@ -307,13 +306,17 @@ function TodayScreen() {
   }
 
   return (
-    <>
+    <EngagementSlotProvider>
     <Screen
       scrollRef={scrollRef}
       refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} tintColor={colors.primary} />}
     >
       <FadeInView>
-        <TodayHeader horse={horse ?? null} />
+        {/* Un seul formulaire à la fois : le « + » s'efface pendant un ajout. */}
+        <TodayHeader
+          horse={horse ?? null}
+          onAdd={showApptForm || showExpenseForm || showJournalForm ? undefined : () => setQuickAddVisible(true)}
+        />
       </FadeInView>
 
       {/* Sélecteur de cheval — visible seulement à partir de 2 chevaux dans
@@ -454,16 +457,7 @@ function TodayScreen() {
             onSubmit={handleSubmitJournalEntry}
             onPickPhoto={handlePickJournalPhoto}
           />
-        ) : (
-          <TouchableOpacity accessibilityRole="button"
-            onPress={() => setQuickAddVisible(true)}
-            activeOpacity={0.85}
-            className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
-          >
-            <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
-            <Text className="text-base font-semibold text-primary">{t("Ajouter")}</Text>
-          </TouchableOpacity>
-        )}
+        ) : null}
       </FadeInView>
       </View>
 
@@ -472,7 +466,7 @@ function TodayScreen() {
     </Screen>
     <QuickAddSheet visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} onSelect={handleQuickAdd} />
     <PickerOverlaySlot />
-    </>
+    </EngagementSlotProvider>
   );
 }
 
