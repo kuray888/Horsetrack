@@ -14,7 +14,7 @@ import { useSelectableHorses } from "@/horses/useSelectableHorses";
 import { useSessions } from "@/sessions/store";
 import { useSubscription } from "@/subscription/store";
 import { track } from "@/lib/analytics";
-import { hapticSuccess, hapticTap } from "@/lib/haptics";
+import { hapticSelection, hapticSuccess, hapticTap } from "@/lib/haptics";
 import { ensureNotificationPermission } from "@/lib/notifications";
 import {
   activeSeconds,
@@ -180,7 +180,26 @@ function RideSetupView({ sessionId, horseIdParam }: { sessionId: string | null; 
   }
 
   return (
-    <Screen>
+    // Démarrer reste fixé en bas : avec la carte « Prévenir mes proches »
+    // ouverte, il sortait de l'écran sur un petit iPhone.
+    <Screen
+      footer={
+        <>
+          <TouchableOpacity
+            className={`flex-row items-center justify-center gap-2 rounded-card p-5 ${horse ? "bg-primary" : "bg-border"}`}
+            onPress={() => void handleStart()}
+            disabled={!horse || starting}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !horse || starting }}
+          >
+            <MaterialCommunityIcons name="play" size={24} color={colors.textOnPrimary} />
+            <Text className="text-[17px] font-bold text-on-primary">{starting ? t("Démarrage…") : t("Démarrer")}</Text>
+          </TouchableOpacity>
+          {!horse ? <Text className="text-center text-[15px] text-muted">{t("Ajoute d'abord un cheval.")}</Text> : null}
+        </>
+      }
+    >
       <FadeInView>
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 gap-1">
@@ -235,21 +254,6 @@ function RideSetupView({ sessionId, horseIdParam }: { sessionId: string | null; 
           <SafetySetupCard premium={isActiveOrTrialing} settings={safety} onChange={setSafety} />
         </FadeInView>
       ) : null}
-
-      <FadeInView delay={120}>
-        <TouchableOpacity
-          className={`flex-row items-center justify-center gap-2 rounded-card p-5 ${horse ? "bg-primary" : "bg-border"}`}
-          onPress={() => void handleStart()}
-          disabled={!horse || starting}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !horse || starting }}
-        >
-          <MaterialCommunityIcons name="play" size={22} color={colors.textOnPrimary} />
-          <Text className="text-lg font-bold text-on-primary">{starting ? t("Démarrage…") : t("Démarrer")}</Text>
-        </TouchableOpacity>
-        {!horse ? <Text className="pt-2 text-center text-sm text-muted">{t("Ajoute d'abord un cheval.")}</Text> : null}
-      </FadeInView>
     </Screen>
   );
 }
@@ -305,8 +309,40 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
     ]);
   }
 
+  function togglePause() {
+    // Retour au toucher : en selle, on ne regarde pas l'écran pour vérifier.
+    hapticSelection();
+    if (paused) resumeRide();
+    else pauseRide();
+  }
+
   return (
-    <Screen>
+    // Pause et Terminer fixés sous le pouce : en selle, on ne fait pas
+    // défiler la page pour les retrouver sous le tracé.
+    <Screen
+      footer={
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-card border border-border bg-surface p-5"
+            onPress={togglePause}
+            disabled={busy}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name={paused ? "play" : "pause"} size={24} color={colors.text} />
+            <Text className="text-[17px] font-bold text-text">{paused ? t("Reprendre") : t("Pause")}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-card bg-primary p-5"
+            onPress={() => void handleFinish()}
+            disabled={busy}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name="stop" size={24} color={colors.textOnPrimary} />
+            <Text className="text-[17px] font-bold text-on-primary">{t("Terminer")}</Text>
+          </TouchableOpacity>
+        </View>
+      }
+    >
       <View className="flex-row items-center justify-between">
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Réduire")} onPress={() => closeRide()} hitSlop={10}>
           <MaterialCommunityIcons name="chevron-down" size={28} color={colors.textMuted} />
@@ -345,13 +381,30 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
 
       {draft.gps ? (
         <View className="flex-row gap-3">
+          {/* Lus d'un coup d'œil, en selle et au soleil : gros chiffres à
+              largeur fixe (ils ne sautent pas à chaque seconde), étiquette
+              en couleur de texte plutôt qu'en gris. */}
           <View className={`${CARD} flex-1 items-center gap-1`}>
-            <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Distance")}</Text>
-            <Text className="text-2xl font-bold text-text">{formatDistance(stats.distanceMeters)}</Text>
+            <Text className="text-[13px] font-bold uppercase tracking-wide text-text">{t("Distance")}</Text>
+            <Text
+              className="text-[34px] font-bold text-text"
+              style={{ fontVariant: ["tabular-nums"] }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {formatDistance(stats.distanceMeters)}
+            </Text>
           </View>
           <View className={`${CARD} flex-1 items-center gap-1`}>
-            <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Vitesse")}</Text>
-            <Text className="text-2xl font-bold text-text">{gpsLive ? formatSpeed(speed) : "—"}</Text>
+            <Text className="text-[13px] font-bold uppercase tracking-wide text-text">{t("Vitesse")}</Text>
+            <Text
+              className="text-[34px] font-bold text-text"
+              style={{ fontVariant: ["tabular-nums"] }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {gpsLive ? formatSpeed(speed) : "—"}
+            </Text>
           </View>
         </View>
       ) : null}
@@ -371,42 +424,29 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
             </Text>
             <TouchableOpacity
               accessibilityRole="button"
+              hitSlop={8}
               onPress={() => void Share.share({ message: t("Suis ma séance à cheval en direct : {viewUrl}", { viewUrl: draft.safety!.viewUrl }) })}
             >
-              <Text className="text-xs font-semibold text-accent">{t("Partager le lien par message")}</Text>
+              <Text className="text-[13px] font-semibold text-link">{t("Partager le lien par message")}</Text>
             </TouchableOpacity>
           </View>
+          {/* Le bouton de sécurité : plein, 44 pt minimum, trouvable sans
+              viser (il faisait 12 pt de texte dans un simple contour). */}
           <TouchableOpacity
-            className="rounded-full border border-danger px-3 py-2"
+            className="min-h-11 flex-row items-center gap-2 rounded-full bg-danger px-4"
             accessibilityRole="button"
             accessibilityLabel={t("Prévenir mes proches maintenant")}
-            onPress={handleSos}
+            onPress={() => {
+              hapticTap();
+              handleSos();
+            }}
           >
-            <Text className="text-xs font-bold text-danger">{t("Alerter")}</Text>
+            <MaterialCommunityIcons name="alert-octagon-outline" size={20} color={colors.textOnStatus} />
+            <Text className="text-[15px] font-bold text-on-status">{t("Alerter")}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
 
-      <View className="flex-row gap-3 pt-2">
-        <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-card border border-border bg-surface p-5"
-          onPress={() => (paused ? resumeRide() : pauseRide())}
-          disabled={busy}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons name={paused ? "play" : "pause"} size={22} color={colors.text} />
-          <Text className="text-base font-bold text-text">{paused ? t("Reprendre") : t("Pause")}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-card bg-primary p-5"
-          onPress={() => void handleFinish()}
-          disabled={busy}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons name="stop" size={22} color={colors.textOnPrimary} />
-          <Text className="text-base font-bold text-on-primary">{t("Terminer")}</Text>
-        </TouchableOpacity>
-      </View>
     </Screen>
   );
 }

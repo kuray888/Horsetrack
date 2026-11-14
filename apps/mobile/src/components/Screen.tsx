@@ -1,6 +1,6 @@
 import { ReactElement, ReactNode, Ref } from "react";
 import { RefreshControlProps, ScrollView, View } from "react-native";
-import { SafeAreaView, Edge } from "react-native-safe-area-context";
+import { SafeAreaView, Edge, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
   children: ReactNode;
@@ -16,13 +16,17 @@ type Props = {
   /** En-tête FIXE au-dessus du contenu qui défile (titre, bouton Fermer) :
    * toujours accessible, même tout en bas d'une longue liste. */
   header?: ReactNode;
+  /** Barre d'actions FIXE sous le contenu (Démarrer, Pause/Terminer) : reste
+   * sous le pouce, au-dessus de la barre du geste d'accueil, sans défiler. */
+  footer?: ReactNode;
 };
 
 /**
  * Conteneur d'écran standard : fond de page + safe area + padding/gap cohérents.
  * Encapsule la logique SafeAreaView + ScrollView ; le style passe par Tailwind.
  */
-export function Screen({ children, scroll = true, edges = ["top"], className, refreshControl, scrollRef, header }: Props) {
+export function Screen({ children, scroll = true, edges = ["top"], className, refreshControl, scrollRef, header, footer }: Props) {
+  const insets = useSafeAreaInsets();
   const content = `p-5 gap-4 ${header ? "pt-3" : ""} ${className ?? ""}`;
   return (
     <SafeAreaView className="flex-1 bg-background" edges={edges}>
@@ -40,6 +44,14 @@ export function Screen({ children, scroll = true, edges = ["top"], className, re
       ) : (
         <View className={`flex-1 ${content}`}>{children}</View>
       )}
+      {footer ? (
+        <View
+          className="gap-3 border-t border-border bg-background px-5 pt-3"
+          style={{ paddingBottom: edges.includes("bottom") ? 12 : Math.max(insets.bottom, 12) }}
+        >
+          {footer}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
