@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Animated, Text, TouchableOpacity, View } from "react-native";
+import { DoneCheckbox, sessionCheckboxLabel } from "@/components/IconButton";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -129,7 +130,7 @@ export function SessionCard({
             {session.ride?.gps ? (
               <View className="flex-row items-center gap-1">
                 <MaterialCommunityIcons name="map-marker-path" size={13} color={colors.accent} />
-                <Text className="text-xs font-semibold text-accent">
+                <Text className="text-xs font-semibold text-link">
                   {formatDistance(session.ride.distanceMeters)} · {formatSpeed(session.ride.avgSpeedKmh)} {t(" en moyenne")}
                 </Text>
               </View>
@@ -145,19 +146,11 @@ export function SessionCard({
               </View>
             ) : null
           ) : (
-            <TouchableOpacity
-              onPress={onToggleDone}
-              hitSlop={12}
-              activeOpacity={0.6}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: session.completed }}
-              accessibilityLabel={session.completed ? t("Séance faite, marquer à faire") : t("Marquer la séance faite")}
-              className={`h-7 w-7 items-center justify-center rounded-full ${
-                session.completed ? "bg-success" : "border-2 border-border"
-              }`}
-            >
-              {session.completed ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
-            </TouchableOpacity>
+            <DoneCheckbox
+              checked={session.completed}
+              onToggle={onToggleDone}
+              accessibilityLabel={sessionCheckboxLabel(session.completed)}
+            />
           )}
         </View>
 
@@ -276,7 +269,7 @@ function RideDetails({ ride, name, sessionId }: { ride: SessionRide; name: strin
           className="flex-row items-center gap-2 self-start"
         >
           <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.accent} />
-          <Text className="text-sm font-semibold text-accent">{t("Relire la séance")}</Text>
+          <Text className="text-sm font-semibold text-link">{t("Relire la séance")}</Text>
         </TouchableOpacity>
       ) : null}
       <TouchableOpacity
@@ -290,7 +283,7 @@ function RideDetails({ ride, name, sessionId }: { ride: SessionRide; name: strin
         className="flex-row items-center gap-2 self-start"
       >
         <MaterialCommunityIcons name="share-variant-outline" size={16} color={colors.accent} />
-        <Text className="text-sm font-semibold text-accent">{t("Partager ma séance")}</Text>
+        <Text className="text-sm font-semibold text-link">{t("Partager ma séance")}</Text>
       </TouchableOpacity>
       {route.length > 1 ? (
         <TouchableOpacity
@@ -304,7 +297,7 @@ function RideDetails({ ride, name, sessionId }: { ride: SessionRide; name: strin
           className="flex-row items-center gap-2 self-start"
         >
           <MaterialCommunityIcons name="export-variant" size={16} color={colors.accent} />
-          <Text className="text-sm font-semibold text-accent">{t("Exporter le tracé en GPX")}</Text>
+          <Text className="text-sm font-semibold text-link">{t("Exporter le tracé en GPX")}</Text>
         </TouchableOpacity>
       ) : null}
     </View>

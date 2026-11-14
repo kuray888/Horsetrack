@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { DoneCheckbox } from "@/components/IconButton";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -20,6 +21,7 @@ import { hapticSelection, hapticSuccess, hapticTap } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { track } from "@/lib/analytics";
 import { LOCALE, localDecimal, t } from "@/i18n";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -109,17 +111,7 @@ function HorseFeesScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 gap-1">
-            <Text className="font-display text-2xl tracking-tight text-text" accessibilityRole="header">
-              {t("Participation aux frais")}
-            </Text>
-            <Text className="text-sm text-muted">{horse.name}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <SubScreenHeader title={t("Participation aux frais")} subtitle={horse.name} />
       </FadeInView>
 
       {isOwner && !isPro ? (
@@ -193,21 +185,17 @@ function HorseFeesScreen() {
           ) : null}
           {rows.map((f) => (
             <View key={f.id} className="flex-row items-center gap-3 rounded-card bg-surface p-4">
-              <TouchableOpacity
-                onPress={() => {
+              <DoneCheckbox
+                checked={!!f.paidAt}
+                onToggle={() => {
                   hapticTap();
                   animateNextLayout();
                   setFeePaid(f.id, !f.paidAt);
                   track("fee_marked", { paid: !f.paidAt });
                 }}
                 disabled={!canEdit}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: !!f.paidAt, disabled: !canEdit }}
                 accessibilityLabel={t("{name}, {amount}, reçu", { name: nameOf(f), amount: formatEuros(f.amount, LOCALE) })}
-                className={`h-7 w-7 items-center justify-center rounded-full ${f.paidAt ? "bg-success" : "border-2 border-border"}`}
-              >
-                {f.paidAt ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
-              </TouchableOpacity>
+              />
               <View className="flex-1 gap-1">
                 <Text className="text-base font-semibold text-text">{nameOf(f)}</Text>
                 <Text className="text-sm text-muted">{f.paidAt ? t("Reçu") : t("À recevoir")}</Text>
@@ -240,7 +228,7 @@ function HorseFeesScreen() {
         <FadeInView delay={80}>
           {showForm ? (
             <View className={`${CARD} gap-4`}>
-              <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Nouvelle participation")}</Text>
+              <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Nouvelle participation")}</Text>
               <Field label={t("De la part de")}>
                 <ChipSelect
                   options={[

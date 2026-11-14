@@ -2,6 +2,7 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { FadeInView } from "@/components/FadeInView";
+import { DoneCheckbox, IconButton, sessionCheckboxLabel } from "@/components/IconButton";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { TrainingSession } from "@/sessions/store";
 import { eventTime, type UnifiedEvent } from "@/planning/unifiedEvents";
@@ -48,13 +49,13 @@ export function TodaySection({
             {t("Aujourd'hui")}
           </Text>
           <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(tabs)/planning")} hitSlop={8}>
-            <Text className="text-sm font-semibold text-accent">{t("Voir le planning")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Voir le planning")}</Text>
           </TouchableOpacity>
         </View>
         {partnerToday ? (
           <View className="mt-1 flex-row items-center gap-1.5">
             <MaterialCommunityIcons name="account-heart-outline" size={15} color={colors.accent} />
-            <Text className="text-sm font-semibold text-accent">{t("C'est le jour de {name}", { name: partnerToday })}</Text>
+            <Text className="text-sm font-semibold text-link">{t("C'est le jour de {name}", { name: partnerToday })}</Text>
           </View>
         ) : null}
       </FadeInView>
@@ -102,7 +103,7 @@ export function TodaySection({
               return (
                 <View
                   key={event.id}
-                  className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
+                  className={`flex-row items-center gap-2 py-2 ${i > 0 ? "border-t border-border" : ""}`}
                 >
                   <TouchableOpacity accessibilityRole="button"
                     onPress={() => router.push("/(tabs)/planning")}
@@ -112,48 +113,38 @@ export function TodaySection({
                     <View className={`h-9 w-9 items-center justify-center rounded-full ${meta.chip}`}>
                       <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
                     </View>
-                    <View className="flex-1 gap-0.5">
+                    <View className="flex-1 gap-1 py-1">
                       <Text
                         className={`text-[15px] font-semibold ${session?.completed ? "text-muted line-through" : "text-text"}`}
                       >
                         {meta.title}
                       </Text>
-                      <Text className="text-sm text-muted">{time ? `${meta.label} · ${time}` : meta.label}</Text>
+                      <Text className="text-[13px] text-muted">{time ? `${meta.label} · ${time}` : meta.label}</Text>
                     </View>
                   </TouchableOpacity>
                   {session && !session.completed ? (
                     // Démarrer la séance prévue en direct : le chrono et le
                     // GPS la complètent (cochée, durée réelle, parcours).
-                    <TouchableOpacity
+                    <IconButton
                       onPress={() => router.push({ pathname: "/ride", params: { sessionId: session.id } })}
-                      activeOpacity={0.6}
-                      hitSlop={10}
-                      accessibilityRole="button"
                       accessibilityLabel={t("Démarrer {title} en direct", { title: meta.title })}
-                      className="h-8 w-8 items-center justify-center rounded-full bg-primary"
                     >
-                      <MaterialCommunityIcons name="play" size={17} color={colors.textOnPrimary} />
-                    </TouchableOpacity>
+                      <View className="h-8 w-8 items-center justify-center rounded-full bg-primary">
+                        <MaterialCommunityIcons name="play" size={18} color={colors.textOnPrimary} />
+                      </View>
+                    </IconButton>
                   ) : null}
                   {session ? (
                     // Même case à cocher que les cartes du Planning (cf.
                     // SessionCard) : un seul geste pour « c'est fait »,
                     // partout dans l'app.
-                    <TouchableOpacity
-                      onPress={() => onToggleDone(session)}
-                      activeOpacity={0.6}
-                      hitSlop={12}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: session.completed }}
-                      accessibilityLabel={session.completed ? t("Séance faite, marquer à faire") : t("Marquer la séance faite")}
-                      className={`h-7 w-7 items-center justify-center rounded-full ${
-                        session.completed ? "bg-success" : "border-2 border-border"
-                      }`}
-                    >
-                      {session.completed ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
-                    </TouchableOpacity>
+                    <DoneCheckbox
+                      checked={session.completed}
+                      onToggle={() => onToggleDone(session)}
+                      accessibilityLabel={sessionCheckboxLabel(session.completed)}
+                    />
                   ) : (
-                    <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
+                    <Text className={`text-[13px] font-bold ${meta.tag}`}>{meta.label}</Text>
                   )}
                 </View>
               );
@@ -161,24 +152,30 @@ export function TodaySection({
             <TouchableOpacity accessibilityRole="button"
               activeOpacity={0.7}
               onPress={planSession}
-              className="flex-row items-center gap-3 border-t border-border pt-3.5"
+              className="flex-row items-center gap-3 border-t border-border pt-3"
             >
               <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
                 <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
               </View>
               <Text className="text-[15px] font-semibold text-primary">{t("Planifier une séance")}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              activeOpacity={0.7}
-              onPress={() => router.push("/ride")}
-              className="flex-row items-center gap-3 border-t border-border pt-3.5 mt-3.5"
-            >
-              <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
-                <MaterialCommunityIcons name="play-circle-outline" size={18} color={colors.primary} />
-              </View>
-              <Text className="text-[15px] font-semibold text-primary">{t("Démarrer une séance en direct")}</Text>
-            </TouchableOpacity>
+            {/* Une séance prévue a déjà son bouton lecture : la ligne
+                « Démarrer en direct » faisait doublon. Elle reste pour une
+                journée sans séance à démarrer (rendez-vous seuls, ou tout
+                est déjà fait). */}
+            {todayEvents.some((e) => e.kind === "session" && !e.session.completed) ? null : (
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.7}
+                onPress={() => router.push("/ride")}
+                className="mt-3 flex-row items-center gap-3 border-t border-border pt-3"
+              >
+                <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
+                  <MaterialCommunityIcons name="play-circle-outline" size={18} color={colors.primary} />
+                </View>
+                <Text className="text-[15px] font-semibold text-primary">{t("Démarrer une séance en direct")}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </FadeInView>

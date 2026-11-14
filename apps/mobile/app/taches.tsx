@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { DoneCheckbox } from "@/components/IconButton";
 import { Redirect, router } from "expo-router";
 import { PRO_ENABLED } from "@/lib/features";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -158,7 +159,7 @@ function TasksScreen() {
             />
           ) : (
             <TouchableOpacity onPress={() => setDay(new Date())} accessibilityRole="button">
-              <Text className="text-sm font-semibold text-accent">{t("Aujourd'hui")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Aujourd'hui")}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -216,17 +217,12 @@ function TasksScreen() {
                 const rec = recurrenceLabel(o.task.weekdays, t("tous les jours"));
                 return (
                   <View key={o.task.id} className="flex-row items-center gap-3 rounded-card bg-surface p-4">
-                    <TouchableOpacity
-                      onPress={() => toggle(o.task, done)}
+                    <DoneCheckbox
+                      checked={done}
+                      onToggle={() => toggle(o.task, done)}
                       disabled={!tickable}
-                      hitSlop={8}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: done, disabled: !tickable }}
                       accessibilityLabel={`${o.task.title}, ${horseName(o.task.horseId)}`}
-                      className={`h-7 w-7 items-center justify-center rounded-full ${done ? "bg-success" : "border-2 border-border"}`}
-                    >
-                      {done ? <MaterialCommunityIcons name="check" size={17} color={colors.textOnStatus} /> : null}
-                    </TouchableOpacity>
+                    />
                     <View className="flex-1 gap-1">
                       <Text className={`text-base font-semibold ${done ? "text-muted line-through" : "text-text"}`}>{o.task.title}</Text>
                       <Text className="text-sm text-muted">
@@ -260,7 +256,7 @@ function TasksScreen() {
           <FadeInView delay={60}>
             {showForm ? (
               <View className={`${CARD} gap-4`}>
-                <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Nouvelle tâche")}</Text>
+                <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Nouvelle tâche")}</Text>
                 <Field label={t("Quoi ?")}>
                   <TextInput className={INPUT} placeholder={t("Ex : Sortie au pré")} placeholderTextColor={colors.textMuted} value={title} onChangeText={setTitle} maxLength={120} accessibilityLabel={t("Quoi ?")} />
                 </Field>
