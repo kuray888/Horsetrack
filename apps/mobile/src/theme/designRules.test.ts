@@ -102,6 +102,11 @@ describe("système de design", () => {
     });
   });
 
+  it("aucun texte en text-accent : les liens passent par text-link", () => {
+    // accent sous le seuil AA en clair dans 5 palettes sur 6 (cf. linkColorFor).
+    expectWithin(count(/\btext-accent\b/g), {});
+  });
+
   it("un seul text-3xl par écran", () => {
     const found = count(/\btext-3xl\b/g);
     expectWithin(found, {
@@ -116,8 +121,19 @@ describe("système de design", () => {
   it("grille 4/8 : les valeurs « entre-deux » ne peuvent que diminuer", () => {
     // gap-1.5, p-3.5, mt-2.5… : à corriger quand on retouche l'écran.
     // Baisser ce plafond à chaque correction ; ne jamais le monter.
-    const PLAFOND = 182;
+    const PLAFOND = 160;
     const total = [...count(/\b(?:gap|gap-x|gap-y|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr)-(?:0\.5|1\.5|2\.5|3\.5)\b/g).values()].reduce(
+      (a, b) => a + b,
+      0
+    );
+    expect(total).toBeLessThanOrEqual(PLAFOND);
+  });
+
+  it("icônes : 16, 20, 24 ou 28 pt — les autres tailles ne peuvent que diminuer", () => {
+    // Quatorze tailles coexistaient (12 à 34 pt) : à ramener sur l'échelle
+    // quand on retouche l'écran. Baisser ce plafond, ne jamais le monter.
+    const PLAFOND = 176;
+    const total = [...count(/<MaterialCommunityIcons\b[^>]*\bsize=\{(?!16\}|20\}|24\}|28\})\d+\}/g).values()].reduce(
       (a, b) => a + b,
       0
     );

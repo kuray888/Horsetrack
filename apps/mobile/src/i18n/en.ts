@@ -2449,4 +2449,11 @@ export const EN: Record<string, string> = {
   "Total : {amount}": "Total: {amount}",
   "Reste à recevoir : {amount}": "Still to receive: {amount}",
   "Relevé de ce qui a été noté dans l'app, sans avis médical.": "A record of what was noted in the app, with no medical advice.",
+  "Masquer les statistiques": "Hide statistics",
+  "Afficher les statistiques": "Show statistics",
+  "Toucher pour modifier": "Tap to edit",
+  "Afficher {v} soins plus anciens": "Show {v} older care entries",
+  "Plus d'options": "More options",
+  "Suivi": "Tracking",
+  "Administratif": "Admin",
 };
