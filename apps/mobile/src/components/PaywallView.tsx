@@ -11,6 +11,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { BillingPeriod, PromoRedeemResult } from "@/subscription/store";
 import { usePaywallOfferState } from "@/subscription/paywall";
 import { track } from "@/lib/analytics";
+import { variant } from "@/lib/experiments";
 import { notePaywallSeen } from "@/subscription/premiumNudgeStore";
 import { legalUrl, openLegalPage, type LegalPage } from "@/lib/links";
 import {
@@ -193,7 +194,7 @@ function PromoCodeField({
           </TouchableOpacity>
         </View>
         {feedback ? (
-          <View className="flex-row items-start gap-1.5" accessibilityLiveRegion="polite">
+          <View className="flex-row items-start gap-2" accessibilityLiveRegion="polite">
             <MaterialCommunityIcons
               name={feedback.ok ? "check-circle" : "alert-circle-outline"}
               size={16}
@@ -275,11 +276,11 @@ export function PlanCard({
           size={22}
           color={selected ? colors.primary : colors.textMuted}
         />
-        <View className="flex-1 gap-0.5">
+        <View className="flex-1 gap-1">
           <View className="flex-row flex-wrap items-center gap-2">
             <Text className="text-base font-bold text-text">{label}</Text>
             {badge ? (
-              <View className="rounded-full bg-primary px-2 py-0.5">
+              <View className="rounded-full bg-primary px-2 py-1">
                 <Text className="text-[11px] font-bold text-on-primary">{badge}</Text>
               </View>
             ) : null}
@@ -324,7 +325,7 @@ function TrialTimeline({ reminderAt, endAt, priceLine }: { reminderAt: Date | nu
             </View>
             {i < steps.length - 1 ? <View className="w-0.5 flex-1 bg-primary/25" style={{ minHeight: 14 }} /> : null}
           </View>
-          <View className={`flex-1 gap-0.5 ${i < steps.length - 1 ? "pb-3" : ""}`}>
+          <View className={`flex-1 gap-1 ${i < steps.length - 1 ? "pb-3" : ""}`}>
             <Text className="text-sm font-bold text-text">{s.when}</Text>
             <Text className="text-sm text-muted">{s.what}</Text>
           </View>
@@ -355,6 +356,31 @@ function PaywallHero({ icon, photoUrl }: { icon: IconName; photoUrl: string | nu
       </View>
       <View className="absolute -bottom-1 -right-1 h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-primary">
         <MaterialCommunityIcons name={icon} size={16} color={colors.textOnPrimary} />
+      </View>
+    </View>
+  );
+}
+
+/** En-tête de la variante « focused » : la photo du cheval en pleine largeur
+ * (montrer SON cheval plutôt que décrire l'app), pastille Premium posée
+ * dessus. Sans photo, ou si elle ne se charge pas : l'en-tête du témoin. */
+function PaywallPhotoHero({ icon, photoUrl, horseName }: { icon: IconName; photoUrl: string | null; horseName: string | null }) {
+  const colors = useThemeColors();
+  const [failed, setFailed] = useState(false);
+  if (!photoUrl || failed) return <PaywallHero icon={icon} photoUrl={null} />;
+  return (
+    <View
+      className="h-44 overflow-hidden rounded-card bg-highlight"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      testID="paywall-photo-hero"
+    >
+      <Image source={{ uri: photoUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" onError={() => setFailed(true)} />
+      <View className="absolute bottom-3 left-3 flex-row items-center gap-2 rounded-full bg-primary px-3 py-1">
+        <MaterialCommunityIcons name={icon} size={16} color={colors.textOnPrimary} />
+        <Text className="text-[13px] font-bold text-on-primary" numberOfLines={1}>
+          {horseName ? t("{name} · Premium", { name: horseName }) : t("Premium")}
+        </Text>
       </View>
     </View>
   );
@@ -421,8 +447,12 @@ export function PaywallView({
     openedAt.current = Date.now();
   }, []);
 
+  // Lu une fois par montage : la variante ne change pas pendant l'affichage.
+  const [focused] = useState(() => variant("paywall_layout") === "focused");
   const copy = paywallCopy(placement, horseNames);
-  const benefits = orderedBenefits(placement);
+  // Variante « focused » : 3 bénéfices, pour que les formules soient visibles
+  // sans faire défiler malgré la grande photo (le reste est dans le comparatif).
+  const benefits = orderedBenefits(placement, focused ? 3 : 4);
 
   const plan = (p: BillingPeriod) => ({
     price: offer?.[p]?.price ?? FALLBACK_PRICE[p].price,
@@ -529,7 +559,9 @@ export function PaywallView({
         : currentPeriod
           ? t("Passer au {v} · {priceString}/{v2}", { v: period === "ANNUAL" ? t("annuel") : t("mensuel"), priceString: selected.priceString, v2: PERIOD_WORD[period] })
           : trialConfirmed
-        ? t("Essayer gratuitement pendant {trialDurationLabel}", { trialDurationLabel: trialDurationLabel(trial) })
+        ? focused
+          ? t("Démarrer mon essai gratuit de {trialDurationLabel}", { trialDurationLabel: trialDurationLabel(trial) })
+          : t("Essayer gratuitement pendant {trialDurationLabel}", { trialDurationLabel: trialDurationLabel(trial) })
         : t("S'abonner · {priceString}/{v}", { priceString: selected.priceString, v: PERIOD_WORD[period] });
 
   return (
@@ -549,7 +581,11 @@ export function PaywallView({
       >
         <FadeInView>
           <View className="gap-3">
-            <PaywallHero icon={copy.icon as IconName} photoUrl={heroPhotoUrl} />
+            {focused ? (
+              <PaywallPhotoHero icon={copy.icon as IconName} photoUrl={heroPhotoUrl} horseName={horseNames[0]?.trim() || null} />
+            ) : (
+              <PaywallHero icon={copy.icon as IconName} photoUrl={heroPhotoUrl} />
+            )}
             <Text className="text-3xl font-display leading-tight tracking-tight text-text">{copy.title}</Text>
             <Text className="text-base text-muted">{copy.subtitle}</Text>
           </View>
@@ -574,9 +610,11 @@ export function PaywallView({
             }}
             activeOpacity={0.7}
             className="flex-row items-center gap-1 self-start py-1"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: compareOpen }}
           >
             <Text className="text-sm font-semibold text-link">{t("Comparer gratuit et Premium")}</Text>
-            <MaterialCommunityIcons name={compareOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.accent} />
+            <MaterialCommunityIcons name={compareOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.link} />
           </TouchableOpacity>
           {compareOpen ? <ComparisonCard /> : null}
         </View>

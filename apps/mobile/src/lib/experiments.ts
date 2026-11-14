@@ -30,6 +30,13 @@ type ExperimentDef = {
 export const EXPERIMENTS = {
   // Exemple — à copier pour une vraie expérience :
   // paywall_cta: { variants: ["control", "trial_first"], enabled: false },
+
+  /** Paywall « focused » (cf. skill paywalls) : photo du cheval en grand en
+   * tête, 3 bénéfices au lieu de 4 pour que les formules remontent, bouton à
+   * la première personne (« Démarrer mon essai gratuit »). Prix, essai,
+   * mentions légales et sortie gratuite identiques au témoin. À juger sur
+   * paywall_viewed → purchase_completed, par placement. */
+  paywall_layout: { variants: ["control", "focused"], enabled: true },
 } as const satisfies Record<string, ExperimentDef>;
 
 export type ExperimentKey = keyof typeof EXPERIMENTS;
