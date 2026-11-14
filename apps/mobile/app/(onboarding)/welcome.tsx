@@ -31,7 +31,7 @@ export default function Welcome() {
   function chooseOwner() {
     track("onboarding_path_chosen", { path: "owner" });
     setFlow("owner");
-    router.push("/(onboarding)/rider-level");
+    router.push("/(onboarding)/discipline");
   }
 
   function restart() {
@@ -91,7 +91,7 @@ export default function Welcome() {
             <Text className="text-xs text-muted">{t("Demi-pension, coach, groom")}</Text>
           </TouchableOpacity>
           <Text className="text-center text-xs text-muted">
-            {t("Gratuit pour commencer · Premium en option")}
+            {t("Gratuit · prêt en 1 minute · Premium en option")}
           </Text>
           {/* Cavalier qui revient (nouveau téléphone, réinstallation) : droit
               à la connexion, sans passer par le formulaire de création. */}

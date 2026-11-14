@@ -1,4 +1,5 @@
 import type { HorseDraft, InjuryDraft, OnboardingFlow, RiderDraft } from "./store";
+import { reviveFirstAction, type FirstActionDraft } from "./firstAction";
 
 /**
  * Brouillon d'onboarding sauvegardé sur l'appareil — logique pure, testable.
@@ -16,6 +17,9 @@ export type DraftState = {
   horses: HorseDraft[];
   editingIndex: number;
   flow: OnboardingFlow | null;
+  /** Premier soin ou première séance choisi pendant l'onboarding (cf.
+   * onboarding/firstAction.ts), créé pour de vrai à la fin du parcours. */
+  firstAction: FirstActionDraft | null;
 };
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -59,6 +63,7 @@ export function reviveDraft(raw: unknown, makeHorse: (isPrimary: boolean) => Hor
     horses,
     editingIndex: Math.max(0, Math.min(Math.floor(index), horses.length - 1)),
     flow,
+    firstAction: reviveFirstAction(raw.firstAction),
   };
 }
 

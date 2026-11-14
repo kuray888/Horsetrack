@@ -13,16 +13,29 @@ import type {
 } from "./store";
 import { t } from "@/i18n";
 
-/** Nombre d'étapes affichant la barre de progression (welcome/building/paywall
- * exclus) : niveau, discipline, cheval, chevaux. Fréquence et objectif ne sont
- * plus demandés à l'inscription (ils ne personnalisaient rien, retour produit
- * du 2026-09-27) : ils restent modifiables depuis le Profil. */
-export const TOTAL_STEPS = 4;
+/** Nombre d'étapes affichant la barre de progression (welcome, récompense,
+ * compte et paywall exclus) : discipline, cheval, première action. Parcours
+ * resserré le 2026-11-14 (1.3.0) : le niveau du cavalier et la liste des
+ * chevaux ne sont plus demandés (le niveau se règle dans le Profil, les
+ * chevaux suivants s'ajoutent depuis l'app) ; la fiche du cheval se limite au
+ * nom et à la photo ; une première action (soin ou séance) fait vivre la
+ * valeur avant le compte. */
+export const TOTAL_STEPS = 3;
 
 /** Identifiants stables des étapes d'onboarding, envoyés dans
  * `onboarding_step_viewed.step` (cf. lib/analytics.ts). Ne jamais en
  * renommer un : le tunnel PostHog s'appuie dessus. */
-export type OnboardingStepId = "welcome" | "account" | "rider_level" | "discipline" | "horse_basics" | "horses" | "summary";
+export type OnboardingStepId =
+  | "welcome"
+  | "account"
+  /** Retirés du parcours le 2026-11-14 : gardés pour lire l'historique. */
+  | "rider_level"
+  | "horses"
+  | "discipline"
+  | "horse_basics"
+  /** Premier soin ou première séance (depuis le 2026-11-14). */
+  | "first_action"
+  | "summary";
 
 /** Valeur sentinelle UI pour "option non listée" (race, type de blessure...) — jamais persistée telle quelle. */
 export const OTHER_OPTION = "__OTHER__";

@@ -50,6 +50,9 @@ export function OnboardingShell({
   ctaDisabled = false,
   onNext,
   canGoBack = true,
+  secondaryLabel,
+  onSecondary,
+  ctaTestID,
 }: {
   /** Identifiant stable de l'étape pour le tunnel analytics — indépendant
    * de la langue et de l'ordre des écrans (contrairement au titre et à
@@ -64,6 +67,11 @@ export function OnboardingShell({
   ctaDisabled?: boolean;
   onNext: () => void;
   canGoBack?: boolean;
+  /** Sortie douce sous le bouton (« Plus tard ») : une étape facultative ne
+   * bloque jamais le parcours. */
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+  ctaTestID?: string;
 }) {
   // Entonnoir d'onboarding : une vue par étape (cf. lib/analytics.ts).
   useEffect(() => {
@@ -100,8 +108,13 @@ export function OnboardingShell({
         </FadeInView>
       </ScrollView>
 
-      <View className="px-5 pb-2 pt-3">
-        <PrimaryButton label={ctaLabel} disabled={ctaDisabled} onPress={onNext} />
+      <View className="gap-3 px-5 pb-2 pt-3">
+        <PrimaryButton testID={ctaTestID} label={ctaLabel} disabled={ctaDisabled} onPress={onNext} />
+        {secondaryLabel && onSecondary ? (
+          <TouchableOpacity onPress={onSecondary} hitSlop={8} className="py-1" accessibilityRole="button" testID="onboarding-secondary">
+            <Text className="text-center text-sm font-semibold text-link">{secondaryLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <PickerOverlaySlot />
     </SafeAreaView>

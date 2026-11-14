@@ -30,6 +30,11 @@ export type AnalyticsEvent =
   | "onboarding_step_viewed"
   | "onboarding_completed"
   | "onboarding_path_chosen"
+  /** Premier soin ou première séance choisi à l'onboarding (cf.
+   * (onboarding)/first-action.tsx), puis réellement créé à la fin. */
+  | "onboarding_first_action_saved"
+  | "onboarding_first_action_skipped"
+  | "onboarding_first_action_created"
   // Paywall
   | "paywall_viewed"
   | "paywall_plan_selected"

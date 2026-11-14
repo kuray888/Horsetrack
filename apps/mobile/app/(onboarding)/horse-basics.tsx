@@ -2,129 +2,77 @@ import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import { Image } from "@/components/AppImage";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
-import { OnboardingShell, SingleSelect } from "@/components/onboarding";
-import { BreedField } from "@/components/BreedField";
-import { CoatField } from "@/components/CoatField";
+import { OnboardingShell } from "@/components/onboarding";
 import { Field } from "@/components/Field";
-import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useOnboarding } from "@/onboarding/store";
-import { HORSE_SEXES, TOTAL_STEPS } from "@/onboarding/options";
+import { TOTAL_STEPS } from "@/onboarding/options";
 import { chooseAndPersistImage } from "@/lib/imagePicker";
-import { colors } from "@/theme/colors";
-import { t as tr } from "@/i18n";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import { t } from "@/i18n";
 
-const INPUT =
-  "rounded-card border border-border bg-surface p-4 text-base text-text";
+const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
+/** Le cheval, réduit à l'essentiel : son nom (seul champ obligatoire) et,
+ * si on veut, sa photo — celle qu'on retrouve ensuite sur l'Accueil et le
+ * paywall. Race, robe, âge, taille et poids se complètent depuis sa fiche. */
 export default function HorseBasics() {
+  const colors = useThemeColors();
   const { editingHorse, updateEditingHorse } = useOnboarding();
-  const currentYear = new Date().getFullYear();
+  const canContinue = editingHorse.name.trim().length > 0;
 
   async function pickPhoto() {
     const uri = await chooseAndPersistImage();
     if (uri) updateEditingHorse({ photoUrl: uri });
   }
 
+  function next() {
+    if (canContinue) router.push("/(onboarding)/first-action");
+  }
+
   return (
-    <>
     <OnboardingShell
       stepId="horse_basics"
-      step={3}
+      step={2}
       total={TOTAL_STEPS}
-      title={tr("Présente-nous ton cheval")}
-      subtitle={tr("Le nom suffit pour commencer — tu pourras compléter sa fiche plus tard.")}
-      ctaDisabled={editingHorse.name.trim().length === 0}
-      onNext={() => router.push("/(onboarding)/horses")}
+      title={t("Comment s'appelle ton cheval ?")}
+      subtitle={t("Le reste de sa fiche se complète quand tu veux.")}
+      ctaDisabled={!canContinue}
+      onNext={next}
+      ctaTestID="horse-basics-continue"
     >
-      {/* Photo */}
-      <View className="items-center">
+      <View className="items-center gap-2">
         <TouchableOpacity
           onPress={pickPhoto}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={tr("Choisir une photo du cheval")}
-          className="h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-dashed border-border bg-surface"
+          accessibilityLabel={editingHorse.photoUrl ? t("Changer la photo") : t("Choisir une photo du cheval")}
+          className="h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-dashed border-border bg-surface"
         >
           {editingHorse.photoUrl ? (
-            <Image source={{ uri: editingHorse.photoUrl }} style={{ width: 96, height: 96 }} contentFit="cover" />
+            <Image source={{ uri: editingHorse.photoUrl }} style={{ width: 112, height: 112 }} contentFit="cover" />
           ) : (
-            <MaterialCommunityIcons name="horse-variant" size={32} color={colors.textMuted} />
+            <MaterialCommunityIcons name="camera-plus-outline" size={28} color={colors.textMuted} />
           )}
         </TouchableOpacity>
-        <Text className="mt-2 text-xs text-muted">
-          {editingHorse.photoUrl ? tr("Changer la photo") : tr("Ajouter une photo")}
+        <Text className="text-[13px] text-muted">
+          {editingHorse.photoUrl ? t("Changer la photo") : t("Ajouter une photo (facultatif)")}
         </Text>
       </View>
 
-      <Field label={tr("Nom du cheval")}>
+      <Field label={t("Nom du cheval")}>
         <TextInput
           className={INPUT}
-          placeholder={tr("Ex : Quabar des Monts")}
+          placeholder={t("Ex : Quabar des Monts")}
           value={editingHorse.name}
           onChangeText={(name) => updateEditingHorse({ name })}
           autoCapitalize="words"
+          autoCorrect={false}
+          autoFocus
+          returnKeyType="next"
+          onSubmitEditing={next}
+          testID="horse-basics-name"
         />
       </Field>
-
-      <Field label={tr("Année de naissance")}>
-        <TextInput
-          className={INPUT}
-          placeholder={tr("Ex : {v}", { v: currentYear - 8 })}
-          keyboardType="number-pad"
-          maxLength={4}
-          value={editingHorse.birthYear ? String(editingHorse.birthYear) : ""}
-          onChangeText={(t) => {
-            const n = parseInt(t, 10);
-            updateEditingHorse({ birthYear: Number.isNaN(n) ? null : Math.min(n, currentYear) });
-          }}
-        />
-      </Field>
-
-      <Field label={tr("Sexe")}>
-        <SingleSelect
-          options={HORSE_SEXES}
-          value={editingHorse.sex}
-          onChange={(sex) => updateEditingHorse({ sex })}
-        />
-      </Field>
-
-      <BreedField value={editingHorse.breed} onChange={(breed) => updateEditingHorse({ breed })} />
-      <CoatField value={editingHorse.coat} onChange={(coat) => updateEditingHorse({ coat })} />
-
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <Field label={tr("Taille au garrot (cm)")}>
-            <TextInput
-              className={INPUT}
-              placeholder={tr("Ex : 165")}
-              keyboardType="number-pad"
-              maxLength={3}
-              value={editingHorse.heightCm ? String(editingHorse.heightCm) : ""}
-              onChangeText={(t) => {
-                const n = parseInt(t, 10);
-                updateEditingHorse({ heightCm: Number.isNaN(n) ? null : Math.max(1, Math.min(n, 250)) });
-              }}
-            />
-          </Field>
-        </View>
-        <View className="flex-1">
-          <Field label={tr("Poids (kg)")}>
-            <TextInput
-              className={INPUT}
-              placeholder={tr("Ex : 550")}
-              keyboardType="number-pad"
-              maxLength={4}
-              value={editingHorse.weightKg ? String(editingHorse.weightKg) : ""}
-              onChangeText={(t) => {
-                const n = parseInt(t, 10);
-                updateEditingHorse({ weightKg: Number.isNaN(n) ? null : Math.max(1, Math.min(n, 1500)) });
-              }}
-            />
-          </Field>
-        </View>
-      </View>
     </OnboardingShell>
-    <PickerOverlaySlot />
-    </>
   );
 }

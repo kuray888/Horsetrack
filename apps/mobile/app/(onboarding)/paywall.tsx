@@ -18,15 +18,28 @@ import { useRiderProfile } from "@/rider/store";
 import { pullCloudData, pushRiderProfile } from "@/lib/cloudSync";
 import { pullPendingInvites } from "@/lib/sharing";
 import { requestServerSubscriptionSync } from "@/lib/subscriptionSync";
+import { useAgenda } from "@/agenda/store";
+import { useSessions } from "@/sessions/store";
+import { APPT_META } from "@/agenda/meta";
+import { appointmentReminderContent } from "@/agenda/reminderContent";
+import { computeReminderTrigger, scheduleReminder } from "@/lib/notifications";
+import { appointmentReminderUrl } from "@/lib/notificationLinks";
+import { FIRST_CARE_TIME, firstActionDate, type FirstActionDraft } from "@/onboarding/firstAction";
 import { t } from "@/i18n";
+
+/** Attente maximale de l'envoi du cheval au serveur avant d'y rattacher le
+ * premier soin ou la première séance. */
+const HORSE_SYNC_WAIT_MS = 8000;
 
 /** Pivot freemium du 2026-09-03 (v2) : présente l'abonnement Premium à la fin
  * de l'onboarding, mais reste "skippable" via onSkip — contrairement à
  * l'ancien palier unique, il existe un vrai palier gratuit permanent pour
  * continuer sans payer (cf. PaywallView "Continuer avec le palier gratuit"). */
 export default function OnboardingPaywall() {
-  const { rider, horses } = useOnboarding();
+  const { rider, horses, firstAction } = useOnboarding();
   const { replaceHorses, hydrateFromCloud } = useHorses();
+  const { addAppointment } = useAgenda();
+  const { addSession } = useSessions();
   const { setRiderProfile } = useRiderProfile();
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
   const subscription = useSubscription();
@@ -49,6 +62,61 @@ export default function OnboardingPaywall() {
   // dans une alerte.
   const skipLabel =
     namedHorses.length > 1 ? t("Continuer avec {v} seulement (gratuit)", { v: namedHorses[0] }) : t("Continuer avec la version gratuite");
+
+  /**
+   * Transforme le premier soin ou la première séance choisi à l'onboarding
+   * (cf. first-action.tsx) en vrai rendez-vous ou vraie séance du cheval
+   * principal. Lancé en arrière-plan : il attend que le cheval soit connu du
+   * serveur (le rendez-vous le référence, un envoi trop tôt serait refusé),
+   * 8 s au plus, sans retarder l'arrivée sur l'Accueil. Le rappel n'est
+   * programmé que si la notification a été autorisée sur first-action.tsx.
+   */
+  async function createFirstAction(action: FirstActionDraft, horseId: string, horseName: string, synced: Promise<unknown>) {
+    const date = firstActionDate(action);
+    if (!date) return;
+    await Promise.race([synced, new Promise((resolve) => setTimeout(resolve, HORSE_SYNC_WAIT_MS))]);
+    if (action.kind === "care") {
+      const title = APPT_META[action.careType].label;
+      let reminderNotificationId: string | null = null;
+      const trigger = action.reminder ? computeReminderTrigger(date, FIRST_CARE_TIME, "1d") : null;
+      if (trigger) {
+        const content = appointmentReminderContent(title, date, FIRST_CARE_TIME, "", horseName);
+        reminderNotificationId = await scheduleReminder(content.title, content.body, trigger, appointmentReminderUrl(action.careType, horseId)).catch(
+          () => null
+        );
+      }
+      addAppointment({
+        horseId,
+        type: action.careType,
+        title,
+        date,
+        time: FIRST_CARE_TIME,
+        location: "",
+        notes: "",
+        reminder: reminderNotificationId ? "1d" : "none",
+        reminderNotificationId,
+        emailReminderId: null,
+        dossard: null,
+        professional: null,
+        cost: null,
+        nextDueDate: null,
+        nextDueNotificationId: null,
+      });
+      if (reminderNotificationId) track("reminder_created", { type: action.careType, reminder: "1d" });
+    } else {
+      addSession({
+        horseId,
+        activityType: action.activity,
+        customActivityLabel: null,
+        date,
+        time: "",
+        durationMinutes: null,
+        intensity: null,
+        notes: "",
+      });
+    }
+    track("onboarding_first_action_created", { kind: action.kind });
+  }
 
   async function finish(justSubscribed?: Persisted) {
     const premium = !!justSubscribed && computeIsActiveOrTrialing(justSubscribed);
@@ -121,7 +189,9 @@ export default function OnboardingPaywall() {
         horsesWithSportProfile.length <= limit
           ? horsesWithSportProfile
           : [...horsesWithSportProfile].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)).slice(0, limit);
-      replaceHorses(withinLimit);
+      const { primaryId, synced } = replaceHorses(withinLimit);
+      const primaryName = withinLimit.find((h) => h.isPrimary)?.name.trim() ?? withinLimit[0]?.name.trim() ?? "";
+      if (firstAction && primaryId) void createFirstAction(firstAction, primaryId, primaryName, synced).catch(() => {});
       if (withinLimit.length < horsesWithSportProfile.length) {
         Alert.alert(
           t("Un seul cheval sur le palier gratuit"),

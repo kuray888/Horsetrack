@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useMemo, useCallback } from "react";
 import { readJsonChecked, writeJson } from "@/lib/localStore";
 import { DRAFT_KEY, reviveDraft } from "./draftPersistence";
+import type { FirstActionDraft } from "./firstAction";
 
 /**
  * Store d'onboarding (React Context, pas de dépendance externe).
@@ -86,6 +87,9 @@ type OnboardingState = {
   horses: HorseDraft[];
   editingIndex: number;
   flow: OnboardingFlow | null;
+  /** Premier soin ou première séance (cf. onboarding/firstAction.ts) ; null
+   * tant que rien n'est choisi, ou si le cavalier a passé l'étape. */
+  firstAction: FirstActionDraft | null;
 };
 
 /** Délai avant d'écrire le brouillon : regroupe les frappes d'un nom. */
@@ -119,6 +123,7 @@ export function newHorse(isPrimary: boolean): HorseDraft {
 type OnboardingContextValue = OnboardingState & {
   setRider: (patch: Partial<RiderDraft>) => void;
   setFlow: (flow: OnboardingFlow) => void;
+  setFirstAction: (action: FirstActionDraft | null) => void;
   /** Vrai une fois le brouillon sauvegardé relu (ou absent). */
   hydrated: boolean;
   /** Cheval en cours d'édition (toujours défini pendant les écrans cheval). */
@@ -145,6 +150,7 @@ const initialState: OnboardingState = {
   horses: [newHorse(true)],
   editingIndex: 0,
   flow: null,
+  firstAction: null,
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -189,6 +195,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const setFlow = useCallback((flow: OnboardingFlow) => {
     touched.current = true;
     setState((s) => ({ ...s, flow }));
+  }, []);
+
+  const setFirstAction = useCallback((firstAction: FirstActionDraft | null) => {
+    touched.current = true;
+    setState((s) => ({ ...s, firstAction }));
   }, []);
 
   const updateEditingHorse = useCallback((patch: Partial<HorseDraft>) => {
@@ -251,6 +262,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       hydrated,
       setRider,
       setFlow,
+      setFirstAction,
       updateEditingHorse,
       startNewHorse,
       editHorse,
@@ -259,7 +271,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       removeInjury,
       reset,
     }),
-    [state, hydrated, setRider, setFlow, updateEditingHorse, startNewHorse, editHorse, removeHorse, addInjury, removeInjury, reset]
+    [state, hydrated, setRider, setFlow, setFirstAction, updateEditingHorse, startNewHorse, editHorse, removeHorse, addInjury, removeInjury, reset]
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

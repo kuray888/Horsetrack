@@ -44,6 +44,16 @@ describe("reviveDraft", () => {
     expect(draft.horses[0].injuries[0].occurredAt?.getTime()).toBe(occurredAt.getTime());
     expect(draft.rider.level).toBe("AMATEUR");
     expect(draft.flow).toBe("owner");
+    expect(draft.firstAction).toBeNull();
+  });
+
+  it("garde le premier soin choisi pendant l'onboarding", () => {
+    const firstAction = { kind: "care", careType: "marechal", day: "2026-11-28", reminder: true };
+    const draft = reviveDraft(
+      roundTrip({ rider: {}, horses: [{ ...makeHorse(true), localId: "a", name: "Tornade" }], editingIndex: 0, flow: "owner", firstAction }),
+      makeHorse
+    )!;
+    expect(draft.firstAction).toEqual(firstAction);
   });
 
   it("complète les champs ajoutés depuis la sauvegarde", () => {

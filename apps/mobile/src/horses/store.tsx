@@ -249,8 +249,11 @@ type HorsesContextValue = {
    * No-op pour un cheval partagé (lecture seule, cf. Horse.sharedRole). */
   updateHorseHealth: (id: string, patch: Partial<Pick<Horse, "healthConditions" | "injuries">>) => void;
   /** Remplace toute l'écurie par les chevaux de l'onboarding — appelé une
-   * seule fois à la fin du parcours (cf. (onboarding)/paywall.tsx). */
-  replaceHorses: (drafts: HorseDraft[]) => void;
+   * seule fois à la fin du parcours (cf. (onboarding)/paywall.tsx). Renvoie
+   * le cheval principal créé et la promesse de son envoi au serveur (jamais
+   * rejetée), pour y rattacher le premier soin ou la première séance une fois
+   * le cheval connu du serveur. */
+  replaceHorses: (drafts: HorseDraft[]) => { primaryId: string | null; synced: Promise<unknown> };
   /** Restaure l'écurie depuis une sauvegarde cloud (cf. lib/cloudSync.ts) —
    * distinct de replaceHorses : prend des Horse déjà complets, pas des
    * brouillons d'onboarding, et ne republie pas vers le cloud. */
@@ -501,11 +504,12 @@ export function HorsesProvider({ children }: { children: ReactNode }) {
       if (next.length > 0 && !next.some((h) => h.isPrimary)) next[0].isPrimary = true;
 
       setHorses(next);
-      persist(next);
+      const synced = persist(next);
 
       const primaryId = next.find((h) => h.isPrimary)?.id ?? next[0]?.id ?? null;
       setSelectedHorseId(primaryId);
       if (primaryId) SecureStore.setItemAsync(SELECTED_KEY, primaryId).catch(() => {});
+      return { primaryId, synced };
     },
     [persist]
   );

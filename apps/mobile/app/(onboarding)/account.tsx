@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { clearExtras } from "@/extras/store";
-import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -24,6 +24,7 @@ import { useWeight } from "@/horses/weightStore";
 import { useSubscription } from "@/subscription/store";
 import { useOnboarding } from "@/onboarding/store";
 import { hasResumableDraft } from "@/onboarding/draftPersistence";
+import { useTheme } from "@/theme/ThemeProvider";
 import { t } from "@/i18n";
 import { GOOGLE_AUTH_ENABLED, signInWithGoogle } from "@/lib/googleAuth";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -38,7 +39,6 @@ export default function OnboardingAccount() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   // Écran "Vérifie ton e-mail" affiché à la place du formulaire tant que la
   // confirmation par email (si activée côté projet Supabase) n'a pas encore
@@ -72,8 +72,8 @@ export default function OnboardingAccount() {
     ownerDraftRef.current = ownerDraft;
   }, [ownerDraft]);
   const [resendResult, setResendResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   const appleAvailable = useAppleSignInAvailable();
+  const { scheme } = useTheme();
   // Horses/rider sont écrasés par les réponses d'onboarding à l'étape
   // paywall (cf. (onboarding)/paywall.tsx)… mais seulement sur ce chemin-là :
   // un invité qui accepte un partage (cf. pending-invites.tsx) n'y passe
@@ -138,7 +138,7 @@ export default function OnboardingAccount() {
     if (invites.length > 0) {
       router.replace("/(onboarding)/pending-invites");
     } else {
-      router.replace("/(onboarding)/rider-level");
+      router.replace("/(onboarding)/discipline");
     }
   }
 
@@ -228,10 +228,6 @@ export default function OnboardingAccount() {
   }
 
   async function createAccount() {
-    if (password !== confirmPassword) {
-      Alert.alert(t("Erreur"), t("Les deux mots de passe ne correspondent pas."));
-      return;
-    }
     setLoading(true);
     try {
       // Si une tentative précédente a déjà créé ce compte (signUp réussi) mais
@@ -430,95 +426,96 @@ export default function OnboardingAccount() {
     );
   }
 
+  const hasSocial = appleAvailable || GOOGLE_AUTH_ENABLED;
+  const canCreate = !loading && !!email.trim() && password.length >= MIN_PASSWORD_LENGTH;
+
+  // Création en un toucher d'abord (Apple, Google), l'e-mail ensuite : un
+  // seul mot de passe, affichable (cf. PasswordInput), sans champ de
+  // confirmation — une faute de frappe se rattrape par « Mot de passe
+  // oublié ? ». Le formulaire défile : le clavier ne cache jamais le bouton.
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-1 gap-5 px-5 pt-8">
-        <View className="gap-2">
-          <Text className="text-2xl font-display tracking-tight text-text">
-            {ownerDraft && draftName ? t("Garde l'écurie de {name}", { name: draftName }) : t("Crée ton compte Horsetrack")}
-          </Text>
-          <Text className="text-base text-muted">
-            {ownerDraft
-              ? t("Crée ton compte : tout ce que tu viens de saisir est sauvegardé et retrouvé sur tous tes appareils.")
-              : flow === "invited"
-                ? t("Tu retrouveras ensuite le cheval qu'on a partagé avec toi.")
-                : t("On personnalise ton profil juste après.")}
-          </Text>
-        </View>
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerClassName="gap-6 px-5 pt-8 pb-4" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View className="gap-2">
+            <Text className="text-2xl font-display tracking-tight text-text">
+              {ownerDraft && draftName ? t("Sauvegarde l'écurie de {name}", { name: draftName }) : t("Crée ton compte Horsetrack")}
+            </Text>
+            <Text className="text-base text-muted">
+              {ownerDraft
+                ? t("Dernière étape : ton compte garde tout ce que tu viens de saisir, sur tous tes appareils.")
+                : flow === "invited"
+                  ? t("Tu retrouveras ensuite le cheval qu'on a partagé avec toi.")
+                  : t("On personnalise ton profil juste après.")}
+            </Text>
+          </View>
 
-        <Field label={t("Email")}>
-          <TextInput
-            className={INPUT}
-            placeholder="toi@exemple.com"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-        </Field>
-
-        <Field label={t("Mot de passe")}>
-          <PasswordInput
-            placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
-            value={password}
-            onChangeText={setPassword}
-            autoComplete="new-password"
-          />
-        </Field>
-
-        <Field label={t("Confirmer le mot de passe")}>
-          <PasswordInput
-            placeholder={t("Retape ton mot de passe")}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            autoComplete="new-password"
-          />
-          {passwordsMismatch ? (
-            <Text className="text-xs text-danger">{t("Les mots de passe ne correspondent pas.")}</Text>
-          ) : null}
-        </Field>
-      </View>
-
-      <View className="gap-3 px-5 pb-2 pt-3">
-        <PrimaryButton
-          label={loading ? t("Création...") : t("Créer mon compte")}
-          disabled={loading || !email.trim() || password.length < MIN_PASSWORD_LENGTH || password !== confirmPassword}
-          onPress={createAccount}
-        />
-        {appleAvailable ? (
-          <>
-            <View className="flex-row items-center gap-3">
-              <View className="h-px flex-1 bg-border" />
-              <Text className="text-xs text-muted">{t("ou")}</Text>
-              <View className="h-px flex-1 bg-border" />
-            </View>
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              cornerRadius={12}
-              style={{ height: 48, width: "100%" }}
-              onPress={handleAppleSignIn}
-            />
-          </>
-        ) : null}
-        {GOOGLE_AUTH_ENABLED ? (
-          <>
-            {!appleAvailable ? (
-              <View className="flex-row items-center gap-3">
+          {hasSocial ? (
+            <View className="gap-3">
+              {appleAvailable ? (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                  buttonStyle={
+                    scheme === "dark"
+                      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                  }
+                  cornerRadius={12}
+                  style={{ height: 52, width: "100%" }}
+                  onPress={handleAppleSignIn}
+                />
+              ) : null}
+              {GOOGLE_AUTH_ENABLED ? <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} /> : null}
+              <View className="flex-row items-center gap-3 pt-2">
                 <View className="h-px flex-1 bg-border" />
-                <Text className="text-xs text-muted">{t("ou")}</Text>
+                <Text className="text-[13px] text-muted">{t("ou avec ton e-mail")}</Text>
                 <View className="h-px flex-1 bg-border" />
               </View>
-            ) : null}
-            <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} />
-          </>
-        ) : null}
-        <TouchableOpacity testID="account-go-login" accessibilityRole="button" onPress={() => router.replace("/(auth)/login")}>
-          <Text className="text-center text-sm font-semibold text-link">
-            {t("Déjà un compte ? Se connecter")}
-          </Text>
-        </TouchableOpacity>
-      </View>
+            </View>
+          ) : null}
+
+          <View className="gap-4">
+            <Field label={t("Email")}>
+              <TextInput
+                className={INPUT}
+                placeholder="toi@exemple.com"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                keyboardType="email-address"
+                returnKeyType="next"
+                testID="account-email"
+              />
+            </Field>
+
+            <Field label={t("Mot de passe")}>
+              <PasswordInput
+                placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
+                value={password}
+                onChangeText={setPassword}
+                autoComplete="new-password"
+              />
+            </Field>
+          </View>
+        </ScrollView>
+
+        <View className="gap-3 px-5 pb-2 pt-3">
+          <PrimaryButton
+            testID="account-create"
+            label={loading ? t("Création...") : t("Créer mon compte")}
+            disabled={!canCreate}
+            onPress={createAccount}
+          />
+          <TouchableOpacity testID="account-go-login" accessibilityRole="button" onPress={() => router.replace("/(auth)/login")} hitSlop={8} className="py-1">
+            <Text className="text-center text-sm font-semibold text-link">
+              {t("Déjà un compte ? Se connecter")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

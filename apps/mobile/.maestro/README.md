@@ -55,7 +55,12 @@ développement, dont le menu est fermé automatiquement au premier chargement.
 ## Repères (`testID`)
 
 `welcome-start` (« J'ai un cheval »), `welcome-invited`, `welcome-login`,
-`welcome-resume`, `welcome-restart`, `summary-continue`, `account-go-login`,
+`welcome-resume`, `welcome-restart`, `horse-basics-name`,
+`horse-basics-continue`, `first-action-care`, `first-action-session`,
+`first-care-<type>`, `first-care-date-<date>`, `first-session-<type>`,
+`first-session-date-<date>`, `first-action-save`, `onboarding-secondary`
+(« Plus tard »), `summary-title`, `summary-first-action`, `summary-continue`,
+`account-email`, `account-create`, `account-go-login`,
 `login-email`, `login-password`,
 `login-submit`, `profile-premium`, `paywall-close`, `paywall-plan-annual`,
 `paywall-plan-monthly`, `paywall-cta`, `paywall-free`, `paywall-restore`,
