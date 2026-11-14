@@ -1,0 +1,75 @@
+{
+ "total": 27.11,
+ "lines": [
+  {
+   "text": "Ta demi-pension a monté ton cheval hier. Tu l'as su comment ?",
+   "start": 0.2,
+   "end": 3.602,
+   "scene": 0
+  },
+  {
+   "text": "Dans *HorseTrack*, le planning de ton cheval tient en un seul endroit.",
+   "start": 4.152,
+   "end": 7.902,
+   "scene": 1
+  },
+  {
+   "text": "Séances, soins, concours : *qui monte quoi, et quand*.",
+   "start": 8.102,
+   "end": 11.991,
+   "scene": 1
+  },
+  {
+   "text": "Tu l'invites avec son email.",
+   "start": 12.541,
+   "end": 14.329,
+   "scene": 2
+  },
+  {
+   "text": "Tu choisis son *rôle* : demi-pension, coach, groom…",
+   "start": 14.529,
+   "end": 18.163,
+   "scene": 2
+  },
+  {
+   "text": "Elle retrouve le planning et note ses séances.",
+   "start": 18.713,
+   "end": 21.302,
+   "scene": 3
+  },
+  {
+   "text": "Et ton *budget* reste à toi.",
+   "start": 21.502,
+   "end": 23.069,
+   "scene": 3
+  },
+  {
+   "text": "Essaie *HorseTrack*, le lien est en bio.",
+   "start": 23.519,
+   "end": 26.213,
+   "scene": 4
+  }
+ ],
+ "scenes": [
+  [
+   0.0,
+   3.95
+  ],
+  [
+   3.95,
+   12.34
+  ],
+  [
+   12.34,
+   18.51
+  ],
+  [
+   18.51,
+   23.42
+  ],
+  [
+   23.42,
+   27.11
+  ]
+ ]
+}

@@ -1,0 +1,59 @@
+{
+ "total": 20.55,
+ "lines": [
+  {
+   "text": "Enregistre ta balade au GPS. La séance en direct est gratuite.",
+   "start": 0.2,
+   "end": 4.496,
+   "scene": 0
+  },
+  {
+   "text": "Tu choisis ton cheval, ton activité, et tu démarres.",
+   "start": 5.046,
+   "end": 8.355,
+   "scene": 1
+  },
+  {
+   "text": "Le suivi GPS continue *même écran verrouillé*.",
+   "start": 8.555,
+   "end": 11.016,
+   "scene": 1
+  },
+  {
+   "text": "Tu vois le *chrono*, la *distance* et la vitesse en direct.",
+   "start": 11.566,
+   "end": 14.352,
+   "scene": 2
+  },
+  {
+   "text": "Et la séance s'ajoute à ton planning.",
+   "start": 14.552,
+   "end": 16.538,
+   "scene": 2
+  },
+  {
+   "text": "Teste-la avec *HorseTrack*, le lien est en bio.",
+   "start": 16.988,
+   "end": 19.646,
+   "scene": 3
+  }
+ ],
+ "scenes": [
+  [
+   0.0,
+   4.85
+  ],
+  [
+   4.85,
+   11.37
+  ],
+  [
+   11.37,
+   16.89
+  ],
+  [
+   16.89,
+   20.55
+  ]
+ ]
+}

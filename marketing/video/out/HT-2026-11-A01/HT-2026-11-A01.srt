@@ -1,0 +1,31 @@
+1
+00:00:00,200 --> 00:00:03,802
+Ta demi-pension a monté ton cheval hier. Tu l'as su comment ?
+
+2
+00:00:04,152 --> 00:00:08,102
+Dans HorseTrack, le planning de ton cheval tient en un seul endroit.
+
+3
+00:00:08,102 --> 00:00:12,191
+Séances, soins, concours : qui monte quoi, et quand.
+
+4
+00:00:12,541 --> 00:00:14,529
+Tu l'invites avec son email.
+
+5
+00:00:14,529 --> 00:00:18,363
+Tu choisis son rôle : demi-pension, coach, groom…
+
+6
+00:00:18,713 --> 00:00:21,502
+Elle retrouve le planning et note ses séances.
+
+7
+00:00:21,502 --> 00:00:23,269
+Et ton budget reste à toi.
+
+8
+00:00:23,519 --> 00:00:26,413
+Essaie HorseTrack, le lien est en bio.

@@ -1,0 +1,69 @@
+{
+ "total": 22.28,
+ "lines": [
+  {
+   "text": "C'était quand, le dernier vermifuge de ton cheval ?",
+   "start": 0.2,
+   "end": 3.091,
+   "scene": 0
+  },
+  {
+   "text": "Dans *HorseTrack*, chaque soin est noté : véto, maréchal, vaccins.",
+   "start": 3.641,
+   "end": 7.913,
+   "scene": 1
+  },
+  {
+   "text": "Et tu vois tout de suite *le prochain rendez-vous*.",
+   "start": 8.113,
+   "end": 10.319,
+   "scene": 1
+  },
+  {
+   "text": "Tu peux même poser la question au *coach IA*.",
+   "start": 10.869,
+   "end": 13.203,
+   "scene": 2
+  },
+  {
+   "text": "Il répond d'après *le carnet de ton cheval*.",
+   "start": 13.753,
+   "end": 16.017,
+   "scene": 3
+  },
+  {
+   "text": "Il ne remplace pas ton vétérinaire.",
+   "start": 16.217,
+   "end": 18.237,
+   "scene": 3
+  },
+  {
+   "text": "Essaie *HorseTrack*, le lien est en bio.",
+   "start": 18.687,
+   "end": 21.38,
+   "scene": 4
+  }
+ ],
+ "scenes": [
+  [
+   0.0,
+   3.44
+  ],
+  [
+   3.44,
+   10.67
+  ],
+  [
+   10.67,
+   13.55
+  ],
+  [
+   13.55,
+   18.59
+  ],
+  [
+   18.59,
+   22.28
+  ]
+ ]
+}

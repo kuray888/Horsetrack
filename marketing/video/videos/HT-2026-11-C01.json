@@ -1,0 +1,88 @@
+{
+  "id": "HT-2026-11-C01",
+  "angle": "Séance en direct gratuite",
+  "cible": "Cavalier qui monte en balade ou en carrière et ne garde aucune trace",
+  "probleme": "Aucune trace de la durée, de la distance ni des allures des séances",
+  "benefice": "Séance enregistrée au GPS, gratuite, ajoutée au planning",
+  "accroches_candidates": [
+    "Enregistre ta balade au GPS. Gratuit.",
+    "Combien de kilomètres a fait ton cheval cette semaine ?",
+    "Ta séance d'hier, il en reste quoi ?"
+  ],
+  "accroche_choisie": 0,
+  "pourquoi": "Bénéfice et gratuité dits en 2 s (la séance en direct est gratuite pour tous, règle produit). Hypothèse à tester contre l'accroche 2 (curiosité).",
+  "voice": {
+    "model": "fr_FR-siwis-medium",
+    "length_scale": 0.95,
+    "gap": 0.2
+  },
+  "scenes": [
+    {
+      "screen": "seance-direct-depart",
+      "title": "Enregistre ta balade au GPS. Gratuit.",
+      "from": [
+        0,
+        300,
+        888
+      ],
+      "to": [
+        34,
+        400,
+        820
+      ],
+      "lines": [
+        "Enregistre ta balade au GPS. La séance en direct est gratuite."
+      ]
+    },
+    {
+      "screen": "seance-direct-depart",
+      "title": "Ton cheval, ton activité, et c'est parti",
+      "from": [
+        0,
+        380,
+        888
+      ],
+      "to": [
+        34,
+        800,
+        820
+      ],
+      "lines": [
+        "Tu choisis ton cheval, ton activité, et tu démarres.",
+        "Le suivi GPS continue *même écran verrouillé*."
+      ]
+    },
+    {
+      "screen": "seance-direct",
+      "title": "Chrono, distance, vitesse",
+      "from": [
+        0,
+        170,
+        888
+      ],
+      "to": [
+        44,
+        430,
+        800
+      ],
+      "footnote": "Séance en direct gratuite. Allures estimées.",
+      "lines": [
+        "Tu vois le *chrono*, la *distance* et la vitesse en direct.",
+        "Et la séance s'ajoute à ton planning."
+      ]
+    },
+    {
+      "cta": {
+        "name": "HorseTrack",
+        "sub": "Le suivi de ton cheval, sur iPhone",
+        "action": "Lien en bio"
+      },
+      "title": "Teste ta prochaine balade",
+      "lead": 0.1,
+      "lines": [
+        "Teste-la avec *HorseTrack*, le lien est en bio."
+      ],
+      "tail": 0.7
+    }
+  ]
+}

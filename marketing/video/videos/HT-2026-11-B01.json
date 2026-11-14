@@ -1,0 +1,117 @@
+{
+  "id": "HT-2026-11-B01",
+  "angle": "Soins et coach IA",
+  "cible": "Cavalier propriétaire qui oublie les dates de soins",
+  "probleme": "Retrouver la date du dernier vermifuge ou du prochain maréchal",
+  "benefice": "Soins notés avec échéances, et un coach IA qui répond d'après le carnet du cheval",
+  "accroches_candidates": [
+    "C'était quand, le dernier vermifuge de ton cheval ?",
+    "Ton carnet de santé est resté à l'écurie ?",
+    "Ton maréchal passe dans 14 jours. Tu le savais ?"
+  ],
+  "accroche_choisie": 0,
+  "pourquoi": "Question précise à laquelle la cible hésite à répondre ; conduit naturellement à la démonstration du carnet puis du coach. Hypothèse à tester contre l'accroche 2.",
+  "voice": {
+    "model": "fr_FR-siwis-medium",
+    "length_scale": 0.95,
+    "gap": 0.2
+  },
+  "scenes": [
+    {
+      "screen": "fiche-cheval",
+      "title": "C'était quand, le dernier vermifuge ?",
+      "from": [
+        0,
+        0,
+        888
+      ],
+      "to": [
+        0,
+        650,
+        888
+      ],
+      "lines": [
+        "C'était quand, le dernier vermifuge de ton cheval ?"
+      ]
+    },
+    {
+      "screen": "fiche-cheval",
+      "title": "Chaque soin est noté",
+      "from": [
+        0,
+        650,
+        888
+      ],
+      "to": [
+        64,
+        900,
+        760
+      ],
+      "highlight": [
+        40,
+        1095,
+        385,
+        310
+      ],
+      "lines": [
+        "Dans *HorseTrack*, chaque soin est noté : véto, maréchal, vaccins.",
+        "Et tu vois tout de suite *le prochain rendez-vous*."
+      ]
+    },
+    {
+      "screen": "coach",
+      "title": "Pose la question au coach IA",
+      "from": [
+        0,
+        300,
+        888
+      ],
+      "to": [
+        44,
+        420,
+        800
+      ],
+      "highlight": [
+        55,
+        470,
+        780,
+        245
+      ],
+      "lines": [
+        "Tu peux même poser la question au *coach IA*."
+      ]
+    },
+    {
+      "screen": "coach",
+      "title": "Il répond d'après le carnet",
+      "from": [
+        44,
+        700,
+        800
+      ],
+      "to": [
+        0,
+        800,
+        888
+      ],
+      "footnote": "Le coach IA ne remplace pas un vétérinaire.",
+      "lines": [
+        "Il répond d'après *le carnet de ton cheval*.",
+        "Il ne remplace pas ton vétérinaire."
+      ]
+    },
+    {
+      "cta": {
+        "name": "HorseTrack",
+        "sub": "Le suivi de ton cheval, sur iPhone",
+        "action": "Lien en bio"
+      },
+      "title": "Essaie pour ton cheval",
+      "lead": 0.1,
+      "lines": [
+        "Essaie *HorseTrack*, le lien est en bio."
+      ],
+      "tail": 0.7
+    }
+  ]
+}

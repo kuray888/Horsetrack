@@ -1,0 +1,23 @@
+1
+00:00:00,200 --> 00:00:04,696
+Enregistre ta balade au GPS. La séance en direct est gratuite.
+
+2
+00:00:05,046 --> 00:00:08,555
+Tu choisis ton cheval, ton activité, et tu démarres.
+
+3
+00:00:08,555 --> 00:00:11,216
+Le suivi GPS continue même écran verrouillé.
+
+4
+00:00:11,566 --> 00:00:14,552
+Tu vois le chrono, la distance et la vitesse en direct.
+
+5
+00:00:14,552 --> 00:00:16,738
+Et la séance s'ajoute à ton planning.
+
+6
+00:00:16,988 --> 00:00:19,846
+Teste-la avec HorseTrack, le lien est en bio.

@@ -1,0 +1,106 @@
+{
+  "id": "HT-2026-11-A01",
+  "angle": "Partage avec la demi-pension",
+  "cible": "Propriétaire dont le cheval est en demi-pension",
+  "probleme": "On ne sait pas qui a monté le cheval ni quand",
+  "benefice": "Un planning partagé, chacun avec ses droits",
+  "accroches_candidates": [
+    "Ta demi-pension a monté ton cheval hier. Tu l'as su comment ?",
+    "Ta demi-pension voit tout. Sauf ton budget.",
+    "Le planning de ton cheval est éparpillé dans tes messages ?"
+  ],
+  "accroche_choisie": 0,
+  "pourquoi": "Question concrète vécue par la cible, compréhensible en 2 s, sans promesse chiffrée. Hypothèse à tester contre l'accroche 2 (bénéfice direct).",
+  "voice": {
+    "model": "fr_FR-siwis-medium",
+    "length_scale": 0.95,
+    "gap": 0.2
+  },
+  "scenes": [
+    {
+      "screen": "planning",
+      "title": "Ta demi-pension a monté ton cheval hier. Tu l'as su ?",
+      "from": [
+        0,
+        150,
+        888
+      ],
+      "to": [
+        44,
+        330,
+        800
+      ],
+      "lines": [
+        "Ta demi-pension a monté ton cheval hier. Tu l'as su comment ?"
+      ]
+    },
+    {
+      "screen": "planning",
+      "title": "Le planning du cheval, au même endroit",
+      "from": [
+        44,
+        330,
+        800
+      ],
+      "to": [
+        0,
+        1000,
+        888
+      ],
+      "lines": [
+        "Dans *HorseTrack*, le planning de ton cheval tient en un seul endroit.",
+        "Séances, soins, concours : *qui monte quoi, et quand*."
+      ]
+    },
+    {
+      "screen": "partage",
+      "title": "Tu invites ta demi-pension",
+      "from": [
+        0,
+        820,
+        888
+      ],
+      "to": [
+        54,
+        1100,
+        780
+      ],
+      "lines": [
+        "Tu l'invites avec son email.",
+        "Tu choisis son *rôle* : demi-pension, coach, groom…"
+      ]
+    },
+    {
+      "screen": "partage",
+      "title": "Chacun ses droits",
+      "from": [
+        54,
+        1100,
+        780
+      ],
+      "to": [
+        34,
+        1250,
+        820
+      ],
+      "footnote": "Rôles qui écrivent dans le planning : Premium.",
+      "lines": [
+        "Elle retrouve le planning et note ses séances.",
+        "Et ton *budget* reste à toi."
+      ]
+    },
+    {
+      "cta": {
+        "name": "HorseTrack",
+        "sub": "Le suivi de ton cheval, sur iPhone",
+        "action": "Lien en bio"
+      },
+      "title": "Essaie avec ta demi-pension",
+      "lead": 0.1,
+      "lines": [
+        "Essaie *HorseTrack*, le lien est en bio."
+      ],
+      "tail": 0.7
+    }
+  ]
+}

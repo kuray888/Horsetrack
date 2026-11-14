@@ -1,0 +1,27 @@
+1
+00:00:00,200 --> 00:00:03,291
+C'était quand, le dernier vermifuge de ton cheval ?
+
+2
+00:00:03,641 --> 00:00:08,113
+Dans HorseTrack, chaque soin est noté : véto, maréchal, vaccins.
+
+3
+00:00:08,113 --> 00:00:10,519
+Et tu vois tout de suite le prochain rendez-vous.
+
+4
+00:00:10,869 --> 00:00:13,403
+Tu peux même poser la question au coach IA.
+
+5
+00:00:13,753 --> 00:00:16,217
+Il répond d'après le carnet de ton cheval.
+
+6
+00:00:16,217 --> 00:00:18,437
+Il ne remplace pas ton vétérinaire.
+
+7
+00:00:18,687 --> 00:00:21,580
+Essaie HorseTrack, le lien est en bio.
