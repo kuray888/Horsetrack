@@ -205,7 +205,7 @@ export default function CommentsScreen() {
             accessibilityRole="button"
             className="min-h-[44px] self-start justify-center"
           >
-            <Text className="text-sm font-semibold text-accent">{t("Réessayer")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Réessayer")}</Text>
           </TouchableOpacity>
         </View>
       ) : comments!.length === 0 ? (

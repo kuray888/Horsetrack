@@ -90,7 +90,7 @@ export function DocumentCard({
               className="flex-row items-center justify-center gap-2 rounded-card border border-border p-4"
             >
               <MaterialCommunityIcons name="file-pdf-box" size={20} color={colors.danger} />
-              <Text className="text-sm font-semibold text-accent">{t("Consulter le PDF")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Consulter le PDF")}</Text>
             </TouchableOpacity>
           ) : doc.fileUri ? (
             <TouchableOpacity
@@ -105,7 +105,7 @@ export function DocumentCard({
                 style={{ width: "100%", height: 260, borderRadius: 20 }}
                 contentFit="contain"
               />
-              <Text className="text-center text-xs font-semibold text-accent">{t("Toucher pour ouvrir en grand")}</Text>
+              <Text className="text-center text-xs font-semibold text-link">{t("Toucher pour ouvrir en grand")}</Text>
             </TouchableOpacity>
           ) : (
             <View className="flex-row items-center gap-1.5">
@@ -122,7 +122,7 @@ export function DocumentCard({
           <Locked message={t("Tes documents restent consultables. Pour les modifier ou les supprimer, Premium doit être actif.")} placement="vault" feature="document_manage">
             <View className="mt-1 flex-row items-center gap-4">
               <TouchableOpacity onPress={onEdit} activeOpacity={0.7}>
-                <Text className="text-sm font-semibold text-accent">{t("Modifier")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Modifier")}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={onDelete} activeOpacity={0.7}>
                 <Text className="text-sm font-semibold text-danger">{t("Supprimer ce document")}</Text>

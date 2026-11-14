@@ -49,7 +49,7 @@ export function DocumentForm({
 
   return (
     <View className={`${CARD} gap-3`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+      <Text className="text-sm font-bold uppercase tracking-wide text-link">
         {editingDocId ? t("Modifier le document") : t("Nouveau document")}
       </Text>
       <Field label={t("Catégorie")}>
@@ -75,7 +75,7 @@ export function DocumentForm({
       {form.fileUri ? (
         <TouchableOpacity onPress={onPickDocument} activeOpacity={0.8} className="gap-2">
           <AttachmentPreview uri={form.fileUri} />
-          <Text className="text-center text-sm font-semibold text-accent">{t("Changer le document")}</Text>
+          <Text className="text-center text-sm font-semibold text-link">{t("Changer le document")}</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity

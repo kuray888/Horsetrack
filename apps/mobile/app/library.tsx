@@ -189,7 +189,7 @@ export default function LibraryScreen() {
               </Text>
               {e.videoUrl ? (
                 <TouchableOpacity accessibilityRole="link" onPress={() => void Linking.openURL(e.videoUrl!)}>
-                  <Text className="text-sm font-semibold text-accent">{t("Voir la vidéo")}</Text>
+                  <Text className="text-sm font-semibold text-link">{t("Voir la vidéo")}</Text>
                 </TouchableOpacity>
               ) : null}
               {selectedHorse ? (

@@ -24,13 +24,13 @@ export const DISCIPLINE_META: Record<Discipline, { label: string; icon: IconSpec
 
 export const APPT_META: Record<AppointmentType, { label: string; icon: IconSpec; chip: string; tag: string }> = {
   veto: { label: t("Vétérinaire"), icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
-  osteo: { label: t("Ostéopathe"), icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  osteo: { label: t("Ostéopathe"), icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
   marechal: { label: t("Maréchal-ferrant"), icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
   dentiste: { label: t("Dentiste équin"), icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
   vaccination: { label: t("Vaccination"), icon: { name: "needle", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
   vermifuge: { label: t("Vermifuge"), icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
   traitement: { label: t("Traitement"), icon: { name: "medical-bag", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  concours: { label: t("Concours"), icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  concours: { label: t("Concours"), icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
   autre: { label: t("Autre"), icon: { name: "calendar-blank-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 
@@ -49,7 +49,7 @@ export const HEALTH_APPT_TYPES: readonly AppointmentType[] = [
 
 export const DOC_META: Record<DocumentCategory, { label: string; icon: IconSpec; chip: string; tag: string }> = {
   facture: { label: t("Facture"), icon: { name: "receipt", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  rapport: { label: t("Rapport"), icon: { name: "clipboard-text-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  rapport: { label: t("Rapport"), icon: { name: "clipboard-text-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
   ordonnance: { label: t("Ordonnance"), icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
   autre: { label: t("Autre"), icon: { name: "paperclip", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
@@ -58,14 +58,14 @@ export const EXPENSE_META: Record<ExpenseCategory, { label: string; icon: IconSp
   veto: { label: t("Vétérinaire"), icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
   marechal: { label: t("Maréchal-ferrant"), icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
   dentiste: { label: t("Dentiste équin"), icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
-  osteo: { label: t("Ostéopathe"), icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
-  concours: { label: t("Concours"), icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  osteo: { label: t("Ostéopathe"), icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
+  concours: { label: t("Concours"), icon: { name: "trophy-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
   pension: { label: t("Pension"), icon: { name: "home-outline", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
   alimentation: { label: t("Alimentation"), icon: { name: "grass", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
   complements: { label: t("Compléments"), icon: { name: "pill", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
-  materiel: { label: t("Matériel"), icon: { name: "toolbox-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  materiel: { label: t("Matériel"), icon: { name: "toolbox-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
   transport: { label: t("Transport"), icon: { name: "truck-outline", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
-  coaching: { label: t("Coaching"), icon: { name: "whistle-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-accent" },
+  coaching: { label: t("Coaching"), icon: { name: "whistle-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
   autre: { label: t("Autre"), icon: { name: "tag-outline", color: colors.textMuted }, chip: "bg-border", tag: "text-muted" },
 };
 

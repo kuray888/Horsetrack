@@ -66,7 +66,7 @@ export function ChecklistTemplateCard({
       <View className={`${CARD} gap-2`}>
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Checklist des concours")}</Text>
+            <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Checklist des concours")}</Text>
             <Text className="text-sm text-muted">
               {template.length} {t(" élément")}{template.length > 1 ? "s" : ""} {t(" · modèle appliqué à tous tes concours à venir")}
             </Text>
@@ -88,7 +88,7 @@ export function ChecklistTemplateCard({
 
   return (
     <View className={`${CARD} gap-3`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Checklist des concours")}</Text>
+      <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Checklist des concours")}</Text>
       <Text className="text-sm text-muted">
         {t("Modifie la liste, puis enregistre : elle s'applique à tous tes concours à venir. Ce que tu as déjà coché est conservé.")}
       </Text>
@@ -142,7 +142,7 @@ export function ChecklistTemplateCard({
       )}
 
       <TouchableOpacity onPress={() => setDraft([...DEFAULT_CHECKLIST_LABELS])} activeOpacity={0.7} className="self-start">
-        <Text className="text-sm font-semibold text-accent">{t("Revenir à la liste d'origine")}</Text>
+        <Text className="text-sm font-semibold text-link">{t("Revenir à la liste d'origine")}</Text>
       </TouchableOpacity>
 
       <View className="flex-row gap-2">

@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import {
   PALETTES,
   onStatusColorFor,
+  linkColorFor,
   statusColorsFor,
   cssVarsForTheme,
   paletteFor,
@@ -15,7 +16,13 @@ import {
 } from "./palettes";
 
 function colorsForTheme(id: ThemeId, scheme: ColorScheme): ThemeColors {
-  return { ...paletteFor(id, scheme), ...statusColorsFor(scheme), textOnStatus: onStatusColorFor(scheme) };
+  const palette = paletteFor(id, scheme);
+  return {
+    ...palette,
+    ...statusColorsFor(scheme),
+    textOnStatus: onStatusColorFor(scheme),
+    link: linkColorFor(palette, scheme),
+  };
 }
 
 const KEY = "theme_id_v1";

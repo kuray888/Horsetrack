@@ -87,7 +87,7 @@ export default function HorseFeedScreen() {
           </Text>
           {!horse.sharedRole ? (
             <TouchableOpacity accessibilityRole="button" onPress={() => router.push(`/share-horse-modal?horseId=${horse.id}`)}>
-              <Text className="text-sm font-semibold text-accent">{t("Partager l'accès")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Partager l'accès")}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -106,7 +106,7 @@ export default function HorseFeedScreen() {
             accessibilityRole="button"
             className="min-h-[44px] self-start justify-center"
           >
-            <Text className="text-sm font-semibold text-accent">{t("Réessayer")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Réessayer")}</Text>
           </TouchableOpacity>
         </View>
       ) : feed!.length === 0 ? (

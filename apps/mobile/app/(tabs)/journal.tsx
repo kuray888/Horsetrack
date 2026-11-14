@@ -203,7 +203,7 @@ function JournalScreen() {
             </Text>
             {!showJournalForm ? (
               <TouchableOpacity accessibilityRole="button" onPress={() => setShowJournalForm(true)} activeOpacity={0.7}>
-                <Text className="text-sm font-semibold text-accent">{t("Ajouter un souvenir")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Ajouter un souvenir")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -246,7 +246,7 @@ function JournalScreen() {
           accessibilityRole="button"
           className="items-center rounded-card border border-border py-3.5"
         >
-          <Text className="text-sm font-semibold text-accent">
+          <Text className="text-sm font-semibold text-link">
             {hiddenCount === 1
               ? t("Afficher le souvenir plus ancien")
               : t("Afficher {v} souvenirs plus anciens", { v: Math.min(hiddenCount, JOURNAL_PAGE_SIZE) })}

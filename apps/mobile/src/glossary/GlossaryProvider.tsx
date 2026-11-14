@@ -45,7 +45,7 @@ export function GlossaryPopup() {
   return (
     <Pressable onPress={hide} className="absolute inset-0 z-50 items-center justify-center bg-black/50 px-8">
       <View className="w-full gap-3 rounded-card bg-surface p-5 shadow-card">
-        <Text className="text-xs font-bold uppercase tracking-wide text-accent">{activeTerm}</Text>
+        <Text className="text-xs font-bold uppercase tracking-wide text-link">{activeTerm}</Text>
         <Text className="text-sm leading-5 text-text">{entry?.definition ?? t("Définition à venir.")}</Text>
         <Pressable onPress={hide} hitSlop={8} className="self-end rounded-full bg-primary px-4 py-2">
           <Text className="text-sm font-bold text-on-primary">{t("Fermer")}</Text>

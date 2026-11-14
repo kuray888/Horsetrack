@@ -97,7 +97,7 @@ export default function ReferralScreen() {
         <View className={`${CARD} gap-3`}>
           <Text className="text-sm text-muted">{t("Impossible de charger ton parrainage. Vérifie ta connexion.")}</Text>
           <TouchableOpacity accessibilityRole="button" onPress={() => void load()}>
-            <Text className="text-sm font-semibold text-accent">{t("Réessayer")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Réessayer")}</Text>
           </TouchableOpacity>
         </View>
       ) : null}

@@ -106,7 +106,7 @@ function ProPaywall() {
         </View>
         <PrimaryButton label={t("Ouvrir la vue écurie")} onPress={() => router.replace("/ecurie")} />
         <TouchableOpacity onPress={() => void openManageSubscriptions()} className="items-center py-2">
-          <Text className="text-sm font-semibold text-accent">{t("Gérer mon abonnement")}</Text>
+          <Text className="text-sm font-semibold text-link">{t("Gérer mon abonnement")}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -190,7 +190,7 @@ function ProPaywall() {
         />
         {unavailable ? (
           <TouchableOpacity onPress={retry} hitSlop={8} className="py-1">
-            <Text className="text-center text-sm font-semibold text-accent">{t("Les prix n'ont pas pu être chargés. Réessayer")}</Text>
+            <Text className="text-center text-sm font-semibold text-link">{t("Les prix n'ont pas pu être chargés. Réessayer")}</Text>
           </TouchableOpacity>
         ) : (
           <Text className="text-center text-xs leading-4 text-muted">
@@ -202,13 +202,13 @@ function ProPaywall() {
         )}
         <View className="flex-row flex-wrap justify-center gap-x-4 gap-y-1">
           <TouchableOpacity onPress={restore} disabled={restoring} hitSlop={12} accessibilityRole="button">
-            <Text className="text-xs font-semibold text-accent">{restoring ? t("Restauration…") : t("Restaurer mes achats")}</Text>
+            <Text className="text-xs font-semibold text-link">{restoring ? t("Restauration…") : t("Restaurer mes achats")}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => void openLegal("terms")} hitSlop={12} accessibilityRole="link">
-            <Text className="text-xs font-semibold text-accent">{t("Conditions d'utilisation")}</Text>
+            <Text className="text-xs font-semibold text-link">{t("Conditions d'utilisation")}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => void openLegal("privacy")} hitSlop={12} accessibilityRole="link">
-            <Text className="text-xs font-semibold text-accent">{t("Politique de confidentialité")}</Text>
+            <Text className="text-xs font-semibold text-link">{t("Politique de confidentialité")}</Text>
           </TouchableOpacity>
         </View>
       </View>

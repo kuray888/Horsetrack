@@ -230,7 +230,7 @@ export default function ChangePasswordModal() {
                 hitSlop={8}
                 className="self-start"
               >
-                <Text className="text-sm font-semibold text-accent">{t("Mot de passe oublié ?")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Mot de passe oublié ?")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>

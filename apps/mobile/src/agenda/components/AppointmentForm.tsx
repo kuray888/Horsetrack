@@ -145,7 +145,7 @@ export function AppointmentForm({
 
   return (
     <View className={`${CARD} gap-3`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+      <Text className="text-sm font-bold uppercase tracking-wide text-link">
         {editingApptId ? t("Modifier le rendez-vous") : t("Nouveau rendez-vous")}
       </Text>
       {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
@@ -400,7 +400,7 @@ export function AppointmentForm({
                     activeOpacity={0.8}
                     className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-3"
                   >
-                    <Text className="text-sm font-semibold text-accent">{t("＋ Ajouter une épreuve")}</Text>
+                    <Text className="text-sm font-semibold text-link">{t("＋ Ajouter une épreuve")}</Text>
                   </TouchableOpacity>
                 </View>
               </Locked>

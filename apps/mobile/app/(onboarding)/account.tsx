@@ -411,7 +411,7 @@ export default function OnboardingAccount() {
             onPress={checkEmailConfirmed}
           />
           <TouchableOpacity onPress={resendConfirmationEmail} disabled={resending || resendCooldown > 0} hitSlop={8}>
-            <Text className={`text-center text-sm font-semibold ${resending || resendCooldown > 0 ? "text-muted" : "text-accent"}`}>
+            <Text className={`text-center text-sm font-semibold ${resending || resendCooldown > 0 ? "text-muted" : "text-link"}`}>
               {resending
                 ? "Envoi..."
                 : resendCooldown > 0
@@ -420,7 +420,7 @@ export default function OnboardingAccount() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={editEmail} hitSlop={8}>
-            <Text className="text-center text-sm font-semibold text-accent">{t("Modifier mon adresse e-mail")}</Text>
+            <Text className="text-center text-sm font-semibold text-link">{t("Modifier mon adresse e-mail")}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.replace("/(auth)/login")} hitSlop={8}>
             <Text className="text-center text-sm font-semibold text-muted">{t("Retour à la connexion")}</Text>
@@ -514,7 +514,7 @@ export default function OnboardingAccount() {
           </>
         ) : null}
         <TouchableOpacity testID="account-go-login" accessibilityRole="button" onPress={() => router.replace("/(auth)/login")}>
-          <Text className="text-center text-sm font-semibold text-accent">
+          <Text className="text-center text-sm font-semibold text-link">
             {t("Déjà un compte ? Se connecter")}
           </Text>
         </TouchableOpacity>

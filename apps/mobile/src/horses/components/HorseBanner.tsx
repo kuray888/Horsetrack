@@ -108,7 +108,7 @@ export function HorseBanner({
               size={13}
               color={hasPhoto ? "#ffffff" : colors.accent}
             />
-            <Text className={`text-xs font-semibold ${hasPhoto ? "text-white/90" : "text-accent"}`}>
+            <Text className={`text-xs font-semibold ${hasPhoto ? "text-white/90" : "text-link"}`}>
               {ROLE_LABEL[horse.sharedRole]}
             </Text>
           </View>

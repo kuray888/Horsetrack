@@ -179,7 +179,7 @@ export function AppointmentCard({
           {appt.nextDueDate ? (
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="calendar-clock-outline" size={15} color={colors.accent} />
-              <Text className="text-sm font-semibold text-accent">
+              <Text className="text-sm font-semibold text-link">
                 {t("Prochaine échéance : ")}{formatDate(appt.nextDueDate)} ({daysUntilLabel(appt.nextDueDate)})
               </Text>
             </View>
@@ -191,7 +191,7 @@ export function AppointmentCard({
 
           {isConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
-              <Text className="text-xs font-bold uppercase tracking-wide text-accent">
+              <Text className="text-xs font-bold uppercase tracking-wide text-link">
                 {t("Checklist")}
                 {appt.checklist.length > 0
                   ? t(" ({length}/{length2} prêt)", { length: appt.checklist.filter((c) => c.checked).length, length2: appt.checklist.length })
@@ -267,7 +267,7 @@ export function AppointmentCard({
           {isConcours ? (
             <View className="mt-2 gap-2 border-t border-border pt-3">
               {appt.dossard ? <Text className="text-sm text-text">{t("N° dossard ")}{appt.dossard}</Text> : null}
-              <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Épreuves")}</Text>
+              <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Épreuves")}</Text>
               {appt.competitionEntries.length > 0 ? (
                 <View className="gap-2">
                   {appt.competitionEntries.map((entry) =>
@@ -298,7 +298,7 @@ export function AppointmentCard({
 
           {isConcours && readOnly && appt.result ? (
             <View className="mt-2 gap-1 border-t border-border pt-3">
-              <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Résultat")}</Text>
+              <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Résultat")}</Text>
               <Text className="text-sm text-text">{appt.result}</Text>
             </View>
           ) : null}
@@ -307,7 +307,7 @@ export function AppointmentCard({
             <View className="mt-2 gap-2 border-t border-border pt-3">
               {editingResult ? (
                 <>
-                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-link">
                     {t("Résultat de l'épreuve")}
                   </Text>
                   <TextInput
@@ -330,14 +330,14 @@ export function AppointmentCard({
                 </>
               ) : appt.result ? (
                 <TouchableOpacity accessibilityRole="button" onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-1">
-                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Résultat")}</Text>
+                  <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Résultat")}</Text>
                   <Text className="text-sm text-text">{appt.result}</Text>
-                  <Text className="text-xs font-semibold text-accent">{t("Modifier")}</Text>
+                  <Text className="text-xs font-semibold text-link">{t("Modifier")}</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity accessibilityRole="button" onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-1">
-                  <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Résultat")}</Text>
-                  <Text className="text-sm font-semibold text-accent">{t("+ Noter le résultat du concours")}</Text>
+                  <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Résultat")}</Text>
+                  <Text className="text-sm font-semibold text-link">{t("+ Noter le résultat du concours")}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -346,7 +346,7 @@ export function AppointmentCard({
           <View className="mt-1 flex-row items-center gap-4">
             {readOnly ? null : (
               <TouchableOpacity accessibilityRole="button" onPress={onEdit} activeOpacity={0.7}>
-                <Text className="text-sm font-semibold text-accent">{t("Modifier")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Modifier")}</Text>
               </TouchableOpacity>
             )}
             {contact && contactTel ? (
@@ -356,11 +356,11 @@ export function AppointmentCard({
                 onPress={() => void Linking.openURL(contactTel)}
                 activeOpacity={0.7}
               >
-                <Text className="text-sm font-semibold text-accent">{t("Appeler")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Appeler")}</Text>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity accessibilityRole="button" onPress={handleAddToCalendar} activeOpacity={0.7}>
-              <Text className="text-sm font-semibold text-accent">{t("Calendrier")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Calendrier")}</Text>
             </TouchableOpacity>
             {readOnly ? null : (
               <TouchableOpacity accessibilityRole="button" onPress={onDelete} activeOpacity={0.7}>
@@ -427,7 +427,7 @@ function CompetitionEntryRow({
               {meta.label} · {competitionEntryTimeLabel(entry.time)}
             </Text>
           </View>
-          <Text className="text-xs font-semibold text-accent">{entry.time ? t("Modifier") : t("+ Ajouter l'heure")}</Text>
+          <Text className="text-xs font-semibold text-link">{entry.time ? t("Modifier") : t("+ Ajouter l'heure")}</Text>
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" onPress={onDelete} hitSlop={8} activeOpacity={0.7}>
           <Text className="text-sm text-muted">✕</Text>
@@ -456,13 +456,13 @@ function CompetitionEntryRow({
         </View>
       ) : entry.result ? (
         <TouchableOpacity accessibilityRole="button" onPress={() => setEditingResult(true)} activeOpacity={0.7} className="gap-0.5">
-          <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Résultat")}</Text>
+          <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Résultat")}</Text>
           <Text className="text-sm text-text">{entry.result}</Text>
-          <Text className="text-xs font-semibold text-accent">{t("Modifier")}</Text>
+          <Text className="text-xs font-semibold text-link">{t("Modifier")}</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity accessibilityRole="button" onPress={() => setEditingResult(true)} activeOpacity={0.7}>
-          <Text className="text-sm font-semibold text-accent">{t("+ Ajouter le résultat")}</Text>
+          <Text className="text-sm font-semibold text-link">{t("+ Ajouter le résultat")}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -544,7 +544,7 @@ function AddCompetitionEntryForm({ onAdd }: { onAdd: (entry: Omit<CompetitionEnt
         activeOpacity={0.8}
         className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-border p-2.5"
       >
-        <Text className="text-sm font-semibold text-accent">{t("＋ Ajouter une épreuve")}</Text>
+        <Text className="text-sm font-semibold text-link">{t("＋ Ajouter une épreuve")}</Text>
       </TouchableOpacity>
     );
   }

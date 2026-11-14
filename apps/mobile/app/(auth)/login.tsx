@@ -393,7 +393,7 @@ export default function LoginScreen() {
         </Field>
 
         <TouchableOpacity onPress={() => router.push("/(auth)/forgot-password")} className="self-end">
-          <Text className="text-sm font-semibold text-accent">{tr("Mot de passe oublié ?")}</Text>
+          <Text className="text-sm font-semibold text-link">{tr("Mot de passe oublié ?")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -438,7 +438,7 @@ export default function LoginScreen() {
           </>
         ) : null}
         <TouchableOpacity onPress={() => router.push("/(onboarding)/welcome")}>
-          <Text className="text-center text-sm font-semibold text-accent">
+          <Text className="text-center text-sm font-semibold text-link">
             {tr("Pas encore de compte ? S'inscrire")}
           </Text>
         </TouchableOpacity>

@@ -74,7 +74,7 @@ export function JournalForm({
 
   return (
     <View className={`${CARD} gap-3`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+      <Text className="text-sm font-bold uppercase tracking-wide text-link">
         {editingJournalId ? t("Modifier l'entrée de journal") : t("Nouvelle entrée de journal")}
       </Text>
       <HorseTargetNotice horseName={targetHorseName} />
@@ -111,7 +111,7 @@ export function JournalForm({
               style={{ width: "100%", height: 160, borderRadius: 20 }}
               contentFit="cover"
             />
-            <Text className="text-center text-sm font-semibold text-accent">{t("Changer la photo")}</Text>
+            <Text className="text-center text-sm font-semibold text-link">{t("Changer la photo")}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -136,7 +136,7 @@ export function JournalForm({
                   if (uri) setForm((f) => ({ ...f, videoUri: uri }));
                 }}
               >
-                <Text className="text-sm font-semibold text-accent">{t("Changer la vidéo")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Changer la vidéo")}</Text>
               </TouchableOpacity>
               <TouchableOpacity accessibilityRole="button" onPress={() => setForm((f) => ({ ...f, videoUri: null }))}>
                 <Text className="text-sm font-semibold text-danger">{t("Retirer la vidéo")}</Text>

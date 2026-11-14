@@ -236,7 +236,7 @@ export default function TeamScreen() {
         <FadeInView delay={40}>
           {showInvite ? (
             <View className={`${CARD} gap-4`}>
-              <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Inviter quelqu'un")}</Text>
+              <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Inviter quelqu'un")}</Text>
               <Field label={t("Son adresse email")}>
                 <TextInput
                   className={INPUT}
@@ -328,7 +328,7 @@ export default function TeamScreen() {
             <View className={`${CARD} items-center gap-2`}>
               <Text className="text-center text-sm text-muted">{t("L'équipe n'a pas pu être chargée. Vérifie ta connexion.")}</Text>
               <TouchableOpacity onPress={refresh} accessibilityRole="button">
-                <Text className="text-sm font-semibold text-accent">{t("Réessayer")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Réessayer")}</Text>
               </TouchableOpacity>
             </View>
           ) : people.length === 0 ? (

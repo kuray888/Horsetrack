@@ -42,6 +42,8 @@ export type ThemeColors = PaletteColors & {
   /** Texte ou icône posé SUR une couleur d'état (coche d'une séance faite,
    * « Supprimer » du balayage) : blanc en clair, presque noir en sombre. */
   textOnStatus: string;
+  /** Lien et petit texte d'action (« Voir tout », « Modifier »), cf. linkColorFor. */
+  link: string;
 };
 
 export const THEME_ORDER: ThemeId[] = ["marine", "bordeaux", "paturage", "ardoise", "coucher-de-soleil", "lavande"];
@@ -241,6 +243,19 @@ export function onStatusColorFor(scheme: ColorScheme): string {
   return scheme === "dark" ? "#111418" : "#ffffff";
 }
 
+/**
+ * Couleur des liens et du petit texte d'action. Aucune nouvelle teinte : un
+ * rôle qui choisit, selon le mode, celle de la palette qui reste lisible.
+ * En clair, `accent` ne faisait que 2,5 à 4,4:1 sur carte blanche dans cinq
+ * palettes sur six (« Voir tout », « Modifier » sous le seuil AA de 4,5:1) :
+ * le lien prend `primary`. En sombre, c'est l'inverse — `primary` est réglé
+ * vers 4:1 pour porter du texte blanc, `accent` dépasse 5,5:1 — le lien
+ * prend `accent`.
+ */
+export function linkColorFor(p: PaletteColors, scheme: ColorScheme): string {
+  return scheme === "dark" ? p.accent : p.primary;
+}
+
 export const DEFAULT_THEME: ThemeId = "marine";
 
 function hexToRgbTriplet(hex: string): string {
@@ -276,5 +291,6 @@ export function cssVarsForTheme(id: ThemeId, scheme: ColorScheme = "light"): Rec
     "--color-warning": hexToRgbTriplet(status.warning),
     "--color-danger": hexToRgbTriplet(status.danger),
     "--color-text-on-status": hexToRgbTriplet(onStatusColorFor(scheme)),
+    "--color-link": hexToRgbTriplet(linkColorFor(p, scheme)),
   };
 }

@@ -89,7 +89,7 @@ export default function ContactsScreen() {
       {draft ? (
         <FadeInView>
           <View className={`${CARD} gap-4`}>
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+            <Text className="text-sm font-bold uppercase tracking-wide text-link">
               {draft.id ? t("Modifier le contact") : t("Nouveau contact")}
             </Text>
             <Field label={t("Métier")}>

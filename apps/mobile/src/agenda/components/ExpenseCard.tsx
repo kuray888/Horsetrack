@@ -81,13 +81,13 @@ export function ExpenseCard({
             <Locked message={t("Joins la facture à cette dépense pour la retrouver en deux secondes")} placement="vault" feature="expense_invoice">
               <TouchableOpacity onPress={onAttachReceipt} activeOpacity={0.7} className="flex-row items-center gap-1.5">
                 <MaterialCommunityIcons name="paperclip" size={15} color={colors.accent} />
-                <Text className="text-sm font-semibold text-accent">{t("Joindre une facture")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Joindre une facture")}</Text>
               </TouchableOpacity>
             </Locked>
           )}
           <Locked message={t("Suis ce qui est payé et ce qui reste à régler")} placement="budget" feature="expense_paid_status">
             <TouchableOpacity onPress={onTogglePaid} activeOpacity={0.7} className="mt-1">
-              <Text className="text-sm font-semibold text-accent">
+              <Text className="text-sm font-semibold text-link">
                 {expense.isPaid ? t("Marquer à régler") : t("Marquer payée")}
               </Text>
             </TouchableOpacity>
@@ -100,7 +100,7 @@ export function ExpenseCard({
               }}
               activeOpacity={0.7}
             >
-              <Text className="text-sm font-semibold text-accent">{t("Modifier")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Modifier")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onDelete} activeOpacity={0.7}>
               <Text className="text-sm font-semibold text-danger">{t("Supprimer cette dépense")}</Text>

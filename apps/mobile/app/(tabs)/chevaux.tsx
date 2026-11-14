@@ -96,7 +96,7 @@ function HorseRow({
           {horse.sharedRole ? (
             <View className="flex-row items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5">
               <MaterialCommunityIcons name="handshake-outline" size={11} color={colors.accent} />
-              <Text className="text-[11px] font-semibold text-accent">{t("Partagé")}</Text>
+              <Text className="text-[11px] font-semibold text-link">{t("Partagé")}</Text>
             </View>
           ) : null}
         </View>
@@ -104,7 +104,7 @@ function HorseRow({
           {labelOf(DISCIPLINES, horse.discipline)} · {labelOf(HORSE_LEVELS, horse.level)}
         </Text>
         {nextSessionLabel ? <Text className="text-xs text-muted">{nextSessionLabel}</Text> : null}
-        {nextDueLabel ? <Text className="text-xs font-semibold text-accent">{nextDueLabel}</Text> : null}
+        {nextDueLabel ? <Text className="text-xs font-semibold text-link">{nextDueLabel}</Text> : null}
       </View>
       <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
     </TouchableOpacity>
@@ -322,7 +322,7 @@ function ChevauxScreen() {
             {/* L'écurie vide garde un bouton explicite en plus du « + » du
                 titre : c'est la toute première action à faire. */}
             <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/add-horse-modal")} activeOpacity={0.7}>
-              <Text className="text-sm font-semibold text-accent">{t("Ajouter mon premier cheval")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Ajouter mon premier cheval")}</Text>
             </TouchableOpacity>
           </View>
         </FadeInView>

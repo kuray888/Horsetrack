@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DARK_PALETTES, PALETTES, THEME_ORDER, cssVarsForTheme, onStatusColorFor, statusColorsFor } from "./palettes";
+import { DARK_PALETTES, PALETTES, THEME_ORDER, cssVarsForTheme, linkColorFor, onStatusColorFor, statusColorsFor } from "./palettes";
 
 function luminance(hex: string): number {
   const c = hex.replace("#", "");
@@ -35,6 +35,11 @@ describe("palettes", () => {
         const min = mode === "clair" ? 4.5 : 3.9;
         expect(contrast(p.textOnPrimary, p.primary)).toBeGreaterThanOrEqual(min);
         if (mode === "sombre") expect(contrast(p.primary, p.surface)).toBeGreaterThanOrEqual(min);
+        // Liens et petit texte d'action (text-link) : AA sur le fond et sur
+        // les cartes — text-accent n'y arrivait pas en clair (2,5 à 4,4:1).
+        const link = linkColorFor(p, mode === "clair" ? "light" : "dark");
+        expect(contrast(link, p.background)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(link, p.surface)).toBeGreaterThanOrEqual(4.5);
         // Badges : texte d'état sur son fond /15.
         const status = statusColorsFor(mode === "clair" ? "light" : "dark");
         for (const c of Object.values(status)) {

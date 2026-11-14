@@ -158,7 +158,7 @@ export default function Summary() {
                 Premium ajoute — l'ancienne liste unique annonçait rappels et
                 multi-chevaux comme acquis, juste avant le paywall qui les
                 présentait comme payants. */}
-            <Text className="mb-1 text-sm font-bold uppercase tracking-wide text-accent">{t("Inclus gratuitement")}</Text>
+            <Text className="mb-1 text-sm font-bold uppercase tracking-wide text-link">{t("Inclus gratuitement")}</Text>
             <PlanRow text={t("Planifie les séances de {horseName}", { horseName: horseName })} />
             {focus ? <PlanRow text={t("Point à travailler : {v}", { v: t(focus).toLowerCase() })} /> : null}
             <PlanRow text={t("Note les rendez-vous santé : véto, maréchal, ostéo, dentiste")} />

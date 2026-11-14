@@ -130,7 +130,7 @@ export function SafetySetupCard({
               accessibilityRole="button"
               onPress={() => onChange({ ...settings, contacts: [...contacts, { name: "", email: "" }] })}
             >
-              <Text className="text-sm font-semibold text-accent">{t("+ Ajouter un proche")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("+ Ajouter un proche")}</Text>
             </TouchableOpacity>
           ) : null}
         </View>

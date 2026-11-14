@@ -104,7 +104,7 @@ export function NotificationPrompt({
             {t("Notifications désactivées : tes rappels et ton bilan du dimanche ne s'afficheront pas sur ton téléphone.")}
           </Text>
           <TouchableOpacity accessibilityRole="button" onPress={() => Linking.openSettings().catch(() => {})} activeOpacity={0.7} hitSlop={8}>
-            <Text className="text-sm font-bold text-accent">{t("Réglages")}</Text>
+            <Text className="text-sm font-bold text-link">{t("Réglages")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -184,7 +184,7 @@ export function UpcomingCard({ events }: { events: UnifiedEvent[] }) {
         <View className="mt-1 flex-row items-center justify-between">
           <Text className="text-xl font-bold text-text">{t("Prochainement")}</Text>
           <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(tabs)/planning")}>
-            <Text className="text-sm font-semibold text-accent">{t("Voir tout")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Voir tout")}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>

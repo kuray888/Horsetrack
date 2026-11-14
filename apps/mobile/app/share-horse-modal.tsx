@@ -209,7 +209,7 @@ export default function ShareHorseModal() {
             </View>
             <Text className="text-sm text-muted">{t("Impossible de charger les personnes partagées. Vérifie ta connexion.")}</Text>
             <TouchableOpacity onPress={refresh} hitSlop={8}>
-              <Text className="text-sm font-semibold text-accent">{t("Réessayer")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Réessayer")}</Text>
             </TouchableOpacity>
           </View>
         ) : collaborators.length === 0 ? (
@@ -277,7 +277,7 @@ export default function ShareHorseModal() {
           </View>
         ) : (
           <View className={`${CARD} gap-3`}>
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Inviter")}</Text>
+            <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Inviter")}</Text>
             <Field label={t("Email")}>
               <TextInput
                 className={INPUT}

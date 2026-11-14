@@ -81,7 +81,7 @@ export default function Horses() {
               }}
               hitSlop={8}
             >
-              <Text className="px-2 text-sm font-semibold text-accent">{t("Modifier")}</Text>
+              <Text className="px-2 text-sm font-semibold text-link">{t("Modifier")}</Text>
             </TouchableOpacity>
             {namedHorses.length > 1 ? (
               <TouchableOpacity

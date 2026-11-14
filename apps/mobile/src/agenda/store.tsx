@@ -112,13 +112,13 @@ export const ACTIVITY_META: Record<
   { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; tint: string; chip: string; tag: string }
 > = {
   dressage: { label: t("Dressage"), icon: "horse-variant", tint: colors.primary, chip: "bg-primary/15", tag: "text-primary" },
-  cso: { label: "CSO", icon: "flag-checkered", tint: colors.accent, chip: "bg-accent/15", tag: "text-accent" },
+  cso: { label: "CSO", icon: "flag-checkered", tint: colors.accent, chip: "bg-accent/15", tag: "text-link" },
   balade: { label: t("Balade"), icon: "walk", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
   longe: { label: t("Longe"), icon: "sync", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
   repos: { label: t("Repos"), icon: "sleep", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },
   travail_a_pied: { label: t("Travail à pied"), icon: "foot-print", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
   liberte: { label: t("Liberté"), icon: "horse", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
-  cross: { label: t("Cross / complet"), icon: "pine-tree", tint: colors.accent, chip: "bg-accent/15", tag: "text-accent" },
+  cross: { label: t("Cross / complet"), icon: "pine-tree", tint: colors.accent, chip: "bg-accent/15", tag: "text-link" },
   endurance: { label: t("Endurance"), icon: "map-marker-distance", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
   trec: { label: "TREC", icon: "compass-outline", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
   pansage: { label: t("Pansage / soins"), icon: "brush", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },

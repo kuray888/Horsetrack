@@ -127,7 +127,7 @@ export default function PremiumWelcome() {
 
         <FadeInView delay={180}>
           <View className="gap-3">
-            <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Pour bien démarrer")}</Text>
+            <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Pour bien démarrer")}</Text>
             {actions.map((a) => (
               <TouchableOpacity
                 key={a.key}

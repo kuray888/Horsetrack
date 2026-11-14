@@ -33,7 +33,7 @@ export function GlossaryText({ text, className }: Props) {
       <Text className={className}>
         {segments.map((seg, i) =>
           seg.isTerm ? (
-            <Text key={i} className="font-bold text-accent">
+            <Text key={i} className="font-bold text-link">
               {seg.content}
             </Text>
           ) : (
@@ -50,7 +50,7 @@ export function GlossaryText({ text, className }: Props) {
               hitSlop={6}
               className="rounded-full bg-highlight px-2.5 py-1"
             >
-              <Text className="text-xs font-semibold text-accent">ℹ️ {term}</Text>
+              <Text className="text-xs font-semibold text-link">ℹ️ {term}</Text>
             </Pressable>
           ))}
         </View>

@@ -454,7 +454,7 @@ function ProfileScreen() {
             accessibilityRole="button"
             testID="profile-premium"
           >
-            <Text className={`text-sm font-bold ${isActiveOrTrialing ? "text-on-primary" : "text-accent"}`}>
+            <Text className={`text-sm font-bold ${isActiveOrTrialing ? "text-on-primary" : "text-link"}`}>
               {monthlySubscriber ? tr("Passer à l'annuel") : storeManaged ? tr("Gérer") : isActiveOrTrialing ? tr("Garder Premium") : tr("Voir Premium")}
             </Text>
           </TouchableOpacity>
@@ -467,7 +467,7 @@ function ProfileScreen() {
         <View className="flex-row items-center justify-between">
           <SectionTitle>{tr("Mon profil cavalier")}</SectionTitle>
           <TouchableOpacity activeOpacity={0.7} onPress={() => router.push("/edit-rider-modal")}>
-            <Text className="text-sm font-semibold text-accent">{tr("Modifier")}</Text>
+            <Text className="text-sm font-semibold text-link">{tr("Modifier")}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>

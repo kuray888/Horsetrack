@@ -37,6 +37,9 @@ module.exports = {
         "on-primary": themed("--color-text-on-primary"),
         // Texte posé sur bg-success / bg-warning / bg-danger (blanc en clair, foncé en sombre).
         "on-status": themed("--color-text-on-status"),
+        // Liens et petit texte d'action : primary en clair, accent en sombre
+        // (cf. linkColorFor). Pour du texte, jamais text-accent.
+        link: themed("--color-link"),
       },
       // Police d'affichage (titres d'écran, en-têtes de section, titre du
       // paywall) — chargée dans app/_layout.tsx (useFonts). Volontairement

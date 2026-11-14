@@ -60,7 +60,7 @@ export function CoachConsentCard({ onDecline }: { onDecline?: () => void }) {
           <View />
         )}
         <TouchableOpacity accessibilityRole="link" hitSlop={8} onPress={() => void openLegalPage("privacy")}>
-          <Text className="text-sm font-semibold text-accent">{t("Politique de confidentialité")}</Text>
+          <Text className="text-sm font-semibold text-link">{t("Politique de confidentialité")}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -71,7 +71,7 @@ export function SessionFormCard({
   const colors = useThemeColors();
   return (
     <View className={`${CARD} gap-3`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+      <Text className="text-sm font-bold uppercase tracking-wide text-link">
         {editing ? t("Modifier la séance") : form.completed ? t("Enregistrer une séance faite") : t("Planifier une séance")}
       </Text>
       {/* Planifier ou noter après coup : deux intentions distinctes pour

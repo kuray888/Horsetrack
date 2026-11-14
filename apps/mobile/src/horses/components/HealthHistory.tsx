@@ -64,7 +64,7 @@ export function HealthHistory({ horse }: { horse: Horse }) {
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <Text className="text-sm font-semibold text-accent">{editingConditions ? tr("Terminer") : tr("Modifier")}</Text>
+              <Text className="text-sm font-semibold text-link">{editingConditions ? tr("Terminer") : tr("Modifier")}</Text>
             </TouchableOpacity>
           )}
         </View>

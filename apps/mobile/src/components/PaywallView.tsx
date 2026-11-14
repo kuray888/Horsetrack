@@ -150,7 +150,7 @@ function PromoCodeField({
         accessibilityRole="button"
         testID="paywall-promo-open"
       >
-        <Text className="text-sm font-semibold text-accent">{t("Tu as un code promo ?")}</Text>
+        <Text className="text-sm font-semibold text-link">{t("Tu as un code promo ?")}</Text>
       </TouchableOpacity>
     );
   }
@@ -210,7 +210,7 @@ function PromoCodeField({
         ) : null}
         {feedback?.ok && feedback.redeemUrl ? (
           <TouchableOpacity onPress={() => openStore(feedback.redeemUrl!, "server_offer")} hitSlop={8} className="self-start">
-            <Text className="text-sm font-semibold text-accent">{t("Rouvrir l'offre sur l'App Store")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Rouvrir l'offre sur l'App Store")}</Text>
           </TouchableOpacity>
         ) : null}
         {!feedback?.ok && feedback?.storeFallbackUrl ? (
@@ -219,7 +219,7 @@ function PromoCodeField({
             hitSlop={8}
             className="self-start"
           >
-            <Text className="text-sm font-semibold text-accent">{t("C'est un code App Store ? L'utiliser sur l'App Store")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("C'est un code App Store ? L'utiliser sur l'App Store")}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -575,7 +575,7 @@ export function PaywallView({
             activeOpacity={0.7}
             className="flex-row items-center gap-1 self-start py-1"
           >
-            <Text className="text-sm font-semibold text-accent">{t("Comparer gratuit et Premium")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Comparer gratuit et Premium")}</Text>
             <MaterialCommunityIcons name={compareOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.accent} />
           </TouchableOpacity>
           {compareOpen ? <ComparisonCard /> : null}
@@ -637,7 +637,7 @@ export function PaywallView({
         />
         {storeUnavailable ? (
           <TouchableOpacity onPress={retryOffer} hitSlop={8} className="py-1">
-            <Text className="text-center text-sm font-semibold text-accent">
+            <Text className="text-center text-sm font-semibold text-link">
               {t("Les prix n'ont pas pu être chargés depuis ")}{Platform.OS === "ios" ? t("l'App Store") : t("Google Play")}{t(". Réessayer")}
             </Text>
           </TouchableOpacity>
@@ -665,15 +665,15 @@ export function PaywallView({
             44 pt malgré le texte en petit corps. */}
         <View className="flex-row flex-wrap justify-center gap-x-4 gap-y-1">
           <TouchableOpacity onPress={onRestore} disabled={restoring} hitSlop={12} accessibilityRole="button" testID="paywall-restore">
-            <Text className="text-xs font-semibold text-accent">
+            <Text className="text-xs font-semibold text-link">
               {restoring ? t("Restauration…") : t("Restaurer mes achats")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => void openLegal("terms")} hitSlop={12} accessibilityRole="link" testID="paywall-terms">
-            <Text className="text-xs font-semibold text-accent">{t("Conditions d'utilisation")}</Text>
+            <Text className="text-xs font-semibold text-link">{t("Conditions d'utilisation")}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => void openLegal("privacy")} hitSlop={12} accessibilityRole="link" testID="paywall-privacy">
-            <Text className="text-xs font-semibold text-accent">{t("Politique de confidentialité")}</Text>
+            <Text className="text-xs font-semibold text-link">{t("Politique de confidentialité")}</Text>
           </TouchableOpacity>
         </View>
       </View>

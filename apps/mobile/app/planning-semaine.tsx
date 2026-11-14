@@ -214,7 +214,7 @@ export default function WeekPlanningScreen() {
             }}
             accessibilityRole="button"
           >
-            <Text className="text-sm font-semibold text-accent">{t("Cette semaine")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Cette semaine")}</Text>
           </TouchableOpacity>
         ) : (
           <ChipSelect

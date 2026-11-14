@@ -31,6 +31,7 @@ const colors = {
   text: palette.navy, // texte fort
   textMuted: "#6a6b68", // texte secondaire / labels (stone assombri : 4,5:1 sur le fond)
   textOnPrimary: "#ffffff", // texte sur fond primary
+  link: palette.navy, // liens en mode clair (accent trop pâle pour du petit texte, cf. linkColorFor)
   border: "#d7dfe4", // bordures discrètes
 
   // États fonctionnels

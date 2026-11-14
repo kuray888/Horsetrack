@@ -139,7 +139,7 @@ export default function PendingInvitesOnboarding() {
         ))}
 
         <TouchableOpacity onPress={continueToOwnProfile} hitSlop={8}>
-          <Text className="text-center text-sm font-semibold text-accent">
+          <Text className="text-center text-sm font-semibold text-link">
             {t("Configurer mon propre profil à la place")}
           </Text>
         </TouchableOpacity>

@@ -97,7 +97,7 @@ export function ExpenseForm({
 
   return (
     <View className={`${CARD} gap-3`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-accent">
+      <Text className="text-sm font-bold uppercase tracking-wide text-link">
         {editingExpenseId ? t("Modifier la dépense") : t("Nouvelle dépense")}
       </Text>
       {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
@@ -186,7 +186,7 @@ export function ExpenseForm({
           {form.fileUri ? (
             <TouchableOpacity onPress={onPickPhoto} activeOpacity={0.8} className="gap-2">
               <AttachmentPreview uri={form.fileUri} height={128} />
-              <Text className="text-center text-sm font-semibold text-accent">{t("Changer la facture")}</Text>
+              <Text className="text-center text-sm font-semibold text-link">{t("Changer la facture")}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity

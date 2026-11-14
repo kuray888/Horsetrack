@@ -178,10 +178,10 @@ export default function RideReplayScreen() {
           <View className="flex-row justify-between">
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Plus tôt")} onPress={() => { hapticSelection(); move(i - step); }} hitSlop={8} className="flex-row items-center gap-1">
               <MaterialCommunityIcons name="chevron-left" size={20} color={colors.accent} />
-              <Text className="text-[15px] font-semibold text-accent">{t("Plus tôt")}</Text>
+              <Text className="text-[15px] font-semibold text-link">{t("Plus tôt")}</Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Plus tard")} onPress={() => { hapticSelection(); move(i + step); }} hitSlop={8} className="flex-row items-center gap-1">
-              <Text className="text-[15px] font-semibold text-accent">{t("Plus tard")}</Text>
+              <Text className="text-[15px] font-semibold text-link">{t("Plus tard")}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color={colors.accent} />
             </TouchableOpacity>
           </View>

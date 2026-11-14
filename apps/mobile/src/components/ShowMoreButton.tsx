@@ -19,7 +19,7 @@ export function ShowMoreButton({ hidden, label, onPress }: { hidden: number; lab
       accessibilityRole="button"
       className="items-center rounded-card border border-border py-3"
     >
-      <Text className="text-sm font-semibold text-accent">{label}</Text>
+      <Text className="text-sm font-semibold text-link">{label}</Text>
       <Text className="text-xs text-muted">{t("{n} restant{v}", { n: hidden, v: hidden > 1 ? "s" : "" })}</Text>
     </TouchableOpacity>
   );

@@ -78,7 +78,7 @@ export default function Welcome() {
           )}
           {resumable ? (
             <TouchableOpacity testID="welcome-restart" accessibilityRole="button" onPress={restart} hitSlop={8} className="py-2">
-              <Text className="text-center text-sm font-semibold text-accent">{t("Recommencer avec un autre cheval")}</Text>
+              <Text className="text-center text-sm font-semibold text-link">{t("Recommencer avec un autre cheval")}</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
@@ -102,7 +102,7 @@ export default function Welcome() {
             hitSlop={8}
             className="py-2"
           >
-            <Text className="text-center text-sm font-semibold text-accent">{t("Déjà un compte ? Se connecter")}</Text>
+            <Text className="text-center text-sm font-semibold text-link">{t("Déjà un compte ? Se connecter")}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>

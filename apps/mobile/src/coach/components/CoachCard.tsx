@@ -163,7 +163,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
               className="flex-row items-center gap-1"
               hitSlop={6}
             >
-              <Text className="text-sm font-semibold text-accent">
+              <Text className="text-sm font-semibold text-link">
                 {showExercises ? t("Masquer les exercices") : t("Voir les {n} exercices", { n: exercises.length })}
               </Text>
               <MaterialCommunityIcons name={showExercises ? "chevron-up" : "chevron-down"} size={16} color={colors.accent} />
@@ -200,7 +200,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
           ) : null}
           {isActiveOrTrialing ? (
             <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/coach")} hitSlop={6} testID="coach-open">
-              <Text className="text-sm font-semibold text-accent">
+              <Text className="text-sm font-semibold text-link">
                 {granted === false ? t("Activer le coach IA") : t("Pose une question sur ton cheval")}
               </Text>
             </TouchableOpacity>
@@ -213,7 +213,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
               }}
               hitSlop={6}
             >
-              <Text className="text-sm font-semibold text-accent">
+              <Text className="text-sm font-semibold text-link">
                 {freeLeft === 1
                   ? t("Pose une question au coach : 1 offerte")
                   : t("Pose une question au coach : {n} offertes", { n: freeLeft })}
@@ -225,7 +225,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
               onPress={() => openPaywall("coach", { feature: "coach_card", horseId: horse.id })}
               hitSlop={6}
             >
-              <Text className="text-sm font-semibold text-accent">{t("Pourquoi cette séance ? Ton coach l'explique avec Premium")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Pourquoi cette séance ? Ton coach l'explique avec Premium")}</Text>
             </TouchableOpacity>
           )}
         </View>
