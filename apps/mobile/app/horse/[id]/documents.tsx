@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -12,6 +12,7 @@ import { DocumentForm } from "@/agenda/components/DocumentForm";
 import { DocumentCard } from "@/agenda/components/DocumentCard";
 import { useDocumentForm } from "@/agenda/hooks/useDocumentForm";
 import { t } from "@/i18n";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -92,20 +93,7 @@ export default function HorseDocumentsScreen() {
     <>
       <Screen>
         <FadeInView>
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1 gap-0.5 pr-3">
-              <Text className="text-2xl font-display tracking-tight text-text">{t("Documents")}</Text>
-              <Text className="text-sm text-muted">{t("Coffre-fort numérique de ")}{horse.name}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              hitSlop={12}
-              accessibilityLabel={t("Fermer")}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
+          <SubScreenHeader title={t("Documents")} subtitle={horse.name} />
         </FadeInView>
 
         <FadeInView delay={40}>
@@ -132,7 +120,7 @@ export default function HorseDocumentsScreen() {
               </Text>
               {!showDocForm ? (
                 <TouchableOpacity onPress={() => setShowDocForm(true)} activeOpacity={0.7}>
-                  <Text className="text-sm font-semibold text-accent">{t("Ajouter un document")}</Text>
+                  <Text className="text-sm font-semibold text-link">{t("Ajouter un document")}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>

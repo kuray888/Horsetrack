@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
@@ -13,11 +13,15 @@ import { useWeight } from "@/horses/weightStore";
 import { exportHealthRecord } from "@/horses/exportHealthRecord";
 import { useSubscription } from "@/subscription/store";
 import { useAgenda, daysFromNow, type Appointment } from "@/agenda/store";
-import { APPT_META, HEALTH_APPT_TYPES, daysUntilLabel } from "@/agenda/meta";
+import { APPT_META, HEALTH_APPT_TYPES, capitalize, daysUntilLabel } from "@/agenda/meta";
 import { formatDate } from "@/lib/dateFormat";
 import { useAppointmentForm } from "@/agenda/hooks/useAppointmentForm";
 import { AppointmentForm } from "@/agenda/components/AppointmentForm";
 import { HealthHistory } from "@/horses/components/HealthHistory";
+import { splitHealthHistory } from "@/horses/healthListLogic";
+import { SwipeableRow } from "@/components/SwipeableRow";
+import { LIST_PAGE_SIZE, ShowMoreButton } from "@/components/ShowMoreButton";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 import { t } from "@/i18n";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
@@ -76,6 +80,7 @@ export default function HorseSanteScreen() {
     onEditStart: () => {},
   });
   const { scrollRef, onAnchorLayout: onFormLayout } = useScrollToOnOpen(showApptForm);
+  const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
 
   if (!horse) {
     return (
@@ -94,6 +99,7 @@ export default function HorseSanteScreen() {
   const history = appointments
     .filter((a) => a.horseId === horse.id && (HEALTH_APPT_TYPES as readonly string[]).includes(a.type))
     .sort((a, b) => b.date.getTime() - a.date.getTime());
+  const { upcoming, past } = splitHealthHistory(history, today);
 
   /** Carnet de santé en PDF — à envoyer au vétérinaire, emmener en concours
    * ou remettre à l'acheteur. Tout ce qu'il contient était déjà dans l'app,
@@ -138,7 +144,9 @@ export default function HorseSanteScreen() {
 
   function statusFor(appt: Appointment): { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; color: string } {
     if (appt.date <= today) return { label: t("Effectué"), icon: "check-circle-outline", color: colors.success };
-    return { label: t("À venir · {daysUntilLabel}", { daysUntilLabel: daysUntilLabel(appt.date) }), icon: "clock-outline", color: colors.warning };
+    // Un soin prévu n'est pas une alerte : couleur des liens, pas l'orange
+    // d'avertissement.
+    return { label: capitalize(daysUntilLabel(appt.date)), icon: "clock-outline", color: colors.link };
   }
 
   // Même confirmation que Planning/Agenda pour un rendez-vous (cf.
@@ -163,16 +171,74 @@ export default function HorseSanteScreen() {
     setShowApptForm(true);
   }
 
+  function renderAppt(appt: Appointment) {
+    const meta = APPT_META[appt.type];
+    const status = statusFor(appt);
+    // "jusqu'au [prochaine échéance]" pour un traitement en cours
+    // (durée), simple ligne "Prochaine échéance" pour les autres
+    // types (vaccin, vermifuge...) — même champ nextDueDate déjà
+    // existant, pas de nouvelle donnée.
+    const isTreatmentRange = appt.type === "traitement" && appt.nextDueDate;
+    const writable = rights.appointment(appt);
+    const card = (
+      <TouchableOpacity
+        onPress={() => startEditAppt(appt)}
+        disabled={!writable}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityHint={writable ? t("Toucher pour modifier") : undefined}
+        // La corbeille de 16 pt est remplacée par le balayage (comme Mail) ;
+        // VoiceOver, qui ne balaie pas, garde la suppression dans ses actions.
+        accessibilityActions={writable ? [{ name: "delete", label: t("Supprimer") }] : undefined}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === "delete") confirmDeleteAppt(appt);
+        }}
+        className={`${CARD} flex-row items-center gap-3`}
+      >
+        <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
+          <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
+        </View>
+        <View className="flex-1 gap-1">
+          <Text className="text-[17px] font-bold text-text">{meta.label}</Text>
+          <Text className="text-[15px] text-muted">
+            {isTreatmentRange ? `${formatDate(appt.date)} → ${formatDate(appt.nextDueDate!)}` : formatDate(appt.date)}
+            {appt.professional ? ` · ${appt.professional}` : ""}
+          </Text>
+          {!isTreatmentRange && appt.nextDueDate ? (
+            <Text className="text-[13px] text-link">
+              {t("Prochaine échéance : ")}
+              {formatDate(appt.nextDueDate)}
+            </Text>
+          ) : null}
+        </View>
+        <View className="flex-row items-center gap-1">
+          <MaterialCommunityIcons name={status.icon} size={16} color={status.color} />
+          <Text className="text-[13px] font-semibold" style={{ color: status.color }}>
+            {status.label}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+    return (
+      <View key={appt.id}>
+        {writable ? (
+          <SwipeableRow
+            trailing={{ label: t("Supprimer"), icon: "trash-can-outline", color: colors.danger, onPress: () => confirmDeleteAppt(appt) }}
+          >
+            {card}
+          </SwipeableRow>
+        ) : (
+          card
+        )}
+      </View>
+    );
+  }
+
   return (
     <>
       <Screen scrollRef={scrollRef}>
         <FadeInView>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-display tracking-tight text-text">{t("Santé")}</Text>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-              <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
+          <SubScreenHeader title={t("Santé")} subtitle={horse.name} />
         </FadeInView>
 
         {/* Modifier un soin plus bas dans la liste ouvre le formulaire ici,
@@ -199,110 +265,71 @@ export default function HorseSanteScreen() {
         ) : null}
         </View>
 
-        {/* Export du carnet — masqué pendant la saisie, comme le reste : on
-            n'exporte pas un carnet au milieu d'un ajout. */}
-        {!showApptForm ? (
-          <FadeInView delay={45}>
-            <TouchableOpacity
-              onPress={handleExportRecord}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              className="flex-row items-center justify-center gap-2 rounded-card border border-border p-3.5"
-            >
-              <MaterialCommunityIcons name="file-pdf-box" size={18} color={colors.primary} />
-              <Text className="text-sm font-semibold text-primary">{t("Exporter le carnet de santé (PDF)")}</Text>
-            </TouchableOpacity>
-          </FadeInView>
-        ) : null}
-
-        {/* Antécédents (problèmes de santé + blessures), cf. HealthHistory : masqués
-            pendant la saisie d'un rendez-vous, comme la liste des soins. */}
-        {!showApptForm ? (
-          <FadeInView delay={50}>
-            <HealthHistory horse={horse} />
-          </FadeInView>
-        ) : null}
-
-        {!showApptForm ? (
-          <FadeInView delay={55}>
-            <Text className="mt-1 text-sm font-bold uppercase tracking-wide text-muted">{t("Soins et rendez-vous")}</Text>
-          </FadeInView>
-        ) : null}
-
+        {/* Ce qui arrive d'abord, puis l'historique (cf. healthListLogic.ts),
+            puis les antécédents et l'export : on vient surtout vérifier la
+            prochaine échéance. Tout est masqué pendant la saisie. */}
         {!showApptForm && history.length === 0 ? (
           <FadeInView delay={60}>
             <View className={`${CARD} items-center gap-2`}>
               <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
-                <MaterialCommunityIcons name="heart-pulse" size={22} color={colors.textMuted} />
+                <MaterialCommunityIcons name="heart-pulse" size={24} color={colors.textMuted} />
               </View>
-              <Text className="text-sm text-muted">
+              <Text className="text-center text-[15px] text-muted">
                 {t("Rien à afficher pour l'instant : les soins de ")}{horse.name} {t(" apparaîtront ici.")}
               </Text>
             </View>
           </FadeInView>
-        ) : !showApptForm ? (
+        ) : null}
+
+        {!showApptForm && upcoming.length > 0 ? (
           <FadeInView delay={60}>
             <View className="gap-2">
-              {history.map((appt) => {
-                const meta = APPT_META[appt.type];
-                const status = statusFor(appt);
-                // "jusqu'au [prochaine échéance]" pour un traitement en cours
-                // (durée), simple ligne "Prochaine échéance" pour les autres
-                // types (vaccin, vermifuge...) — même champ nextDueDate déjà
-                // existant, pas de nouvelle donnée.
-                const isTreatmentRange = appt.type === "traitement" && appt.nextDueDate;
-                const writable = rights.appointment(appt);
-                return (
-                  <TouchableOpacity
-                    key={appt.id}
-                    onPress={() => startEditAppt(appt)}
-                    disabled={!writable}
-                    activeOpacity={0.8}
-                    className={`${CARD} flex-row items-center gap-3`}
-                  >
-                    <View className={`h-11 w-11 items-center justify-center rounded-full ${meta.chip}`}>
-                      <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
-                    </View>
-                    <View className="flex-1 gap-0.5">
-                      <Text className="text-base font-bold text-text">{meta.label}</Text>
-                      <Text className="text-sm text-muted">
-                        {isTreatmentRange
-                          ? `${formatDate(appt.date)} → ${formatDate(appt.nextDueDate!)}`
-                          : formatDate(appt.date)}
-                        {appt.professional ? ` · ${appt.professional}` : ""}
-                      </Text>
-                      {!isTreatmentRange && appt.nextDueDate ? (
-                        <Text className="text-xs text-accent">
-                          {t("Prochaine échéance : ")}{formatDate(appt.nextDueDate)}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <View className="items-end gap-1">
-                      <View className="flex-row items-center gap-1">
-                        <MaterialCommunityIcons name={status.icon} size={14} color={status.color} />
-                        <Text className="text-xs font-semibold" style={{ color: status.color }}>
-                          {status.label}
-                        </Text>
-                      </View>
-                      {writable ? (
-                      <View className="flex-row items-center gap-3">
-                        <Text className="text-xs font-semibold text-accent">{t("Modifier")}</Text>
-                        <TouchableOpacity
-                          onPress={() => confirmDeleteAppt(appt)}
-                          hitSlop={8}
-                          activeOpacity={0.7}
-                          accessibilityLabel={t("Supprimer ce rendez-vous")}
-                          accessibilityRole="button"
-                        >
-                          <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.danger} />
-                        </TouchableOpacity>
-                      </View>
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+              <Text className="text-[13px] font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
+                {t("À venir")}
+              </Text>
+              {upcoming.map(renderAppt)}
             </View>
+          </FadeInView>
+        ) : null}
+
+        {!showApptForm && past.length > 0 ? (
+          <FadeInView delay={80}>
+            <View className="gap-2">
+              <Text className="text-[13px] font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
+                {t("Historique")}
+              </Text>
+              {past.slice(0, visibleCount).map(renderAppt)}
+            </View>
+          </FadeInView>
+        ) : null}
+        {!showApptForm && past.length > visibleCount ? (
+          <ShowMoreButton
+            hidden={past.length - visibleCount}
+            label={t("Afficher {v} soins plus anciens", { v: Math.min(past.length - visibleCount, LIST_PAGE_SIZE) })}
+            onPress={() => setVisibleCount((n) => n + LIST_PAGE_SIZE)}
+          />
+        ) : null}
+
+        {/* Antécédents (problèmes de santé + blessures), cf. HealthHistory. */}
+        {!showApptForm ? (
+          <FadeInView delay={100}>
+            <HealthHistory horse={horse} />
+          </FadeInView>
+        ) : null}
+
+        {/* Export du carnet : action ponctuelle, en bas plutôt qu'avant la
+            liste qu'on vient consulter. */}
+        {!showApptForm ? (
+          <FadeInView delay={120}>
+            <TouchableOpacity
+              onPress={handleExportRecord}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              className="flex-row items-center justify-center gap-2 rounded-card border border-border p-4"
+            >
+              <MaterialCommunityIcons name="file-pdf-box" size={20} color={colors.primary} />
+              <Text className="text-[15px] font-semibold text-primary">{t("Exporter le carnet de santé (PDF)")}</Text>
+            </TouchableOpacity>
           </FadeInView>
         ) : null}
       </Screen>

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Share, Text, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -17,6 +17,7 @@ import { track } from "@/lib/analytics";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { computeYearReview, featuredReviewYear, hasYearReview } from "@/review/yearReview";
 import { t } from "@/i18n";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 /**
  * « Mon année avec {cheval} » — le bilan d'une année, sous forme d'une carte
@@ -95,14 +96,7 @@ export default function YearReviewScreen() {
 
   return (
     <Screen>
-      <View className="flex-row items-center justify-between">
-        <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-          {t("Bilan {year}", { year })}
-        </Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
+      <SubScreenHeader title={t("Bilan {year}", { year })} />
 
       {hasYearReview(review) ? (
         <>

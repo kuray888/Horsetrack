@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -15,6 +15,7 @@ import { useHorses } from "@/horses/store";
 import { useHorseRights } from "@/horses/useHorseRights";
 import { useWeight } from "@/horses/weightStore";
 import { t } from "@/i18n";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -89,12 +90,7 @@ export default function HorseWeightScreen() {
     <>
       <Screen>
         <FadeInView>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-display tracking-tight text-text">{t("Poids")}</Text>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-              <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
+          <SubScreenHeader title={t("Poids")} />
         </FadeInView>
 
         <FadeInView delay={60}>
@@ -128,7 +124,7 @@ export default function HorseWeightScreen() {
         <FadeInView delay={100}>
           {showForm ? (
             <View className={`${CARD} gap-3`}>
-              <Text className="text-sm font-bold uppercase tracking-wide text-accent">{t("Nouvelle mesure")}</Text>
+              <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Nouvelle mesure")}</Text>
               <Field label={t("Poids (kg)")}>
                 <TextInput
                   className={INPUT}

@@ -17,6 +17,7 @@ import { saveHorseDetails, useHorseDetails } from "@/extras/store";
 import type { Partnership } from "@/extras/model";
 import { localDecimal, t } from "@/i18n";
 import { can, roleOf } from "@/lib/permissions";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -70,17 +71,7 @@ export default function PartnershipScreen() {
   }
 
   const header = (
-    <View className="flex-row items-center justify-between">
-      <View className="flex-1 gap-0.5">
-        <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-          {t("Demi-pension")}
-        </Text>
-        <Text className="text-sm text-muted">{horse.name}</Text>
-      </View>
-      <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-        <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-      </TouchableOpacity>
-    </View>
+    <SubScreenHeader title={t("Demi-pension")} subtitle={horse.name} />
   );
 
   if (!isActiveOrTrialing) {

@@ -22,12 +22,13 @@ export function BackButton({ onPress }: { onPress?: () => void }) {
   return (
     <TouchableOpacity
       onPress={onPress ?? (() => router.back())}
-      hitSlop={12}
       accessibilityLabel={t("Retour")}
       accessibilityRole="button"
-      className="-ml-2 h-9 w-9 items-center justify-center"
+      // 44 pt de cible (minimum iOS), décalée vers le bord pour que le
+      // chevron reste aligné sur la marge du contenu.
+      className="-ml-3 h-11 w-11 items-center justify-center"
     >
-      <MaterialCommunityIcons name="chevron-left" size={26} color={colors.text} accessibilityElementsHidden />
+      <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} accessibilityElementsHidden />
     </TouchableOpacity>
   );
 }

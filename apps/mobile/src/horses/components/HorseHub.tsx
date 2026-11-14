@@ -47,6 +47,7 @@ import { useHorseRights } from "@/horses/useHorseRights";
 import { useSlots } from "@/planning/slotsStore";
 import { activeSlots } from "@/planning/slots";
 import { featuredReviewYear } from "@/review/yearReview";
+import { healthTileTone } from "@/horses/healthTileTone";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -432,14 +433,14 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           >
             <View className="flex-row items-center gap-1.5">
               <MaterialCommunityIcons name="target" size={16} color={colors.accent} />
-              <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Objectif")}</Text>
+              <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Objectif")}</Text>
             </View>
             <Text className="text-base font-bold text-text">{horseGoal.title}</Text>
             <View className="mt-1 flex-row items-center justify-between">
               <Text className="text-sm text-muted">
                 {horseGoal.targetDate ? formatDate(horseGoal.targetDate) : t("Sans échéance")}
               </Text>
-              <Text className="text-sm font-semibold text-accent">{t("Voir l'objectif")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Voir l'objectif")}</Text>
             </View>
           </TouchableOpacity>
         </FadeInView>
@@ -452,7 +453,8 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
           <HorseModuleTile
             testID="hub-sante"
             icon="heart-pulse"
-            iconColor={colors.warning}
+            // Orange seulement si une échéance approche (cf. healthTileTone).
+            iconColor={healthTileTone(nextDue?.nextDueDate ?? null, today) === "due_soon" ? colors.warning : colors.primary}
             title={t("Santé")}
             value={santeValue}
             onPress={() => router.push(`/horse/${horse.id}/sante`)}
@@ -511,8 +513,10 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         </FadeInView>
       ) : null}
 
+      {/* « Toute la fiche » alignait douze lignes : rangées en deux groupes,
+          ce qu'on suit au fil des semaines et ce qu'on renseigne une fois. */}
       <FadeInView delay={120}>
-        <HorseModuleGroup title={t("Toute la fiche")}>
+        <HorseModuleGroup title={t("Suivi")}>
           <HorseModuleRow
             icon="trophy-outline"
             iconColor={colors.accent}
@@ -522,13 +526,6 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               focusThisHorse();
               goToTab("/(tabs)/planning?filter=concours");
             }}
-          />
-          <HorseModuleRow
-            icon="folder-outline"
-            iconColor={colors.primary}
-            title={t("Documents")}
-            value={documentsValue}
-            onPress={() => router.push(`/horse/${horse.id}/documents`)}
           />
           <HorseModuleRow
             icon="chart-line"
@@ -550,6 +547,60 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
             title={t("Alimentation")}
             value={feedingValue}
             onPress={() => router.push(`/horse/${horse.id}/alimentation`)}
+          />
+          {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}
+          <HorseModuleRow
+            icon="message-text-outline"
+            iconColor={colors.accent}
+            title={t("Fil")}
+            value={t("Commentaires et réactions de ceux qui le suivent")}
+            onPress={() => router.push(`/horse/${horse.id}/fil`)}
+          />
+          {/* Rapport du mois en PDF (Écurie Pro v2) : pour toute l'équipe, les
+              dépenses n'y figurent que pour qui y a droit. */}
+          <HorseModuleRow
+            icon="file-chart-outline"
+            iconColor={colors.primary}
+            title={t("Rapport du mois")}
+            value={t("Séances, soins et tâches en PDF")}
+            onPress={() => router.push(`/horse/${horse.id}/rapport`)}
+          />
+          {!reviewInSeason ? (
+            <HorseModuleRow
+              icon="party-popper"
+              iconColor={colors.accent}
+              title={t("Bilan {year}", { year: reviewYear })}
+              value={t("Ton année avec {name}, à partager", { name: horse.name })}
+              onPress={() => router.push(`/horse/${horse.id}/annee?year=${reviewYear}`)}
+            />
+          ) : null}
+        </HorseModuleGroup>
+      </FadeInView>
+
+      <FadeInView delay={140}>
+        <HorseModuleGroup title={t("Administratif")}>
+          <HorseModuleRow
+            icon="folder-outline"
+            iconColor={colors.primary}
+            title={t("Documents")}
+            value={documentsValue}
+            onPress={() => router.push(`/horse/${horse.id}/documents`)}
+          />
+          <HorseModuleRow
+            icon="card-account-details-outline"
+            iconColor={colors.primary}
+            title={t("Identité")}
+            value={identityValue}
+            onPress={() => router.push(`/horse/${horse.id}/identite`)}
+          />
+          {/* Contacts de l'écurie : on les cherche là où se gèrent les soins
+              du cheval, pas seulement dans le Profil (même écran, partagé). */}
+          <HorseModuleRow
+            icon="card-account-phone-outline"
+            iconColor={colors.danger}
+            title={t("Contacts")}
+            value={t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}
+            onPress={() => router.push("/contacts")}
           />
           {rights.can(horse.id, "edit_details") ? (
             <HorseModuleRow
@@ -575,15 +626,6 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               onPress={() => router.push(`/horse/${horse.id}/creneaux`)}
             />
           ) : null}
-          {/* Rapport du mois en PDF (Écurie Pro v2) : pour toute l'équipe, les
-              dépenses n'y figurent que pour qui y a droit. */}
-          <HorseModuleRow
-            icon="file-chart-outline"
-            iconColor={colors.primary}
-            title={t("Rapport du mois")}
-            value={t("Séances, soins et tâches en PDF")}
-            onPress={() => router.push(`/horse/${horse.id}/rapport`)}
-          />
           {/* Participation aux frais (Écurie Pro v2) : suivi mois par mois, pour
               qui gère le cheval. */}
           {PRO_ENABLED && rights.can(horse.id, "manage_fees") && (horse.sharedRole || isPro) ? (
@@ -593,39 +635,6 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               title={t("Participation aux frais")}
               value={t("Qui a versé quoi, mois par mois")}
               onPress={() => router.push(`/horse/${horse.id}/frais`)}
-            />
-          ) : null}
-          {/* Fil privé : échanges avec la demi-pension, le coach, le groom. */}
-          <HorseModuleRow
-            icon="message-text-outline"
-            iconColor={colors.accent}
-            title={t("Fil")}
-            value={t("Commentaires et réactions de ceux qui le suivent")}
-            onPress={() => router.push(`/horse/${horse.id}/fil`)}
-          />
-          <HorseModuleRow
-            icon="card-account-details-outline"
-            iconColor={colors.primary}
-            title={t("Identité")}
-            value={identityValue}
-            onPress={() => router.push(`/horse/${horse.id}/identite`)}
-          />
-          {/* Contacts de l'écurie : on les cherche là où se gèrent les soins
-              du cheval, pas seulement dans le Profil (même écran, partagé). */}
-          <HorseModuleRow
-            icon="card-account-phone-outline"
-            iconColor={colors.danger}
-            title={t("Contacts")}
-            value={t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}
-            onPress={() => router.push("/contacts")}
-          />
-          {!reviewInSeason ? (
-            <HorseModuleRow
-              icon="party-popper"
-              iconColor={colors.accent}
-              title={t("Bilan {year}", { year: reviewYear })}
-              value={t("Ton année avec {name}, à partager", { name: horse.name })}
-              onPress={() => router.push(`/horse/${horse.id}/annee?year=${reviewYear}`)}
             />
           ) : null}
         </HorseModuleGroup>
@@ -706,7 +715,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         <View className="mt-1 flex-row items-center justify-between">
           <Text className="text-xl font-bold text-text">{t("Activité récente")}</Text>
           <TouchableOpacity accessibilityRole="button" onPress={() => router.push(`/horse/${horse.id}/historique`)}>
-            <Text className="text-sm font-semibold text-accent">{t("Voir tout")}</Text>
+            <Text className="text-sm font-semibold text-link">{t("Voir tout")}</Text>
           </TouchableOpacity>
         </View>
       </FadeInView>

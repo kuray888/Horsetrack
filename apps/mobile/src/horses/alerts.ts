@@ -4,6 +4,7 @@ import type { Appointment } from "@/agenda/store";
 import { recoveryAlertMessage } from "@/horses/injuries";
 import type { Horse } from "@/horses/store";
 import { t } from "@/i18n";
+import { HEALTH_WINDOW_DAYS } from "@/horses/healthTileTone";
 
 export type HorseAlert = {
   horseId: string;
@@ -14,7 +15,6 @@ export type HorseAlert = {
 
 /** Fenêtres du brief Accueil (cf. plan Phase 3 Étape 4 §6) : échéance santé
  * dans les 14 prochains jours, concours dans les 7 prochains jours. */
-const HEALTH_WINDOW_DAYS = 14;
 const CONCOURS_WINDOW_DAYS = 7;
 
 function daysUntil(today: Date, target: Date): number {

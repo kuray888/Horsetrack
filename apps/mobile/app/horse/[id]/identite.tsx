@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { Text, TextInput, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -14,6 +14,7 @@ import { saveHorseDetails, useHorseDetails } from "@/extras/store";
 import { isPlausibleMicrochip, isPlausibleSire, isPlausibleUeln, type HorseIdentity } from "@/extras/model";
 import { t } from "@/i18n";
 import { can, roleOf } from "@/lib/permissions";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -88,17 +89,7 @@ export default function HorseIdentityScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 gap-0.5">
-            <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-              {t("Identité")}
-            </Text>
-            <Text className="text-sm text-muted">{horse.name}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <SubScreenHeader title={t("Identité")} subtitle={horse.name} />
       </FadeInView>
 
       <FadeInView delay={40}>

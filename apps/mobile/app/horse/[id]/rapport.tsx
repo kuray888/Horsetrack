@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -26,6 +26,7 @@ import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { track } from "@/lib/analytics";
 import { openPaywall } from "@/subscription/paywall";
 import { LOCALE, t } from "@/i18n";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -126,17 +127,7 @@ export default function MonthlyReportScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 gap-1">
-            <Text className="font-display text-2xl tracking-tight text-text" accessibilityRole="header">
-              {t("Rapport du mois")}
-            </Text>
-            <Text className="text-sm text-muted">{horse.name}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <SubScreenHeader title={t("Rapport du mois")} subtitle={horse.name} />
       </FadeInView>
 
       {locked ? (

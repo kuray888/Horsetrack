@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Share, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -14,6 +14,7 @@ import { saveHorseDetails, useHorseDetails } from "@/extras/store";
 import { hasFeeding, type FeedingPlan } from "@/extras/model";
 import { t } from "@/i18n";
 import { can, roleOf } from "@/lib/permissions";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -76,17 +77,7 @@ export default function HorseFeedingScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 gap-0.5">
-            <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-              {t("Alimentation")}
-            </Text>
-            <Text className="text-sm text-muted">{horse.name}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <SubScreenHeader title={t("Alimentation")} subtitle={horse.name} />
       </FadeInView>
 
       <FadeInView delay={40}>
@@ -136,7 +127,7 @@ export default function HorseFeedingScreen() {
                 update({ ...plan, meals: [...plan.meals, { id: `m${Date.now().toString(36)}`, label: "", ration: "" }] })
               }
             >
-              <Text className="text-sm font-semibold text-accent">{t("+ Ajouter un repas")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("+ Ajouter un repas")}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -188,7 +179,7 @@ export default function HorseFeedingScreen() {
           )}
           {hasFeeding(plan) ? (
             <TouchableOpacity className="items-center p-2" accessibilityRole="button" onPress={handleShare}>
-              <Text className="text-sm font-semibold text-accent">{t("Envoyer la ration par message")}</Text>
+              <Text className="text-sm font-semibold text-link">{t("Envoyer la ration par message")}</Text>
             </TouchableOpacity>
           ) : null}
           <Text className="text-center text-xs text-muted">

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
@@ -29,6 +29,7 @@ import { useToast } from "@/components/Toast";
 import { hapticTap } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { track } from "@/lib/analytics";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -178,7 +179,7 @@ export default function HorseBudgetScreen() {
             </Text>
             {horse ? (
               <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
-                <Text className="text-sm font-semibold text-accent">{t("Retour")}</Text>
+                <Text className="text-sm font-semibold text-link">{t("Retour")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -211,62 +212,29 @@ export default function HorseBudgetScreen() {
     });
   }
 
+  const historyMax = Math.max(...monthlyHistory.map((m) => m.total), 1);
+
   return (
     <>
       <Screen>
         <FadeInView>
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1 gap-0.5 pr-3">
-              <Text className="text-2xl font-display tracking-tight text-text">{t("Budget")}</Text>
-              <Text className="text-sm text-muted">{t("Dépenses et budget de ")}{horse.name}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              hitSlop={12}
-              accessibilityLabel={t("Fermer")}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
+          <SubScreenHeader title={t("Budget")} subtitle={horse.name} />
         </FadeInView>
 
         {sortedExpenses.length > 0 ? (
           <>
-            <FadeInView delay={20}>
-              <BudgetExportCard horseName={horse.name} expenses={sortedExpenses} />
-            </FadeInView>
-
             <FadeInView delay={40}>
-              <Locked message={t("Vois d'un coup d'œil ce qui est payé et ce qui reste à régler")} placement="budget" feature="budget_paid_status">
-                <View className={`${CARD} flex-row items-center justify-between`}>
-                  <View className="items-center gap-0.5">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Total")}</Text>
-                    <Text className="text-lg font-display text-text">{formatAmount(totalExpenses, "EUR")}</Text>
-                  </View>
-                  <View className="items-center gap-0.5">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Payé")}</Text>
-                    <Text className="text-lg font-display text-success">{formatAmount(paidExpenses, "EUR")}</Text>
-                  </View>
-                  <View className="items-center gap-0.5">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("À payer")}</Text>
-                    <Text className="text-lg font-display text-danger">{formatAmount(pendingExpenses, "EUR")}</Text>
-                  </View>
-                </View>
-              </Locked>
-            </FadeInView>
-
-            <FadeInView delay={60}>
               <Locked message={t("Vois où part ton budget, poste par poste")} placement="budget" feature="budget_breakdown">
                 <View className={`${CARD} gap-4`}>
                   <View className="flex-row items-center justify-between">
-                    <View className="gap-0.5">
-                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Ce mois-ci")}</Text>
-                      <Text className="text-lg font-display text-text">{formatAmount(monthTotal, "EUR")}</Text>
+                    <View className="gap-1">
+                      {/* Le chiffre qu'on vient chercher : en tête, en grand. */}
+                      <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Ce mois-ci")}</Text>
+                      <Text className="text-[28px] font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(monthTotal, "EUR")}</Text>
                     </View>
-                    <View className="items-end gap-0.5">
-                      <Text className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Cette année")}</Text>
-                      <Text className="text-lg font-display text-text">{formatAmount(yearTotal, "EUR")}</Text>
+                    <View className="items-end gap-1">
+                      <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Cette année")}</Text>
+                      <Text className="text-[17px] font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(yearTotal, "EUR")}</Text>
                     </View>
                   </View>
                   {/* Demi-pension (cf. horse/[id]/demi-pension.tsx) : sa
@@ -288,7 +256,7 @@ export default function HorseBudgetScreen() {
 
                   {categoryBreakdown.length > 0 ? (
                     <View className="gap-2 border-t border-border pt-3">
-                      <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Par catégorie")}</Text>
+                      <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Par catégorie")}</Text>
                       {categoryBreakdown.map(({ category, total }) => {
                         const meta = EXPENSE_META[category];
                         const pct = totalExpenses > 0 ? Math.round((total / totalExpenses) * 100) : 0;
@@ -299,7 +267,7 @@ export default function HorseBudgetScreen() {
                             </View>
                             <Text className="flex-1 text-sm text-text">{meta.label}</Text>
                             <Text className="text-xs text-muted">{pct}%</Text>
-                            <Text className="w-20 text-right text-sm font-bold text-text">
+                            <Text className="w-20 text-right text-sm font-bold text-text" style={{ fontVariant: ["tabular-nums"] }}>
                               {formatAmount(total, "EUR")}
                             </Text>
                           </View>
@@ -309,13 +277,49 @@ export default function HorseBudgetScreen() {
                   ) : null}
 
                   <View className="gap-2 border-t border-border pt-3">
-                    <Text className="text-xs font-bold uppercase tracking-wide text-accent">{t("Historique mensuel")}</Text>
-                    {monthlyHistory.map(({ key, label, total }) => (
-                      <View key={key} className="flex-row items-center justify-between">
-                        <Text className="text-sm text-muted">{label}</Text>
-                        <Text className="text-sm font-semibold text-text">{formatAmount(total, "EUR")}</Text>
-                      </View>
-                    ))}
+                    <Text className="text-xs font-bold uppercase tracking-wide text-link">{t("Historique mensuel")}</Text>
+                    {/* Barres à l'échelle du mois le plus cher : la tendance se lit
+                        d'un coup d'œil, le montant reste écrit à côté. */}
+                    {monthlyHistory.map(({ key, label, total }) => {
+                      return (
+                        <View
+                          key={key}
+                          className="flex-row items-center gap-3"
+                          accessible
+                          accessibilityLabel={`${label} ${formatAmount(total, "EUR")}`}
+                        >
+                          <Text className="w-20 text-sm text-muted">{label}</Text>
+                          <View className="h-2 flex-1 overflow-hidden rounded-full bg-border">
+                            <View className="h-2 rounded-full bg-primary" style={{ width: `${Math.round((total / historyMax) * 100)}%` }} />
+                          </View>
+                          <Text className="w-20 text-right text-sm font-semibold text-text" style={{ fontVariant: ["tabular-nums"] }}>
+                            {formatAmount(total, "EUR")}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              </Locked>
+            </FadeInView>
+
+            <FadeInView delay={60}>
+              <Locked message={t("Vois d'un coup d'œil ce qui est payé et ce qui reste à régler")} placement="budget" feature="budget_paid_status">
+                <View className={`${CARD} flex-row items-center justify-between`}>
+                  <View className="items-center gap-1">
+                    <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Total")}</Text>
+                    <Text className="text-[17px] font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(totalExpenses, "EUR")}</Text>
+                  </View>
+                  <View className="items-center gap-1">
+                    <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Payé")}</Text>
+                    <Text className="text-[17px] font-display text-success" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(paidExpenses, "EUR")}</Text>
+                  </View>
+                  <View className="items-center gap-1">
+                    <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("À payer")}</Text>
+                    {/* Rouge seulement s'il reste vraiment quelque chose à régler. */}
+                    <Text className={`text-[17px] font-display ${pendingExpenses > 0 ? "text-danger" : "text-muted"}`} style={{ fontVariant: ["tabular-nums"] }}>
+                      {formatAmount(pendingExpenses, "EUR")}
+                    </Text>
                   </View>
                 </View>
               </Locked>
@@ -349,7 +353,7 @@ export default function HorseBudgetScreen() {
               </Text>
               {!showExpenseForm ? (
                 <TouchableOpacity onPress={() => setShowExpenseForm(true)} activeOpacity={0.7}>
-                  <Text className="text-sm font-semibold text-accent">{t("Ajouter une dépense")}</Text>
+                  <Text className="text-sm font-semibold text-link">{t("Ajouter une dépense")}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -376,6 +380,12 @@ export default function HorseBudgetScreen() {
             label={t("Afficher {v} dépenses plus anciennes", { v: Math.min(hiddenCount, LIST_PAGE_SIZE) })}
             onPress={() => setVisibleCount((n) => n + LIST_PAGE_SIZE)}
           />
+        ) : null}
+        {/* Export : action ponctuelle, sous la liste plutôt qu'avant les chiffres. */}
+        {sortedExpenses.length > 0 && !showExpenseForm ? (
+          <FadeInView delay={140}>
+            <BudgetExportCard horseName={horse.name} expenses={sortedExpenses} />
+          </FadeInView>
         ) : null}
       </Screen>
       <PickerOverlaySlot />
