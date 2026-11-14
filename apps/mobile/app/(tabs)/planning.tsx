@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { ActionSheetIOS, Alert, Platform, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { FadeInView } from "@/components/FadeInView";
@@ -11,7 +11,7 @@ import { useScrollToOnOpen } from "@/components/useScrollToOnOpen";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { NEVER_RECURRENCE, computeRecurrenceDates } from "@/lib/recurrence";
 import { animateNextLayout } from "@/lib/motion";
-import { hapticTap } from "@/lib/haptics";
+import { hapticSelection, hapticTap } from "@/lib/haptics";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDuration } from "@/lib/dateFormat";
 import { useHorses } from "@/horses/store";
@@ -889,6 +889,34 @@ function PlanningScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingOpenForm]);
 
+  /** Actions secondaires du Planning, en feuille d'actions native. */
+  function openMoreActions() {
+    const actions: { label: string; run: () => void }[] = [
+      { label: t("Bibliothèque d'exercices"), run: () => router.push("/library") },
+    ];
+    // Statistiques par cheval : absentes en vue « Tous » (cf. plus bas).
+    if (!showingAllHorses) {
+      actions.push({
+        label: showStats ? t("Masquer les statistiques") : t("Afficher les statistiques"),
+        run: () => {
+          animateNextLayout();
+          setShowStats((v) => !v);
+        },
+      });
+    }
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: [...actions.map((a) => a.label), t("Annuler")], cancelButtonIndex: actions.length },
+        (i) => actions[i]?.run()
+      );
+      return;
+    }
+    Alert.alert(t("Planning"), undefined, [
+      ...actions.map((a) => ({ text: a.label, onPress: a.run })),
+      { text: t("Annuler"), style: "cancel" as const },
+    ]);
+  }
+
   return (
     <>
     <Screen scrollRef={scrollRef}>
@@ -904,6 +932,9 @@ function PlanningScreen() {
           // ou une modification est en cours.
           onAdd={anyFormOpen ? undefined : () => setQuickAddVisible(true)}
           addLabel={t("Ajouter au planning")}
+          // Exercices et Statistiques occupaient une rangée de pastilles de
+          // plus avant le premier événement : rangés derrière « … ».
+          onMore={openMoreActions}
         />
       </FadeInView>
 
@@ -947,66 +978,31 @@ function PlanningScreen() {
       ) : null}
 
       <FadeInView delay={20}>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row gap-2 rounded-full bg-surface p-1">
-            {(["list", "month"] as const).map((mode) => (
-              <TouchableOpacity
-                key={mode}
-                onPress={() => setViewMode(mode)}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityState={{ selected: viewMode === mode }}
-                className={`rounded-full px-4 py-1.5 ${viewMode === mode ? "bg-primary" : ""}`}
-              >
-                <Text className={`text-sm font-semibold ${viewMode === mode ? "text-on-primary" : "text-muted"}`}>
-                  {mode === "list" ? t("Liste") : t("Mois")}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View className="flex-row items-center gap-2">
-          {/* Bibliothèque d'exercices (cf. app/library.tsx). */}
-          <TouchableOpacity
-            onPress={() => router.push("/library")}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={t("Bibliothèque d'exercices")}
-            className="flex-row items-center gap-1.5 rounded-full bg-surface px-3.5 py-2"
-          >
-            <MaterialCommunityIcons name="book-open-variant" size={16} color={colors.primary} />
-            <Text className="text-sm font-semibold text-primary">{t("Exercices")}</Text>
-          </TouchableOpacity>
-          {/* Les statistiques étaient une carte repliée à part, qui prenait
-              une ligne entière même fermée : un bouton suffit pour l'ouvrir.
-              Absent en vue « Tous » (cf. le commentaire de la carte). */}
-          {showingAllHorses ? null : (
+        {/* Sélecteur segmenté pleine largeur, 44 pt de haut (cible iOS). */}
+        <View className="flex-row gap-1 rounded-full bg-surface p-1" accessibilityRole="tablist">
+          {(["list", "month"] as const).map((mode) => (
             <TouchableOpacity
+              key={mode}
               onPress={() => {
-                animateNextLayout();
-                setShowStats((v) => !v);
+                if (viewMode !== mode) hapticSelection();
+                setViewMode(mode);
               }}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showStats }}
-              className={`flex-row items-center gap-1.5 rounded-full px-3.5 py-2 ${
-                showStats ? "bg-primary" : "bg-surface"
-              }`}
+              activeOpacity={0.85}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: viewMode === mode }}
+              className={`min-h-9 flex-1 items-center justify-center rounded-full ${viewMode === mode ? "bg-primary" : ""}`}
             >
-              <MaterialCommunityIcons
-                name="chart-box-outline"
-                size={16}
-                color={showStats ? colors.textOnPrimary : colors.primary}
-              />
-              <Text className={`text-sm font-semibold ${showStats ? "text-on-primary" : "text-primary"}`}>
-                {t("Statistiques")}
+              <Text className={`text-[15px] font-semibold ${viewMode === mode ? "text-on-primary" : "text-muted"}`}>
+                {mode === "list" ? t("Liste") : t("Mois")}
               </Text>
             </TouchableOpacity>
-          )}
-          </View>
+          ))}
         </View>
       </FadeInView>
 
-      {weekSessions.length > 0 ? (
+      {/* Bilan de la semaine : seulement sans filtre de type, il compte
+          toutes les séances et se répétait au-dessus d'une liste filtrée. */}
+      {weekSessions.length > 0 && filter === "all" ? (
         <FadeInView delay={40}>
           <View className="flex-row items-center gap-3 rounded-card bg-primary p-4">
             <CircularProgress
@@ -1222,7 +1218,7 @@ function PlanningScreen() {
                 </Text>
                 {!showForm && !showApptForm ? (
                   <TouchableOpacity accessibilityRole="button" onPress={() => openCreateForm()} activeOpacity={0.7}>
-                    <Text className="text-sm font-semibold text-accent">{t("Planifier une séance")}</Text>
+                    <Text className="text-sm font-semibold text-link">{t("Planifier une séance")}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>

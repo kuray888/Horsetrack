@@ -19,10 +19,16 @@ export function ScreenTitle({
   subtitle,
   onAdd,
   addLabel,
+  onMore,
+  moreLabel,
 }: {
   title: string;
   subtitle?: string | null;
   onAdd?: () => void;
+  /** Actions secondaires de l'écran, regroupées derrière « … » (feuille
+   * d'actions native) plutôt qu'en rangée de pastilles. */
+  onMore?: () => void;
+  moreLabel?: string;
   /** Annoncé par VoiceOver, ex. « Ajouter au planning ». */
   addLabel?: string;
 }) {
@@ -35,6 +41,20 @@ export function ScreenTitle({
         </Text>
         {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
       </View>
+      {onMore ? (
+        <TouchableOpacity
+          onPress={() => {
+            hapticTap();
+            onMore();
+          }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={moreLabel ?? t("Plus d'options")}
+          className="mt-1 h-11 w-11 items-center justify-center rounded-full bg-surface"
+        >
+          <MaterialCommunityIcons name="dots-horizontal" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ) : null}
       {onAdd ? (
         <TouchableOpacity
           onPress={() => {
