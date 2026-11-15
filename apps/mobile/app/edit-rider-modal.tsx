@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 import { PrimaryButton, SingleSelect } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { DISCIPLINES, OTHER_OPTION, RIDER_GOALS, RIDER_LEVELS, RIDE_FREQUENCIES } from "@/onboarding/options";
