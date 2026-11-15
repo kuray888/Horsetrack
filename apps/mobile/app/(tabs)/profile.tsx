@@ -339,6 +339,22 @@ function ProfileScreen() {
     router.replace("/(onboarding)/welcome");
   }
 
+  /** Le code Apple n'a pas pu être obtenu : réessayer, continuer sans, ou annuler. */
+  function askAppleRevocationRetry(): Promise<"retry" | "continue" | "cancel"> {
+    return new Promise((resolve) => {
+      Alert.alert(
+        tr("Connexion Apple à retirer"),
+        tr("Pour couper le lien entre Horsetrack et ton identifiant Apple, Apple doit te redemander ton accord. Tu peux réessayer, ou supprimer ton compte sans retirer ce lien (à faire alors dans Réglages > ton nom > Connexion avec Apple)."),
+        [
+          { text: tr("Annuler"), style: "cancel", onPress: () => resolve("cancel") },
+          { text: tr("Supprimer sans retirer le lien"), style: "destructive", onPress: () => resolve("continue") },
+          { text: tr("Réessayer"), onPress: () => resolve("retry") },
+        ],
+        { cancelable: false }
+      );
+    });
+  }
+
   async function confirmDeleteAccount() {
     setDeletingAccount(true);
     try {
@@ -347,9 +363,17 @@ function ProfileScreen() {
       // de la feuille Apple : on supprime quand même.
       const signedInWithApple =
         user?.app_metadata?.provider === "apple" || !!user?.identities?.some((i) => i.provider === "apple");
-      const appleAuthorizationCode = signedInWithApple
-        ? await runNativeInteraction(getAppleAuthorizationCode).catch(() => null)
-        : null;
+      let appleAuthorizationCode: string | null = null;
+      while (signedInWithApple && !appleAuthorizationCode) {
+        appleAuthorizationCode = await runNativeInteraction(getAppleAuthorizationCode).catch(() => null);
+        if (appleAuthorizationCode) break;
+        // Feuille Apple fermée ou en échec : sans ce code, le lien avec ton
+        // identifiant Apple ne peut pas être coupé. On le dit, au lieu de
+        // supprimer sans rien révéler.
+        const choice = await askAppleRevocationRetry();
+        if (choice === "cancel") return;
+        if (choice === "continue") break;
+      }
       await deleteAccount({ appleAuthorizationCode });
       await wipeLocalAccountData();
     } catch (e) {

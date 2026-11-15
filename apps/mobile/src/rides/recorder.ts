@@ -38,7 +38,7 @@ const DRAFT_KEY = "ride_in_progress_v1";
 /** Un point toutes les 2 s suffit pour les allures et le tracé, et garde un
  * brouillon léger (une balade de 2 h ≈ 3 600 points). */
 const MIN_POINT_INTERVAL_MS = 2000;
-const PERSIST_EVERY_MS = 20_000;
+const PERSIST_EVERY_MS = 10_000;
 
 export type RideDraft = {
   sessionId: string | null;

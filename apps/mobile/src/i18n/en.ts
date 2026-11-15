@@ -1397,6 +1397,10 @@ export const EN: Record<string, string> = {
   "Mon profil cavalier": "My rider profile",
   "Montant": "Amount",
   "Montant (€)": "Amount (€)",
+  "Connexion Apple à retirer": "Apple sign-in to remove",
+  "Pour couper le lien entre Horsetrack et ton identifiant Apple, Apple doit te redemander ton accord. Tu peux réessayer, ou supprimer ton compte sans retirer ce lien (à faire alors dans Réglages > ton nom > Connexion avec Apple).": "To cut the link between Horsetrack and your Apple ID, Apple needs to ask for your approval again. You can try again, or delete your account without removing the link (you can then do it in Settings > your name > Sign in with Apple).",
+  "Supprimer sans retirer le lien": "Delete without removing the link",
+
   "Montant invalide : saisis un nombre positif, par exemple 45,50.": "Invalid amount: enter a positive number, for example 45.50.",
   "Mot de passe": "Password",
   "Mot de passe actuel": "Current password",
