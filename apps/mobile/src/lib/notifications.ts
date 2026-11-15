@@ -116,15 +116,24 @@ export async function scheduleReminder(
    * lib/notificationLinks.ts et components/NotificationRouter.tsx). */
   url?: string
 ): Promise<string | null> {
+  // Un rappel dans le passé (date mal saisie, fuseau, heure d'été) est refusé
+  // par iOS avec une erreur : on ne programme rien plutôt que de faire échouer
+  // l'enregistrement du rendez-vous qui l'accompagne.
+  if (!(trigger.getTime() > Date.now())) return null;
   const granted = await ensureNotificationPermission();
   if (!granted) return null;
-  await ensureAndroidChannel();
-  return Notifications.scheduleNotificationAsync({
-    content: { title, body, data: url ? { url } : {} },
-    // `channelId` est ignoré sur iOS (cf. les types d'expo-notifications) et
-    // décisif sur Android : cf. le commentaire de CHANNEL_ID plus haut.
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger, channelId: CHANNEL_ID },
-  });
+  try {
+    await ensureAndroidChannel();
+    return await Notifications.scheduleNotificationAsync({
+      content: { title, body, data: url ? { url } : {} },
+      // `channelId` est ignoré sur iOS (cf. les types d'expo-notifications) et
+      // décisif sur Android : cf. le commentaire de CHANNEL_ID plus haut.
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger, channelId: CHANNEL_ID },
+    });
+  } catch (e) {
+    console.warn("[notifications] programmation du rappel échouée", e);
+    return null;
+  }
 }
 
 /** Best-effort, comme cancelEmailReminder (cf. lib/emailReminders.ts) : appelé
