@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import { hapticTap } from "@/lib/haptics";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { FadeInView } from "@/components/FadeInView";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -57,9 +59,7 @@ export function SyncStatusBanners({
                 ? t("1 modification enregistrée sur cet appareil attend la sauvegarde en ligne.")
                 : t("{pendingSync} modifications enregistrées sur cet appareil attendent la sauvegarde en ligne.", { pendingSync: pendingSync })}
             </Text>
-            <TouchableOpacity accessibilityRole="button" onPress={() => retryPendingWrites().catch(() => {})} hitSlop={8}>
-              <Text className="text-sm font-bold text-warning">{t("Réessayer")}</Text>
-            </TouchableOpacity>
+            <RetryButton tone="warning" onRetry={() => retryPendingWrites()} />
           </View>
         </FadeInView>
       ) : null}
@@ -77,9 +77,7 @@ export function SyncStatusBanners({
                 ? t("1 modification a été refusée par le serveur : elle n'est pas sauvegardée en ligne. Si ça persiste, contacte le support.")
                 : t("{rejectedSync} modifications ont été refusées par le serveur : elles ne sont pas sauvegardées en ligne. Si ça persiste, contacte le support.", { rejectedSync: rejectedSync })}
             </Text>
-            <TouchableOpacity accessibilityRole="button" onPress={onRetryRejected} hitSlop={8}>
-              <Text className="text-sm font-bold text-danger">{t("Réessayer")}</Text>
-            </TouchableOpacity>
+            <RetryButton tone="danger" onRetry={async () => onRetryRejected()} />
           </View>
         </FadeInView>
       ) : null}
@@ -104,5 +102,39 @@ export function SyncStatusBanners({
         </FadeInView>
       ) : null}
     </>
+  );
+}
+
+/**
+ * « Réessayer » qui répond : vibration, puis « Un instant… » et bouton
+ * désactivé le temps de la tentative (au moins un court instant, pour que le
+ * retour se voie même quand la tentative est immédiate).
+ */
+function RetryButton({ tone, onRetry }: { tone: "warning" | "danger"; onRetry: () => Promise<unknown> | void }) {
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    if (busy) return;
+    hapticTap();
+    setBusy(true);
+    const minDelay = new Promise((r) => setTimeout(r, 600));
+    try {
+      await Promise.all([Promise.resolve(onRetry()).catch(() => {}), minDelay]);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy }}
+      disabled={busy}
+      onPress={() => void run()}
+      hitSlop={12}
+      className="min-h-[44px] justify-center"
+    >
+      <Text className={`text-sm font-bold ${tone === "warning" ? "text-warning" : "text-danger"}`}>
+        {busy ? t("Un instant…") : t("Réessayer")}
+      </Text>
+    </TouchableOpacity>
   );
 }

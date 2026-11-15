@@ -412,7 +412,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               className="flex-1 flex-row items-center justify-center gap-1.5 rounded-card border border-border p-3"
             >
               <MaterialCommunityIcons name="export-variant" size={16} color={colors.text} />
-              <Text className="text-sm font-semibold text-text">{t("Fiche")}</Text>
+              <Text className="text-sm font-semibold text-text">{t("Envoyer")}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -597,7 +597,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
               du cheval, pas seulement dans le Profil (même écran, partagé). */}
           <HorseModuleRow
             icon="card-account-phone-outline"
-            iconColor={colors.danger}
+            iconColor={colors.primary}
             title={t("Contacts")}
             value={t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}
             onPress={() => router.push("/contacts")}

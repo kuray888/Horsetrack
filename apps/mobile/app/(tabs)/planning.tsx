@@ -78,6 +78,7 @@ import { lazyTab } from "@/components/LazyTab";
 import { ScreenTitle } from "@/components/ScreenTitle";
 import { t } from "@/i18n";
 import { useToast } from "@/components/Toast";
+import { EmptyStateButton } from "@/components/EmptyStateButton";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -1279,9 +1280,7 @@ function PlanningScreen() {
                     : t("Rien de ce type à venir — les autres types sont peut-être masqués par le filtre.")}
                 </Text>
                 {!showForm && !showApptForm ? (
-                  <TouchableOpacity accessibilityRole="button" onPress={() => openCreateForm()} activeOpacity={0.7}>
-                    <Text className="text-sm font-semibold text-link">{t("Planifier une séance")}</Text>
-                  </TouchableOpacity>
+                  <EmptyStateButton label={t("Planifier une séance")} onPress={() => openCreateForm()} />
                 ) : null}
               </View>
             </FadeInView>

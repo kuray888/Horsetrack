@@ -22,6 +22,7 @@ import { lazyTab } from "@/components/LazyTab";
 import { ScreenTitle } from "@/components/ScreenTitle";
 import { QuickAddSheet, openQuickAddFromTab } from "@/components/QuickAddSheet";
 import { t } from "@/i18n";
+import { EmptyStateButton } from "@/components/EmptyStateButton";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -321,9 +322,7 @@ function ChevauxScreen() {
             </Text>
             {/* L'écurie vide garde un bouton explicite en plus du « + » du
                 titre : c'est la toute première action à faire. */}
-            <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/add-horse-modal")} activeOpacity={0.7}>
-              <Text className="text-sm font-semibold text-link">{t("Ajouter mon premier cheval")}</Text>
-            </TouchableOpacity>
+            <EmptyStateButton label={t("Ajouter mon premier cheval")} onPress={() => router.push("/add-horse-modal")} />
           </View>
         </FadeInView>
       )}
