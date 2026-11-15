@@ -5,7 +5,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { DoneCheckbox, IconButton, sessionCheckboxLabel } from "@/components/IconButton";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { TrainingSession } from "@/sessions/store";
-import { eventTime, type UnifiedEvent } from "@/planning/unifiedEvents";
+import { eventTime, planningFocusParams, type UnifiedEvent } from "@/planning/unifiedEvents";
 import type { HorseAlert } from "@/horses/alerts";
 import { formatWhen } from "@/today/todayFormat";
 import { upcomingEventMeta } from "@/today/upcomingEventMeta";
@@ -106,7 +106,7 @@ export function TodaySection({
                   className={`flex-row items-center gap-2 py-2 ${i > 0 ? "border-t border-border" : ""}`}
                 >
                   <TouchableOpacity accessibilityRole="button"
-                    onPress={() => router.push("/(tabs)/planning")}
+                    onPress={() => router.push({ pathname: "/(tabs)/planning", params: planningFocusParams(event) })}
                     activeOpacity={0.7}
                     className="flex-1 flex-row items-center gap-3"
                   >

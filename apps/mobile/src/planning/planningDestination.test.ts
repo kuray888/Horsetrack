@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNewPlanningDestination, openFormForQuickAdd, parseOpenForm } from "@/planning/planningDestination";
+import { focusPlacement, isNewPlanningDestination, openFormForQuickAdd, parseOpenForm } from "@/planning/planningDestination";
 
 /**
  * Régression : Horse Hub > Entraînement puis Concours (ou l'inverse)
@@ -64,5 +64,22 @@ describe("ouverture d'un formulaire du Planning depuis la feuille d'ajout", () =
     expect(parseOpenForm("session")).toBe("session");
     expect(parseOpenForm("admin")).toBeNull();
     expect(parseOpenForm(undefined)).toBeNull();
+  });
+});
+
+describe("focusPlacement", () => {
+  const up = Array.from({ length: 45 }, (_, i) => `session-u${i}`);
+  const done = ["appt-d0", "appt-d1"];
+  it("trouve un événement à venir et ouvre assez de pages pour l'afficher", () => {
+    expect(focusPlacement("session-u0", up, done, 20)).toEqual({ section: "upcoming", count: 20 });
+    expect(focusPlacement("session-u19", up, done, 20)).toEqual({ section: "upcoming", count: 20 });
+    expect(focusPlacement("session-u20", up, done, 20)).toEqual({ section: "upcoming", count: 40 });
+    expect(focusPlacement("session-u44", up, done, 20)).toEqual({ section: "upcoming", count: 60 });
+  });
+  it("trouve un événement passé", () => {
+    expect(focusPlacement("appt-d1", up, done, 20)).toEqual({ section: "done", count: 20 });
+  });
+  it("null si l'événement n'est pas dans la liste", () => {
+    expect(focusPlacement("session-x", up, done, 20)).toBeNull();
   });
 });

@@ -9,7 +9,7 @@ import { dailyTip } from "@/lib/dailyTips";
 import type { Discipline } from "@/onboarding/store";
 import type { Horse } from "@/horses/store";
 import type { HorseAlert } from "@/horses/alerts";
-import { eventTime, type UnifiedEvent } from "@/planning/unifiedEvents";
+import { eventTime, planningFocusParams, type UnifiedEvent } from "@/planning/unifiedEvents";
 import { formatWhen, weeklyRecapMessage } from "@/today/todayFormat";
 import { upcomingEventMeta } from "@/today/upcomingEventMeta";
 import { t } from "@/i18n";
@@ -60,13 +60,24 @@ export function DailyTipCard({ discipline }: { discipline: Discipline | null }) 
 
 /** Météo de la prochaine séance : une information qui peut faire déplacer
  * une séance, donc en haut (cf. weather/sessionWeather.ts). */
-export function WeatherWarningBanner({ warning }: { warning: { icon: string; date: Date; message: string } }) {
+export function WeatherWarningBanner({
+  warning,
+}: {
+  warning: { icon: string; date: Date; message: string; sessionId?: string; horseId?: string | null };
+}) {
   const colors = useThemeColors();
   return (
     <FadeInView delay={54}>
       <TouchableOpacity accessibilityRole="button"
         activeOpacity={0.8}
-        onPress={() => router.push("/(tabs)/planning")}
+        onPress={() =>
+          router.push({
+            pathname: "/(tabs)/planning",
+            params: warning.sessionId
+              ? { focus: `session-${warning.sessionId}`, ...(warning.horseId ? { horse: warning.horseId } : {}), ts: String(Date.now()) }
+              : {},
+          })
+        }
         className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5"
       >
         <Text className="text-base">{warning.icon}</Text>
@@ -196,7 +207,7 @@ export function UpcomingCard({ events }: { events: UnifiedEvent[] }) {
             return (
               <TouchableOpacity accessibilityRole="button"
                 key={event.id}
-                onPress={() => router.push("/(tabs)/planning")}
+                onPress={() => router.push({ pathname: "/(tabs)/planning", params: planningFocusParams(event) })}
                 activeOpacity={0.7}
                 className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? "border-t border-border" : ""}`}
               >

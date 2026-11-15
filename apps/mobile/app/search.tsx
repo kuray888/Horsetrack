@@ -118,10 +118,11 @@ export default function SearchScreen() {
   // `dismissTo` ferme la recherche et revient sur les onglets existants.
   function destinationFor(result: SearchResult): (() => void) | null {
     switch (result.kind) {
+      // Séance et rendez-vous : le Planning s'ouvre sur CET événement, déplié.
       case "session":
-        return () => router.dismissTo("/(tabs)/planning?filter=session");
+        return () => router.dismissTo(planningFocusHref(`session-${result.id}`, result.horseId));
       case "appointment":
-        return () => router.dismissTo("/(tabs)/planning");
+        return () => router.dismissTo(planningFocusHref(`appt-${result.id}`, result.horseId));
       case "journal":
         return () => router.dismissTo(result.horseId ? `/(tabs)/journal?horse=${result.horseId}` : "/(tabs)/journal");
       case "expense":
@@ -152,6 +153,8 @@ export default function SearchScreen() {
           autoCorrect={false}
           returnKeyType="search"
           clearButtonMode="while-editing"
+          accessibilityLabel={t("Rechercher")}
+          placeholderTextColor={colors.textMuted}
         />
       </FadeInView>
 
@@ -184,6 +187,7 @@ export default function SearchScreen() {
               <TouchableOpacity
                 onPress={() => go?.()}
                 disabled={!go}
+                accessibilityRole={go ? "button" : "text"}
                 activeOpacity={0.7}
                 className={`${CARD} flex-row items-center gap-3`}
               >
@@ -211,4 +215,11 @@ export default function SearchScreen() {
       )}
     </Screen>
   );
+}
+
+function planningFocusHref(focus: string, horseId: string | null | undefined) {
+  return {
+    pathname: "/(tabs)/planning" as const,
+    params: { focus, ...(horseId ? { horse: horseId } : {}), ts: String(Date.now()) },
+  };
 }

@@ -63,7 +63,7 @@ import {
   type PlanningFilterValue,
   type UnifiedEvent,
 } from "@/planning/unifiedEvents";
-import { parseOpenForm, type PlanningOpenForm } from "@/planning/planningDestination";
+import { focusPlacement, parseOpenForm, type PlanningOpenForm } from "@/planning/planningDestination";
 import { PlanningFilter } from "@/planning/components/PlanningFilter";
 import { UnifiedEventCard } from "@/planning/components/UnifiedEventCard";
 import { QuickAddSheet, type QuickAddOption } from "@/components/QuickAddSheet";
@@ -220,10 +220,18 @@ function PlanningScreen() {
     filter: filterParam,
     openForm: openFormParam,
     ts: openFormTs,
+    focus: focusParam,
+    horse: focusHorseParam,
   } = useLocalSearchParams<{
     filter?: string;
     openForm?: string;
     ts?: string;
+    /** Événement à montrer (`session-<id>` ou `appt-<id>`, cf. unifiedEvents) :
+     * toucher une ligne de l'Accueil ou un résultat de recherche ouvre CET
+     * événement, déplié, au lieu de la liste entière. */
+    focus?: string;
+    /** Cheval de cet événement, pour cadrer le filtre dessus. */
+    horse?: string;
   }>();
   const initialFilter = PLANNING_FILTER_VALUES.includes(filterParam as PlanningFilterValue)
     ? (filterParam as PlanningFilterValue)
@@ -541,6 +549,60 @@ function PlanningScreen() {
   const { scrollRef, onAnchorLayout: onFormLayout } = useScrollToOnOpen(
     showForm || showApptForm || showExpenseForm || showJournalForm
   );
+
+  // Arrivée avec ?focus= : vue liste, tous les types, cheval de l'événement,
+  // puis (effet ci-dessous) assez de pages pour l'afficher, déplié, et
+  // défilement jusqu'à lui. Même clé focus + ts que openForm : un second
+  // appui sur la même ligne refait le trajet.
+  const focusKey = focusParam ? `${focusParam}:${openFormTs ?? ""}` : "";
+  const [syncedFocusKey, setSyncedFocusKey] = useState("");
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null);
+  if (focusKey !== syncedFocusKey) {
+    setSyncedFocusKey(focusKey);
+    if (focusParam) {
+      setViewMode("list");
+      setFilter("all");
+      if (focusHorseParam) setFilterHorseId(focusHorseParam);
+      setPendingFocus(focusParam);
+    }
+  }
+  const focusTargetRef = useRef<View>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [focusScrollTick, setFocusScrollTick] = useState(0);
+  // Une fois le filtre appliqué (rendu suivant), situe l'événement, déplie-le
+  // et affiche assez de pages pour qu'il soit rendu.
+  if (pendingFocus && filter === "all" && viewMode === "list" && (!focusHorseParam || filterHorseId === focusHorseParam)) {
+    const place = focusPlacement(
+      pendingFocus,
+      upcoming.map((e) => e.id),
+      done.map((e) => e.id),
+      PLANNING_PAGE_SIZE
+    );
+    setPendingFocus(null);
+    if (place) {
+      if (place.section === "upcoming") setUpcomingCount((n) => Math.max(n, place.count));
+      else {
+        setShowPast(true);
+        setDoneCount((n) => Math.max(n, place.count));
+      }
+      setExpandedId(pendingFocus);
+      setFocusedId(pendingFocus);
+      setFocusScrollTick((n) => n + 1);
+    }
+  }
+  useEffect(() => {
+    if (focusScrollTick === 0) return;
+    // Laisse la carte se monter et se déplier avant de mesurer sa position.
+    const timer = setTimeout(() => {
+      const scroll = scrollRef.current as unknown as { getInnerViewRef?: () => View | null } | null;
+      const inner = scroll?.getInnerViewRef?.();
+      if (!inner || !focusTargetRef.current) return;
+      focusTargetRef.current.measureLayout(inner, (_x, y) => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [focusScrollTick, scrollRef]);
 
   // Ferme tout formulaire de création/édition resté ouvert d'une visite
   // précédente dès qu'une NOUVELLE destination explicite arrive depuis Horse
@@ -1231,6 +1293,7 @@ function PlanningScreen() {
                 </FadeInView>
                 {group.items.map((event, i) => (
                   <FadeInView key={event.id} delay={170 + gi * 30 + i * 40}>
+                    <View ref={event.id === focusedId ? focusTargetRef : undefined} collapsable={false}>
                     <UnifiedEventCard
                       event={event}
                       expanded={expandedId === event.id}
@@ -1239,6 +1302,7 @@ function PlanningScreen() {
                       appointmentHandlers={appointmentHandlers}
                       horseName={eventHorseName(event)}
                     />
+                    </View>
                   </FadeInView>
                 ))}
               </View>
@@ -1276,6 +1340,7 @@ function PlanningScreen() {
                       </FadeInView>
                       {group.items.map((event, i) => (
                         <FadeInView key={event.id} delay={250 + gi * 20 + i * 30}>
+                          <View ref={event.id === focusedId ? focusTargetRef : undefined} collapsable={false}>
                           <UnifiedEventCard
                             event={event}
                             expanded={expandedId === event.id}
@@ -1284,6 +1349,7 @@ function PlanningScreen() {
                             appointmentHandlers={appointmentHandlers}
                             horseName={eventHorseName(event)}
                           />
+                          </View>
                         </FadeInView>
                       ))}
                     </View>

@@ -61,3 +61,24 @@ export function openFormForQuickAdd(option: string): PlanningOpenForm | null {
   if (option === "seance") return "session";
   return option === "session" ? null : parseOpenForm(option);
 }
+
+/**
+ * Où se trouve l'événement demandé par `?focus=` (toucher une ligne de
+ * l'Accueil, un résultat de recherche) : dans « À venir » ou dans le passé,
+ * et combien de pages afficher pour qu'il soit rendu. `null` s'il n'est pas
+ * dans la liste filtrée (supprimé entre-temps, cheval verrouillé) : le
+ * Planning s'ouvre alors normalement.
+ */
+export function focusPlacement(
+  focusId: string,
+  upcomingIds: readonly string[],
+  doneIds: readonly string[],
+  pageSize: number
+): { section: "upcoming" | "done"; count: number } | null {
+  const pages = (index: number) => Math.ceil((index + 1) / pageSize) * pageSize;
+  const u = upcomingIds.indexOf(focusId);
+  if (u >= 0) return { section: "upcoming", count: pages(u) };
+  const d = doneIds.indexOf(focusId);
+  if (d >= 0) return { section: "done", count: pages(d) };
+  return null;
+}

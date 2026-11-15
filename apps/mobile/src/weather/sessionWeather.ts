@@ -19,7 +19,7 @@ import { t } from "@/i18n";
 export type ForecastLike = { date: Date; code: number; label: string; icon: string; tempMinC: number; tempMaxC: number };
 
 /** Ce dont la règle a besoin d'une séance. */
-export type PlannedLike = { date: Date; completed: boolean };
+export type PlannedLike = { date: Date; completed: boolean; id?: string; horseId?: string | null };
 
 /**
  * Codes WMO qui méritent un avertissement avant de monter — pluie, averses,
@@ -62,7 +62,7 @@ export function sessionWeatherWarning(
   sessions: PlannedLike[],
   forecast: ForecastLike[] | null,
   today: Date
-): { date: Date; message: string; icon: string } | null {
+): { date: Date; message: string; icon: string; sessionId?: string; horseId?: string | null } | null {
   if (!forecast || forecast.length === 0) return null;
 
   const horizon = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -82,6 +82,8 @@ export function sessionWeatherWarning(
   if (ALERT_CODES.has(day.code)) {
     return {
       date: next.date,
+      sessionId: next.id,
+      horseId: next.horseId,
       icon: day.icon,
       message: t("{v} annoncé{v2} ({tempMinC}° à {tempMaxC}°)", { v: day.label.toLowerCase(), v2: day.label.endsWith("e") ? "e" : "", tempMinC: day.tempMinC, tempMaxC: day.tempMaxC }),
     };
@@ -89,6 +91,8 @@ export function sessionWeatherWarning(
   if (day.tempMaxC <= FREEZING_MAX_C) {
     return {
       date: next.date,
+      sessionId: next.id,
+      horseId: next.horseId,
       icon: "🥶",
       message: t("gel annoncé ({tempMinC}° à {tempMaxC}°)", { tempMinC: day.tempMinC, tempMaxC: day.tempMaxC }),
     };

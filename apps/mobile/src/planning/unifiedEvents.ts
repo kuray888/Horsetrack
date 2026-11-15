@@ -91,3 +91,10 @@ export function eventDays(event: UnifiedEvent): Date[] {
 export function upcomingUnifiedEvents(events: UnifiedEvent[], todayStart: Date): UnifiedEvent[] {
   return events.filter((e) => isEventUpcoming(e, todayStart)).sort((a, b) => a.date.getTime() - b.date.getTime());
 }
+
+/** Paramètres de route qui ouvrent le Planning sur CET événement, déplié
+ * (cf. `focus` dans app/(tabs)/planning.tsx) ; `ts` rend chaque appui unique. */
+export function planningFocusParams(event: UnifiedEvent): { focus: string; horse?: string; ts: string } {
+  const horse = eventHorseId(event);
+  return { focus: event.id, ...(horse ? { horse } : {}), ts: String(Date.now()) };
+}
