@@ -3,6 +3,7 @@ import { db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { sendEmail } from "@/lib/resend";
 import {
+  alertDelivered,
   alertEmail,
   allClearEmail,
   canSendAlert,
@@ -67,6 +68,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       at: input.lat != null ? now : share.lastPointAt,
     });
     const results = await Promise.all(contacts.map((c) => sendEmail(c.email, email.subject, email.body).catch(() => false)));
+    if (!alertDelivered(results)) {
+      // Aucun message parti (panne de messagerie) : on rend la main, sinon le
+      // délai entre deux alertes bloquerait toute nouvelle tentative et l'app
+      // afficherait « alerte envoyée » alors que personne n'est prévenu.
+      await db.rideShare.updateMany({
+        where: { id: token, alertSentAt: now },
+        data: { status: share.status, alertSentAt: share.alertSentAt },
+      });
+      console.error("[ride-safety] alerte non délivrée", token);
+      return NextResponse.json({ sent: false, error: "Alerte non délivrée" }, { status: 502 });
+    }
     return NextResponse.json({ sent: true, emailsSent: results.filter(Boolean).length });
   }
 

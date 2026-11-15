@@ -107,6 +107,12 @@ export function canSendAlert(share: ShareTimes, now: Date): boolean {
   return !share.alertSentAt || now.getTime() - share.alertSentAt.getTime() >= ALERT_COOLDOWN_MS;
 }
 
+/** L'alerte a-t-elle atteint au moins un proche ? Sinon elle ne doit pas être
+ * comptée comme envoyée : le cavalier (ou le cron) doit pouvoir réessayer. */
+export function alertDelivered(results: readonly boolean[]): boolean {
+  return results.some(Boolean);
+}
+
 /** Le lien de suivi montre-t-il encore la position ? */
 export function isViewable(share: ShareTimes, now: Date): boolean {
   return !share.endedAt || now.getTime() - share.endedAt.getTime() < VIEW_AFTER_END_MS;

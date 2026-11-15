@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  alertDelivered,
   alertEmail,
   allClearEmail,
   canSendAlert,
@@ -126,5 +127,17 @@ describe("emails", () => {
     expect(minutesAgo(ago(0), now)).toBe("à l'instant");
     expect(minutesAgo(ago(7), now)).toBe("il y a 7 min");
     expect(minutesAgo(ago(75), now)).toBe("il y a 1 h 15");
+  });
+});
+
+describe("alertDelivered", () => {
+  it("vrai dès qu'un proche a reçu le message", () => {
+    expect(alertDelivered([false, true])).toBe(true);
+  });
+  it("faux si aucun envoi n'a abouti (panne de messagerie)", () => {
+    expect(alertDelivered([false, false])).toBe(false);
+  });
+  it("faux sans destinataire", () => {
+    expect(alertDelivered([])).toBe(false);
   });
 });

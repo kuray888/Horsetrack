@@ -3,6 +3,7 @@ import { secretMatches } from "@/lib/rateLimit";
 import { db } from "@cheval/db";
 import { sendEmail } from "@/lib/resend";
 import {
+  alertDelivered,
   PURGE_AFTER_END_MS,
   STALE_AFTER_MS,
   needsStaleAlert,
@@ -55,9 +56,18 @@ export async function GET(req: NextRequest) {
       lng: share.lastLng,
       lastAt: share.lastPointAt ?? share.startedAt,
     });
-    await Promise.all(
+    const results = await Promise.all(
       parseContacts(share.contacts).map((c) => sendEmail(c.email, email.subject, email.body).catch(() => false))
     );
+    if (!alertDelivered(results)) {
+      // Rien n'est parti : on libère le claim pour que le prochain passage
+      // (15 min) réessaie au lieu de laisser les proches sans nouvelles.
+      await db.rideShare.updateMany({
+        where: { id: share.id, staleAlertSentAt: now },
+        data: { staleAlertSentAt: share.staleAlertSentAt },
+      });
+      continue;
+    }
     warned++;
   }
 
