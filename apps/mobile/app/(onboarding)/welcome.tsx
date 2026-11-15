@@ -8,6 +8,7 @@ import { track } from "@/lib/analytics";
 import { BrandMark } from "@/components/BrandMark";
 import { useOnboarding } from "@/onboarding/store";
 import { hasResumableDraft } from "@/onboarding/draftPersistence";
+import { useAdvanceGuard } from "@/onboarding/useAdvanceGuard";
 import { t } from "@/i18n";
 
 /**
@@ -23,6 +24,7 @@ import { t } from "@/i18n";
 export default function Welcome() {
   const { horses, firstAction, hydrated, setFlow, reset } = useOnboarding();
   const resumable = hydrated && hasResumableDraft({ horses });
+  const guard = useAdvanceGuard();
   const resumeName = horses.find((h) => h.isPrimary)?.name.trim() || horses.find((h) => h.name.trim())?.name.trim();
 
   useEffect(() => {
@@ -30,23 +32,27 @@ export default function Welcome() {
   }, []);
 
   function chooseOwner() {
+    if (!guard.tryAdvance()) return;
     track("onboarding_path_chosen", { path: "owner" });
     setFlow("owner");
     router.push("/(onboarding)/discipline");
   }
 
   function restart() {
+    if (guard.advanced) return;
     reset();
     chooseOwner();
   }
 
   function chooseInvited() {
+    if (!guard.tryAdvance()) return;
     track("onboarding_path_chosen", { path: "invited" });
     setFlow("invited");
     router.push("/(onboarding)/account");
   }
 
   function resume() {
+    if (!guard.tryAdvance()) return;
     track("onboarding_path_chosen", { path: "resume" });
     setFlow("owner");
     // Première action déjà choisie : directement la récompense. Sinon on la
@@ -101,7 +107,9 @@ export default function Welcome() {
           <TouchableOpacity
             testID="welcome-login"
             accessibilityRole="button"
-            onPress={() => router.push("/(auth)/login")}
+            onPress={() => {
+              if (guard.tryAdvance()) router.push("/(auth)/login");
+            }}
             hitSlop={8}
             className="py-2"
           >

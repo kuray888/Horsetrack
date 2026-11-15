@@ -8,6 +8,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { PrimaryButton, ProgressBar } from "@/components/onboarding";
 import { FadeInView } from "@/components/FadeInView";
 import { useOnboarding } from "@/onboarding/store";
+import { useAdvanceGuard } from "@/onboarding/useAdvanceGuard";
 import { DISCIPLINES } from "@/onboarding/options";
 import { firstActionDate, type FirstActionDraft } from "@/onboarding/firstAction";
 import { APPT_META } from "@/agenda/meta";
@@ -88,6 +89,7 @@ export default function Summary() {
   const action = firstAction ? actionLine(firstAction) : null;
   const careWithReminder = firstAction?.kind === "care" && firstAction.reminder;
   const [hasSession, setHasSession] = useState(false);
+  const guard = useAdvanceGuard();
 
   useEffect(() => {
     track("onboarding_step_viewed", { step: "summary", first_action: firstAction?.kind ?? "none" });
@@ -103,6 +105,7 @@ export default function Summary() {
   // qu'il va garder. Déjà connecté (parcours invité, ou session restée dans
   // le trousseau) : directement le paywall.
   async function next() {
+    if (!guard.tryAdvance()) return; // double toucher : un seul écran ouvert
     const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
     router.push(data.session ? "/(onboarding)/paywall" : "/(onboarding)/account");
   }

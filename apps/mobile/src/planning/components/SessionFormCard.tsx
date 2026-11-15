@@ -12,11 +12,10 @@ import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import { MAX_ENTRIES_PER_SUBMIT } from "@/horses/selectableHorses";
 import { OTHER_OPTION } from "@/onboarding/options";
 import { ACTIVITY_META } from "@/agenda/store";
-import { isRestActivity } from "@/agenda/activityKinds";
 import type { SessionIntensity } from "@/sessions/store";
 import { INTENSITY_META } from "@/sessions/components/SessionCard";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { DURATION_OPTIONS, type SessionForm, type SessionTypeSelection } from "@/planning/sessionForm";
+import { DURATION_OPTIONS, isFullDay, type SessionForm, type SessionTypeSelection } from "@/planning/sessionForm";
 import { RiderField } from "@/planning/components/RiderField";
 import type { TeamMember } from "@/planning/riders";
 import { t } from "@/i18n";
@@ -127,7 +126,7 @@ export function SessionFormCard({
         </Field>
       ) : null}
       <DatePickerField label={t("Date")} value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
-      {isRestActivity(form.activityType) ? (
+      {isFullDay(form) ? (
         <Field label={t("Durée")}>
           <View className="flex-row items-center gap-2 rounded-card border border-border bg-surface p-4">
             <MaterialCommunityIcons name="weather-sunny" size={20} color={colors.textMuted} />

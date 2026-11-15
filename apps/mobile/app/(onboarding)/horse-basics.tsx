@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { OnboardingShell } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { useOnboarding } from "@/onboarding/store";
+import { useAdvanceGuard } from "@/onboarding/useAdvanceGuard";
 import { TOTAL_STEPS } from "@/onboarding/options";
 import { chooseAndPersistImage } from "@/lib/imagePicker";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -19,6 +20,7 @@ export default function HorseBasics() {
   const colors = useThemeColors();
   const { editingHorse, updateEditingHorse } = useOnboarding();
   const canContinue = editingHorse.name.trim().length > 0;
+  const guard = useAdvanceGuard();
 
   async function pickPhoto() {
     const uri = await chooseAndPersistImage();
@@ -26,7 +28,8 @@ export default function HorseBasics() {
   }
 
   function next() {
-    if (canContinue) router.push("/(onboarding)/first-action");
+    // Touche « Suivant » du clavier ET bouton : une seule ouverture.
+    if (canContinue && guard.tryAdvance()) router.push("/(onboarding)/first-action");
   }
 
   return (

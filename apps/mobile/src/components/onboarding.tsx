@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, KeyboardAvoidingView, Platform, View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -73,6 +73,15 @@ export function OnboardingShell({
   onSecondary?: () => void;
   ctaTestID?: string;
 }) {
+  // Un double toucher sur « Retour » dépilait deux écrans d'un coup.
+  const lastBack = useRef(0);
+  function goBack() {
+    const now = Date.now();
+    if (now - lastBack.current < 600) return;
+    lastBack.current = now;
+    router.back();
+  }
+
   // Entonnoir d'onboarding : une vue par étape (cf. lib/analytics.ts).
   useEffect(() => {
     track("onboarding_step_viewed", { step: stepId, position: step, total });
@@ -83,7 +92,7 @@ export function OnboardingShell({
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center gap-3 px-5 pt-2">
         {canGoBack && router.canGoBack() ? (
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("Retour")}>
+          <TouchableOpacity onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("Retour")}>
             <MaterialCommunityIcons name="chevron-left" size={28} color={colors.textMuted} />
           </TouchableOpacity>
         ) : null}

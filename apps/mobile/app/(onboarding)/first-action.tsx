@@ -7,6 +7,7 @@ import { FadeInView } from "@/components/FadeInView";
 import { usePressScale } from "@/hooks/usePressScale";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useOnboarding } from "@/onboarding/store";
+import { useAdvanceGuard } from "@/onboarding/useAdvanceGuard";
 import { TOTAL_STEPS } from "@/onboarding/options";
 import {
   CARE_DATE_PRESETS,
@@ -158,6 +159,7 @@ export default function FirstAction() {
   );
   const [sessionDate, setSessionDate] = useState<DatePreset>("tomorrow");
   const [saving, setSaving] = useState(false);
+  const guard = useAdvanceGuard();
 
   const ready = kind === "care" ? !!careType && !!careDate : kind === "session";
 
@@ -170,7 +172,7 @@ export default function FirstAction() {
   }
 
   async function save() {
-    if (!ready || saving) return;
+    if (!ready || saving || guard.advanced) return;
     setSaving(true);
     try {
       if (kind === "care" && careType && careDate) {
@@ -183,13 +185,14 @@ export default function FirstAction() {
         setFirstAction({ kind: "session", activity, day: dayKey(presetDate(sessionDate)) });
         track("onboarding_first_action_saved", { kind: "session", type: activity, preset: sessionDate });
       }
-      router.push("/(onboarding)/summary");
+      if (guard.tryAdvance()) router.push("/(onboarding)/summary");
     } finally {
       setSaving(false);
     }
   }
 
   function skip() {
+    if (saving || !guard.tryAdvance()) return;
     setFirstAction(null);
     track("onboarding_first_action_skipped", {});
     router.push("/(onboarding)/summary");

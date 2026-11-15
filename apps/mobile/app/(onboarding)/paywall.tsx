@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PaywallView } from "@/components/PaywallView";
@@ -43,6 +44,10 @@ export default function OnboardingPaywall() {
   const { setRiderProfile } = useRiderProfile();
   const { submitting, subscribe, restoring, restore } = useSubscribeFlow();
   const subscription = useSubscription();
+  // `finish` enchaîne plusieurs envois réseau (secondes) : un second toucher sur
+  // « Continuer avec la version gratuite » (ou achat + lien) le relançait en
+  // parallèle — premier soin créé en double, deux navigations vers l'Accueil.
+  const finishing = useRef(false);
 
   // `justSubscribed` : statut renvoyé par subscribe() juste après un achat/essai
   // réussi — à utiliser au lieu de `subscription` (cf. useSubscription()
@@ -119,6 +124,18 @@ export default function OnboardingPaywall() {
   }
 
   async function finish(justSubscribed?: Persisted) {
+    if (finishing.current) return;
+    finishing.current = true;
+    try {
+      await runFinish(justSubscribed);
+    } catch (e) {
+      // Rien d'irréparable n'a été fait avant l'échec : on rouvre le bouton.
+      finishing.current = false;
+      throw e;
+    }
+  }
+
+  async function runFinish(justSubscribed?: Persisted) {
     const premium = !!justSubscribed && computeIsActiveOrTrialing(justSubscribed);
     track("onboarding_completed", {
       choice: premium ? justSubscribed!.status : "free",

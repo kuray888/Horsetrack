@@ -17,8 +17,14 @@ export const DURATION_OPTIONS = [30, 45, 60, 90];
  * l'enum existant n'est pas étendu — cf. son commentaire sur TrainingSession. */
 /** Un jour de repos (ou de pansage) occupe la journée : pas de durée à choisir,
  * la séance est enregistrée sans durée (null, déjà géré partout). */
-export function durationFor(form: Pick<SessionForm, "activityType" | "durationMinutes">): number | null {
-  return isRestActivity(form.activityType) ? null : form.durationMinutes;
+export function isFullDay(form: Pick<SessionForm, "activityType" | "typeSelection">): boolean {
+  // « Autre » garde l'ancien type technique en coulisse : une séance libre
+  // (« Séance à la plage ») n'est jamais une journée de repos.
+  return form.typeSelection !== OTHER_OPTION && isRestActivity(form.activityType);
+}
+
+export function durationFor(form: Pick<SessionForm, "activityType" | "typeSelection" | "durationMinutes">): number | null {
+  return isFullDay(form) ? null : form.durationMinutes;
 }
 
 export type SessionTypeSelection = ActivityType | typeof OTHER_OPTION;
