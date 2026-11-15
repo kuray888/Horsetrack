@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PRO_ENABLED } from "@/lib/features";
-import { Platform, Share, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Share, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
@@ -50,6 +50,7 @@ import { featuredReviewYear } from "@/review/yearReview";
 import { healthTileTone } from "@/horses/healthTileTone";
 import { SectionHeader } from "@/components/SectionHeader";
 import { withFromHorse } from "@/horses/components/withFromHorse";
+import { hapticTap } from "@/lib/haptics";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -76,7 +77,6 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
  */
 export function HorseHub({ horseId, inTab = false }: { horseId: string | undefined; inTab?: boolean }) {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
   const id = horseId;
   // Identité et alimentation (cf. extras/store.ts), avant tout retour anticipé.
   const details = useHorseDetails(horseId);
@@ -356,8 +356,26 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
   return (
     <SafeAreaView className="flex-1 bg-background" edges={inTab ? [] : ["bottom"]}>
     <Screen scrollRef={scrollRef}>
-      {/* Rien où revenir depuis un onglet : le bouton n'y a pas sa place. */}
-      {inTab ? null : <BackButton />}
+      {/* Barre du haut : retour (rien où revenir depuis un onglet) et « + »
+          à droite, au même endroit que sur les autres écrans — c'était un
+          bouton flottant en bas, le seul de l'app. */}
+      <View className="flex-row items-center justify-between">
+        {inTab ? <View /> : <BackButton />}
+        <TouchableOpacity
+          onPress={() => {
+            hapticTap();
+            setQuickAddVisible(true);
+          }}
+          activeOpacity={0.8}
+          hitSlop={6}
+          accessibilityLabel={t("Ajouter")}
+          accessibilityRole="button"
+          testID="hub-add"
+          className="h-11 w-11 items-center justify-center rounded-full bg-primary shadow-card"
+        >
+          <MaterialCommunityIcons name="plus" size={24} color={colors.textOnPrimary} />
+        </TouchableOpacity>
+      </View>
       {/* Bannière de synchro : elle vivait dans la liste des chevaux, que
           cet onglet n'affiche plus pour une écurie d'un seul cheval — sans
           elle, un échec de synchro redeviendrait invisible (cf. audit du
@@ -748,33 +766,8 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
         </FadeInView>
       ) : null}
 
-      {/* Le bouton "+" flottant (cf. plus bas, hors du ScrollView pour rester
-          fixe) est positionné en absolute par-dessus ce contenu — sans cette
-          marge, le dernier élément d'Activité récente se retrouve caché
-          derrière lui en bas de page (repéré sur une capture TestFlight).
-          Dans un onglet, la barre de navigation mange la même hauteur en
-          plus, d'où la marge doublée. */}
-      <View className={inTab ? "h-32" : "h-16"} />
     </Screen>
 
-    {/* En dehors du ScrollView de Screen : position absolute doit rester
-        fixe par rapport à l'écran, pas défiler avec le contenu. */}
-    <TouchableOpacity
-      onPress={() => setQuickAddVisible(true)}
-      activeOpacity={0.85}
-      accessibilityLabel={t("Ajouter")}
-      accessibilityRole="button"
-      className={`absolute right-5 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-card ${
-        inTab ? "bottom-20" : "bottom-6"
-      }`}
-      // Sous la barre native d'iOS, l'écran d'onglet s'étend jusqu'en bas
-      // et sa marge de sécurité inclut la barre elle-même (cf.
-      // app/(tabs)/_layout.tsx) : on se cale dessus plutôt que sur une
-      // hauteur supposée, qui varie (iOS 26 réduit la barre au défilement).
-      style={inTab && Platform.OS === "ios" ? { bottom: insets.bottom + 16 } : undefined}
-    >
-      <MaterialCommunityIcons name="plus" size={26} color={colors.textOnPrimary} />
-    </TouchableOpacity>
     <QuickAddSheet
       visible={quickAddVisible}
       withHorse={inTab}
