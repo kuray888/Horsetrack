@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { clearExtras, refreshExtras } from "@/extras/store";
-import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -41,6 +41,7 @@ import { markAllKnown } from "@/lib/remoteIndex";
 import { useSubscription } from "@/subscription/store";
 import { BrandMark } from "@/components/BrandMark";
 import { t as tr } from "@/i18n";
+import { useTheme } from "@/theme/ThemeProvider";
 import { GOOGLE_AUTH_ENABLED, signInWithGoogle } from "@/lib/googleAuth";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
@@ -53,6 +54,11 @@ export default function LoginScreen() {
   const [email, setEmail] = useState(typeof params.email === "string" ? params.email : "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  // Erreur de connexion affichée sous les champs (identifiants faux, réseau),
+  // effacée dès qu'on retouche la saisie.
+  const [formError, setFormError] = useState<string | null>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const { scheme } = useTheme();
   const appleAvailable = useAppleSignInAvailable();
   const { clearAll: clearHorses, hydrateFromCloud } = useHorses();
   const { clearAll: clearRiderProfile, setRiderProfile } = useRiderProfile();
@@ -269,6 +275,8 @@ export default function LoginScreen() {
   }
 
   async function signIn() {
+    if (loading || !email.trim() || !password) return;
+    setFormError(null);
     setLoading(true);
     try {
       const { data, error } = await withTimeout(
@@ -289,7 +297,7 @@ export default function LoginScreen() {
           ]);
           return;
         }
-        Alert.alert(tr("Erreur"), translateAuthError(error.message));
+        setFormError(translateAuthError(error.message));
         return;
       }
 
@@ -366,92 +374,125 @@ export default function LoginScreen() {
     }
   }
 
+  const hasSocial = appleAvailable || GOOGLE_AUTH_ENABLED;
+
+  // Même ordre que la création de compte : connexion en un toucher (Apple,
+  // Google) d'abord, l'e-mail ensuite. Le formulaire défile au-dessus du
+  // clavier : « Se connecter » reste atteignable sur un petit iPhone.
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-1 gap-5 px-5 pt-8">
-        <BrandMark size={72} style={{ alignSelf: "center" }} />
-        <View className="gap-2">
-          <Text className="text-2xl font-display tracking-tight text-text">
-            {tr("Connecte-toi à ton compte")}
-          </Text>
-          <Text className="text-base text-muted">{tr("Retrouve ton planning et ton suivi.")}</Text>
-        </View>
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerClassName="gap-6 px-5 pt-8 pb-4" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <BrandMark size={72} style={{ alignSelf: "center" }} />
+          <View className="gap-2">
+            <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
+              {tr("Connecte-toi à ton compte")}
+            </Text>
+            <Text className="text-base text-muted">{tr("Retrouve ton planning et ton suivi.")}</Text>
+          </View>
 
-        <Field label={tr("Email")}>
-          <TextInput
-            className={INPUT}
-            placeholder="toi@exemple.com"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            textContentType="emailAddress"
-            testID="login-email"
-          />
-        </Field>
-
-        <Field label={tr("Mot de passe")}>
-          <PasswordInput
-            placeholder={tr("Ton mot de passe")}
-            value={password}
-            onChangeText={setPassword}
-            autoComplete="current-password"
-            testID="login-password"
-          />
-        </Field>
-
-        <TouchableOpacity onPress={() => router.push("/(auth)/forgot-password")} className="self-end">
-          <Text className="text-sm font-semibold text-link">{tr("Mot de passe oublié ?")}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View className="gap-3 px-5 pb-2 pt-3">
-        <PrimaryButton
-          testID="login-submit"
-          label={loading ? tr("Connexion…") : tr("Se connecter")}
-          disabled={loading || !email.trim() || !password}
-          onPress={signIn}
-        />
-        {appleAvailable ? (
-          <>
-            <View className="flex-row items-center gap-3">
-              <View className="h-px flex-1 bg-border" />
-              <Text className="text-xs text-muted">{tr("ou")}</Text>
-              <View className="h-px flex-1 bg-border" />
-            </View>
-            {/* pointerEvents plutôt qu'une prop `disabled` : ce composant natif n'en
-                expose pas — cf. la garde `if (loading) return` dans handleAppleSignIn,
-                cette couche évite en plus que le tap n'atteigne le bouton natif. */}
-            <View pointerEvents={loading ? "none" : "auto"} style={{ opacity: loading ? 0.6 : 1 }}>
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                cornerRadius={12}
-                style={{ height: 48, width: "100%" }}
-                onPress={handleAppleSignIn}
-              />
-            </View>
-          </>
-        ) : null}
-        {GOOGLE_AUTH_ENABLED ? (
-          <>
-            {!appleAvailable ? (
-              <View className="flex-row items-center gap-3">
+          {hasSocial ? (
+            <View className="gap-3">
+              {appleAvailable ? (
+                // pointerEvents plutôt qu'une prop `disabled` : ce composant natif n'en
+                // expose pas — cf. la garde `if (loading) return` dans handleAppleSignIn.
+                <View pointerEvents={loading ? "none" : "auto"} style={{ opacity: loading ? 0.6 : 1 }}>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={
+                      scheme === "dark"
+                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                    }
+                    cornerRadius={12}
+                    style={{ height: 52, width: "100%" }}
+                    onPress={handleAppleSignIn}
+                  />
+                </View>
+              ) : null}
+              {GOOGLE_AUTH_ENABLED ? <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} /> : null}
+              <View className="flex-row items-center gap-3 pt-2">
                 <View className="h-px flex-1 bg-border" />
-                <Text className="text-xs text-muted">{tr("ou")}</Text>
+                <Text className="text-[13px] text-muted">{tr("ou avec ton e-mail")}</Text>
                 <View className="h-px flex-1 bg-border" />
               </View>
+            </View>
+          ) : null}
+
+          <View className="gap-4">
+            <Field label={tr("Email")}>
+              <TextInput
+                className={INPUT}
+                placeholder="toi@exemple.com"
+                value={email}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  setFormError(null);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                submitBehavior="submit"
+                testID="login-email"
+              />
+            </Field>
+
+            <Field label={tr("Mot de passe")}>
+              <PasswordInput
+                inputRef={passwordRef}
+                placeholder={tr("Ton mot de passe")}
+                value={password}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  setFormError(null);
+                }}
+                autoComplete="current-password"
+                returnKeyType="go"
+                onSubmitEditing={() => void signIn()}
+                testID="login-password"
+              />
+            </Field>
+
+            {formError ? (
+              <Text className="text-sm text-danger" accessibilityLiveRegion="polite" accessibilityRole="alert">
+                {formError}
+              </Text>
             ) : null}
-            <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} />
-          </>
-        ) : null}
-        <TouchableOpacity onPress={() => router.push("/(onboarding)/welcome")}>
-          <Text className="text-center text-sm font-semibold text-link">
-            {tr("Pas encore de compte ? S'inscrire")}
-          </Text>
-        </TouchableOpacity>
-      </View>
+
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/forgot-password")}
+              className="self-end py-1"
+              hitSlop={8}
+              accessibilityRole="link"
+            >
+              <Text className="text-sm font-semibold text-link">{tr("Mot de passe oublié ?")}</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <View className="gap-3 px-5 pb-2 pt-3">
+          <PrimaryButton
+            testID="login-submit"
+            label={loading ? tr("Connexion…") : tr("Se connecter")}
+            disabled={loading || !email.trim() || !password}
+            onPress={signIn}
+          />
+          <TouchableOpacity
+            onPress={() => router.push("/(onboarding)/welcome")}
+            accessibilityRole="button"
+            hitSlop={8}
+            className="py-1"
+          >
+            <Text className="text-center text-sm font-semibold text-link">
+              {tr("Pas encore de compte ? S'inscrire")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
