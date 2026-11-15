@@ -28,6 +28,7 @@ import {
 } from "@/lib/sharing";
 import { t } from "@/i18n";
 import { defaultInviteRole, inviteRoleAvailable } from "@/lib/shareRoles";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -193,12 +194,7 @@ export default function ShareHorseModal() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-display tracking-tight text-text">{t("Partager ")}{horse.name}</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-          </TouchableOpacity>
-        </View>
+        <ModalHeader title={t("Partager {name}", { name: horse.name })} />
         <Text className="text-sm text-muted">
           {t("Invite une personne à suivre ce cheval. Gratuitement, elle lit le planning, les soins et le journal. Avec Premium, choisis son rôle : ses droits en dépendent (voir ci-dessous). Le coffre-fort de documents reste réservé au propriétaire.")}
         </Text>

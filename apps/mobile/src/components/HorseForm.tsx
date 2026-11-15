@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Image } from "@/components/AppImage";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton, SingleSelect, MultiSelectChips } from "@/components/onboarding";
 import { colors } from "@/theme/colors";
@@ -30,6 +29,8 @@ import { CoatField } from "@/components/CoatField";
 import type { Discipline, HorseFitnessLevel, HorseLevel, HorseSex, HorseWorkload } from "@/onboarding/store";
 import { t as tr } from "@/i18n";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { ModalHeader } from "@/components/ModalHeader";
+import { useDiscardGuard } from "@/components/useDiscardGuard";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -83,7 +84,8 @@ export function HorseForm({
   onSubmit: (horse: NewHorse) => void;
   /** Fourni uniquement en édition (jamais à l'ajout) — affiche un bouton
    * "Supprimer ce cheval" sous le bouton principal. */
-  onDelete?: () => void;
+  /** Reçoit `leave` : à appeler pour fermer après la suppression (lève la garde de saisie). */
+  onDelete?: (leave: (after?: () => void) => void) => void;
 }) {
   const currentYear = new Date().getFullYear();
 
@@ -105,6 +107,16 @@ export function HorseForm({
   const [healthConditions, setHealthConditions] = useState<string[]>(initial.healthConditions);
   const [restDayActivities, setRestDayActivities] = useState<string[]>(initial.restDayActivities);
   const [injuries, setInjuries] = useState<Injury[]>(initial.injuries);
+
+  // Saisie en cours : comparée à la fiche de départ, champ par champ.
+  const current = {
+    name, photoUrl, birthYear, sex, breed, coat, heightCm, weightKg, discipline, level,
+    fitnessLevel, workload, strengths, weaknesses, temperament, healthConditions, restDayActivities, injuries,
+  };
+  const dirty = (Object.keys(current) as (keyof typeof current)[]).some(
+    (k) => JSON.stringify(current[k] ?? null) !== JSON.stringify(initial[k as keyof HorseFormDraft] ?? null)
+  );
+  const { leave } = useDiscardGuard(dirty);
 
   async function pickPhoto() {
     const uri = await chooseAndPersistImage();
@@ -133,16 +145,14 @@ export function HorseForm({
       restDayActivities,
       injuries,
     });
+    leave();
   }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <KeyboardAvoider>
-        <View className="flex-row items-center justify-between px-5 pt-2">
-          <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={tr("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-          </TouchableOpacity>
+        <View className="px-5 pt-2">
+          <ModalHeader title={title} />
         </View>
 
         <ScrollView
@@ -327,7 +337,7 @@ export function HorseForm({
             onPress={submit}
           />
           {onDelete ? (
-            <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="items-center py-2">
+            <TouchableOpacity onPress={() => onDelete(leave)} activeOpacity={0.7} className="items-center py-2">
               <Text className="text-sm font-semibold text-danger">{tr("Supprimer ce cheval")}</Text>
             </TouchableOpacity>
           ) : null}

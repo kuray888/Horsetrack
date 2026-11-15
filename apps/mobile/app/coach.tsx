@@ -22,6 +22,7 @@ import { useCoachConsent } from "@/coach/useCoachConsent";
 import { CoachConsentCard } from "@/coach/components/CoachConsentCard";
 import { monthName } from "@/lib/progress";
 import { LANG, t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -134,21 +135,15 @@ export default function CoachScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1 gap-1">
-            <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-              {t("Ton coach IA")}
-            </Text>
-            <Text className="text-sm text-muted">
-              {selectedHorse
-                ? t("Coach IA : il répond d'après le carnet de {name} (séances, soins, dépenses, poids).", { name: selectedHorse.name })
-                : t("Ajoute d'abord un cheval.")}
-            </Text>
-          </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={close} hitSlop={10}>
-            <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <ModalHeader
+          title={t("Ton coach IA")}
+          subtitle={
+            selectedHorse
+            ? t("Coach IA : il répond d'après le carnet de {name} (séances, soins, dépenses, poids).", { name: selectedHorse.name })
+            : t("Ajoute d'abord un cheval.")
+          }
+          onClose={close}
+        />
       </FadeInView>
 
       {gate === "loading" ? null : gate === "locked" ? (

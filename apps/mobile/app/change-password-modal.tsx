@@ -2,15 +2,14 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
-import { colors } from "@/theme/colors";
 import { t } from "@/i18n";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { ModalHeader } from "@/components/ModalHeader";
 
 function PasswordField({
   label,
@@ -169,11 +168,8 @@ export default function ChangePasswordModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <KeyboardAvoider>
-        <View className="flex-row items-center justify-between px-5 pt-2">
-          <Text className="text-2xl font-display tracking-tight text-text">{t("Changer le mot de passe")}</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-          </TouchableOpacity>
+        <View className="px-5 pt-2">
+          <ModalHeader title={t("Changer le mot de passe")} />
         </View>
 
         {checkingIdentity ? (

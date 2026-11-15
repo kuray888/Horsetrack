@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { PrimaryButton, SingleSelect } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { DISCIPLINES, OTHER_OPTION, RIDER_GOALS, RIDER_LEVELS, RIDE_FREQUENCIES } from "@/onboarding/options";
 import { useRiderProfile } from "@/rider/store";
-import { colors } from "@/theme/colors";
 import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
 import { t } from "@/i18n";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { ModalHeader } from "@/components/ModalHeader";
+import { useDiscardGuard } from "@/components/useDiscardGuard";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -36,6 +36,13 @@ export default function EditRiderModal() {
     rideFrequency !== null &&
     primaryGoal !== null &&
     (primaryGoal !== OTHER_OPTION || primaryGoalCustom.trim().length > 0);
+  const dirty =
+    level !== riderProfile.level ||
+    mainDiscipline !== riderProfile.mainDiscipline ||
+    rideFrequency !== riderProfile.rideFrequency ||
+    primaryGoal !== (riderProfile.primaryGoalCustom ? OTHER_OPTION : riderProfile.primaryGoal) ||
+    primaryGoalCustom !== (riderProfile.primaryGoalCustom ?? "");
+  const { leave } = useDiscardGuard(dirty);
 
   function submit() {
     if (!canSave || primaryGoal === null) return;
@@ -46,17 +53,14 @@ export default function EditRiderModal() {
       primaryGoal: primaryGoal === OTHER_OPTION ? null : primaryGoal,
       primaryGoalCustom: primaryGoal === OTHER_OPTION ? primaryGoalCustom.trim() || null : null,
     });
-    router.back();
+    leave();
   }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <KeyboardAvoider>
-        <View className="flex-row items-center justify-between px-5 pt-2">
-          <Text className="text-2xl font-display tracking-tight text-text">{t("Mon profil cavalier")}</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-          </TouchableOpacity>
+        <View className="px-5 pt-2">
+          <ModalHeader title={t("Mon profil cavalier")} />
         </View>
 
         <ScrollView

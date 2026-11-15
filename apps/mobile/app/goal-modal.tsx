@@ -1,20 +1,20 @@
 import { useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@/components/ThemedIcon";
+import { useLocalSearchParams } from "expo-router";
 import { PrimaryButton } from "@/components/onboarding";
 import { Field } from "@/components/Field";
 import { DatePickerField } from "@/components/DatePickerField";
 import { DropdownField } from "@/components/DropdownField";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { OTHER_OPTION, RIDER_GOALS } from "@/onboarding/options";
-import { colors } from "@/theme/colors";
 import type { RiderGoal } from "@/onboarding/store";
 import { useGoals } from "@/goals/store";
 import { useHorses } from "@/horses/store";
 import { t } from "@/i18n";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { ModalHeader } from "@/components/ModalHeader";
+import { sameDay, useDiscardGuard } from "@/components/useDiscardGuard";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -57,6 +57,13 @@ export default function GoalModal() {
 
   const horseOptions = horses.map((h) => ({ value: h.id, label: h.name }));
   const canSave = title.trim().length > 0;
+  const dirty =
+    title !== (editing?.title ?? "") ||
+    type !== (editing?.customType ? OTHER_OPTION : editing?.type ?? null) ||
+    customType !== (editing?.customType ?? "") ||
+    !sameDay(targetDate, editing?.targetDate ?? null) ||
+    horseId !== (editing?.horseId ?? null);
+  const { leave } = useDiscardGuard(dirty);
 
   function submit() {
     if (!canSave) return;
@@ -69,7 +76,7 @@ export default function GoalModal() {
     };
     if (editing) updateGoal(editing.id, payload);
     else addGoal(payload);
-    router.back();
+    leave();
   }
 
   function confirmDelete() {
@@ -81,7 +88,7 @@ export default function GoalModal() {
         style: "destructive",
         onPress: () => {
           deleteGoal(editing.id);
-          router.back();
+          leave();
         },
       },
     ]);
@@ -90,13 +97,8 @@ export default function GoalModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <KeyboardAvoider>
-        <View className="flex-row items-center justify-between px-5 pt-2">
-          <Text className="text-2xl font-display tracking-tight text-text">
-            {editing ? t("Modifier l'objectif") : t("Nouvel objectif")}
-          </Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-          </TouchableOpacity>
+        <View className="px-5 pt-2">
+          <ModalHeader title={editing ? t("Modifier l'objectif") : t("Nouvel objectif")} />
         </View>
 
         <ScrollView

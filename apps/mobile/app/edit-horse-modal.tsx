@@ -1,7 +1,7 @@
 import { Alert, Text } from "react-native";
 import { removeHorseExtras } from "@/extras/store";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { HorseForm } from "@/components/HorseForm";
 import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { useHorses } from "@/horses/store";
@@ -29,7 +29,7 @@ export default function EditHorseModal() {
     );
   }
 
-  function confirmDelete() {
+  function confirmDelete(leave: (after?: () => void) => void) {
     if (ownedHorseCount <= 1) {
       Alert.alert(t("Impossible"), t("Tu dois garder au moins un cheval dans ton écurie."));
       return;
@@ -50,12 +50,16 @@ export default function EditHorseModal() {
             // nom de cheval devenu "?" (cf. audit du 2026-09-14). Le serveur,
             // lui, a déjà tout supprimé via le cascade Postgres déclenché par
             // la suppression du cheval — ceci ne fait que refléter ça en local.
-            removeAgendaHorseData(horse!.id);
-            removeSessionsHorseData(horse!.id);
-            removeWeightHorseData(horse!.id);
-            removeHorseExtras(horse!.id);
-            removeHorse(horse!.id);
-            router.back();
+            // Fermée d'abord : supprimer le cheval affiché démonterait le
+            // formulaire avant sa fermeture.
+            const id = horse!.id;
+            leave(() => {
+              removeAgendaHorseData(id);
+              removeSessionsHorseData(id);
+              removeWeightHorseData(id);
+              removeHorseExtras(id);
+              removeHorse(id);
+            });
           },
         },
       ]
@@ -70,7 +74,6 @@ export default function EditHorseModal() {
       initial={horse}
       onSubmit={(updated) => {
         updateHorse(horse.id, updated);
-        router.back();
       }}
       onDelete={confirmDelete}
     />

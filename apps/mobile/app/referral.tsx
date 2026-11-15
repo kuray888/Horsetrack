@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -11,6 +10,7 @@ import { track } from "@/lib/analytics";
 import { hapticSuccess } from "@/lib/haptics";
 import { claimReferralCode, fetchReferral, type ClaimResult, type ReferralInfo } from "@/lib/referral";
 import { t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -82,14 +82,7 @@ export default function ReferralScreen() {
 
   return (
     <Screen>
-      <View className="flex-row items-center justify-between">
-        <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-          {t("Parrainer un ami")}
-        </Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
+      <ModalHeader title={t("Parrainer un ami")} />
 
       {!info && !failed ? <ActivityIndicator color={colors.primary} /> : null}
 

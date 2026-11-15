@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -26,6 +25,7 @@ import { deleteComment, fetchThread, myUserId, postComment, reportComment, toggl
 import { formatDate } from "@/lib/dateFormat";
 import { t } from "@/i18n";
 import { ListSkeleton } from "@/components/Skeleton";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-4 shadow-card";
 
@@ -193,17 +193,7 @@ export default function CommentsScreen() {
   return (
     <Screen footer={composer}>
       <FadeInView>
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1 gap-1">
-            <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-              {t("Fil de {name}", { name: horse?.name ?? t("ton cheval") })}
-            </Text>
-            {target ? <Text className="text-sm text-muted">{target}</Text> : null}
-          </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={close} hitSlop={10}>
-            <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <ModalHeader title={t("Fil de {name}", { name: horse?.name ?? t("ton cheval") })} subtitle={target} onClose={close} />
       </FadeInView>
 
       <View className="flex-row flex-wrap gap-2">

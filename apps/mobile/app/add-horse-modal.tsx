@@ -73,7 +73,6 @@ export default function AddHorseModal() {
         track("horse_added", { owned_count: ownedCount + 1 });
         // Un 2ᵉ cheval n'est possible qu'en Premium : c'est une activation.
         if (ownedCount >= 1) markPremiumActivated();
-        router.back();
       }}
     />
     <PickerOverlaySlot />

@@ -15,6 +15,7 @@ import { linePoints } from "@/progress/series";
 import { hapticSelection } from "@/lib/haptics";
 import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const MAP_H = 240;
@@ -49,14 +50,7 @@ export default function RideReplayScreen() {
   const altLine = useMemo(() => (width > 0 && alts ? linePoints(alts, width, CURVE_H) : []), [alts, width]);
 
   const header = (
-    <View className="flex-row items-center justify-between">
-          <Text className="flex-1 text-3xl font-display tracking-tight text-text" accessibilityRole="header">
-            {t("Relire la séance")}
-          </Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={() => router.back()} hitSlop={10}>
-            <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+    <ModalHeader title={t("Relire la séance")} />
   );
 
   if (!ride || !trace) {

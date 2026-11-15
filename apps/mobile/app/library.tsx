@@ -16,6 +16,7 @@ import { formatDate } from "@/lib/dateFormat";
 import { SESSION_TYPE_INFO, exerciseNoteLine, filterLibrary, libraryExercises, splitByDiscipline, type LibraryExercise } from "@/coach/exerciseLibrary";
 import { toggleFavorite, useFavorites } from "@/coach/favorites";
 import { t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-4 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-3.5 text-base text-text";
@@ -212,19 +213,13 @@ export default function LibraryScreen() {
     <Screen
       edges={["top", "bottom"]}
       header={
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1 gap-1">
-          <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-            {t("Bibliothèque d'exercices")}
-          </Text>
-          <Text className="text-sm text-muted">
-            {t("{n} exercices, ceux que le coach utilise pour tes séances.", { n: libraryExercises().length })}
-          </Text>
-        </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={close} hitSlop={10}>
-          <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
+      <ModalHeader
+          title={t("Bibliothèque d'exercices")}
+          subtitle={
+            t("{n} exercices, ceux que le coach utilise pour tes séances.", { n: libraryExercises().length })
+          }
+          onClose={close}
+        />
       }
     >
 

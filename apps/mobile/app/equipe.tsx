@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PRO_ENABLED } from "@/lib/features";
 import { Alert, Linking, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -31,6 +30,7 @@ import { hapticError, hapticSelection, hapticSuccess } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -200,19 +200,12 @@ export default function TeamScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 gap-1">
-            <Text className="font-display text-2xl tracking-tight text-text" accessibilityRole="header">
-              {t("Équipe")}
-            </Text>
-            <Text className="text-sm text-muted">
-              {people.length === 0 ? t("Les personnes qui suivent tes chevaux") : t("{count} personne(s) autour de tes chevaux", { count: people.length })}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <ModalHeader
+          title={t("Équipe")}
+          subtitle={
+            people.length === 0 ? t("Les personnes qui suivent tes chevaux") : t("{count} personne(s) autour de tes chevaux", { count: people.length })
+          }
+        />
       </FadeInView>
 
       {notice ? (

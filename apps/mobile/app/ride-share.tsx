@@ -1,5 +1,5 @@
-import { Text, TouchableOpacity, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -9,6 +9,7 @@ import { useHorses } from "@/horses/store";
 import { ACTIVITY_META } from "@/agenda/store";
 import { RideShareBlock, type ShareSource } from "@/rides/components/RideShareBlock";
 import { t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
 
 /** Partage d'une séance déjà enregistrée (carte story ou carré, cf. RideShareBlock). */
 export default function RideShareScreen() {
@@ -23,14 +24,7 @@ export default function RideShareScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <Text className="flex-1 text-3xl font-display tracking-tight text-text" accessibilityRole="header">
-            {t("Partager ma séance")}
-          </Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Fermer")} onPress={() => router.back()} hitSlop={10}>
-            <MaterialCommunityIcons name="close" size={24} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <ModalHeader title={t("Partager ma séance")} />
       </FadeInView>
       <FadeInView delay={40}>
         {session?.ride ? (

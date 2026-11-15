@@ -2521,4 +2521,9 @@ export const EN: Record<string, string> = {
   "séance/sem.": "session/wk",
   "Le prix et la durée s'affichent sur Google Play avant toute confirmation.": "The price and duration are shown on Google Play before you confirm anything.",
   "Le prix et la durée s'affichent sur l'App Store avant toute confirmation.": "The price and duration are shown on the App Store before you confirm anything.",
+  "Abandonner les modifications ?": "Discard changes?",
+  "Ce que tu as saisi ne sera pas enregistré.": "What you entered won't be saved.",
+  "Continuer la saisie": "Keep editing",
+  "Abandonner": "Discard",
+  "Partager {name}": "Share {name}",
 };

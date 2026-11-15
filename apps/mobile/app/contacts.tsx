@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Alert, Linking, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
@@ -17,6 +16,8 @@ import { formatDate } from "@/lib/dateFormat";
 import { hapticTap } from "@/lib/haptics";
 import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
+import { useDiscardGuard } from "@/components/useDiscardGuard";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -35,6 +36,12 @@ export default function ContactsScreen() {
   const { appointments } = useAgenda();
   const now = new Date();
   const [draft, setDraft] = useState<Draft | null>(null);
+  // Fiche telle qu'ouverte, pour savoir si la saisie a changé (fermer la
+  // fenêtre demande alors confirmation, cf. useDiscardGuard).
+  const [draftStart, setDraftStart] = useState<string | null>(null);
+  if (draft && draftStart === null) setDraftStart(JSON.stringify(draft));
+  if (!draft && draftStart !== null) setDraftStart(null);
+  useDiscardGuard(draft !== null && draftStart !== null && JSON.stringify(draft) !== draftStart);
 
   const sorted = [...contacts].sort(
     (a, b) =>
@@ -73,17 +80,7 @@ export default function ContactsScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 gap-0.5">
-            <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-              {t("Mes contacts")}
-            </Text>
-            <Text className="text-sm text-muted">{t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <ModalHeader title={t("Mes contacts")} subtitle={t("Véto, maréchal, ostéo, coach : un toucher pour appeler.")} />
       </FadeInView>
 
       {draft ? (

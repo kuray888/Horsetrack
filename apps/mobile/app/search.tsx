@@ -12,6 +12,7 @@ import { APPT_META, DOC_META, EXPENSE_META, formatAmount } from "@/agenda/meta";
 import { formatDate } from "@/lib/dateFormat";
 import { MIN_QUERY_LENGTH, searchEntries, type SearchKind, type SearchResult } from "@/search/search";
 import { t } from "@/i18n";
+import { ModalHeader } from "@/components/ModalHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -135,12 +136,7 @@ export default function SearchScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-display tracking-tight text-text">{t("Rechercher")}</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+        <ModalHeader title={t("Rechercher")} />
       </FadeInView>
 
       <FadeInView delay={40}>
