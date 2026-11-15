@@ -8,6 +8,7 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { t } from "@/i18n";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 /** Atteint uniquement via le lien de récupération de mot de passe (cf.
  * components/PasswordRecoveryListener.tsx, qui établit la session de
@@ -70,36 +71,38 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-1 gap-5 px-5 pt-8">
-        <View className="gap-2">
-          <Text className="text-2xl font-display tracking-tight text-text">{t("Nouveau mot de passe")}</Text>
-          <Text className="text-base text-muted">
-            {accountEmail
-              ? t("Choisis un nouveau mot de passe pour le compte {accountEmail}.", { accountEmail: accountEmail })
-              : t("Choisis un nouveau mot de passe pour ton compte.")}
-          </Text>
-          {accountEmail ? (
-            <Text className="text-sm text-muted">{t("Ce n'est pas ton adresse ? Ferme cet écran et déconnecte-toi.")}</Text>
-          ) : null}
+      <KeyboardAvoider>
+        <View className="flex-1 gap-5 px-5 pt-8">
+          <View className="gap-2">
+            <Text className="text-2xl font-display tracking-tight text-text">{t("Nouveau mot de passe")}</Text>
+            <Text className="text-base text-muted">
+              {accountEmail
+                ? t("Choisis un nouveau mot de passe pour le compte {accountEmail}.", { accountEmail: accountEmail })
+                : t("Choisis un nouveau mot de passe pour ton compte.")}
+            </Text>
+            {accountEmail ? (
+              <Text className="text-sm text-muted">{t("Ce n'est pas ton adresse ? Ferme cet écran et déconnecte-toi.")}</Text>
+            ) : null}
+          </View>
+
+          <Field label={t("Mot de passe")}>
+            <PasswordInput
+              placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
+              value={password}
+              onChangeText={setPassword}
+              autoComplete="new-password"
+            />
+          </Field>
         </View>
 
-        <Field label={t("Mot de passe")}>
-          <PasswordInput
-            placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
-            value={password}
-            onChangeText={setPassword}
-            autoComplete="new-password"
+        <View className="gap-3 px-5 pb-2 pt-3">
+          <PrimaryButton
+            label={loading ? t("Mise à jour...") : t("Mettre à jour")}
+            disabled={loading || password.length < MIN_PASSWORD_LENGTH}
+            onPress={submit}
           />
-        </Field>
-      </View>
-
-      <View className="gap-3 px-5 pb-2 pt-3">
-        <PrimaryButton
-          label={loading ? t("Mise à jour...") : t("Mettre à jour")}
-          disabled={loading || password.length < MIN_PASSWORD_LENGTH}
-          onPress={submit}
-        />
-      </View>
+        </View>
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

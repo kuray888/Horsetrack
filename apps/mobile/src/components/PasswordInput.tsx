@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { TextInput, TouchableOpacity, View } from "react-native";
+import { useState, type Ref } from "react";
+import { type ReturnKeyTypeOptions, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { t } from "@/i18n";
@@ -20,6 +20,9 @@ export function PasswordInput({
   visible: visibleProp,
   onToggleVisible,
   testID,
+  inputRef,
+  returnKeyType,
+  onSubmitEditing,
 }: {
   value: string;
   onChangeText: (v: string) => void;
@@ -31,6 +34,11 @@ export function PasswordInput({
   onToggleVisible?: () => void;
   /** Repère des tests de bout en bout (cf. apps/mobile/.maestro). */
   testID?: string;
+  /** Accès au champ, pour y amener le focus depuis le champ précédent. */
+  inputRef?: Ref<TextInput>;
+  /** Touche du clavier (« Envoyer », « Suivant ») et son action. */
+  returnKeyType?: ReturnKeyTypeOptions;
+  onSubmitEditing?: () => void;
 }) {
   const colors = useThemeColors();
   const [visibleState, setVisibleState] = useState(false);
@@ -50,6 +58,9 @@ export function PasswordInput({
         autoComplete={autoComplete}
         textContentType={autoComplete === "current-password" ? "password" : "newPassword"}
         testID={testID}
+        ref={inputRef}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
       />
       <TouchableOpacity
         onPress={toggle}

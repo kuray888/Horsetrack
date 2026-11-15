@@ -160,8 +160,38 @@ export default function CommentsScreen() {
 
   const summary = reactionSummary(reactions, me);
 
+  // Zone de saisie fixée en bas, au-dessus du clavier, comme une messagerie :
+  // elle reste à portée même au bout d'un long fil.
+  const composer = (
+    <View className={`${CARD} gap-2`}>
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        placeholder={t("Écris un commentaire…")}
+        placeholderTextColor={colors.textMuted}
+        multiline
+        maxLength={COMMENT_MAX}
+        className="min-h-[44px] text-base text-text"
+        accessibilityLabel={t("Ton commentaire")}
+      />
+      <View className="flex-row items-center justify-between">
+        <Text className="text-[11px] text-muted">{t("Visible par les personnes qui suivent ce cheval.")}</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          disabled={!cleanCommentBody(text) || sending}
+          onPress={() => void send()}
+          className={`rounded-full px-4 py-2 ${cleanCommentBody(text) ? "bg-primary" : "bg-border"}`}
+        >
+          <Text className={`text-sm font-bold ${cleanCommentBody(text) ? "text-on-primary" : "text-muted"}`}>
+            {sending ? t("Envoi…") : t("Envoyer")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
-    <Screen>
+    <Screen footer={composer}>
       <FadeInView>
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 gap-1">
@@ -216,6 +246,8 @@ export default function CommentsScreen() {
             key={c.id}
             accessibilityRole="button"
             accessibilityHint={t("Appui long pour supprimer ou signaler")}
+            accessibilityActions={[{ name: "longpress", label: t("Supprimer ou signaler") }]}
+            onAccessibilityAction={() => openActions(c)}
             onLongPress={() => openActions(c)}
             delayLongPress={350}
             activeOpacity={0.9}
@@ -230,31 +262,6 @@ export default function CommentsScreen() {
         ))
       )}
 
-      <View className={`${CARD} gap-2`}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t("Écris un commentaire…")}
-          placeholderTextColor={colors.textMuted}
-          multiline
-          maxLength={COMMENT_MAX}
-          className="min-h-[44px] text-base text-text"
-          accessibilityLabel={t("Ton commentaire")}
-        />
-        <View className="flex-row items-center justify-between">
-          <Text className="text-[11px] text-muted">{t("Visible par les personnes qui suivent ce cheval.")}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            disabled={!cleanCommentBody(text) || sending}
-            onPress={() => void send()}
-            className={`rounded-full px-4 py-2 ${cleanCommentBody(text) ? "bg-primary" : "bg-border"}`}
-          >
-            <Text className={`text-sm font-bold ${cleanCommentBody(text) ? "text-on-primary" : "text-muted"}`}>
-              {sending ? t("Envoi…") : t("Envoyer")}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
     </Screen>
   );
 }

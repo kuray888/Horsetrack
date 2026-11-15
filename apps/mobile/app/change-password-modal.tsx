@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authErrors";
 import { colors } from "@/theme/colors";
 import { t } from "@/i18n";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 function PasswordField({
   label,
@@ -167,83 +168,85 @@ export default function ChangePasswordModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="text-2xl font-display tracking-tight text-text">{t("Changer le mot de passe")}</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-        </TouchableOpacity>
-      </View>
-
-      {checkingIdentity ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator className="text-primary" />
+      <KeyboardAvoider>
+        <View className="flex-row items-center justify-between px-5 pt-2">
+          <Text className="text-2xl font-display tracking-tight text-text">{t("Changer le mot de passe")}</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
+            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
+          </TouchableOpacity>
         </View>
-      ) : (
-        <>
-          <View className="gap-5 px-5 pt-6">
-            {hasPassword ? (
+
+        {checkingIdentity ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator className="text-primary" />
+          </View>
+        ) : (
+          <>
+            <View className="gap-5 px-5 pt-6">
+              {hasPassword ? (
+                <PasswordField
+                  label={t("Mot de passe actuel")}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder={t("Ton mot de passe actuel")}
+                  visible={showCurrent}
+                  onToggleVisible={() => setShowCurrent((v) => !v)}
+                  autoComplete="current-password"
+                />
+              ) : (
+                <Text className="text-sm text-muted">
+                  {t("Ton compte est connecté avec Apple — définis ci-dessous un mot de passe pour pouvoir aussi te connecter avec ton email.")}
+                </Text>
+              )}
+
               <PasswordField
-                label={t("Mot de passe actuel")}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder={t("Ton mot de passe actuel")}
-                visible={showCurrent}
-                onToggleVisible={() => setShowCurrent((v) => !v)}
-                autoComplete="current-password"
+                label={t("Nouveau mot de passe")}
+                value={password}
+                onChangeText={setPassword}
+                placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
+                visible={showNew}
+                onToggleVisible={() => setShowNew((v) => !v)}
+                autoComplete="new-password"
               />
-            ) : (
-              <Text className="text-sm text-muted">
-                {t("Ton compte est connecté avec Apple — définis ci-dessous un mot de passe pour pouvoir aussi te connecter avec ton email.")}
-              </Text>
-            )}
+              {passwordTooShort ? (
+                <Text className="-mt-3 text-xs text-danger">{t("Au moins ")}{MIN_PASSWORD_LENGTH} {t(" caractères.")}</Text>
+              ) : null}
 
-            <PasswordField
-              label={t("Nouveau mot de passe")}
-              value={password}
-              onChangeText={setPassword}
-              placeholder={t("{MIN_PASSWORD_LENGTH} caractères minimum", { MIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH })}
-              visible={showNew}
-              onToggleVisible={() => setShowNew((v) => !v)}
-              autoComplete="new-password"
-            />
-            {passwordTooShort ? (
-              <Text className="-mt-3 text-xs text-danger">{t("Au moins ")}{MIN_PASSWORD_LENGTH} {t(" caractères.")}</Text>
-            ) : null}
+              <PasswordField
+                label={t("Confirmer le mot de passe")}
+                value={confirm}
+                onChangeText={setConfirm}
+                placeholder={t("Retape ton nouveau mot de passe")}
+                visible={showConfirm}
+                onToggleVisible={() => setShowConfirm((v) => !v)}
+                autoComplete="new-password"
+              />
+              {mismatch ? (
+                <Text className="-mt-3 text-xs text-danger">{t("Les mots de passe ne correspondent pas.")}</Text>
+              ) : null}
 
-            <PasswordField
-              label={t("Confirmer le mot de passe")}
-              value={confirm}
-              onChangeText={setConfirm}
-              placeholder={t("Retape ton nouveau mot de passe")}
-              visible={showConfirm}
-              onToggleVisible={() => setShowConfirm((v) => !v)}
-              autoComplete="new-password"
-            />
-            {mismatch ? (
-              <Text className="-mt-3 text-xs text-danger">{t("Les mots de passe ne correspondent pas.")}</Text>
-            ) : null}
+              {hasPassword ? (
+                <TouchableOpacity
+                  onPress={() => router.push("/(auth)/forgot-password")}
+                  disabled={loading}
+                  hitSlop={8}
+                  className="self-start"
+                >
+                  <Text className="text-sm font-semibold text-link">{t("Mot de passe oublié ?")}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
 
-            {hasPassword ? (
-              <TouchableOpacity
-                onPress={() => router.push("/(auth)/forgot-password")}
-                disabled={loading}
-                hitSlop={8}
-                className="self-start"
-              >
-                <Text className="text-sm font-semibold text-link">{t("Mot de passe oublié ?")}</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-
-          <View className="px-5 pb-2 pt-6">
-            <PrimaryButton
-              label={loading ? "Enregistrement..." : t("Enregistrer")}
-              disabled={!canSave}
-              onPress={submit}
-            />
-          </View>
-        </>
-      )}
+            <View className="px-5 pb-2 pt-6">
+              <PrimaryButton
+                label={loading ? "Enregistrement..." : t("Enregistrer")}
+                disabled={!canSave}
+                onPress={submit}
+              />
+            </View>
+          </>
+        )}
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

@@ -2502,4 +2502,5 @@ export const EN: Record<string, string> = {
   "Plus d'options": "More options",
   "Suivi": "Tracking",
   "Administratif": "Admin",
+  "Supprimer ou signaler": "Delete or report",
 };

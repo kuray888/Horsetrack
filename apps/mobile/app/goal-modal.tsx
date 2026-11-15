@@ -14,6 +14,7 @@ import type { RiderGoal } from "@/onboarding/store";
 import { useGoals } from "@/goals/store";
 import { useHorses } from "@/horses/store";
 import { t } from "@/i18n";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -88,73 +89,75 @@ export default function GoalModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="text-2xl font-display tracking-tight text-text">
-          {editing ? t("Modifier l'objectif") : t("Nouvel objectif")}
-        </Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoider>
+        <View className="flex-row items-center justify-between px-5 pt-2">
+          <Text className="text-2xl font-display tracking-tight text-text">
+            {editing ? t("Modifier l'objectif") : t("Nouvel objectif")}
+          </Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
+            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView
-        contentContainerClassName="gap-5 px-5 pt-6 pb-4"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Field label={t("Titre")}>
-          <TextInput
-            className={INPUT}
-            placeholder={t("Ex : Réussir le concours de printemps")}
-            value={title}
-            onChangeText={setTitle}
-            autoCapitalize="sentences"
-          />
-        </Field>
-
-        <DropdownField
-          label={t("Type d'objectif (optionnel)")}
-          options={TYPE_OPTIONS}
-          value={type}
-          onChange={setType}
-          placeholder={t("Sélectionner un type")}
-        />
-
-        {type === OTHER_OPTION ? (
-          <Field label={t("Précisez votre objectif")}>
+        <ScrollView
+          contentContainerClassName="gap-5 px-5 pt-6 pb-4"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Field label={t("Titre")}>
             <TextInput
               className={INPUT}
-              placeholder={t("Ex : Améliorer la souplesse à gauche")}
-              value={customType}
-              onChangeText={setCustomType}
+              placeholder={t("Ex : Réussir le concours de printemps")}
+              value={title}
+              onChangeText={setTitle}
               autoCapitalize="sentences"
             />
           </Field>
-        ) : null}
 
-        <DatePickerField label={t("Date cible (optionnel)")} value={targetDate} onChange={setTargetDate} />
-
-        {horseOptions.length > 0 ? (
           <DropdownField
-            label={t("Cheval concerné (optionnel)")}
-            options={horseOptions}
-            value={horseId}
-            onChange={setHorseId}
-            placeholder={t("Aucun cheval en particulier")}
+            label={t("Type d'objectif (optionnel)")}
+            options={TYPE_OPTIONS}
+            value={type}
+            onChange={setType}
+            placeholder={t("Sélectionner un type")}
           />
-        ) : null}
 
-        {editing ? (
-          <TouchableOpacity onPress={confirmDelete} activeOpacity={0.7} className="items-center py-2">
-            <Text className="text-sm font-semibold text-danger">{t("Supprimer cet objectif")}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </ScrollView>
+          {type === OTHER_OPTION ? (
+            <Field label={t("Précisez votre objectif")}>
+              <TextInput
+                className={INPUT}
+                placeholder={t("Ex : Améliorer la souplesse à gauche")}
+                value={customType}
+                onChangeText={setCustomType}
+                autoCapitalize="sentences"
+              />
+            </Field>
+          ) : null}
 
-      <View className="px-5 pb-2 pt-3">
-        <PrimaryButton label={editing ? t("Enregistrer") : t("Ajouter")} disabled={!canSave} onPress={submit} />
-      </View>
-      <PickerOverlaySlot />
+          <DatePickerField label={t("Date cible (optionnel)")} value={targetDate} onChange={setTargetDate} />
+
+          {horseOptions.length > 0 ? (
+            <DropdownField
+              label={t("Cheval concerné (optionnel)")}
+              options={horseOptions}
+              value={horseId}
+              onChange={setHorseId}
+              placeholder={t("Aucun cheval en particulier")}
+            />
+          ) : null}
+
+          {editing ? (
+            <TouchableOpacity onPress={confirmDelete} activeOpacity={0.7} className="items-center py-2">
+              <Text className="text-sm font-semibold text-danger">{t("Supprimer cet objectif")}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </ScrollView>
+
+        <View className="px-5 pb-2 pt-3">
+          <PrimaryButton label={editing ? t("Enregistrer") : t("Ajouter")} disabled={!canSave} onPress={submit} />
+        </View>
+        <PickerOverlaySlot />
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

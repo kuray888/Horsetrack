@@ -29,6 +29,7 @@ import { generateInjuryId } from "@/horses/injuries";
 import { CoatField } from "@/components/CoatField";
 import type { Discipline, HorseFitnessLevel, HorseLevel, HorseSex, HorseWorkload } from "@/onboarding/store";
 import { t as tr } from "@/i18n";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -136,201 +137,203 @@ export function HorseForm({
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={tr("Fermer")} accessibilityRole="button">
-          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoider>
+        <View className="flex-row items-center justify-between px-5 pt-2">
+          <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={tr("Fermer")} accessibilityRole="button">
+            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView
-        contentContainerClassName="gap-5 px-5 pt-6 pb-4"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className="items-center">
-          <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={tr("Choisir une photo du cheval")}>
+        <ScrollView
+          contentContainerClassName="gap-5 px-5 pt-6 pb-4"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="items-center">
+            <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={tr("Choisir une photo du cheval")}>
+              {photoUrl ? (
+                <Image source={{ uri: photoUrl }} style={{ width: 96, height: 96, borderRadius: 48 }} contentFit="cover" />
+              ) : (
+                <View className="h-24 w-24 items-center justify-center rounded-full border border-dashed border-border bg-surface">
+                  <MaterialCommunityIcons name="horse-variant" size={32} color={colors.textMuted} />
+                </View>
+              )}
+            </TouchableOpacity>
             {photoUrl ? (
-              <Image source={{ uri: photoUrl }} style={{ width: 96, height: 96, borderRadius: 48 }} contentFit="cover" />
-            ) : (
-              <View className="h-24 w-24 items-center justify-center rounded-full border border-dashed border-border bg-surface">
-                <MaterialCommunityIcons name="horse-variant" size={32} color={colors.textMuted} />
+              <View className="mt-2 flex-row items-center gap-4">
+                <Text className="text-xs text-muted">{tr("Changer la photo")}</Text>
+                <TouchableOpacity onPress={() => setPhotoUrl(null)} hitSlop={10}>
+                  <Text className="text-xs font-semibold text-danger">{tr("Supprimer")}</Text>
+                </TouchableOpacity>
               </View>
+            ) : (
+              <Text className="mt-2 text-xs text-muted">{tr("Ajouter une photo")}</Text>
             )}
-          </TouchableOpacity>
-          {photoUrl ? (
-            <View className="mt-2 flex-row items-center gap-4">
-              <Text className="text-xs text-muted">{tr("Changer la photo")}</Text>
-              <TouchableOpacity onPress={() => setPhotoUrl(null)} hitSlop={10}>
-                <Text className="text-xs font-semibold text-danger">{tr("Supprimer")}</Text>
-              </TouchableOpacity>
+          </View>
+
+          <Field label={tr("Nom du cheval")}>
+            <TextInput
+              className={INPUT}
+              placeholder={tr("Ex : Quabar des Monts")}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+          </Field>
+
+          <Field label={tr("Année de naissance")}>
+            <TextInput
+              className={INPUT}
+              placeholder={tr("Ex : {v}", { v: currentYear - 8 })}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={birthYear ? String(birthYear) : ""}
+              onChangeText={(t) => {
+                const n = parseInt(t, 10);
+                setBirthYear(Number.isNaN(n) ? null : Math.min(n, currentYear));
+              }}
+            />
+          </Field>
+
+          <Field label={tr("Sexe")}>
+            <SingleSelect options={HORSE_SEXES} value={sex} onChange={setSex} />
+          </Field>
+
+          <BreedField value={breed} onChange={setBreed} />
+          <CoatField value={coat} onChange={setCoat} />
+
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Field label={tr("Taille au garrot (cm)")}>
+                <TextInput
+                  className={INPUT}
+                  placeholder={tr("Ex : 165")}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  value={heightCm ? String(heightCm) : ""}
+                  onChangeText={(t) => {
+                    const n = parseInt(t, 10);
+                    setHeightCm(Number.isNaN(n) ? null : Math.max(1, Math.min(n, 250)));
+                  }}
+                />
+              </Field>
             </View>
-          ) : (
-            <Text className="mt-2 text-xs text-muted">{tr("Ajouter une photo")}</Text>
-          )}
-        </View>
-
-        <Field label={tr("Nom du cheval")}>
-          <TextInput
-            className={INPUT}
-            placeholder={tr("Ex : Quabar des Monts")}
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
-        </Field>
-
-        <Field label={tr("Année de naissance")}>
-          <TextInput
-            className={INPUT}
-            placeholder={tr("Ex : {v}", { v: currentYear - 8 })}
-            keyboardType="number-pad"
-            maxLength={4}
-            value={birthYear ? String(birthYear) : ""}
-            onChangeText={(t) => {
-              const n = parseInt(t, 10);
-              setBirthYear(Number.isNaN(n) ? null : Math.min(n, currentYear));
-            }}
-          />
-        </Field>
-
-        <Field label={tr("Sexe")}>
-          <SingleSelect options={HORSE_SEXES} value={sex} onChange={setSex} />
-        </Field>
-
-        <BreedField value={breed} onChange={setBreed} />
-        <CoatField value={coat} onChange={setCoat} />
-
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Field label={tr("Taille au garrot (cm)")}>
-              <TextInput
-                className={INPUT}
-                placeholder={tr("Ex : 165")}
-                keyboardType="number-pad"
-                maxLength={3}
-                value={heightCm ? String(heightCm) : ""}
-                onChangeText={(t) => {
-                  const n = parseInt(t, 10);
-                  setHeightCm(Number.isNaN(n) ? null : Math.max(1, Math.min(n, 250)));
-                }}
-              />
-            </Field>
+            <View className="flex-1">
+              <Field label={tr("Poids (kg)")}>
+                <TextInput
+                  className={INPUT}
+                  placeholder={tr("Ex : 550")}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  value={weightKg ? String(weightKg) : ""}
+                  onChangeText={(t) => {
+                    const n = parseInt(t, 10);
+                    setWeightKg(Number.isNaN(n) ? null : Math.max(1, Math.min(n, 1500)));
+                  }}
+                />
+              </Field>
+            </View>
           </View>
-          <View className="flex-1">
-            <Field label={tr("Poids (kg)")}>
-              <TextInput
-                className={INPUT}
-                placeholder={tr("Ex : 550")}
-                keyboardType="number-pad"
-                maxLength={4}
-                value={weightKg ? String(weightKg) : ""}
-                onChangeText={(t) => {
-                  const n = parseInt(t, 10);
-                  setWeightKg(Number.isNaN(n) ? null : Math.max(1, Math.min(n, 1500)));
-                }}
-              />
-            </Field>
-          </View>
+
+          <Field label={tr("Discipline travaillée")}>
+            <SingleSelect options={DISCIPLINES} value={discipline} onChange={setDiscipline} />
+          </Field>
+
+          <Field label={tr("Niveau du cheval")}>
+            <SingleSelect options={HORSE_LEVELS} value={level} onChange={setLevel} />
+          </Field>
+
+          <DropdownField
+            label={tr("Niveau de forme actuel")}
+            options={HORSE_FITNESS_LEVELS}
+            value={fitnessLevel}
+            onChange={setFitnessLevel}
+            placeholder={tr("Sélectionner la forme actuelle")}
+          />
+
+          <DropdownField
+            label={tr("Charge de travail actuelle")}
+            options={HORSE_WORKLOADS}
+            value={workload}
+            onChange={setWorkload}
+            placeholder={tr("Sélectionner la charge de travail")}
+          />
+
+          <Field label={tr("Tempérament")}>
+            <MultiSelectChips
+              options={HORSE_TEMPERAMENTS}
+              values={temperament}
+              allowCustom
+              onToggle={(t) => setTemperament((list) => toggle(list, t))}
+            />
+          </Field>
+
+          <Field label={tr("Ses points forts")}>
+            <MultiSelectChips
+              options={HORSE_TRAITS}
+              values={strengths}
+              allowCustom
+              onToggle={(t) => {
+                setStrengths((s) => toggle(s, t));
+                setWeaknesses((w) => w.filter((x) => x !== t));
+              }}
+            />
+          </Field>
+
+          <Field label={tr("Ses points à travailler")}>
+            <MultiSelectChips
+              options={HORSE_TRAITS}
+              values={weaknesses}
+              allowCustom
+              onToggle={(t) => {
+                setWeaknesses((w) => toggle(w, t));
+                setStrengths((s) => s.filter((x) => x !== t));
+              }}
+            />
+          </Field>
+
+          <Field label={tr("Conditions de santé actuelles")}>
+            <MultiSelectChips
+              options={HEALTH_CONDITIONS}
+              values={healthConditions}
+              onToggle={(t) => setHealthConditions((list) => toggleHealthCondition(list, t))}
+            />
+          </Field>
+
+          <InjuryHistoryField
+            injuries={injuries.map((i): InjuryEntry => ({ ...i, key: i.id }))}
+            onAdd={(entry) => setInjuries((list) => [...list, { ...entry, id: generateInjuryId() }])}
+            onRemove={(key) => setInjuries((list) => list.filter((i) => i.id !== key))}
+          />
+
+          <Field label={tr("Les jours sans séance, il est plutôt…")}>
+            <Text className="text-xs text-muted">
+              {tr("Plusieurs choix possibles : ils tournent d'un jour de repos à l'autre (ex. paddock un jour, box le suivant).")}
+            </Text>
+            <MultiSelectChips
+              options={REST_DAY_ACTIVITIES}
+              values={restDayActivities}
+              allowCustom
+              onToggle={(t) => setRestDayActivities((list) => toggle(list, t))}
+            />
+          </Field>
+        </ScrollView>
+
+        <View className="gap-2 px-5 pb-2 pt-3">
+          <PrimaryButton
+            label={submitLabel}
+            disabled={name.trim().length === 0 || !discipline || !level}
+            onPress={submit}
+          />
+          {onDelete ? (
+            <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="items-center py-2">
+              <Text className="text-sm font-semibold text-danger">{tr("Supprimer ce cheval")}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-
-        <Field label={tr("Discipline travaillée")}>
-          <SingleSelect options={DISCIPLINES} value={discipline} onChange={setDiscipline} />
-        </Field>
-
-        <Field label={tr("Niveau du cheval")}>
-          <SingleSelect options={HORSE_LEVELS} value={level} onChange={setLevel} />
-        </Field>
-
-        <DropdownField
-          label={tr("Niveau de forme actuel")}
-          options={HORSE_FITNESS_LEVELS}
-          value={fitnessLevel}
-          onChange={setFitnessLevel}
-          placeholder={tr("Sélectionner la forme actuelle")}
-        />
-
-        <DropdownField
-          label={tr("Charge de travail actuelle")}
-          options={HORSE_WORKLOADS}
-          value={workload}
-          onChange={setWorkload}
-          placeholder={tr("Sélectionner la charge de travail")}
-        />
-
-        <Field label={tr("Tempérament")}>
-          <MultiSelectChips
-            options={HORSE_TEMPERAMENTS}
-            values={temperament}
-            allowCustom
-            onToggle={(t) => setTemperament((list) => toggle(list, t))}
-          />
-        </Field>
-
-        <Field label={tr("Ses points forts")}>
-          <MultiSelectChips
-            options={HORSE_TRAITS}
-            values={strengths}
-            allowCustom
-            onToggle={(t) => {
-              setStrengths((s) => toggle(s, t));
-              setWeaknesses((w) => w.filter((x) => x !== t));
-            }}
-          />
-        </Field>
-
-        <Field label={tr("Ses points à travailler")}>
-          <MultiSelectChips
-            options={HORSE_TRAITS}
-            values={weaknesses}
-            allowCustom
-            onToggle={(t) => {
-              setWeaknesses((w) => toggle(w, t));
-              setStrengths((s) => s.filter((x) => x !== t));
-            }}
-          />
-        </Field>
-
-        <Field label={tr("Conditions de santé actuelles")}>
-          <MultiSelectChips
-            options={HEALTH_CONDITIONS}
-            values={healthConditions}
-            onToggle={(t) => setHealthConditions((list) => toggleHealthCondition(list, t))}
-          />
-        </Field>
-
-        <InjuryHistoryField
-          injuries={injuries.map((i): InjuryEntry => ({ ...i, key: i.id }))}
-          onAdd={(entry) => setInjuries((list) => [...list, { ...entry, id: generateInjuryId() }])}
-          onRemove={(key) => setInjuries((list) => list.filter((i) => i.id !== key))}
-        />
-
-        <Field label={tr("Les jours sans séance, il est plutôt…")}>
-          <Text className="text-xs text-muted">
-            {tr("Plusieurs choix possibles : ils tournent d'un jour de repos à l'autre (ex. paddock un jour, box le suivant).")}
-          </Text>
-          <MultiSelectChips
-            options={REST_DAY_ACTIVITIES}
-            values={restDayActivities}
-            allowCustom
-            onToggle={(t) => setRestDayActivities((list) => toggle(list, t))}
-          />
-        </Field>
-      </ScrollView>
-
-      <View className="gap-2 px-5 pb-2 pt-3">
-        <PrimaryButton
-          label={submitLabel}
-          disabled={name.trim().length === 0 || !discipline || !level}
-          onPress={submit}
-        />
-        {onDelete ? (
-          <TouchableOpacity onPress={onDelete} activeOpacity={0.7} className="items-center py-2">
-            <Text className="text-sm font-semibold text-danger">{tr("Supprimer ce cheval")}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-      <PickerOverlaySlot />
+        <PickerOverlaySlot />
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

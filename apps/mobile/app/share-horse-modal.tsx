@@ -188,6 +188,7 @@ export default function ShareHorseModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         contentContainerClassName="gap-5 px-5 pt-4 pb-8"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

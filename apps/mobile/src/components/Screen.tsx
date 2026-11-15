@@ -1,6 +1,7 @@
 import { ReactElement, ReactNode, Ref } from "react";
 import { RefreshControlProps, ScrollView, View } from "react-native";
 import { SafeAreaView, Edge, useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type Props = {
   children: ReactNode;
@@ -31,12 +32,19 @@ export function Screen({ children, scroll = true, edges = ["top"], className, re
   return (
     <SafeAreaView className="flex-1 bg-background" edges={edges}>
       {header ? <View className="border-b border-border px-5 pb-3 pt-2">{header}</View> : null}
+      <Body withFooter={!!footer}>
       {scroll ? (
         <ScrollView
           ref={scrollRef}
           contentContainerClassName={content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          // iOS décale le contenu quand le clavier s'ouvre : les champs du bas
+          // (formulaires dépliés dans la page) restent visibles au-dessus.
+          // Avec une barre fixe en bas, c'est KeyboardAvoider qui remonte le
+          // tout (sinon le décalage serait compté deux fois).
+          automaticallyAdjustKeyboardInsets={!footer}
+          keyboardDismissMode="interactive"
           refreshControl={refreshControl}
         >
           {children}
@@ -52,6 +60,12 @@ export function Screen({ children, scroll = true, edges = ["top"], className, re
           {footer}
         </View>
       ) : null}
+      </Body>
     </SafeAreaView>
   );
+}
+
+/** Une barre fixe en bas (Envoyer, Enregistrer) doit rester au-dessus du clavier. */
+function Body({ withFooter, children }: { withFooter: boolean; children: ReactNode }) {
+  return withFooter ? <KeyboardAvoider>{children}</KeyboardAvoider> : <>{children}</>;
 }

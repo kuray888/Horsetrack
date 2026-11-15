@@ -10,6 +10,7 @@ import { useRiderProfile } from "@/rider/store";
 import { colors } from "@/theme/colors";
 import type { Discipline, RiderGoal, RiderLevel, RideFrequency } from "@/onboarding/store";
 import { t } from "@/i18n";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -50,50 +51,52 @@ export default function EditRiderModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="text-2xl font-display tracking-tight text-text">{t("Mon profil cavalier")}</Text>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
-          <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoider>
+        <View className="flex-row items-center justify-between px-5 pt-2">
+          <Text className="text-2xl font-display tracking-tight text-text">{t("Mon profil cavalier")}</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel={t("Fermer")} accessibilityRole="button">
+            <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} accessibilityElementsHidden />
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView
-        contentContainerClassName="gap-5 px-5 pt-6 pb-4"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Field label={t("Niveau")}>
-          <SingleSelect options={RIDER_LEVELS} value={level} onChange={setLevel} />
-        </Field>
-
-        <Field label={t("Discipline principale")}>
-          <SingleSelect options={DISCIPLINES} value={mainDiscipline} onChange={setMainDiscipline} />
-        </Field>
-
-        <Field label={t("Fréquence de monte")}>
-          <SingleSelect options={RIDE_FREQUENCIES} value={rideFrequency} onChange={setRideFrequency} />
-        </Field>
-
-        <Field label={t("Objectif principal")}>
-          <SingleSelect options={GOAL_OPTIONS} value={primaryGoal} onChange={setPrimaryGoal} />
-        </Field>
-
-        {primaryGoal === OTHER_OPTION ? (
-          <Field label={t("Précisez votre objectif")}>
-            <TextInput
-              className={INPUT}
-              placeholder={t("Ex : Reprendre confiance à cheval")}
-              value={primaryGoalCustom}
-              onChangeText={setPrimaryGoalCustom}
-              autoCapitalize="sentences"
-            />
+        <ScrollView
+          contentContainerClassName="gap-5 px-5 pt-6 pb-4"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Field label={t("Niveau")}>
+            <SingleSelect options={RIDER_LEVELS} value={level} onChange={setLevel} />
           </Field>
-        ) : null}
-      </ScrollView>
 
-      <View className="px-5 pb-2 pt-3">
-        <PrimaryButton label={t("Enregistrer")} disabled={!canSave} onPress={submit} />
-      </View>
+          <Field label={t("Discipline principale")}>
+            <SingleSelect options={DISCIPLINES} value={mainDiscipline} onChange={setMainDiscipline} />
+          </Field>
+
+          <Field label={t("Fréquence de monte")}>
+            <SingleSelect options={RIDE_FREQUENCIES} value={rideFrequency} onChange={setRideFrequency} />
+          </Field>
+
+          <Field label={t("Objectif principal")}>
+            <SingleSelect options={GOAL_OPTIONS} value={primaryGoal} onChange={setPrimaryGoal} />
+          </Field>
+
+          {primaryGoal === OTHER_OPTION ? (
+            <Field label={t("Précisez votre objectif")}>
+              <TextInput
+                className={INPUT}
+                placeholder={t("Ex : Reprendre confiance à cheval")}
+                value={primaryGoalCustom}
+                onChangeText={setPrimaryGoalCustom}
+                autoCapitalize="sentences"
+              />
+            </Field>
+          ) : null}
+        </ScrollView>
+
+        <View className="px-5 pb-2 pt-3">
+          <PrimaryButton label={t("Enregistrer")} disabled={!canSave} onPress={submit} />
+        </View>
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

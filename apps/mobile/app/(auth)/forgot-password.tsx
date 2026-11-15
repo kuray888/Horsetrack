@@ -8,6 +8,7 @@ import { Field } from "@/components/Field";
 import { supabase } from "@/lib/supabase";
 import { BrandMark } from "@/components/BrandMark";
 import { t } from "@/i18n";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -44,36 +45,38 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <View className="flex-1 gap-5 px-5 pt-8">
-        <BrandMark size={72} style={{ alignSelf: "center" }} />
-        <View className="gap-2">
-          <Text className="text-2xl font-display tracking-tight text-text">{t("Mot de passe oublié")}</Text>
-          <Text className="text-base text-muted">
-            {t("Indique ton email, on t'envoie un lien pour le réinitialiser.")}
-          </Text>
+      <KeyboardAvoider>
+        <View className="flex-1 gap-5 px-5 pt-8">
+          <BrandMark size={72} style={{ alignSelf: "center" }} />
+          <View className="gap-2">
+            <Text className="text-2xl font-display tracking-tight text-text">{t("Mot de passe oublié")}</Text>
+            <Text className="text-base text-muted">
+              {t("Indique ton email, on t'envoie un lien pour le réinitialiser.")}
+            </Text>
+          </View>
+
+          <Field label={t("Email")}>
+            <TextInput
+              className={INPUT}
+              placeholder="toi@exemple.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+            />
+          </Field>
         </View>
 
-        <Field label={t("Email")}>
-          <TextInput
-            className={INPUT}
-            placeholder="toi@exemple.com"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            textContentType="emailAddress"
+        <View className="gap-3 px-5 pb-2 pt-3">
+          <PrimaryButton
+            label={loading ? t("Envoi…") : t("Envoyer le lien")}
+            disabled={loading || !email.trim()}
+            onPress={sendResetLink}
           />
-        </Field>
-      </View>
-
-      <View className="gap-3 px-5 pb-2 pt-3">
-        <PrimaryButton
-          label={loading ? "Envoi..." : t("Envoyer le lien")}
-          disabled={loading || !email.trim()}
-          onPress={sendResetLink}
-        />
-      </View>
+        </View>
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }
