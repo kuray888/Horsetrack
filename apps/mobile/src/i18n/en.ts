@@ -1397,6 +1397,7 @@ export const EN: Record<string, string> = {
   "Mon profil cavalier": "My rider profile",
   "Montant": "Amount",
   "Montant (€)": "Amount (€)",
+  "Montant invalide : saisis un nombre positif, par exemple 45,50.": "Invalid amount: enter a positive number, for example 45.50.",
   "Mot de passe": "Password",
   "Mot de passe actuel": "Current password",
   "Mot de passe mis à jour": "Password updated",

@@ -1,3 +1,4 @@
+import { parseAmount } from "@/lib/parseAmount";
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { hapticError } from "@/lib/haptics";
@@ -125,8 +126,8 @@ export function useExpenseForm({
   function handleSubmitExpense() {
     if (submitLock.current) return;
     const date = expenseForm.date;
-    const amount = Number(expenseForm.amount.replace(",", "."));
-    if (!date || !expenseForm.amount.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    const amount = parseAmount(expenseForm.amount);
+    if (!date || amount === null || amount <= 0) return;
     // Filet de sécurité : dépenses réservées au propriétaire et au gérant (cf. lib/permissions.ts).
     if (!editingExpenseId && horse && !can(roleOf(horse.sharedRole, horse.sharedFullAccess), "manage_expenses")) {
       hapticError();

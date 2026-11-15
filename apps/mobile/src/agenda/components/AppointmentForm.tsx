@@ -1,3 +1,4 @@
+import { parseAmount } from "@/lib/parseAmount";
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { colors } from "@/theme/colors";
@@ -274,7 +275,7 @@ export function AppointmentForm({
             mode={form.costMode}
             onChange={(costMode) => setForm((f) => ({ ...f, costMode }))}
             horseCount={createCount}
-            amount={Number(form.cost.replace(",", "."))}
+            amount={parseAmount(form.cost) ?? 0}
             noun="rendez-vous"
           />
           <DatePickerField

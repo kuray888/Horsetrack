@@ -1,3 +1,4 @@
+import { parseAmount } from "@/lib/parseAmount";
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -84,7 +85,8 @@ export function ExpenseForm({
   // n'est coché.
   const missingHorseChoice =
     !editingExpenseId && needsExplicitHorseChoice(form.horseIds, selectableHorses, fallbackHorseIds);
-  const parsedAmount = Number(form.amount.replace(",", "."));
+  const parsedAmount = parseAmount(form.amount) ?? 0;
+  const amountInvalid = form.amount.trim() !== "" && parseAmount(form.amount) === null;
   /** Cf. components/FormDetails.tsx : ce qui est replié doit rester lisible
    * d'un coup d'œil. */
   const detailsSummary = [
@@ -129,7 +131,13 @@ export function ExpenseForm({
           value={form.amount}
           onChangeText={(amount) => setForm((f) => ({ ...f, amount }))}
           keyboardType="decimal-pad"
+          accessibilityLabel={t("Montant (€)")}
         />
+        {amountInvalid ? (
+          <Text className="text-sm text-danger" accessibilityRole="alert">
+            {t("Montant invalide : saisis un nombre positif, par exemple 45,50.")}
+          </Text>
+        ) : null}
       </Field>
       <AmountModeField
         mode={form.amountMode}
@@ -212,7 +220,7 @@ export function ExpenseForm({
           <PrimaryButton
             label={editingExpenseId ? t("Enregistrer") : targetCount > 1 ? t("Ajouter (×{targetCount})", { targetCount: targetCount }) : t("Ajouter")}
             disabled={
-              !form.amount.trim() || !form.date || !(Number(form.amount.replace(",", ".")) > 0) || missingHorseChoice
+              !form.date || !(parsedAmount > 0) || missingHorseChoice
             }
             onPress={onSubmit}
           />

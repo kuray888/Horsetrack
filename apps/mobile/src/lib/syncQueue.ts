@@ -97,7 +97,7 @@ export function mergeOperation(queue: SyncOperation[], operation: SyncOperation)
 // P0001 = exception levée par un déclencheur (ex. photo de journal réservée
 // au Premium, cf. rls.sql protect_journal_entry_photo_premium) : refus
 // métier, identique à chaque essai.
-const PERMANENT_ERROR_CODES = new Set(["42501", "23503", "23505", "22P02", "P0001"]);
+const PERMANENT_ERROR_CODES = new Set(["42501", "23503", "23505", "22P02", "22003", "P0001"]);
 
 export function isPermanentError(error: { code?: string } | null | undefined): boolean {
   return !!error?.code && PERMANENT_ERROR_CODES.has(error.code);

@@ -1,3 +1,4 @@
+import { parseAmount } from "@/lib/parseAmount";
 import { useState } from "react";
 import { Alert } from "react-native";
 import { hapticError } from "@/lib/haptics";
@@ -281,8 +282,8 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
     const reminder: ReminderOption = reminderUnlocked ? apptForm.reminder : "none";
     const isConcours = apptForm.type === "concours";
     const professional = apptForm.professional.trim() || null;
-    const parsedCost = Number(apptForm.cost.replace(",", "."));
-    const cost = apptForm.cost.trim() && Number.isFinite(parsedCost) && parsedCost > 0 ? parsedCost : null;
+    const parsedCost = parseAmount(apptForm.cost);
+    const cost = parsedCost !== null && parsedCost > 0 ? parsedCost : null;
     const nextDueDate = apptForm.nextDueDate;
     // Niveau et date de fin ne concernent que les concours ; une fin antérieure
     // (ou égale) au premier jour n'a pas de sens et vaut « un seul jour ».
