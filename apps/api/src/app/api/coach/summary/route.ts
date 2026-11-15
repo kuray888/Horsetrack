@@ -4,7 +4,7 @@ import { Prisma, db } from "@cheval/db";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { summaryRequestSchema } from "@/lib/coach/schemas";
 import { canRetrySummary, isFinishedMonth } from "@/lib/coach/summaryRules";
-import { canAccessHorse, coachAvailable, coachAccess, monthStart } from "@/lib/coach/store";
+import { canAccessHorse, coachAvailable, coachAccess, hasCoachConsent, monthStart } from "@/lib/coach/store";
 
 /**
  * Résumé du mois écoulé (Premium). L'app envoie les faits du mois, le
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
 
   const quotas = await coachAccess(userId);
   if (!quotas) return NextResponse.json({ status: "premium" }, { status: 403 });
+  if (!(await hasCoachConsent(userId))) return NextResponse.json({ status: "consent" }, { status: 428 });
   if (!(await canAccessHorse(userId, body.horseId))) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   // Seulement un mois terminé (dans le fuseau du cavalier).

@@ -1,6 +1,7 @@
 import { db } from "@cheval/db";
 import { isPremiumNow } from "@/lib/promoRules";
 import { COACH_MODEL, coachEnabled, monthlyBudgetUsd, quotasForTier, type CoachQuotas } from "@/lib/coach/config";
+import { questionAllowance } from "@/lib/coach/allowance";
 import { toMicros, type CoachUsage } from "@/lib/coach/cost";
 
 /**
@@ -29,6 +30,23 @@ export async function coachAccess(userId: string): Promise<CoachQuotas | null> {
   });
   if (!rider || !isPremiumNow(rider, new Date())) return null;
   return quotasForTier(rider.subscriptionTier);
+}
+
+/** L'utilisateur a-t-il accepté l'envoi de son carnet à l'IA ? Sans accord
+ * enregistré, aucune route du coach n'appelle le modèle (guideline 5.1.2(i)) :
+ * l'app le vérifie aussi, mais le serveur ne doit pas lui faire confiance. */
+export async function hasCoachConsent(userId: string): Promise<boolean> {
+  const rider = await db.riderProfile.findUnique({ where: { userId }, select: { coachConsentAt: true } });
+  return !!rider?.coachConsentAt;
+}
+
+/** Enregistre (ou retire) l'accord. Retourne false sans profil cavalier. */
+export async function setCoachConsent(userId: string, granted: boolean): Promise<boolean> {
+  const { count } = await db.riderProfile.updateMany({
+    where: { userId },
+    data: { coachConsentAt: granted ? new Date() : null },
+  });
+  return count > 0;
 }
 
 /** Le cheval appartient au compte, ou lui est partagé (accepté). */
@@ -95,4 +113,65 @@ export async function logCall(input: {
       },
     })
     .catch((e) => console.warn("[coach] journal impossible", e));
+}
+
+/** Une réservation « pending » vieille de plus de ce délai (appel planté) ne
+ * compte plus dans le quota. */
+const PENDING_TTL_MS = 3 * 60_000;
+
+/**
+ * Réserve une question AVANT l'appel au modèle. Le quota était lu puis écrit
+ * après l'appel : 10 requêtes parallèles voyaient toutes le même compteur et
+ * coûtaient 10 appels. Ici la lecture et la réservation se font sous un verrou
+ * par compte, dans une transaction : la requête suivante voit la précédente.
+ * `reservationId` est null quand le quota est épuisé.
+ */
+export async function reserveQuestion(
+  userId: string,
+  quotas: CoachQuotas | null,
+  now: Date = new Date()
+): Promise<{ allowance: ReturnType<typeof questionAllowance>; reservationId: string | null }> {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`select pg_advisory_xact_lock(hashtextextended(${"coach_question:" + userId}, 0))`;
+    const counted = {
+      userId,
+      kind: "question",
+      OR: [
+        { status: { in: ["ok", "fallback", "refusal"] } },
+        { status: "pending", createdAt: { gte: new Date(now.getTime() - PENDING_TTL_MS) } },
+      ],
+    };
+    const [usedThisMonth, usedEver] = await Promise.all([
+      tx.coachCall.count({ where: { ...counted, createdAt: { gte: monthStart(now) } } }),
+      quotas ? Promise.resolve(0) : tx.coachCall.count({ where: counted }),
+    ]);
+    const allowance = questionAllowance({ quotas, usedThisMonth, usedEver });
+    if (!allowance.allowed) return { allowance, reservationId: null };
+    const row = await tx.coachCall.create({
+      data: { userId, kind: "question", model: COACH_MODEL, status: "pending" },
+      select: { id: true },
+    });
+    return { allowance, reservationId: row.id };
+  });
+}
+
+/** Clôt une réservation avec l'issue réelle de l'appel (cf. reserveQuestion). */
+export async function settleQuestion(
+  reservationId: string,
+  input: { status: string; usage: CoachUsage | null; costUsd: number; errorCode?: string | null }
+): Promise<void> {
+  await db.coachCall
+    .update({
+      where: { id: reservationId },
+      data: {
+        status: input.status,
+        inputTokens: input.usage?.input_tokens ?? 0,
+        outputTokens: input.usage?.output_tokens ?? 0,
+        cacheReadTokens: input.usage?.cache_read_input_tokens ?? 0,
+        cacheWriteTokens: input.usage?.cache_creation_input_tokens ?? 0,
+        costMicros: toMicros(input.costUsd),
+        errorCode: input.errorCode ?? null,
+      },
+    })
+    .catch((e) => console.warn("[coach] clôture de la réservation impossible", e));
 }

@@ -40,6 +40,10 @@ model RiderProfile {
   id     String @id @default(cuid())
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Accord de l'utilisateur pour envoyer son carnet à l'IA du coach (guideline
+  /// 5.1.2(i)). Posé par POST /api/coach/consent ; null = aucun accord, le
+  /// serveur refuse alors tout appel au coach (cf. lib/coach/store.ts).
+  coachConsentAt DateTime?
 
   // Profil cavalier (onboarding)
   level             RiderLevel?

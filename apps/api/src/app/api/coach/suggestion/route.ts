@@ -6,7 +6,7 @@ import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { runSuggestion } from "@/lib/coach/engine";
 import { suggestionRequestSchema, type CoachSuggestion } from "@/lib/coach/schemas";
 import { suggestionDay } from "@/lib/coach/validate";
-import { canAccessHorse, coachAvailable, coachAccess, logCall } from "@/lib/coach/store";
+import { canAccessHorse, coachAvailable, coachAccess, hasCoachConsent, logCall } from "@/lib/coach/store";
 
 /**
  * « Ta prochaine séance » (Premium). L'app envoie les faits, les contraintes
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
 
   const quotas = await coachAccess(userId);
   if (!quotas) return NextResponse.json({ status: "premium" }, { status: 403 });
+  if (!(await hasCoachConsent(userId))) return NextResponse.json({ status: "consent" }, { status: 428 });
   if (!(await canAccessHorse(userId, body.horseId))) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   const day = suggestionDay(body.facts.today);
