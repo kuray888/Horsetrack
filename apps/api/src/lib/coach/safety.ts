@@ -81,3 +81,13 @@ export function vetMessage(lang: "fr" | "en"): string {
     ? "This sounds like a health problem, and I can't give medical advice. Call your vet. In an emergency (colic, bleeding, a horse lying down that won't get up), call them right away."
     : "Ça ressemble à un problème de santé, et je ne peux pas donner d'avis médical. Appelle ton vétérinaire. En cas d'urgence (colique, saignement, cheval couché qui ne se relève pas), appelle-le tout de suite.";
 }
+
+/** Masque e-mails et numéros de téléphone d'une question libre avant son envoi
+ * au prestataire d'IA : le carnet est anonymisé par l'app, mais la question,
+ * tapée à la main, peut contenir des coordonnées. Les nombres courts (poids,
+ * dates, montants) ne sont pas touchés. */
+export function redactPersonalData(text: string): string {
+  return text
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]{2,}/g, "[e-mail]")
+    .replace(/(?<![\d/.,])(?:\+|00)?\d(?:[\s.\-]?\d){8,13}(?![\d/])/g, "[téléphone]");
+}

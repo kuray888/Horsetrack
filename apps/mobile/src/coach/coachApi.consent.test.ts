@@ -50,3 +50,21 @@ describe("rien n'est envoyé au coach sans l'accord de l'utilisateur", () => {
     expect(state.fetched).toHaveLength(1);
   });
 });
+
+describe("le serveur garde l'accord (428)", () => {
+  it("renvoie l'accord de l'appareil puis réessaie une fois", async () => {
+    state.granted = true;
+    let first = true;
+    vi.stubGlobal("fetch", async (url: string) => {
+      state.fetched.push(url);
+      if (url.endsWith("/question") && first) {
+        first = false;
+        return new Response(JSON.stringify({ status: "consent" }), { status: 428 });
+      }
+      return new Response(JSON.stringify({ status: "ok", answer: "a", found: true, medical: false }), { status: 200 });
+    });
+    const r = await askCoach("fr", "Combien de séances ?", {} as never);
+    expect(state.fetched.map((u) => u.split("/api/coach")[1])).toEqual(["/question", "/consent", "/question"]);
+    expect(r.status).toBe("ok");
+  });
+});

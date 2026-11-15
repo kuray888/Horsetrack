@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/supabaseAdmin";
 import { runQuestion } from "@/lib/coach/engine";
-import { mentionsSymptom, vetMessage } from "@/lib/coach/safety";
+import { mentionsSymptom, redactPersonalData, vetMessage } from "@/lib/coach/safety";
 import { questionRequestSchema } from "@/lib/coach/schemas";
 import { questionAllowance } from "@/lib/coach/allowance";
 import { coachAvailable, coachAccess, hasCoachConsent, logCall, questionsUsedEver, questionsUsedThisMonth, reserveQuestion, settleQuestion } from "@/lib/coach/store";
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   let result;
   try {
-    result = await runQuestion(new Anthropic(), body);
+    result = await runQuestion(new Anthropic(), { ...body, question: redactPersonalData(body.question) });
   } catch (e) {
     await settleQuestion(reservation.reservationId, { status: "error", usage: null, costUsd: 0, errorCode: "exception" });
     throw e;

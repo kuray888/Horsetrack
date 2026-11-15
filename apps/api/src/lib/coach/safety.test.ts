@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { containsMedicalAdvice, mentionsSymptom, vetMessage } from "@/lib/coach/safety";
+import { containsMedicalAdvice, mentionsSymptom, redactPersonalData, vetMessage } from "@/lib/coach/safety";
 
 describe("garde-fou vétérinaire", () => {
   it("repère les symptômes et les demandes de soin, en français et en anglais", () => {
@@ -76,5 +76,18 @@ describe("garde-fou vétérinaire", () => {
   it("renvoie vers le vétérinaire dans la langue de l'app", () => {
     expect(vetMessage("fr")).toContain("vétérinaire");
     expect(vetMessage("en")).toContain("vet");
+  });
+});
+
+describe("redactPersonalData", () => {
+  it("masque les e-mails et les numéros de téléphone d'une question", () => {
+    expect(redactPersonalData("Écris à lea.martin@mail.fr ou appelle le 06 12 34 56 78 pour Hermès")).toBe(
+      "Écris à [e-mail] ou appelle le [téléphone] pour Hermès"
+    );
+    expect(redactPersonalData("+33 6 12 34 56 78")).toBe("[téléphone]");
+  });
+  it("laisse intacts les chiffres d'un carnet (poids, dates, montants)", () => {
+    const q = "Mon cheval pèse 520 kg, ferré le 12/10/2026, soin à 45,50 €";
+    expect(redactPersonalData(q)).toBe(q);
   });
 });

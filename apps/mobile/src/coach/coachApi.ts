@@ -31,17 +31,36 @@ async function call(path: string, init: RequestInit = {}): Promise<Response | nu
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return null;
-    if (path !== "/status") {
+    if (path !== "/status" && path !== "/consent") {
       await loadCoachConsent();
       if (!hasCoachConsent(data.session?.user.id)) return NO_CONSENT;
     }
-    return await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/coach${path}`, {
-      ...init,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
-    });
+    const send = () =>
+      fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/coach${path}`, {
+        ...init,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
+      });
+    const res = await send();
+    // Le serveur garde lui aussi l'accord (428) : celui donné sur cet appareil
+    // avant que le serveur ne le retienne lui est renvoyé, puis on réessaie.
+    if (res.status === 428 && path !== "/consent") {
+      const synced = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/coach/consent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ granted: true }),
+      });
+      if (synced.ok) return await send();
+    }
+    return res;
   } catch {
     return null;
   }
+}
+
+/** Transmet au serveur l'accord donné ou retiré (best-effort : un échec réseau
+ * est rattrapé au premier appel refusé par le serveur, cf. `call`). */
+export async function syncCoachConsent(granted: boolean): Promise<void> {
+  await call("/consent", { method: "POST", body: JSON.stringify({ granted }) });
 }
 
 async function json<T>(res: Response | null | typeof NO_CONSENT): Promise<T | null> {

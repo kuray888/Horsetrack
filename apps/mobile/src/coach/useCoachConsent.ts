@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCurrentUserId } from "@/lib/currentUser";
+import { syncCoachConsent } from "@/coach/coachApi";
 import { hasCoachConsent, loadCoachConsent, setCoachConsent, subscribeToCoachConsent } from "@/coach/consent";
 
 /** `granted` est null tant que l'accord n'est pas lu : n'envoyer qu'à `true`. */
@@ -19,10 +20,14 @@ export function useCoachConsent(): { granted: boolean | null; grant: () => Promi
   }, []);
 
   const grant = useCallback(async () => {
-    if (userId) await setCoachConsent(userId, true);
+    if (!userId) return;
+    await setCoachConsent(userId, true);
+    void syncCoachConsent(true);
   }, [userId]);
   const revoke = useCallback(async () => {
-    if (userId) await setCoachConsent(userId, false);
+    if (!userId) return;
+    await setCoachConsent(userId, false);
+    void syncCoachConsent(false);
   }, [userId]);
 
   return { granted: ready && userId ? hasCoachConsent(userId) : null, grant, revoke };
