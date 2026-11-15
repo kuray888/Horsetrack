@@ -376,9 +376,9 @@ export default function LoginScreen() {
 
   const hasSocial = appleAvailable || GOOGLE_AUTH_ENABLED;
 
-  // Même ordre que la création de compte : connexion en un toucher (Apple,
-  // Google) d'abord, l'e-mail ensuite. Le formulaire défile au-dessus du
-  // clavier : « Se connecter » reste atteignable sur un petit iPhone.
+  // E-mail et mot de passe d'abord, Apple et Google sous le bouton (retour
+  // du 15/11). Le formulaire défile au-dessus du clavier : « Se connecter »
+  // reste atteignable sur un petit iPhone.
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -390,34 +390,6 @@ export default function LoginScreen() {
             </Text>
             <Text className="text-base text-muted">{tr("Retrouve ton planning et ton suivi.")}</Text>
           </View>
-
-          {hasSocial ? (
-            <View className="gap-3">
-              {appleAvailable ? (
-                // pointerEvents plutôt qu'une prop `disabled` : ce composant natif n'en
-                // expose pas — cf. la garde `if (loading) return` dans handleAppleSignIn.
-                <View pointerEvents={loading ? "none" : "auto"} style={{ opacity: loading ? 0.6 : 1 }}>
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                    buttonStyle={
-                      scheme === "dark"
-                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                    }
-                    cornerRadius={12}
-                    style={{ height: 52, width: "100%" }}
-                    onPress={handleAppleSignIn}
-                  />
-                </View>
-              ) : null}
-              {GOOGLE_AUTH_ENABLED ? <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} /> : null}
-              <View className="flex-row items-center gap-3 pt-2">
-                <View className="h-px flex-1 bg-border" />
-                <Text className="text-footnote text-muted">{tr("ou avec ton e-mail")}</Text>
-                <View className="h-px flex-1 bg-border" />
-              </View>
-            </View>
-          ) : null}
 
           <View className="gap-4">
             <Field label={tr("Email")}>
@@ -481,6 +453,33 @@ export default function LoginScreen() {
             disabled={loading || !email.trim() || !password}
             onPress={signIn}
           />
+          {hasSocial ? (
+            <>
+              <View className="flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text className="text-footnote text-muted">{tr("ou")}</Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+              {appleAvailable ? (
+                // pointerEvents plutôt qu'une prop `disabled` : ce composant natif n'en
+                // expose pas — cf. la garde `if (loading) return` dans handleAppleSignIn.
+                <View pointerEvents={loading ? "none" : "auto"} style={{ opacity: loading ? 0.6 : 1 }}>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={
+                      scheme === "dark"
+                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                    }
+                    cornerRadius={12}
+                    style={{ height: 52, width: "100%" }}
+                    onPress={handleAppleSignIn}
+                  />
+                </View>
+              ) : null}
+              {GOOGLE_AUTH_ENABLED ? <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} /> : null}
+            </>
+          ) : null}
           <TouchableOpacity
             onPress={() => router.push("/(onboarding)/welcome")}
             accessibilityRole="button"
