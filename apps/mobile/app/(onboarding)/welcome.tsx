@@ -67,7 +67,7 @@ export default function Welcome() {
           <BrandMark size={96} />
         </FadeInView>
         <FadeInView delay={100}>
-          <Text className="mt-6 text-4xl font-display leading-tight tracking-tight text-text">
+          <Text className="mt-6 text-4xl font-display leading-tight tracking-tight text-text" accessibilityRole="header">
             {t("Toi et ton cheval, organisés.")}
           </Text>
         </FadeInView>

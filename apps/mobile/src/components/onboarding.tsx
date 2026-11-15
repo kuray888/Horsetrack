@@ -9,7 +9,7 @@ import { PickerOverlaySlot } from "@/components/PickerOverlay";
 import { colors } from "@/theme/colors";
 import type { OnboardingStepId, Option } from "@/onboarding/options";
 import { track } from "@/lib/analytics";
-import { hapticTap } from "@/lib/haptics";
+import { hapticSelection, hapticTap } from "@/lib/haptics";
 import { prefersReducedMotion } from "@/lib/motion";
 import { t } from "@/i18n";
 
@@ -111,7 +111,9 @@ export function OnboardingShell({
         >
           <FadeInView>
             <View className="gap-2">
-              <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
+              <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
+                {title}
+              </Text>
               {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
             </View>
           </FadeInView>
@@ -277,8 +279,13 @@ export function MultiSelectChips({
           return (
             <TouchableOpacity
               key={opt}
-              onPress={() => onToggle(opt)}
+              onPress={() => {
+                hapticSelection();
+                onToggle(opt);
+              }}
               activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected }}
               className={`rounded-full border px-4 py-2.5 ${
                 selected ? "border-primary bg-highlight" : "border-border bg-surface"
               }`}
@@ -299,6 +306,7 @@ export function MultiSelectChips({
           <TextInput
             className="flex-1 rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-text"
             placeholder={t("Autre (préciser)…")}
+            accessibilityLabel={t("Autre (préciser)…")}
             value={customInput}
             onChangeText={setCustomInput}
             onSubmitEditing={addCustom}
@@ -308,6 +316,10 @@ export function MultiSelectChips({
             onPress={addCustom}
             disabled={!customInput.trim()}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t("Ajouter")}
+            accessibilityState={{ disabled: !customInput.trim() }}
+            hitSlop={4}
             className={`h-9 w-9 items-center justify-center rounded-full ${
               customInput.trim() ? "bg-primary" : "bg-border"
             }`}

@@ -2526,4 +2526,8 @@ export const EN: Record<string, string> = {
   "Continuer la saisie": "Keep editing",
   "Abandonner": "Discard",
   "Partager {name}": "Share {name}",
+  "Partager Horsetrack": "Share Horsetrack",
+  "Mes données": "My data",
+  "Aide et mentions légales": "Help and legal",
+  "Modifier mon profil cavalier": "Edit my rider profile",
 };

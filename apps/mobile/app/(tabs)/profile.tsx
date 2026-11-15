@@ -55,6 +55,8 @@ import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onbo
 import { lazyTab } from "@/components/LazyTab";
 import { exportAllData } from "@/export/exportAllData";
 import { t as tr } from "@/i18n";
+import { hapticSelection } from "@/lib/haptics";
+import { Skeleton } from "@/components/Skeleton";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -111,7 +113,6 @@ function SettingRow({
         onValueChange={onValueChange}
         disabled={disabled}
         trackColor={{ false: colors.border, true: colors.primary }}
-        thumbColor="#fff"
       />
     </View>
   );
@@ -123,23 +124,39 @@ function LinkRow({
   label,
   description,
   onPress,
+  tone = "default",
+  disabled,
+  chevron = true,
 }: {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
   description?: string;
   onPress: () => void;
+  /** « danger » : action destructrice (supprimer le compte), en rouge. */
+  tone?: "default" | "danger";
+  disabled?: boolean;
+  /** Chevron à droite : seulement pour ce qui ouvre un autre écran. */
+  chevron?: boolean;
 }) {
   const colors = useThemeColors();
+  const danger = tone === "danger";
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center gap-3 py-3" accessibilityRole="button">
-      <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
-        <MaterialCommunityIcons name={icon} size={18} color={colors.primary} />
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+      className="flex-row items-center gap-3 py-3"
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
+    >
+      <View className={`h-9 w-9 items-center justify-center rounded-full ${danger ? "bg-danger/10" : "bg-highlight"}`}>
+        <MaterialCommunityIcons name={icon} size={18} color={danger ? colors.danger : colors.primary} />
       </View>
       <View className="flex-1 gap-0.5">
-        <Text className="text-base font-semibold text-text">{label}</Text>
+        <Text className={`text-base font-semibold ${danger ? "text-danger" : "text-text"}`}>{label}</Text>
         {description ? <Text className="text-xs text-muted">{description}</Text> : null}
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+      {chevron ? <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} /> : null}
     </TouchableOpacity>
   );
 }
@@ -428,7 +445,9 @@ function ProfileScreen() {
             </Text>
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="text-2xl font-display tracking-tight text-text">{tr("Mon profil")}</Text>
+            <Text className="text-3xl font-display tracking-tight text-text" accessibilityRole="header">
+              {tr("Mon profil")}
+            </Text>
             <Text className="text-sm text-muted">{user?.email ?? tr("Non connecté")}</Text>
           </View>
         </View>
@@ -450,9 +469,16 @@ function ProfileScreen() {
             />
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className={`text-base font-display-bold ${isActiveOrTrialing ? "text-on-primary" : "text-text"}`}>
-              {subscriptionLabel()}
-            </Text>
+            {/* Statut en cours de lecture : une barre plutôt qu'un mot. */}
+            {subLoading ? (
+              <View accessible accessibilityLabel={tr("Chargement…")} accessibilityRole="progressbar" className="py-1">
+                <Skeleton width="55%" height={16} />
+              </View>
+            ) : (
+              <Text className={`text-base font-display-bold ${isActiveOrTrialing ? "text-on-primary" : "text-text"}`}>
+                {subscriptionLabel()}
+              </Text>
+            )}
             <Text className={`text-xs ${isActiveOrTrialing ? "text-on-primary/80" : "text-muted"}`}>
               {isActiveOrTrialing && status === "trialing" && trialEndsAt
                 ? tr("Fin de l'essai le {formatFullDate}", { formatFullDate: formatFullDate(new Date(trialEndsAt)) })
@@ -496,7 +522,14 @@ function ProfileScreen() {
       <FadeInView delay={260}>
         <View className="flex-row items-center justify-between">
           <SectionTitle>{tr("Mon profil cavalier")}</SectionTitle>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => router.push("/edit-rider-modal")}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => router.push("/edit-rider-modal")}
+            accessibilityRole="button"
+            accessibilityLabel={tr("Modifier mon profil cavalier")}
+            hitSlop={12}
+            className="min-h-[44px] justify-center"
+          >
             <Text className="text-sm font-semibold text-link">{tr("Modifier")}</Text>
           </TouchableOpacity>
         </View>
@@ -546,6 +579,7 @@ function ProfileScreen() {
                     key={goal.id}
                     activeOpacity={0.8}
                     onPress={() => router.push(`/goal-modal?id=${goal.id}`)}
+                    accessibilityRole="button"
                     className={`${CARD} flex-row items-center gap-3`}
                   >
                     <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
@@ -564,6 +598,7 @@ function ProfileScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push("/goal-modal")}
+            accessibilityRole="button"
             className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
           >
             <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
@@ -593,11 +628,14 @@ function ProfileScreen() {
               return (
                 <TouchableOpacity
                   key={opt.value}
-                  onPress={() => setAppearance(opt.value)}
+                  onPress={() => {
+                    if (!selected) hapticSelection();
+                    setAppearance(opt.value);
+                  }}
                   activeOpacity={0.85}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  className={`flex-1 items-center rounded-full py-2 ${selected ? "bg-primary" : ""}`}
+                  className={`min-h-[44px] flex-1 items-center justify-center rounded-full ${selected ? "bg-primary" : ""}`}
                 >
                   <Text className={`text-sm font-semibold ${selected ? "text-on-primary" : "text-muted"}`}>{opt.label}</Text>
                 </TouchableOpacity>
@@ -612,7 +650,10 @@ function ProfileScreen() {
               return (
                 <TouchableOpacity
                   key={id}
-                  onPress={() => setThemeId(id)}
+                  onPress={() => {
+                    if (!selected) hapticSelection();
+                    setThemeId(id);
+                  }}
                   activeOpacity={0.8}
                   accessibilityLabel={THEME_LABELS[id]}
                   accessibilityRole="button"
@@ -721,26 +762,14 @@ function ProfileScreen() {
         </FadeInView>
       ) : null}
 
-      {/* Aide et bouche-à-oreille — un utilisateur qui bloque écrit ici
-          plutôt que de laisser une note basse sur l'App Store ; un utilisateur
-          content a de quoi recommander l'app à son écurie. */}
+      {/* Bouche-à-oreille — un utilisateur content a de quoi recommander l'app
+          à son écurie. */}
       <FadeInView delay={495}>
-        <SectionTitle>{tr("Horsetrack")}</SectionTitle>
+        <SectionTitle>{tr("Partager Horsetrack")}</SectionTitle>
       </FadeInView>
 
       <FadeInView delay={498}>
         <View className={CARD}>
-          <LinkRow
-            icon="lifebuoy"
-            label={tr("Contacter le support")}
-            description={tr("Une question, un souci, une idée ? On répond vite.")}
-            onPress={async () => {
-              track("support_contacted");
-              const opened = await openSupportEmail();
-              if (!opened) Alert.alert(tr("Nous écrire"), tr("Écris-nous à {SUPPORT_EMAIL}", { SUPPORT_EMAIL: SUPPORT_EMAIL }));
-            }}
-          />
-          <View className="border-t border-border" />
           <LinkRow
             icon="gift-outline"
             label={tr("Parrainer un ami")}
@@ -759,7 +788,26 @@ function ProfileScreen() {
               }).catch(() => {});
             }}
           />
-          <View className="border-t border-border" />
+          {canOpenWriteReview() ? (
+            <>
+              <View className="border-t border-border" />
+              <LinkRow
+                icon="star-outline"
+                label={tr("Noter Horsetrack")}
+                description={tr("Ton avis aide d'autres cavaliers à nous trouver")}
+                onPress={() => void openWriteReview()}
+              />
+            </>
+          ) : null}
+        </View>
+      </FadeInView>
+
+      <FadeInView delay={499}>
+        <SectionTitle>{tr("Mes données")}</SectionTitle>
+      </FadeInView>
+
+      <FadeInView delay={499}>
+        <View className={CARD}>
           <LinkRow
             icon="card-account-phone-outline"
             label={tr("Mes contacts")}
@@ -773,17 +821,6 @@ function ProfileScreen() {
             description={tr("Chevaux, séances, soins, journal, dépenses… en fichiers Excel")}
             onPress={() => void handleExport()}
           />
-          {canOpenWriteReview() ? (
-            <>
-              <View className="border-t border-border" />
-              <LinkRow
-                icon="star-outline"
-                label={tr("Noter Horsetrack")}
-                description={tr("Ton avis aide d'autres cavaliers à nous trouver")}
-                onPress={() => void openWriteReview()}
-              />
-            </>
-          ) : null}
           {PRO_ENABLED ? (
             <>
           <View className="border-t border-border" />
@@ -799,10 +836,31 @@ function ProfileScreen() {
           />
             </>
           ) : null}
+        </View>
+      </FadeInView>
+
+      {/* Aide — un utilisateur qui bloque écrit ici plutôt que de laisser une
+          note basse sur l'App Store. Restauration et pages légales : aussi
+          exigées hors du paywall (règles App Store 3.1.1 et 5.1.1) — un
+          cavalier qui réinstalle l'app ou veut relire ses droits les trouve
+          ici. */}
+      <FadeInView delay={500}>
+        <SectionTitle>{tr("Aide et mentions légales")}</SectionTitle>
+      </FadeInView>
+
+      <FadeInView delay={500}>
+        <View className={CARD}>
+          <LinkRow
+            icon="lifebuoy"
+            label={tr("Contacter le support")}
+            description={tr("Une question, un souci, une idée ? On répond vite.")}
+            onPress={async () => {
+              track("support_contacted");
+              const opened = await openSupportEmail();
+              if (!opened) Alert.alert(tr("Nous écrire"), tr("Écris-nous à {SUPPORT_EMAIL}", { SUPPORT_EMAIL: SUPPORT_EMAIL }));
+            }}
+          />
           <View className="border-t border-border" />
-          {/* Restauration et pages légales : aussi exigées hors du paywall
-              (règles App Store 3.1.1 et 5.1.1) — un cavalier qui réinstalle
-              l'app ou veut relire ses droits les trouve ici. */}
           <LinkRow
             icon="restore"
             label={restoring ? tr("Restauration…") : tr("Restaurer mes achats")}
@@ -824,34 +882,19 @@ function ProfileScreen() {
       </FadeInView>
 
       <FadeInView delay={540}>
-        <View className="gap-3">
-          <TouchableOpacity
-            className="items-center rounded-card border border-border bg-surface p-4"
-            onPress={() => router.push("/change-password-modal")}
-            activeOpacity={0.85}
-          >
-            <Text className="font-semibold text-text">{tr("Changer le mot de passe")}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="items-center rounded-card border border-border bg-surface p-4"
-            onPress={() => void confirmSignOut()}
-            accessibilityRole="button"
-            activeOpacity={0.85}
-          >
-            <Text className="font-semibold text-text">{tr("Se déconnecter")}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="items-center rounded-card border border-danger/30 p-4"
-            onPress={handleDeleteAccount}
+        <View className={CARD}>
+          <LinkRow icon="lock-reset" label={tr("Changer le mot de passe")} onPress={() => router.push("/change-password-modal")} />
+          <View className="border-t border-border" />
+          <LinkRow icon="logout" label={tr("Se déconnecter")} chevron={false} onPress={() => void confirmSignOut()} />
+          <View className="border-t border-border" />
+          <LinkRow
+            icon="account-remove-outline"
+            tone="danger"
+            chevron={false}
+            label={deletingAccount ? tr("Suppression…") : tr("Supprimer mon compte")}
             disabled={deletingAccount}
-            activeOpacity={0.85}
-          >
-            <Text className="font-semibold text-danger">
-              {deletingAccount ? tr("Suppression…") : tr("Supprimer mon compte")}
-            </Text>
-          </TouchableOpacity>
+            onPress={handleDeleteAccount}
+          />
         </View>
       </FadeInView>
 

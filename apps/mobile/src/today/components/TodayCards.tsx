@@ -194,7 +194,7 @@ export function UpcomingCard({ events }: { events: UnifiedEvent[] }) {
       <FadeInView delay={140}>
         <View className="mt-1 flex-row items-center justify-between">
           <Text className="text-xl font-bold text-text">{t("Prochainement")}</Text>
-          <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(tabs)/planning")}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(tabs)/planning")} hitSlop={12} className="min-h-[44px] justify-center">
             <Text className="text-sm font-semibold text-link">{t("Voir tout")}</Text>
           </TouchableOpacity>
         </View>

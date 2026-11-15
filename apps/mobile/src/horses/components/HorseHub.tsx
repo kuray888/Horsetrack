@@ -714,7 +714,7 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
       <FadeInView delay={220}>
         <View className="mt-1 flex-row items-center justify-between">
           <Text className="text-xl font-bold text-text">{t("Activité récente")}</Text>
-          <TouchableOpacity accessibilityRole="button" onPress={() => router.push(`/horse/${horse.id}/historique`)}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => router.push(`/horse/${horse.id}/historique`)} hitSlop={12} className="min-h-[44px] justify-center">
             <Text className="text-sm font-semibold text-link">{t("Voir tout")}</Text>
           </TouchableOpacity>
         </View>

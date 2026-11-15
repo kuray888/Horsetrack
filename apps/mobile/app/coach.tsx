@@ -23,6 +23,7 @@ import { CoachConsentCard } from "@/coach/components/CoachConsentCard";
 import { monthName } from "@/lib/progress";
 import { LANG, t } from "@/i18n";
 import { ModalHeader } from "@/components/ModalHeader";
+import { ListSkeleton } from "@/components/Skeleton";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -146,7 +147,11 @@ export default function CoachScreen() {
         />
       </FadeInView>
 
-      {gate === "loading" ? null : gate === "locked" ? (
+      {/* Pendant la vérification (droits, consentement) : la forme de la
+          conversation, jamais un écran vide. */}
+      {gate === "loading" ? (
+        <ListSkeleton rows={2} />
+      ) : gate === "locked" ? (
         <FadeInView delay={40}>
           <View className={`${CARD} gap-3`}>
             <Text className="text-base text-text">
@@ -157,7 +162,9 @@ export default function CoachScreen() {
             <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("coach", { feature: "coach_screen" })} />
           </View>
         </FadeInView>
-      ) : granted === null ? null : granted === false ? (
+      ) : granted === null ? (
+        <ListSkeleton rows={2} />
+      ) : granted === false ? (
         <FadeInView delay={40}>
           <CoachConsentCard onDecline={close} />
         </FadeInView>
