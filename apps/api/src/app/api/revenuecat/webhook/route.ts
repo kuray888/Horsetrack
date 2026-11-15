@@ -145,7 +145,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const userId = event.app_user_id;
+  // Si le traitement échoue après le claim, l'événement ne doit PAS rester
+  // marqué « traité » : RevenueCat réessaierait, mais il serait ignoré, et un
+  // abonné ayant payé resterait gratuit pour le serveur. On rend le claim puis
+  // on remonte l'erreur (500 → nouvelle livraison).
+  try {
+    return await applyEvent(event, paidTier, grantFields);
+  } catch (e) {
+    if (event.id) await db.revenueCatWebhookEvent.delete({ where: { id: event.id } }).catch(() => {});
+    throw e;
+  }
+}
+
+async function applyEvent(
+  event: RevenueCatEvent,
+  paidTier: ReturnType<typeof tierFromEntitlementIds>,
+  grantFields: ReturnType<typeof grantFieldsForEvent>
+) {
+  const userId = event.app_user_id as string;
 
   // Après la déduplication ci-dessus : chaque événement n'est compté qu'une
   // fois. N'influence en rien le traitement qui suit.
