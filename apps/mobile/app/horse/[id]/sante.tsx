@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
@@ -23,6 +23,10 @@ import { SwipeableRow } from "@/components/SwipeableRow";
 import { LIST_PAGE_SIZE, ShowMoreButton } from "@/components/ShowMoreButton";
 import { SubScreenHeader } from "@/components/SubScreenHeader";
 import { t } from "@/i18n";
+import { useToast } from "@/components/Toast";
+import { animateNextLayout } from "@/lib/motion";
+import { track } from "@/lib/analytics";
+import { hapticTap } from "@/lib/haptics";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -42,7 +46,8 @@ export default function HorseSanteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { horses } = useHorses();
   const { isActiveOrTrialing } = useSubscription();
-  const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAgenda();
+  const { appointments, addAppointment, updateAppointment, removeAppointmentUndoable } = useAgenda();
+  const toast = useToast();
   const { measurements } = useWeight();
 
   const horse = horses.find((h) => h.id === id);
@@ -149,17 +154,22 @@ export default function HorseSanteScreen() {
     return { label: capitalize(daysUntilLabel(appt.date)), icon: "clock-outline", color: colors.link };
   }
 
-  // Même confirmation que Planning/Agenda pour un rendez-vous (cf.
-  // même formulation que partout ailleurs) — cet écran n'exposait aucune
-  // suppression : la liste ne faisait que rouvrir l'édition (startEditAppt),
-  // et AppointmentForm n'a pas de bouton "Supprimer" (contrairement aux
-  // cartes d'Agenda/Planning). deleteAppointment existe déjà et gère tout
-  // (annule les rappels programmés, sync cloud) — rien à ajouter côté store.
+  // Même geste que le Planning et le Journal : suppression immédiate et
+  // « Annuler » pendant quelques secondes, au lieu d'une alerte « définitive ».
   function confirmDeleteAppt(appt: Appointment) {
-    Alert.alert(t("Supprimer ce rendez-vous ?"), t("Cette action est définitive."), [
-      { text: t("Annuler"), style: "cancel" },
-      { text: t("Supprimer"), style: "destructive", onPress: () => deleteAppointment(appt) },
-    ]);
+    const removal = removeAppointmentUndoable(appt.id);
+    if (!removal) return;
+    hapticTap();
+    animateNextLayout();
+    track("item_deleted", { kind: "appointment", undoable: true });
+    toast.showUndo(t("Soin supprimé"), {
+      commit: removal.commit,
+      undo: () => {
+        animateNextLayout();
+        removal.undo();
+        track("deletion_undone", { kind: "appointment" });
+      },
+    });
   }
 
   function startAddAppt() {

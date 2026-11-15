@@ -165,7 +165,7 @@ function PlanningScreen() {
     appointments,
     addAppointment,
     updateAppointment,
-    deleteAppointment,
+    removeAppointmentUndoable,
     checklistTemplate,
     saveChecklistTemplate,
     saveResult,
@@ -459,14 +459,24 @@ function PlanningScreen() {
   // d'agenda/store.tsx, sans nouvelle logique.
   const appointmentHandlers = useStableCallbacks({
     onEdit: (a: Appointment) => startEditAppt(a),
-    // Même confirmation que pour une séance ou un souvenir : la suppression
-    // d'un rendez-vous (et de ses rappels) partait au premier toucher, et le
-    // balayage de la carte la rend encore plus facile à déclencher.
-    onDelete: (a: Appointment) =>
-      Alert.alert(t("Supprimer ce rendez-vous ?"), t("Ses rappels seront aussi annulés. Cette action est définitive."), [
-        { text: t("Annuler"), style: "cancel" },
-        { text: t("Supprimer"), style: "destructive", onPress: () => deleteAppointment(a) },
-      ]),
+    // Même geste que pour une séance ou un souvenir : suppression immédiate
+    // et « Annuler » pendant quelques secondes (les rappels ne sont annulés
+    // qu'ensuite, cf. removeAppointmentUndoable).
+    onDelete: (a: Appointment) => {
+      const removal = removeAppointmentUndoable(a.id);
+      if (!removal) return;
+      hapticTap();
+      animateNextLayout();
+      track("item_deleted", { kind: "appointment", undoable: true });
+      toast.showUndo(t("Rendez-vous supprimé"), {
+        commit: removal.commit,
+        undo: () => {
+          animateNextLayout();
+          removal.undo();
+          track("deletion_undone", { kind: "appointment" });
+        },
+      });
+    },
     onSaveResult: (a: Appointment, result: string) => saveResult(a.id, result),
     onToggleChecklistItem: (a: Appointment, itemId: string) => toggleChecklistItem(a.id, itemId),
     onAddChecklistItem: (a: Appointment, label: string) => addChecklistItem(a.id, label),

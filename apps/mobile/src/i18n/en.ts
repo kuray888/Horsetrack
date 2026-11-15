@@ -2532,4 +2532,6 @@ export const EN: Record<string, string> = {
   "Modifier mon profil cavalier": "Edit my rider profile",
   " {v}°C": " {v}°C",
   "Séance {when} — {message}.": "Session {when} — {message}.",
+  "Rendez-vous supprimé": "Appointment deleted",
+  "Soin supprimé": "Care entry deleted",
 };

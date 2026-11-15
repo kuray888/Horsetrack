@@ -413,6 +413,9 @@ type AgendaContextValue = {
   updateExpense: (expenseId: string, patch: Partial<Omit<Expense, "id" | "horseId" | "isPaid" | "documentId">>) => void;
   deleteExpense: (expenseId: string) => void;
   removeExpenseUndoable: (expenseId: string) => { commit: () => void; undo: () => void } | null;
+  /** Comme deleteAppointment, en deux temps (« Annuler ») : les rappels ne
+   * sont annulés qu'au commit, l'undo n'a donc rien à reprogrammer. */
+  removeAppointmentUndoable: (appointmentId: string) => { commit: () => void; undo: () => void } | null;
   toggleExpensePaid: (expenseId: string) => void;
   linkExpenseDocument: (expenseId: string, documentId: string | null) => void;
   hydrateExpensesFromCloud: (expenses: Expense[]) => void;
@@ -1084,6 +1087,23 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const pendingAppointmentRemovalRef = useRef(new Set<string>());
+  const removeAppointmentUndoable = useCallback(
+    (appointmentId: string) =>
+      undoableRemoval<Appointment>({
+        find: (id) => appointmentsRef.current.find((a) => a.id === id),
+        setList: setAppointments,
+        commitRemote: (appt) => {
+          cancelReminder(appt.reminderNotificationId);
+          cancelEmailReminder(appt.emailReminderId);
+          cancelReminder(appt.nextDueNotificationId);
+          deleteAppointmentRemote(appt.id).catch(() => {});
+        },
+        pending: pendingAppointmentRemovalRef.current,
+      })(appointmentId),
+    []
+  );
+
   const deleteExpense = useCallback((expenseId: string) => {
     setExpenses((list) => list.filter((e) => e.id !== expenseId));
     deleteExpenseRemote(expenseId).catch(() => {});
@@ -1138,7 +1158,8 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       }
       const preview = mergeRemote(appointmentsRef.current, remoteAppointments, guard, preserve);
       if (preview.changed) {
-        setAppointments((list) => mergeRemote(list, remoteAppointments, guard, preserve).items);
+        const hiddenAppointments = pendingAppointmentRemovalRef.current;
+        setAppointments((list) => withoutPending(mergeRemote(list, remoteAppointments, guard, preserve).items, hiddenAppointments));
         for (const gone of preview.removed) cancelRemindersOf(gone);
         for (const { before, after } of preview.updated) {
           const horseName = horsesRef.current.find((h) => h.id === after.horseId)?.name ?? null;
@@ -1288,6 +1309,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       updateExpense,
       deleteExpense,
       removeExpenseUndoable,
+      removeAppointmentUndoable,
       toggleExpensePaid,
       linkExpenseDocument,
       hydrateExpensesFromCloud,
@@ -1328,6 +1350,7 @@ export function AgendaProvider({ children }: { children: ReactNode }) {
       updateExpense,
       deleteExpense,
       removeExpenseUndoable,
+      removeAppointmentUndoable,
       removeHorseData,
       toggleExpensePaid,
       linkExpenseDocument,
