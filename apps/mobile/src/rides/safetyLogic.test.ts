@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALERT_RETRY_MS,
   CHECK_TIMEOUT_MS,
   INITIAL_SAFETY_STATE,
   SNOOZE_MS,
   acknowledgeSafety,
   cleanContacts,
   evaluateSafety,
+  retryAlert,
   shouldSendPosition,
   type SafetyState,
 } from "@/rides/safetyLogic";
@@ -92,5 +94,21 @@ describe("cleanContacts", () => {
       { name: "Papa", email: "papa@exemple.fr" },
       { name: "Coach", email: "coach@club.fr" },
     ]);
+  });
+});
+
+describe("alerte qui n'a pas pu partir", () => {
+  it("est rejouée après le délai, sans nouvelle notification, tant que le cavalier est immobile", () => {
+    const now = 10_000_000;
+    let state: SafetyState = { checkStartedAt: now - CHECK_TIMEOUT_MS, snoozeUntil: 0, alertSent: false };
+    const first = evaluateSafety(state, { now, immobile: true, paused: false });
+    expect(first.actions).toContain("send_alert");
+    state = retryAlert(first.state, now);
+    expect(state.alertSent).toBe(false);
+    // Trop tôt : rien.
+    expect(evaluateSafety(state, { now: now + 5_000, immobile: true, paused: false }).actions).toEqual([]);
+    // Après le délai : seulement l'alerte, pas de notification « Tout va bien ? ».
+    const again = evaluateSafety(state, { now: now + ALERT_RETRY_MS, immobile: true, paused: false });
+    expect(again.actions).toEqual(["cancel_check", "send_alert"]);
   });
 });

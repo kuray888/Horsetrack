@@ -9,6 +9,7 @@ import {
   acknowledgeSafety,
   cleanContacts,
   evaluateSafety,
+  retryAlert,
   shouldSendPosition,
   type SafetyAction,
   type SafetyContact,
@@ -184,6 +185,9 @@ async function runActions(actions: SafetyAction[], draft: RideDraft | null): Pro
         lng: last?.lng ?? null,
       });
       if (res?.ok) track("ride_safety_alert_sent", { reason: "immobile" });
+      // Pas de réseau (zone blanche) ou refus du serveur : l'alerte n'est pas
+      // tenue pour envoyée, le prochain point GPS la rejoue (cf. retryAlert).
+      else if (state.alertSent) setState(retryAlert(state, Date.now()));
     }
   }
 }

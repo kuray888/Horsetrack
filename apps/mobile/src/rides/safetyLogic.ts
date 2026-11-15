@@ -56,6 +56,19 @@ export function acknowledgeSafety(state: SafetyState, now: number): { state: Saf
   };
 }
 
+/** Délai avant de rejouer une alerte qui n'a pas pu partir (réseau absent). */
+export const ALERT_RETRY_MS = 30_000;
+
+/**
+ * L'alerte n'a pas atteint le serveur (zone blanche, erreur 5xx) : elle ne doit
+ * pas être tenue pour envoyée. L'état revient juste avant l'envoi, avec un
+ * délai, pour que le prochain point GPS la rejoue tant que le cavalier reste
+ * immobile — sans refaire sonner « Tout va bien ? ».
+ */
+export function retryAlert(state: SafetyState, now: number): SafetyState {
+  return { ...state, alertSent: false, checkStartedAt: now - CHECK_TIMEOUT_MS + ALERT_RETRY_MS };
+}
+
 export function shouldSendPosition(lastSentAt: number, now: number): boolean {
   return now - lastSentAt >= POSITION_EVERY_MS;
 }
