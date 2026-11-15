@@ -7,6 +7,7 @@ import { useHorses, type Horse } from "@/horses/store";
 import { healthConditionsState, knownHealthConditions, toggleHealthCondition } from "@/horses/healthConditions";
 import { generateInjuryId, markInjuryRecovered, sortInjuriesRecentFirst } from "@/horses/injuries";
 import { t as tr } from "@/i18n";
+import { GroupLabel } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -52,7 +53,7 @@ export function HealthHistory({ horse }: { horse: Horse }) {
 
   return (
     <View className={`${CARD} gap-4`}>
-      <Text className="text-sm font-bold uppercase tracking-wide text-muted">{tr("Antécédents")}</Text>
+      <GroupLabel>{tr("Antécédents")}</GroupLabel>
 
       <View className="gap-2.5">
         <View className="flex-row items-center justify-between">

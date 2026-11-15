@@ -13,6 +13,7 @@ import { eventTime, planningFocusParams, type UnifiedEvent } from "@/planning/un
 import { formatWhen, weeklyRecapMessage } from "@/today/todayFormat";
 import { upcomingEventMeta } from "@/today/upcomingEventMeta";
 import { t } from "@/i18n";
+import { SectionHeader } from "@/components/SectionHeader";
 
 /** Cartes secondaires de l'Accueil, sorties de app/(tabs)/today.tsx. */
 
@@ -197,11 +198,8 @@ export function UpcomingCard({ events }: { events: UnifiedEvent[] }) {
   return (
     <>
       <FadeInView delay={140}>
-        <View className="mt-1 flex-row items-center justify-between">
-          <Text className="text-xl font-bold text-text">{t("Prochainement")}</Text>
-          <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(tabs)/planning")} hitSlop={12} className="min-h-[44px] justify-center">
-            <Text className="text-sm font-semibold text-link">{t("Voir tout")}</Text>
-          </TouchableOpacity>
+        <View className="mt-1">
+          <SectionHeader title={t("Prochainement")} action={{ label: t("Voir tout"), onPress: () => router.push("/(tabs)/planning") }} />
         </View>
       </FadeInView>
       <FadeInView delay={160}>

@@ -23,6 +23,7 @@ import { ScreenTitle } from "@/components/ScreenTitle";
 import { QuickAddSheet, openQuickAddFromTab } from "@/components/QuickAddSheet";
 import { t } from "@/i18n";
 import { EmptyStateButton } from "@/components/EmptyStateButton";
+import { GroupLabel } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -285,7 +286,7 @@ function ChevauxScreen() {
       {ownedHorses.length > 0 ? (
         <>
           <FadeInView delay={40}>
-            <Text className="text-sm font-bold uppercase tracking-wide text-muted">{t("Mes chevaux")}</Text>
+            <GroupLabel>{t("Mes chevaux")}</GroupLabel>
           </FadeInView>
           {/* Retour au palier gratuit (fin d'essai, résiliation) : les chevaux
               au-delà du premier restent là, verrouillés. On dit explicitement
@@ -330,7 +331,7 @@ function ChevauxScreen() {
       {sharedHorses.length > 0 ? (
         <>
           <FadeInView delay={160}>
-            <Text className="text-sm font-bold uppercase tracking-wide text-muted">{t("Partagés avec moi")}</Text>
+            <GroupLabel>{t("Partagés avec moi")}</GroupLabel>
           </FadeInView>
           {sharedHorses.map((horse, i) => (
             <FadeInView key={horse.id} delay={200 + i * 60}>

@@ -3,6 +3,7 @@ import { Animated, Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { usePressScale } from "@/hooks/usePressScale";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { GroupLabel } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -141,7 +142,7 @@ export function HorseModuleGroup({ title, children }: { title: string; children:
   const items = Children.toArray(children).filter(Boolean);
   return (
     <View className="gap-2">
-      <Text className="px-1 text-xs font-bold uppercase tracking-wide text-muted">{title}</Text>
+      <GroupLabel className="px-1">{title}</GroupLabel>
       <View className="rounded-card bg-surface px-4 shadow-card">
         {items.map((child, i) => (
           <Fragment key={i}>

@@ -29,6 +29,7 @@ import { notifyPlanning } from "@/planning/planningNotify";
 import { formatDate } from "@/lib/dateFormat";
 import { t } from "@/i18n";
 import { SubScreenHeader } from "@/components/SubScreenHeader";
+import { GroupLabel } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -338,7 +339,7 @@ export default function HorseSlotsScreen() {
         {week.length > 0 ? (
           <FadeInView delay={100}>
             <View className="gap-2">
-              <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Les 7 prochains jours")}</Text>
+              <GroupLabel>{t("Les 7 prochains jours")}</GroupLabel>
               {week.map((o) => (
                 <View key={o.id} className="flex-row items-center justify-between rounded-card bg-surface px-4 py-3">
                   <Text className="text-sm text-text">

@@ -57,6 +57,7 @@ import { exportAllData } from "@/export/exportAllData";
 import { t as tr } from "@/i18n";
 import { hapticSelection } from "@/lib/haptics";
 import { Skeleton } from "@/components/Skeleton";
+import { SectionHeader } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -71,7 +72,7 @@ function daysUntil(dateIso: string | null): number {
 }
 
 function SectionTitle({ children }: { children: string }) {
-  return <Text className="text-xl font-display-bold text-text">{children}</Text>;
+  return <SectionHeader title={children} />;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

@@ -10,6 +10,7 @@ import type { HorseAlert } from "@/horses/alerts";
 import { formatWhen } from "@/today/todayFormat";
 import { upcomingEventMeta } from "@/today/upcomingEventMeta";
 import { t } from "@/i18n";
+import { SectionHeader } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -44,14 +45,7 @@ export function TodaySection({
   return (
     <>
       <FadeInView delay={60}>
-        <View className="flex-row items-center justify-between">
-          <Text className="text-xl font-bold text-text" accessibilityRole="header">
-            {t("Aujourd'hui")}
-          </Text>
-          <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(tabs)/planning")} hitSlop={8}>
-            <Text className="text-sm font-semibold text-link">{t("Voir le planning")}</Text>
-          </TouchableOpacity>
-        </View>
+        <SectionHeader title={t("Aujourd'hui")} action={{ label: t("Voir le planning"), onPress: () => router.push("/(tabs)/planning") }} />
         {partnerToday ? (
           <View className="mt-1 flex-row items-center gap-1.5">
             <MaterialCommunityIcons name="account-heart-outline" size={15} color={colors.accent} />

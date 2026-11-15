@@ -16,6 +16,7 @@ import { useHorseRights } from "@/horses/useHorseRights";
 import { useWeight } from "@/horses/weightStore";
 import { t } from "@/i18n";
 import { SubScreenHeader } from "@/components/SubScreenHeader";
+import { GroupLabel } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -159,7 +160,7 @@ export default function HorseWeightScreen() {
         {horseMeasurements.length > 0 ? (
           <FadeInView delay={140}>
             <View className="gap-2">
-              <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Historique")}</Text>
+              <GroupLabel>{t("Historique")}</GroupLabel>
               {horseMeasurements.map((m) => (
                 <View key={m.id} className={`${CARD} flex-row items-center justify-between`}>
                   <View className="gap-0.5">

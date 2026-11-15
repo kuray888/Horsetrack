@@ -79,6 +79,7 @@ import { ScreenTitle } from "@/components/ScreenTitle";
 import { t } from "@/i18n";
 import { useToast } from "@/components/Toast";
 import { EmptyStateButton } from "@/components/EmptyStateButton";
+import { GroupLabel, SectionHeader } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -1245,7 +1246,7 @@ function PlanningScreen() {
           </FadeInView>
 
           <FadeInView delay={160}>
-            <Text className="text-xl font-bold text-text">{dayHeaderLabel(selectedDay)}</Text>
+            <SectionHeader title={dayHeaderLabel(selectedDay)} />
           </FadeInView>
 
           {selectedDayEvents.length === 0 ? (
@@ -1270,7 +1271,7 @@ function PlanningScreen() {
       ) : (
         <>
           <FadeInView delay={120}>
-            <Text className="text-xl font-bold text-text">{t("À venir")}</Text>
+            <SectionHeader title={t("À venir")} />
           </FadeInView>
 
           {upcoming.length === 0 ? (
@@ -1298,7 +1299,7 @@ function PlanningScreen() {
             upcomingGroups.map((group, gi) => (
               <View key={group.key} className="gap-2">
                 <FadeInView delay={160 + gi * 30}>
-                  <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
+                  <GroupLabel>{group.label}</GroupLabel>
                 </FadeInView>
                 {group.items.map((event, i) => (
                   <FadeInView key={event.id} delay={170 + gi * 30 + i * 40}>
@@ -1333,7 +1334,7 @@ function PlanningScreen() {
                   activeOpacity={0.8}
                   className="mt-2 flex-row items-center justify-between"
                 >
-                  <Text className="text-xl font-bold text-text">{t("Événements passés ({n})", { n: done.length })}</Text>
+                  <Text className="text-title3 font-display-bold text-text">{t("Événements passés ({n})", { n: done.length })}</Text>
                   <MaterialCommunityIcons
                     name={showPast ? "chevron-up" : "chevron-down"}
                     size={22}
@@ -1345,7 +1346,7 @@ function PlanningScreen() {
                 ? doneGroups.map((group, gi) => (
                     <View key={group.key} className="gap-2">
                       <FadeInView delay={240 + gi * 20}>
-                        <Text className="text-xs font-bold uppercase tracking-wide text-muted">{group.label}</Text>
+                        <GroupLabel>{group.label}</GroupLabel>
                       </FadeInView>
                       {group.items.map((event, i) => (
                         <FadeInView key={event.id} delay={250 + gi * 20 + i * 30}>

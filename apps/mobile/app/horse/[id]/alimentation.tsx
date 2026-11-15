@@ -15,6 +15,7 @@ import { hasFeeding, type FeedingPlan } from "@/extras/model";
 import { t } from "@/i18n";
 import { can, roleOf } from "@/lib/permissions";
 import { SubScreenHeader } from "@/components/SubScreenHeader";
+import { GroupLabel } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
@@ -82,7 +83,7 @@ export default function HorseFeedingScreen() {
 
       <FadeInView delay={40}>
         <View className={`${CARD} gap-4`} pointerEvents={readOnly ? "none" : "auto"}>
-          <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Repas")}</Text>
+          <GroupLabel>{t("Repas")}</GroupLabel>
           {plan.meals.map((meal, i) => (
             <View key={meal.id} className="gap-2">
               <View className="flex-row items-center gap-2">

@@ -27,6 +27,7 @@ import { useToast } from "@/components/Toast";
 import { animateNextLayout } from "@/lib/motion";
 import { track } from "@/lib/analytics";
 import { hapticTap } from "@/lib/haptics";
+import { GroupLabel } from "@/components/SectionHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -294,9 +295,7 @@ export default function HorseSanteScreen() {
         {!showApptForm && upcoming.length > 0 ? (
           <FadeInView delay={60}>
             <View className="gap-2">
-              <Text className="text-footnote font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
-                {t("À venir")}
-              </Text>
+              <GroupLabel>{t("À venir")}</GroupLabel>
               {upcoming.map(renderAppt)}
             </View>
           </FadeInView>
@@ -305,9 +304,7 @@ export default function HorseSanteScreen() {
         {!showApptForm && past.length > 0 ? (
           <FadeInView delay={80}>
             <View className="gap-2">
-              <Text className="text-footnote font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
-                {t("Historique")}
-              </Text>
+              <GroupLabel>{t("Historique")}</GroupLabel>
               {past.slice(0, visibleCount).map(renderAppt)}
             </View>
           </FadeInView>
