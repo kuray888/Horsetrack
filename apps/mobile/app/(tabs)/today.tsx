@@ -370,7 +370,12 @@ function TodayScreen() {
         onToggleDone={toggleSessionDone}
       />
 
-      {alerts.length === 0 ? firstSteps : null}
+      {/* « À surveiller » et l'alerte météo juste sous « Aujourd'hui » : ce
+          qui demande une action passe avant tout le reste (2026-11-15). */}
+      {alerts.length > 0 ? <AlertsCard alerts={alerts} /> : null}
+      {weatherWarning ? <WeatherWarningBanner warning={weatherWarning} /> : null}
+
+      {firstSteps}
 
       {/* Ton coach : la prochaine séance, sous « Aujourd'hui » (cf. coach/). */}
       {horse ? <CoachCard horse={horse} /> : null}
@@ -385,12 +390,6 @@ function TodayScreen() {
 
       <DailyTipCard discipline={riderProfile.mainDiscipline} />
 
-      {/* Offre de retour — comptes redevenus gratuits uniquement, quand le
-          serveur en propose une (cf. subscription/WinbackCard.tsx). */}
-      <WinbackCard />
-
-      {weatherWarning ? <WeatherWarningBanner warning={weatherWarning} /> : null}
-
       {notifPermission === false ? (
         <NotificationPrompt
           state={notifState}
@@ -402,13 +401,12 @@ function TodayScreen() {
         />
       ) : null}
 
-      {alerts.length > 0 ? <AlertsCard alerts={alerts} /> : null}
-
-      {/* Premiers pas (s'il y a des alertes), bilan du mois, offre rappels —
-          APRÈS « À surveiller » : une alerte santé passe avant tout message
-          d'engagement. Chacun se masque seul une fois sans objet, ou à la
-          demande. */}
-      {alerts.length > 0 ? firstSteps : null}
+      {/* Bilan du mois, offres et relances — APRÈS « À surveiller » : une
+          alerte santé passe avant tout message d'engagement. Chacun se masque
+          seul une fois sans objet, ou à la demande. */}
+      {/* Offre de retour — comptes redevenus gratuits uniquement, quand le
+          serveur en propose une (cf. subscription/WinbackCard.tsx). */}
+      <WinbackCard />
       {horse ? (
         <MonthlyRecapCard horseId={horse.id} horseName={horse.name} sessions={sessions} appointments={appointments} />
       ) : null}
