@@ -12,6 +12,7 @@ import { useSessions } from "@/sessions/store";
 import { barHeights, comparePeriods, linePoints, regularity, weeklySeries, weightTrend } from "@/progress/series";
 import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const WEEKS = 12;
@@ -54,6 +55,7 @@ export default function HorseProgressionScreen() {
   if (!horse) {
     return (
       <Screen>
+        <SubScreenHeader title={t("Progression")} />
         <View className={`${CARD} items-center gap-2`}>
           <MaterialCommunityIcons name="horse-variant" size={28} color={colors.textMuted} />
           <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
@@ -80,10 +82,10 @@ export default function HorseProgressionScreen() {
   return (
     <Screen>
       <FadeInView>
-        <Text className="text-3xl font-display tracking-tight text-text" accessibilityRole="header">
-          {t("Progression de {name}", { name: horse.name })}
-        </Text>
-        <Text className="mt-1 text-[13px] text-muted">{t("Les {n} dernières semaines, d'après tes séances faites.", { n: WEEKS })}</Text>
+        <SubScreenHeader
+          title={t("Progression de {name}", { name: horse.name })}
+          subtitle={t("Les {n} dernières semaines, d'après tes séances faites.", { n: WEEKS })}
+        />
       </FadeInView>
 
       {totalSessions === 0 && !trend ? (

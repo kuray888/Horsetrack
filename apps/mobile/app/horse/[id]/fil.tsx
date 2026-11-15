@@ -13,6 +13,7 @@ import { authorLabel, relativeTime, type Comment } from "@/community/model";
 import { fetchHorseFeed, isHorseShared, myUserId } from "@/community/api";
 import { t } from "@/i18n";
 import { ListSkeleton } from "@/components/Skeleton";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 
 const CARD = "rounded-card bg-surface p-4 shadow-card";
 
@@ -53,6 +54,7 @@ export default function HorseFeedScreen() {
   if (!horse) {
     return (
       <Screen>
+        <SubScreenHeader title={t("Fil")} />
         <Text className="text-sm text-muted">{t("Ce cheval est introuvable.")}</Text>
       </Screen>
     );
@@ -70,14 +72,10 @@ export default function HorseFeedScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="gap-1">
-          <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
-            {t("Fil de {name}", { name: horse.name })}
-          </Text>
-          <Text className="text-sm text-muted">
-            {t("Commentaires et réactions sur ses séances et ses souvenirs, entre toi et les personnes qui le suivent.")}
-          </Text>
-        </View>
+        <SubScreenHeader
+          title={t("Fil de {name}", { name: horse.name })}
+          subtitle={t("Commentaires et réactions sur ses séances et ses souvenirs, entre toi et les personnes qui le suivent.")}
+        />
       </FadeInView>
 
       {shared === false ? (

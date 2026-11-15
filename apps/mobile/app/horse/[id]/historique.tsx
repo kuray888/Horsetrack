@@ -1,8 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
-import { Text, View } from "react-native";
 import { Screen } from "@/components/Screen";
 import { FadeInView } from "@/components/FadeInView";
-import { BackButton } from "@/components/BackButton";
+import { SubScreenHeader } from "@/components/SubScreenHeader";
 import { useHorses } from "@/horses/store";
 import { useAgenda } from "@/agenda/store";
 import { useSessions } from "@/sessions/store";
@@ -27,19 +26,13 @@ export default function HorseHistoriqueScreen() {
   return (
     <Screen>
       <FadeInView>
-        <View className="gap-1">
-          <View className="flex-row items-center gap-1">
-            <BackButton />
-            <Text className="text-3xl font-display tracking-tight text-text">{t("Historique")}</Text>
-          </View>
-          <Text className="text-base text-muted">{t("La vie de {name}, en un coup d'œil", { name: horse?.name ?? t("ce cheval") })}</Text>
-        </View>
+        <SubScreenHeader title={t("Historique")} subtitle={t("La vie de {name}, en un coup d'œil", { name: horse?.name ?? t("ce cheval") })} />
       </FadeInView>
 
       <FadeInView delay={80}>
         <ActivityFeed
           entries={entries}
-          emptyMessage={t("Rien à afficher pour l'instant : les séances, soins, entrées de journal et dépenses passées de {v} apparaîtront ici.", { v: horse?.name ?? "ce cheval" })}
+          emptyMessage={t("Rien à afficher pour l'instant : les séances, soins, entrées de journal et dépenses passées de {v} apparaîtront ici.", { v: horse?.name ?? t("ce cheval") })}
         />
       </FadeInView>
     </Screen>
