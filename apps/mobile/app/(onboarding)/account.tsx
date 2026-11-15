@@ -1,3 +1,4 @@
+import { purgeAccountMediaFiles } from "@/lib/localMedia";
 import { useEffect, useRef, useState } from "react";
 import { clearExtras } from "@/extras/store";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -177,6 +178,8 @@ export default function OnboardingAccount() {
         // sous cette identité-ci (cf. lib/syncQueue.ts).
         clearSyncQueue(),
       ]);
+      // Fichiers du compte précédent (photos, coffre-fort) restés sur le disque.
+      purgeAccountMediaFiles();
     }
     await setLocalDataOwner(userId);
   }

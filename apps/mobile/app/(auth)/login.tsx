@@ -23,6 +23,7 @@ import {
   pullWeightMeasurements,
 } from "@/lib/cloudSync";
 import { clearSyncQueue } from "@/lib/syncQueue";
+import { purgeAccountMediaFiles } from "@/lib/localMedia";
 import { clearHorseTeams } from "@/horses/team";
 import { clearSlots } from "@/planning/slotsStore";
 import { clearFees } from "@/fees/feesStore";
@@ -128,6 +129,10 @@ export default function LoginScreen() {
       const owner = await getLocalDataOwner();
       if (owner !== userId) {
         await Promise.all([
+          // Écurie et profil de l'ancien compte : remplacés à la restauration,
+          // mais s'il n'y a rien à restaurer (nouveau compte) ils restaient là.
+          clearHorses(),
+          clearRiderProfile(),
           clearSessions(),
           clearAgenda(),
           clearGoals(),
@@ -145,6 +150,10 @@ export default function LoginScreen() {
           clearFees(),
           clearTasks(),
         ]);
+        // Photos et pièces du coffre-fort de l'ancien compte, copiées sur le
+        // téléphone : plus aucune liste ne les référence, elles y restaient
+        // pourtant (cf. lib/localMedia.ts).
+        purgeAccountMediaFiles();
 
         try {
           const cloudData = await withTimeout(
