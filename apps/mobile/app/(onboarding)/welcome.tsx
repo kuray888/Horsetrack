@@ -17,10 +17,11 @@ import { t } from "@/i18n";
  * - « On m'a invité·e » : demi-pension, coach, groom — le compte d'abord,
  *   pour accepter le partage sans inventer de cheval (cf. pending-invites).
  * Un brouillon sauvegardé (app fermée pendant la confirmation de l'e-mail,
- * par exemple) se reprend d'un toucher, directement au récapitulatif.
+ * par exemple) se reprend d'un toucher : à la première action si elle n'est
+ * pas encore choisie, sinon directement à la récompense.
  */
 export default function Welcome() {
-  const { horses, hydrated, setFlow, reset } = useOnboarding();
+  const { horses, firstAction, hydrated, setFlow, reset } = useOnboarding();
   const resumable = hydrated && hasResumableDraft({ horses });
   const resumeName = horses.find((h) => h.isPrimary)?.name.trim() || horses.find((h) => h.name.trim())?.name.trim();
 
@@ -48,7 +49,9 @@ export default function Welcome() {
   function resume() {
     track("onboarding_path_chosen", { path: "resume" });
     setFlow("owner");
-    router.push("/(onboarding)/summary");
+    // Première action déjà choisie : directement la récompense. Sinon on la
+    // propose (elle se passe d'un « Plus tard ») plutôt que de la sauter.
+    router.push(firstAction ? "/(onboarding)/summary" : "/(onboarding)/first-action");
   }
 
   return (

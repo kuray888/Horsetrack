@@ -564,6 +564,69 @@ export function PaywallView({
           : t("Essayer gratuitement pendant {trialDurationLabel}", { trialDurationLabel: trialDurationLabel(trial) })
         : t("S'abonner · {priceString}/{v}", { priceString: selected.priceString, v: PERIOD_WORD[period] });
 
+  // Blocs du paywall, ordonnés selon la variante : « focused » met les formules
+  // juste sous le titre (les deux visibles sans défiler), les bénéfices en
+  // dessous ; le témoin garde bénéfices puis formules.
+  const benefitsBlock = (
+      <View className="gap-3">
+        {benefits.map((id, i) => (
+          <FadeInView key={id} delay={80 + i * 60}>
+            <View className="flex-row items-center gap-3">
+              <View className="h-8 w-8 items-center justify-center rounded-full bg-highlight">
+                <MaterialCommunityIcons name={BENEFITS[id].icon as IconName} size={17} color={colors.primary} />
+              </View>
+              <Text className="flex-1 text-[15px] leading-5 text-text">{BENEFITS[id].text}</Text>
+            </View>
+          </FadeInView>
+        ))}
+        <TouchableOpacity
+          onPress={() => {
+            if (!compareOpen) track("paywall_compare_opened", { placement });
+            animateNextLayout();
+            setCompareOpen((v) => !v);
+          }}
+          activeOpacity={0.7}
+          className="flex-row items-center gap-1 self-start py-1"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: compareOpen }}
+        >
+          <Text className="text-sm font-semibold text-link">{t("Comparer gratuit et Premium")}</Text>
+          <MaterialCommunityIcons name={compareOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.link} />
+        </TouchableOpacity>
+        {compareOpen ? <ComparisonCard /> : null}
+      </View>
+  );
+  const plansBlock = (
+      <View className="gap-3" accessibilityRole="radiogroup">
+        <PlanCard
+          testID="paywall-plan-annual"
+          label={t("Annuel")}
+          price={loading ? null : storeUnavailable ? "—" : t("{price}/an", { price: annual.priceString })}
+          sub={annualSub}
+          note={trialNote("ANNUAL")}
+          badge={
+            currentPeriod === "ANNUAL"
+              ? t("Ta formule")
+              : savings
+                ? t("Le plus avantageux · −{savings} %", { savings: savings })
+                : t("Le plus avantageux")
+          }
+          selected={period === "ANNUAL"}
+          onPress={() => selectPeriod("ANNUAL")}
+        />
+        <PlanCard
+          testID="paywall-plan-monthly"
+          label={t("Mensuel")}
+          price={loading ? null : storeUnavailable ? "—" : t("{price}/mois", { price: monthly.priceString })}
+          sub={t("sans engagement")}
+          note={trialNote("MONTHLY")}
+          badge={currentPeriod === "MONTHLY" ? t("Ta formule") : null}
+          selected={period === "MONTHLY"}
+          onPress={() => selectPeriod("MONTHLY")}
+        />
+      </View>
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       {onClose ? (
@@ -591,62 +654,9 @@ export function PaywallView({
           </View>
         </FadeInView>
 
-        <View className="gap-3">
-          {benefits.map((id, i) => (
-            <FadeInView key={id} delay={80 + i * 60}>
-              <View className="flex-row items-center gap-3">
-                <View className="h-8 w-8 items-center justify-center rounded-full bg-highlight">
-                  <MaterialCommunityIcons name={BENEFITS[id].icon as IconName} size={17} color={colors.primary} />
-                </View>
-                <Text className="flex-1 text-[15px] leading-5 text-text">{BENEFITS[id].text}</Text>
-              </View>
-            </FadeInView>
-          ))}
-          <TouchableOpacity
-            onPress={() => {
-              if (!compareOpen) track("paywall_compare_opened", { placement });
-              animateNextLayout();
-              setCompareOpen((v) => !v);
-            }}
-            activeOpacity={0.7}
-            className="flex-row items-center gap-1 self-start py-1"
-            accessibilityRole="button"
-            accessibilityState={{ expanded: compareOpen }}
-          >
-            <Text className="text-sm font-semibold text-link">{t("Comparer gratuit et Premium")}</Text>
-            <MaterialCommunityIcons name={compareOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.link} />
-          </TouchableOpacity>
-          {compareOpen ? <ComparisonCard /> : null}
-        </View>
+        {focused ? plansBlock : benefitsBlock}
 
-        <View className="gap-3" accessibilityRole="radiogroup">
-          <PlanCard
-            testID="paywall-plan-annual"
-            label={t("Annuel")}
-            price={loading ? null : storeUnavailable ? "—" : t("{price}/an", { price: annual.priceString })}
-            sub={annualSub}
-            note={trialNote("ANNUAL")}
-            badge={
-              currentPeriod === "ANNUAL"
-                ? t("Ta formule")
-                : savings
-                  ? t("Le plus avantageux · −{savings} %", { savings: savings })
-                  : t("Le plus avantageux")
-            }
-            selected={period === "ANNUAL"}
-            onPress={() => selectPeriod("ANNUAL")}
-          />
-          <PlanCard
-            testID="paywall-plan-monthly"
-            label={t("Mensuel")}
-            price={loading ? null : storeUnavailable ? "—" : t("{price}/mois", { price: monthly.priceString })}
-            sub={t("sans engagement")}
-            note={trialNote("MONTHLY")}
-            badge={currentPeriod === "MONTHLY" ? t("Ta formule") : null}
-            selected={period === "MONTHLY"}
-            onPress={() => selectPeriod("MONTHLY")}
-          />
-        </View>
+        {focused ? benefitsBlock : plansBlock}
 
         {trialConfirmed ? <TrialTimeline reminderAt={reminderAt} endAt={trialEnd} priceLine={priceLine} /> : null}
 

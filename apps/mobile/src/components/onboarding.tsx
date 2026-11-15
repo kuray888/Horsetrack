@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Animated, View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { Animated, KeyboardAvoidingView, Platform, View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -92,30 +92,34 @@ export function OnboardingShell({
         </View>
       </View>
 
-      <ScrollView
-        contentContainerClassName="px-5 pt-6 pb-4 gap-5"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <FadeInView>
-          <View className="gap-2">
-            <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
-            {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
-          </View>
-        </FadeInView>
-        <FadeInView delay={80}>
-          <View className="gap-5">{children}</View>
-        </FadeInView>
-      </ScrollView>
+      {/* Le bouton principal remonte au-dessus du clavier : sans ça, un champ
+          qui ouvre le clavier à l'arrivée (nom du cheval) le cachait. */}
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView
+          contentContainerClassName="px-5 pt-6 pb-4 gap-5"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <FadeInView>
+            <View className="gap-2">
+              <Text className="text-2xl font-display tracking-tight text-text">{title}</Text>
+              {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
+            </View>
+          </FadeInView>
+          <FadeInView delay={80}>
+            <View className="gap-5">{children}</View>
+          </FadeInView>
+        </ScrollView>
 
-      <View className="gap-3 px-5 pb-2 pt-3">
-        <PrimaryButton testID={ctaTestID} label={ctaLabel} disabled={ctaDisabled} onPress={onNext} />
-        {secondaryLabel && onSecondary ? (
-          <TouchableOpacity onPress={onSecondary} hitSlop={8} className="py-1" accessibilityRole="button" testID="onboarding-secondary">
-            <Text className="text-center text-sm font-semibold text-link">{secondaryLabel}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+        <View className="gap-3 px-5 pb-2 pt-3">
+          <PrimaryButton testID={ctaTestID} label={ctaLabel} disabled={ctaDisabled} onPress={onNext} />
+          {secondaryLabel && onSecondary ? (
+            <TouchableOpacity onPress={onSecondary} hitSlop={8} className="py-1" accessibilityRole="button" testID="onboarding-secondary">
+              <Text className="text-center text-sm font-semibold text-link">{secondaryLabel}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </KeyboardAvoidingView>
       <PickerOverlaySlot />
     </SafeAreaView>
   );

@@ -305,6 +305,25 @@ function TodayScreen() {
     }
   }
 
+  // Premiers pas : propriétaire seulement (un cheval partagé n'est pas à
+  // configurer). Placé sous « Aujourd'hui » quand aucune alerte n'est en
+  // cours — c'est l'action immédiate d'un compte neuf, elle ne doit pas se
+  // chercher en bas de l'écran —, et après les alertes de santé sinon : une
+  // alerte passe avant tout message d'engagement. Un seul des deux
+  // emplacements est rendu à la fois (cf. engagementSlotLogic.ts).
+  const firstSteps =
+    horse && !horse.sharedRole ? (
+      <FirstStepsCard
+        horseName={horse.name}
+        hasPhoto={!!horse.photoUrl}
+        hasSession={horseSessions.length > 0}
+        hasHealthAppointment={hasHealthAppointment}
+        onAddPhoto={() => router.push(`/edit-horse-modal?id=${horse.id}`)}
+        onPlanSession={() => handleQuickAdd("seance")}
+        onAddHealthAppointment={() => handleQuickAdd("soin")}
+      />
+    ) : null;
+
   return (
     <EngagementSlotProvider>
     <Screen
@@ -351,6 +370,8 @@ function TodayScreen() {
         onToggleDone={toggleSessionDone}
       />
 
+      {alerts.length === 0 ? firstSteps : null}
+
       {/* Ton coach : la prochaine séance, sous « Aujourd'hui » (cf. coach/). */}
       {horse ? <CoachCard horse={horse} /> : null}
 
@@ -383,21 +404,11 @@ function TodayScreen() {
 
       {alerts.length > 0 ? <AlertsCard alerts={alerts} /> : null}
 
-      {/* Premiers pas, bilan du mois, offre rappels — APRÈS « À surveiller » :
-          une alerte santé passe avant tout message d'engagement. Chacun se
-          masque seul une fois sans objet, ou à la demande. Premiers pas :
-          propriétaire seulement (un cheval partagé n'est pas à configurer). */}
-      {horse && !horse.sharedRole ? (
-        <FirstStepsCard
-          horseName={horse.name}
-          hasPhoto={!!horse.photoUrl}
-          hasSession={horseSessions.length > 0}
-          hasHealthAppointment={hasHealthAppointment}
-          onAddPhoto={() => router.push(`/edit-horse-modal?id=${horse.id}`)}
-          onPlanSession={() => handleQuickAdd("seance")}
-          onAddHealthAppointment={() => handleQuickAdd("soin")}
-        />
-      ) : null}
+      {/* Premiers pas (s'il y a des alertes), bilan du mois, offre rappels —
+          APRÈS « À surveiller » : une alerte santé passe avant tout message
+          d'engagement. Chacun se masque seul une fois sans objet, ou à la
+          demande. */}
+      {alerts.length > 0 ? firstSteps : null}
       {horse ? (
         <MonthlyRecapCard horseId={horse.id} horseName={horse.name} sessions={sessions} appointments={appointments} />
       ) : null}
