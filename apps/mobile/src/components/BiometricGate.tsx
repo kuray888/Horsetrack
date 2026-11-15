@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { supabase } from "@/lib/supabase";
 import { unregisterPushToken } from "@/lib/pushRegistration";
+import { resolveGateStatus } from "@/components/biometricGateLogic";
 import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
 import { isNativeInteractionActive } from "@/lib/nativeInteraction";
 import { colors } from "@/theme/colors";
@@ -38,15 +39,28 @@ export function BiometricGate() {
   // indéfiniment sur le spinner "checking" après le tout premier passage en
   // arrière-plan, pour tous les utilisateurs (cf. audit du 2026-09-08).
   const pendingReEval = useRef(false);
+  // Verrou actif ? Sert à masquer le contenu dans le sélecteur d'applications.
+  const lockEnabledRef = useRef(false);
+  const [covered, setCovered] = useState(false);
 
   async function evaluate() {
+    // Chaque lecture est isolée : une erreur de l'une ne doit jamais ouvrir
+    // l'app quand le verrou est actif (cf. biometricGateLogic.ts).
+    let lockEnabled = false;
     try {
-      const [lockEnabled, { data }] = await Promise.all([isBiometricLockEnabled(), supabase.auth.getSession()]);
-      setStatus(lockEnabled && data.session ? "locked" : "unlocked");
+      lockEnabled = await isBiometricLockEnabled();
     } catch (e) {
-      console.warn("[biometric-gate] évaluation échouée, déverrouillé par défaut", e);
-      setStatus("unlocked");
+      console.warn("[biometric-gate] lecture du réglage échouée", e);
     }
+    let session: "present" | "absent" | "unknown" = "unknown";
+    try {
+      const { data } = await supabase.auth.getSession();
+      session = data.session ? "present" : "absent";
+    } catch (e) {
+      console.warn("[biometric-gate] lecture de la session échouée", e);
+    }
+    lockEnabledRef.current = lockEnabled;
+    setStatus(resolveGateStatus({ lockEnabled, session }));
   }
 
   useEffect(() => {
@@ -56,6 +70,9 @@ export function BiometricGate() {
     evaluate();
 
     const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
+      // Le sélecteur d'applications d'iOS photographie l'écran à l'état
+      // « inactive » : avec le verrou actif, on le recouvre avant la capture.
+      setCovered(next !== "active" && lockEnabledRef.current && !isNativeInteractionActive());
       if (next === "background") {
         // Sur Android, ouvrir le sélecteur de photos, la feuille de partage,
         // une demande de permission ou l'écran de paiement met notre activité
@@ -134,7 +151,9 @@ export function BiometricGate() {
     if (status === "locked") tryUnlock();
   }, [status]);
 
-  if (status === "unlocked") return null;
+  if (status === "unlocked") {
+    return covered ? <View className="absolute inset-0 z-50 bg-background" pointerEvents="none" accessibilityElementsHidden /> : null;
+  }
 
   if (status === "checking") {
     return (
