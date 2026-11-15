@@ -84,6 +84,14 @@ export function elevationChange(alts: (number | null)[], thresholdM = 3): { gain
   return { gain: Math.round(gain), loss: Math.round(loss) };
 }
 
+/** Vitesses (km/h) des points d'une trace relue, dans l'ordre du tracé ; null
+ * si la trace manque (séance d'avant la 1.3.0) ou ne correspond pas au tracé
+ * (`routeLength` points) : le tracé reste alors d'une seule couleur. */
+export function traceSpeedsKmh(trace: ParsedTrace | null, routeLength: number): number[] | null {
+  if (!trace || trace.s.length !== routeLength || routeLength < 2) return null;
+  return trace.s.map((v) => v / 10);
+}
+
 /** Tronçons de tracé de même allure, pour colorer le parcours : `from` et `to`
  * sont des indices de points ; chaque tronçon rejoint le suivant. */
 export function gaitRuns(speedsKmh: number[]): { gait: Gait; from: number; to: number }[] {

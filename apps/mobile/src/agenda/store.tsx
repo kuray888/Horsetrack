@@ -112,7 +112,9 @@ export const ACTIVITY_META: Record<
   { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; tint: string; chip: string; tag: string }
 > = {
   dressage: { label: t("Dressage"), icon: "horse-variant", tint: colors.primary, chip: "bg-primary/15", tag: "text-primary" },
+  plat: { label: t("Plat"), icon: "horse-variant-fast", tint: colors.primary, chip: "bg-primary/15", tag: "text-primary" },
   cso: { label: "CSO", icon: "flag-checkered", tint: colors.accent, chip: "bg-accent/15", tag: "text-link" },
+  barres_au_sol: { label: t("Barres au sol / cavaletti"), icon: "reorder-horizontal", tint: colors.accent, chip: "bg-accent/15", tag: "text-link" },
   balade: { label: t("Balade"), icon: "walk", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
   longe: { label: t("Longe"), icon: "sync", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
   repos: { label: t("Repos"), icon: "sleep", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },

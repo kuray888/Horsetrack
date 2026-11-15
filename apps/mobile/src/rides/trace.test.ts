@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildTrace, parseTrace, smoothAltitudes, elevationChange, gaitRuns, traceStats } from "./trace";
+import { buildTrace, parseTrace, smoothAltitudes, elevationChange, gaitRuns, traceSpeedsKmh, traceStats } from "./trace";
+import { gaitColorsFor } from "./gaitColors";
 import type { RidePoint } from "./rideMath";
 
 const P = (sec: number, lat: number, speedMs: number | null, alt?: number | null): RidePoint => ({ t: 1_000_000 + sec * 1000, lat, lng: 2, acc: 5, speed: speedMs, alt });
@@ -76,5 +77,35 @@ describe("traceStats", () => {
     const st = traceStats(parsed);
     expect(st.maxKmh).toBeCloseTo(8.5, 1);
     expect(st.gain).toBeGreaterThan(0);
+  });
+});
+
+describe("traceSpeedsKmh", () => {
+  const trace = { t: [0, 1, 2], s: [10, 85, 190], a: null };
+
+  it("rend la vitesse de chaque point en km/h, dans l'ordre du tracé", () => {
+    expect(traceSpeedsKmh(trace, 3)).toEqual([1, 8.5, 19]);
+  });
+
+  it("garde un tracé d'une seule couleur sans trace (séance d'avant la 1.3.0)", () => {
+    expect(traceSpeedsKmh(null, 3)).toBeNull();
+  });
+
+  it("ne colore pas un tracé qui ne correspond pas à sa trace", () => {
+    expect(traceSpeedsKmh(trace, 5)).toBeNull();
+    expect(traceSpeedsKmh({ t: [0], s: [10], a: null }, 1)).toBeNull();
+  });
+
+  it("découpe le tracé en arrêt, trot puis galop selon la vitesse", () => {
+    const long = { t: [0, 1, 2, 3, 4, 5], s: [10, 10, 85, 85, 190, 190], a: null };
+    const runs = gaitRuns(traceSpeedsKmh(long, 6)!);
+    expect(runs.map((r) => r.gait)).toEqual(["halt", "trot", "canter"]);
+  });
+});
+
+describe("gaitColorsFor", () => {
+  it("donne une couleur différente à chaque allure", () => {
+    const c = gaitColorsFor({ border: "#111", success: "#222", accent: "#333", primary: "#444" });
+    expect(c).toEqual({ halt: "#111", walk: "#222", trot: "#333", canter: "#444" });
   });
 });

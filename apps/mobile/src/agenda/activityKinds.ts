@@ -14,13 +14,17 @@ import type { ColumnState } from "@/lib/schemaGaps";
  */
 
 export const LEGACY_ACTIVITIES = ["dressage", "cso", "balade", "longe", "repos"] as const;
-export const EXTRA_ACTIVITIES = ["travail_a_pied", "liberte", "cross", "endurance", "trec", "pansage"] as const;
+export const EXTRA_ACTIVITIES = ["plat", "barres_au_sol", "travail_a_pied", "liberte", "cross", "endurance", "trec", "pansage"] as const;
 
 export type LegacyActivity = (typeof LEGACY_ACTIVITIES)[number];
 export type ExtraActivity = (typeof EXTRA_ACTIVITIES)[number];
 export type ActivityType = LegacyActivity | ExtraActivity;
 
 const LEGACY_OF: Record<ExtraActivity, LegacyActivity> = {
+  // Plat (travail sans obstacle) : le plus proche est le dressage ; barres au
+  // sol et cavaletti : le plus proche est le CSO.
+  plat: "dressage",
+  barres_au_sol: "cso",
   travail_a_pied: "longe",
   liberte: "longe",
   cross: "cso",

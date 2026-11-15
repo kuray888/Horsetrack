@@ -14,7 +14,7 @@ import type { SessionRide } from "@/rides/types";
 import { decodePolyline, formatDistance, formatSpeed } from "@/rides/rideMath";
 import { GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { RouteTrace } from "@/rides/components/RouteTrace";
-import { parseTrace } from "@/rides/trace";
+import { parseTrace, traceSpeedsKmh } from "@/rides/trace";
 import { exportRideGpx } from "@/rides/exportRideGpx";
 import { hapticTap } from "@/lib/haptics";
 import { t } from "@/i18n";
@@ -251,12 +251,13 @@ function RideDetails({ ride, name, sessionId }: { ride: SessionRide; name: strin
   const colors = useThemeColors();
   const route = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
   const trace = useMemo(() => parseTrace(ride.trace, route.length), [ride.trace, route.length]);
+  const speeds = useMemo(() => traceSpeedsKmh(trace, route.length), [trace, route.length]);
   return (
     <View className="gap-3">
       <GaitBreakdown
         seconds={{ walk: ride.walkSeconds, trot: ride.trotSeconds, canter: ride.canterSeconds, halt: ride.haltSeconds }}
       />
-      {route.length > 1 ? <RouteTrace coords={route} height={140} /> : null}
+      {route.length > 1 ? <RouteTrace coords={route} speedsKmh={speeds} height={140} /> : null}
       {trace ? (
         <TouchableOpacity
           accessibilityRole="button"

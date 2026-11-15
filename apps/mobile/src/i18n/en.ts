@@ -475,6 +475,8 @@ export const EN: Record<string, string> = {
   "Barre isolée × 6 passages (3 pas + 3 trot)": "Single pole × 6 passes (3 walk + 3 trot)",
   "Barre unique abordée des deux mains × 6": "Single pole on both reins × 6",
   "Barres au sol": "Ground poles",
+  "Barres au sol / cavaletti": "Ground poles / cavaletti",
+  "Plat": "Flatwork",
   "Barres en éventail × 4 passages": "Fan of poles × 4 passes",
   "Beaucoup de rappels programmés": "Many reminders scheduled",
   "Bien": "Good",

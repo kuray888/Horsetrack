@@ -48,6 +48,7 @@ import {
 import { cleanContacts } from "@/rides/safetyLogic";
 import { useNow, useRideDraft, useSafetyState } from "@/rides/useRide";
 import { RouteTrace } from "@/rides/components/RouteTrace";
+import { parseTrace, traceSpeedsKmh } from "@/rides/trace";
 import { GAIT_LABEL, GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { SafetySetupCard } from "@/rides/components/SafetySetupCard";
 import { t } from "@/i18n";
@@ -57,7 +58,7 @@ const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
 /** Activités proposées au départ : le repos ne s'enregistre pas en direct. */
-const RIDE_ACTIVITIES: ActivityType[] = ["balade", "dressage", "cso", "cross", "endurance", "trec", "longe", "travail_a_pied"];
+const RIDE_ACTIVITIES: ActivityType[] = ["balade", "dressage", "plat", "cso", "barres_au_sol", "cross", "endurance", "trec", "longe", "travail_a_pied"];
 
 /**
  * Séance en direct : préparation → chrono/GPS → bilan. Trois écrans en un,
@@ -463,6 +464,7 @@ function RideSummaryView({ draft, endedAt }: { draft: RideDraft; endedAt: number
   const ride = useMemo(() => buildSessionRide(draft, endedAt), [draft, endedAt]);
   const horse = horses.find((h) => h.id === draft.horseId) ?? null;
   const route = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
+  const routeSpeeds = useMemo(() => traceSpeedsKmh(parseTrace(ride.trace, route.length), route.length), [ride.trace, route.length]);
   async function handleSave() {
     if (saving) return;
     setSaving(true);
@@ -527,7 +529,7 @@ function RideSummaryView({ draft, endedAt }: { draft: RideDraft; endedAt: number
 
       {route.length > 1 ? (
         <FadeInView delay={80}>
-          <RouteTrace coords={route} />
+          <RouteTrace coords={route} speedsKmh={routeSpeeds} />
         </FadeInView>
       ) : null}
 

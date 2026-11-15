@@ -28,6 +28,8 @@ export type CoachSuggestion = {
 /** Séances du planning → type de la bibliothèque le plus proche. */
 const TYPES_OF_ACTIVITY: Partial<Record<ActivityType, SessionType[]>> = {
   dressage: ["DRESSAGE_BASICS", "ASSOUPLISSEMENT"],
+  plat: ["DRESSAGE_BASICS", "ASSOUPLISSEMENT"],
+  barres_au_sol: ["BARRES_AU_SOL"],
   cso: ["BARRES_AU_SOL", "OBSTACLE"],
   cross: ["OBSTACLE"],
   balade: ["SORTIE_EXTERIEURE"],

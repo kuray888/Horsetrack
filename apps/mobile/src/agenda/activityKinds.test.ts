@@ -17,6 +17,10 @@ describe("types de séance côté serveur", () => {
     expect(activityToServer("travail_a_pied")).toEqual({ activityType: "LONGE", activityKind: "travail_a_pied" });
     expect(activityToServer("cross")).toEqual({ activityType: "CSO", activityKind: "cross" });
     expect(activityToServer("pansage")).toEqual({ activityType: "REPOS", activityKind: "pansage" });
+    // Plat et barres au sol : une ancienne version de l'app les affiche en
+    // « Dressage » et « CSO », jamais en erreur.
+    expect(activityToServer("plat")).toEqual({ activityType: "DRESSAGE", activityKind: "plat" });
+    expect(activityToServer("barres_au_sol")).toEqual({ activityType: "CSO", activityKind: "barres_au_sol" });
     for (const kind of EXTRA_ACTIVITIES) {
       expect(LEGACY_ACTIVITIES).toContain(activityToServer(kind).activityType.toLowerCase());
     }
@@ -24,6 +28,8 @@ describe("types de séance côté serveur", () => {
 
   it("relit le type précis, ou le type de base, ou un défaut sûr", () => {
     expect(activityFromServer("LONGE", "travail_a_pied")).toBe("travail_a_pied");
+    expect(activityFromServer("DRESSAGE", "plat")).toBe("plat");
+    expect(activityFromServer("CSO", "barres_au_sol")).toBe("barres_au_sol");
     expect(activityFromServer("CSO", null)).toBe("cso");
     expect(activityFromServer("CSO", "type_futur")).toBe("cso");
     expect(activityFromServer("INCONNU", undefined)).toBe("balade");
@@ -40,6 +46,8 @@ describe("types de séance côté serveur", () => {
     expect(isRestActivity("pansage")).toBe(true);
     expect(isRestActivity("repos")).toBe(true);
     expect(isRestActivity("trec")).toBe(false);
+    expect(isRestActivity("plat")).toBe(false);
+    expect(isRestActivity("barres_au_sol")).toBe(false);
   });
 
   it("ignore un type précis périmé, laissé par une ancienne version de l'app", () => {

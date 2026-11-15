@@ -9,6 +9,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { useSessions } from "@/sessions/store";
 import { GAIT_LABEL } from "@/rides/components/GaitBreakdown";
 import { classifyGait, decodePolyline, formatClock, formatSpeed, projectRoute } from "@/rides/rideMath";
+import { gaitColorsFor } from "@/rides/gaitColors";
 import { gaitRuns, parseTrace, smoothAltitudes, traceStats } from "@/rides/trace";
 import { linePoints } from "@/progress/series";
 import { hapticSelection } from "@/lib/haptics";
@@ -38,7 +39,7 @@ export default function RideReplayScreen() {
     track("ride_replay_opened");
   }, []);
 
-  const gaitColor = { halt: colors.border, walk: colors.success, trot: colors.accent, canter: colors.primary } as const;
+  const gaitColor = gaitColorsFor(colors);
   const speeds = useMemo(() => (trace ? trace.s.map((v) => v / 10) : []), [trace]);
   const pts = useMemo(() => (width > 0 && route.length > 1 ? projectRoute(route, width, MAP_H, 16) : []), [route, width]);
   const runs = useMemo(() => gaitRuns(speeds), [speeds]);
