@@ -633,6 +633,7 @@ export const EN: Record<string, string> = {
   "Comtois": "Comtois",
   "Concentration": "Focus",
   "Concours": "Show",
+  "Journée complète": "Full day",
   "Concours ": "Show ",
   "Concours complet": "Eventing",
   "concours disputé": "show entered",

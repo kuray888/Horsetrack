@@ -123,6 +123,7 @@ export const ACTIVITY_META: Record<
   cross: { label: t("Cross / complet"), icon: "pine-tree", tint: colors.accent, chip: "bg-accent/15", tag: "text-link" },
   endurance: { label: t("Endurance"), icon: "map-marker-distance", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
   trec: { label: "TREC", icon: "compass-outline", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
+  concours: { label: t("Concours"), icon: "trophy-outline", tint: colors.accent, chip: "bg-accent/15", tag: "text-link" },
   pansage: { label: t("Pansage / soins"), icon: "brush", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },
 };
 

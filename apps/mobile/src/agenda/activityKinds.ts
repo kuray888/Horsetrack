@@ -14,7 +14,7 @@ import type { ColumnState } from "@/lib/schemaGaps";
  */
 
 export const LEGACY_ACTIVITIES = ["dressage", "cso", "balade", "longe", "repos"] as const;
-export const EXTRA_ACTIVITIES = ["plat", "barres_au_sol", "travail_a_pied", "liberte", "cross", "endurance", "trec", "pansage"] as const;
+export const EXTRA_ACTIVITIES = ["plat", "barres_au_sol", "travail_a_pied", "liberte", "cross", "endurance", "trec", "pansage", "concours"] as const;
 
 export type LegacyActivity = (typeof LEGACY_ACTIVITIES)[number];
 export type ExtraActivity = (typeof EXTRA_ACTIVITIES)[number];
@@ -31,6 +31,8 @@ const LEGACY_OF: Record<ExtraActivity, LegacyActivity> = {
   endurance: "balade",
   trec: "balade",
   pansage: "repos",
+  // Concours : le plus proche est le CSO, lisible par toutes les versions.
+  concours: "cso",
 };
 
 /** Séances qui ne comptent pas comme du travail (statistiques, semaine). */

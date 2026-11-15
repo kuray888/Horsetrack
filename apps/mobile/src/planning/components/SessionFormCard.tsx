@@ -12,6 +12,7 @@ import { HorseMultiSelect } from "@/horses/components/HorseMultiSelect";
 import { MAX_ENTRIES_PER_SUBMIT } from "@/horses/selectableHorses";
 import { OTHER_OPTION } from "@/onboarding/options";
 import { ACTIVITY_META } from "@/agenda/store";
+import { isRestActivity } from "@/agenda/activityKinds";
 import type { SessionIntensity } from "@/sessions/store";
 import { INTENSITY_META } from "@/sessions/components/SessionCard";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -126,6 +127,14 @@ export function SessionFormCard({
         </Field>
       ) : null}
       <DatePickerField label={t("Date")} value={form.date} onChange={(date) => setForm((f) => ({ ...f, date }))} />
+      {isRestActivity(form.activityType) ? (
+        <Field label={t("Durée")}>
+          <View className="flex-row items-center gap-2 rounded-card border border-border bg-surface p-4">
+            <MaterialCommunityIcons name="weather-sunny" size={20} color={colors.textMuted} />
+            <Text className="text-base text-text">{t("Journée complète")}</Text>
+          </View>
+        </Field>
+      ) : (
       <Field label={t("Durée")}>
         <ChipSelect
           options={DURATION_OPTIONS.map((min) => ({
@@ -137,6 +146,7 @@ export function SessionFormCard({
           onChange={(v) => setForm((f) => ({ ...f, durationMinutes: Number(v) }))}
         />
       </Field>
+      )}
       {riders?.prominent ? (
         <RiderField
           members={riders.members}

@@ -1,6 +1,7 @@
 import { NEVER_RECURRENCE, type Recurrence } from "@/lib/recurrence";
 import { OTHER_OPTION } from "@/onboarding/options";
 import type { ActivityType } from "@/agenda/store";
+import { isRestActivity } from "@/agenda/activityKinds";
 import type { SessionIntensity, TrainingSession } from "@/sessions/store";
 
 /** État du formulaire de séance du Planning — sorti de
@@ -14,6 +15,12 @@ export const DURATION_OPTIONS = [30, 45, 60, 90];
  * saisie libre"). Décorrélée de `activityType` lui-même : ce dernier garde
  * toujours une valeur technique valide (jamais "Autre"), nécessaire tant que
  * l'enum existant n'est pas étendu — cf. son commentaire sur TrainingSession. */
+/** Un jour de repos (ou de pansage) occupe la journée : pas de durée à choisir,
+ * la séance est enregistrée sans durée (null, déjà géré partout). */
+export function durationFor(form: Pick<SessionForm, "activityType" | "durationMinutes">): number | null {
+  return isRestActivity(form.activityType) ? null : form.durationMinutes;
+}
+
 export type SessionTypeSelection = ActivityType | typeof OTHER_OPTION;
 
 export type SessionForm = {

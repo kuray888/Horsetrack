@@ -47,6 +47,7 @@ describe("types de séance côté serveur", () => {
     expect(isRestActivity("repos")).toBe(true);
     expect(isRestActivity("trec")).toBe(false);
     expect(isRestActivity("plat")).toBe(false);
+    expect(isRestActivity("concours")).toBe(false);
     expect(isRestActivity("barres_au_sol")).toBe(false);
   });
 

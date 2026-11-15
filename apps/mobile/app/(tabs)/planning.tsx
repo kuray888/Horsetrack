@@ -39,7 +39,7 @@ import {
 } from "@/sessions/stats";
 import { AddToggle } from "@/components/FormChips";
 import { addMonths, dayHeaderLabel, groupByDay, startOfMonth } from "@/planning/calendar";
-import { emptyForm, formFromSession, type SessionForm } from "@/planning/sessionForm";
+import { durationFor, emptyForm, formFromSession, type SessionForm } from "@/planning/sessionForm";
 import { MonthGrid } from "@/planning/components/MonthGrid";
 import { SessionFormCard } from "@/planning/components/SessionFormCard";
 import { assignableRiders, riderColumns } from "@/planning/riders";
@@ -672,7 +672,7 @@ function PlanningScreen() {
         customActivityLabel,
         date: form.date,
         time: form.time,
-        durationMinutes: form.durationMinutes,
+        durationMinutes: durationFor(form),
         intensity: form.intensity,
         notes: form.notes,
         ...nextRider,
@@ -743,7 +743,7 @@ function PlanningScreen() {
               customActivityLabel,
               date,
               time: form.time,
-              durationMinutes: form.durationMinutes,
+              durationMinutes: durationFor(form),
               intensity: form.intensity,
               notes: form.notes,
               completed: form.completed,
