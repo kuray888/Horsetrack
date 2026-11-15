@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { Screen } from "@/components/Screen";
@@ -23,6 +23,8 @@ import { SwipeableRow } from "@/components/SwipeableRow";
 import { QuickAddSheet, openQuickAddFromTab, type QuickAddOption } from "@/components/QuickAddSheet";
 import { t } from "@/i18n";
 import { useToast } from "@/components/Toast";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
+import { EmptyStateButton } from "@/components/EmptyStateButton";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -202,9 +204,7 @@ function JournalScreen() {
                 : t("Aucune entrée de journal pour l'instant.")}
             </Text>
             {!showJournalForm ? (
-              <TouchableOpacity accessibilityRole="button" onPress={() => setShowJournalForm(true)} activeOpacity={0.7}>
-                <Text className="text-sm font-semibold text-link">{t("Ajouter un souvenir")}</Text>
-              </TouchableOpacity>
+              <EmptyStateButton label={t("Ajouter un souvenir")} onPress={() => setShowJournalForm(true)} />
             ) : null}
           </View>
         </FadeInView>
@@ -237,24 +237,15 @@ function JournalScreen() {
         ))
       )}
       {hiddenCount > 0 ? (
-        <TouchableOpacity
-          onPress={() => {
-            animateNextLayout();
-            setVisibleCount((n) => n + JOURNAL_PAGE_SIZE);
-          }}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          className="items-center rounded-card border border-border py-3.5"
-        >
-          <Text className="text-sm font-semibold text-link">
-            {hiddenCount === 1
+        <ShowMoreButton
+          hidden={hiddenCount}
+          label={
+            hiddenCount === 1
               ? t("Afficher le souvenir plus ancien")
-              : t("Afficher {v} souvenirs plus anciens", { v: Math.min(hiddenCount, JOURNAL_PAGE_SIZE) })}
-          </Text>
-          <Text className="text-xs text-muted">
-            {t("{n} restant{v}", { n: hiddenCount, v: hiddenCount > 1 ? "s" : "" })}
-          </Text>
-        </TouchableOpacity>
+              : t("Afficher {v} souvenirs plus anciens", { v: Math.min(hiddenCount, JOURNAL_PAGE_SIZE) })
+          }
+          onPress={() => setVisibleCount((n) => n + JOURNAL_PAGE_SIZE)}
+        />
       ) : null}
     </Screen>
     <PickerOverlaySlot />
