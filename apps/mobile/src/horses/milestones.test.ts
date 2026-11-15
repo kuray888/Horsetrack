@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import glyphMap from "@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/MaterialCommunityIcons.json";
 import { bestWeeklyStreak, computeMilestones, newlyUnlocked, nextMilestone } from "./milestones";
 
 const now = new Date(2026, 9, 27, 12);
@@ -53,5 +54,12 @@ describe("newlyUnlocked / nextMilestone", () => {
   it("propose le jalon le plus proche", () => {
     const sessions = Array.from({ length: 8 }, (_, i) => done(new Date(2026, 9, 1 + i), 30));
     expect(nextMilestone(computeMilestones({ horseId: "h1", sessions, now }))?.id).toBe("sessions-10");
+  });
+});
+
+describe("icônes des badges", () => {
+  it("chaque badge a une icône du jeu de l'app (jamais un emoji à l'écran)", () => {
+    const all = computeMilestones({ horseId: "h", sessions: [] });
+    for (const m of all) expect((glyphMap as Record<string, number>)[m.icon], m.id).toBeDefined();
   });
 });

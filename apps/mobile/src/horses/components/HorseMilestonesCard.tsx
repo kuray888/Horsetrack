@@ -5,6 +5,9 @@ import { computeMilestones, nextMilestone, type MilestoneInput } from "@/horses/
 import { DOWNLOAD_URL } from "@/lib/links";
 import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
+
+type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -43,7 +46,7 @@ export function HorseMilestonesCard({ horseName, ...input }: MilestoneInput & { 
       {next ? (
         <View className="gap-2" accessible accessibilityLabel={t("Prochain badge : {title}, {current} sur {target}", { title: next.title, current: next.current, target: next.target })}>
           <View className="flex-row items-center gap-2">
-            <Text className="text-lg">{next.emoji}</Text>
+            <MaterialCommunityIcons name={next.icon as IconName} size={20} color={colors.primary} accessibilityElementsHidden />
             <Text className="flex-1 text-sm font-semibold text-text">{t("Prochain : ")}{next.title}</Text>
             <Text className="text-sm text-muted">
               {next.current}/{next.target}
@@ -72,7 +75,7 @@ export function HorseMilestonesCard({ horseName, ...input }: MilestoneInput & { 
               className="w-20 items-center gap-1.5"
             >
               <View className="h-14 w-14 items-center justify-center rounded-full bg-highlight">
-                <Text className="text-2xl">{m.emoji}</Text>
+                <MaterialCommunityIcons name={m.icon as IconName} size={28} color={colors.primary} accessibilityElementsHidden />
               </View>
               <Text className="text-center text-[11px] font-semibold leading-[13px] text-text" numberOfLines={2}>
                 {m.title}

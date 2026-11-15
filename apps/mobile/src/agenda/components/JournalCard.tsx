@@ -7,6 +7,8 @@ import { MOOD_META } from "@/agenda/meta";
 import { animateNextLayout } from "@/lib/motion";
 import { STATUS_COLORS } from "@/theme/palettes";
 import { t } from "@/i18n";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import { weatherIconName } from "@/lib/weatherForecast";
 import { JournalVideo } from "@/agenda/components/JournalVideo";
 import { CommentsButton } from "@/community/components/CommentsButton";
 
@@ -29,6 +31,7 @@ export function JournalCard({
    * lib/permissions.ts) : lecture et commentaires seulement. */
   readOnly?: boolean;
 }) {
+  const colors = useThemeColors();
   const meta = ACTIVITY_META[entry.activityType];
   const mood = MOOD_META[entry.mood];
   // Un souvenir se reconnaît d'abord à sa photo : elle est visible carte
@@ -72,7 +75,18 @@ export function JournalCard({
           <Text className="text-base font-bold text-text">{meta.label}</Text>
           <Text className="text-sm text-muted">
             {formatDate(entry.date)} · {entry.time}
-            {entry.weather ? t(" · {icon} {v}°C", { icon: entry.weather.icon, v: Math.round(entry.weather.tempC) }) : ""}
+            {entry.weather ? (
+              <>
+                {" · "}
+                <MaterialCommunityIcons
+                  name={weatherIconName(entry.weather.code)}
+                  size={14}
+                  color={colors.textMuted}
+                  accessibilityLabel={entry.weather.label}
+                />
+                {t(" {v}°C", { v: Math.round(entry.weather.tempC) })}
+              </>
+            ) : null}
           </Text>
         </View>
         <Text className="text-2xl" accessibilityLabel={t("Ressenti : {label}", { label: mood.label })}>

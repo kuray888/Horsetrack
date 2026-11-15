@@ -8,21 +8,22 @@ import { supabase } from "@/lib/supabase";
 export type WeatherSnapshot = { tempC: number; code: number; label: string; icon: string };
 
 /** Table de correspondance des codes météo WMO (notre API les déduit des symboles de MET Norway)
- * vers un libellé FR + emoji — volontairement simplifiée (regroupe les
+ * vers un libellé FR + nom d'icône (MaterialCommunityIcons ; les anciennes
+ * entrées de journal gardent un emoji, l'écran affiche l'icône du code) — volontairement simplifiée (regroupe les
  * variantes "léger/fort" d'une même famille), suffisant pour un aperçu rapide
  * sur une carte de journal, pas pour un bulletin météo détaillé. */
 const WMO_LABELS: { codes: number[]; label: string; icon: string }[] = [
-  { codes: [0], label: t("Ciel dégagé"), icon: "☀️" },
-  { codes: [1, 2, 3], label: t("Nuageux"), icon: "⛅" },
-  { codes: [45, 48], label: t("Brouillard"), icon: "🌫️" },
-  { codes: [51, 53, 55, 56, 57], label: t("Bruine"), icon: "🌦️" },
-  { codes: [61, 63, 65, 66, 67, 80, 81, 82], label: t("Pluie"), icon: "🌧️" },
-  { codes: [71, 73, 75, 77, 85, 86], label: t("Neige"), icon: "❄️" },
-  { codes: [95, 96, 99], label: t("Orage"), icon: "⛈️" },
+  { codes: [0], label: t("Ciel dégagé"), icon: "weather-sunny" },
+  { codes: [1, 2, 3], label: t("Nuageux"), icon: "weather-partly-cloudy" },
+  { codes: [45, 48], label: t("Brouillard"), icon: "weather-fog" },
+  { codes: [51, 53, 55, 56, 57], label: t("Bruine"), icon: "weather-partly-rainy" },
+  { codes: [61, 63, 65, 66, 67, 80, 81, 82], label: t("Pluie"), icon: "weather-pouring" },
+  { codes: [71, 73, 75, 77, 85, 86], label: t("Neige"), icon: "weather-snowy" },
+  { codes: [95, 96, 99], label: t("Orage"), icon: "weather-lightning-rainy" },
 ];
 
 function labelForCode(code: number): { label: string; icon: string } {
-  return WMO_LABELS.find((w) => w.codes.includes(code)) ?? { label: t("Météo"), icon: "🌡️" };
+  return WMO_LABELS.find((w) => w.codes.includes(code)) ?? { label: t("Météo"), icon: "thermometer" };
 }
 
 /** Échec silencieux (permission refusée, position indisponible) : la météo

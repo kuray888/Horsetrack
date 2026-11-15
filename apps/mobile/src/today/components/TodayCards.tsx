@@ -80,9 +80,14 @@ export function WeatherWarningBanner({
         }
         className="flex-row items-center gap-2.5 rounded-card bg-warning/15 p-3.5"
       >
-        <Text className="text-base">{warning.icon}</Text>
+        <MaterialCommunityIcons
+          name={warning.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+          size={20}
+          color={colors.warning}
+          accessibilityElementsHidden
+        />
         <Text className="flex-1 text-sm text-text">
-          {t("Séance ")}{formatWhen(warning.date).toLowerCase()} — {warning.message}.
+          {t("Séance {when} — {message}.", { when: formatWhen(warning.date).toLowerCase(), message: warning.message })}
         </Text>
         <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textMuted} />
       </TouchableOpacity>

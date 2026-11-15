@@ -26,7 +26,10 @@ export type MilestoneInput = {
 export type Milestone = {
   id: string;
   title: string;
+  /** Pour le texte partagé (message), pas pour l'interface. */
   emoji: string;
+  /** Icône affichée dans l'app (jeu d'icônes du thème, jamais un emoji). */
+  icon: string;
   unlocked: boolean;
   /** Avancement vers le seuil, pour afficher le prochain badge. */
   current: number;
@@ -73,30 +76,31 @@ export function computeMilestones({ horseId, sessions, appointments = [], journa
   );
   const daysTogether = Number.isFinite(firstDate) ? Math.floor((now.getTime() - firstDate) / DAY_MS) : 0;
 
-  const m = (id: string, title: string, emoji: string, current: number, target: number): Milestone => ({
+  const m = (id: string, title: string, emoji: string, icon: string, current: number, target: number): Milestone => ({
     id,
     title,
     emoji,
+    icon,
     current: Math.min(current, target),
     target,
     unlocked: current >= target,
   });
 
   return [
-    m("sessions-1", tr("Première séance"), "🐴", done.length, 1),
-    m("sessions-10", tr("10 séances"), "⭐", done.length, 10),
-    m("sessions-50", tr("50 séances"), "🌟", done.length, 50),
-    m("sessions-100", tr("100 séances"), "🏆", done.length, 100),
-    m("hours-10", tr("10 heures de travail"), "⏱️", hours, 10),
-    m("hours-50", tr("50 heures de travail"), "💪", hours, 50),
-    m("hours-100", tr("100 heures de travail"), "🥇", hours, 100),
-    m("streak-4", tr("4 semaines d'affilée"), "🔥", streak, 4),
-    m("streak-12", tr("12 semaines d'affilée"), "🔥", streak, 12),
-    m("competition-1", tr("Premier concours"), "🎖️", competitions, 1),
-    m("competition-10", tr("10 concours"), "🏅", competitions, 10),
-    m("care-5", tr("5 soins suivis"), "🩺", careVisits, 5),
-    m("journal-10", tr("10 souvenirs"), "📖", memories, 10),
-    m("together-365", tr("1 an de suivi ensemble"), "🎂", daysTogether, 365),
+    m("sessions-1", tr("Première séance"), "🐴", "horse-variant", done.length, 1),
+    m("sessions-10", tr("10 séances"), "⭐", "star-outline", done.length, 10),
+    m("sessions-50", tr("50 séances"), "🌟", "star-shooting-outline", done.length, 50),
+    m("sessions-100", tr("100 séances"), "🏆", "trophy-outline", done.length, 100),
+    m("hours-10", tr("10 heures de travail"), "⏱️", "timer-outline", hours, 10),
+    m("hours-50", tr("50 heures de travail"), "💪", "arm-flex-outline", hours, 50),
+    m("hours-100", tr("100 heures de travail"), "🥇", "medal-outline", hours, 100),
+    m("streak-4", tr("4 semaines d'affilée"), "🔥", "fire", streak, 4),
+    m("streak-12", tr("12 semaines d'affilée"), "🔥", "fire", streak, 12),
+    m("competition-1", tr("Premier concours"), "🎖️", "medal", competitions, 1),
+    m("competition-10", tr("10 concours"), "🏅", "trophy-award", competitions, 10),
+    m("care-5", tr("5 soins suivis"), "🩺", "stethoscope", careVisits, 5),
+    m("journal-10", tr("10 souvenirs"), "📖", "book-open-variant", memories, 10),
+    m("together-365", tr("1 an de suivi ensemble"), "🎂", "cake-variant-outline", daysTogether, 365),
   ];
 }
 

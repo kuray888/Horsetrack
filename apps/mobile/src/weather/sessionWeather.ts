@@ -1,4 +1,5 @@
 import { t } from "@/i18n";
+import { weatherIconName } from "@/lib/weatherForecast";
 
 /**
  * « Il va pleuvoir sur ta séance de demain. »
@@ -84,7 +85,8 @@ export function sessionWeatherWarning(
       date: next.date,
       sessionId: next.id,
       horseId: next.horseId,
-      icon: day.icon,
+      // Icône du jeu de l'app (MaterialCommunityIcons), plus l'emoji météo.
+      icon: weatherIconName(day.code),
       message: t("{v} annoncé{v2} ({tempMinC}° à {tempMaxC}°)", { v: day.label.toLowerCase(), v2: day.label.endsWith("e") ? "e" : "", tempMinC: day.tempMinC, tempMaxC: day.tempMaxC }),
     };
   }
@@ -93,7 +95,7 @@ export function sessionWeatherWarning(
       date: next.date,
       sessionId: next.id,
       horseId: next.horseId,
-      icon: "🥶",
+      icon: "snowflake-thermometer",
       message: t("gel annoncé ({tempMinC}° à {tempMaxC}°)", { tempMinC: day.tempMinC, tempMaxC: day.tempMaxC }),
     };
   }

@@ -10,13 +10,13 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(__dirname, "../..");
 
-function screenFiles(): { rel: string; src: string }[] {
+function screenFiles(ext = ".tsx"): { rel: string; src: string }[] {
   const out: { rel: string; src: string }[] = [];
   const walk = (dir: string) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith(".tsx") && !e.name.includes(".test.")) {
+      else if (e.name.endsWith(ext) && !e.name.includes(".test.")) {
         out.push({ rel: path.relative(ROOT, p), src: fs.readFileSync(p, "utf8") });
       }
     }
@@ -31,9 +31,9 @@ function code(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 }
 
-function count(re: RegExp): Map<string, number> {
+function count(re: RegExp, files = FILES): Map<string, number> {
   const found = new Map<string, number>();
-  for (const f of screenFiles()) {
+  for (const f of files) {
     const n = code(f.src).match(re)?.length ?? 0;
     if (n > 0) found.set(f.rel, n);
   }
@@ -47,6 +47,8 @@ function expectWithin(found: Map<string, number>, allowed: Record<string, number
 }
 
 const FILES = screenFiles();
+/** Logique et données (.ts) : un emoji y finit souvent à l'écran (météo, badges). */
+const LOGIC_FILES = screenFiles(".ts").filter((f) => f.rel !== "src/i18n/en.ts");
 
 describe("système de design", () => {
   it("le scan voit bien les écrans", () => {
@@ -99,6 +101,20 @@ describe("système de design", () => {
       "app/share-horse-modal.tsx": 1,
       "app/horse/[id]/annee.tsx": 1,
       "src/horses/store.tsx": 2,
+    });
+  });
+
+  it("aucun emoji servant d'icône dans la logique (.ts)", () => {
+    expectWithin(count(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, LOGIC_FILES), {
+      // Ressenti du journal et réactions du fil : choisis par l'utilisateur, c'est du contenu.
+      "src/agenda/meta.ts": 4,
+      "src/community/model.ts": 4,
+      // Textes envoyés hors de l'app (partage, notifications) : gardés volontairement.
+      "src/horses/milestones.ts": 12,
+      "src/horses/shareHorseText.ts": 6,
+      "src/lib/notifications.ts": 2,
+      "src/lib/progress.ts": 1,
+      "src/lib/sync/horses.ts": 1,
     });
   });
 

@@ -2530,4 +2530,6 @@ export const EN: Record<string, string> = {
   "Mes données": "My data",
   "Aide et mentions légales": "Help and legal",
   "Modifier mon profil cavalier": "Edit my rider profile",
+  " {v}°C": " {v}°C",
+  "Séance {when} — {message}.": "Session {when} — {message}.",
 };
