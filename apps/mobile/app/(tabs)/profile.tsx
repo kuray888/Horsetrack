@@ -441,7 +441,7 @@ function ProfileScreen() {
       <FadeInView>
         <View className="flex-row items-center gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-full bg-highlight">
-            <Text className="text-2xl font-display text-primary">
+            <Text maxFontSizeMultiplier={1.3} className="text-2xl font-display text-primary">
               {(user?.email ?? "?").charAt(0).toUpperCase()}
             </Text>
           </View>

@@ -255,7 +255,7 @@ export function WeekRecapCard({
           trackColor={colors.border}
           progressColor={colors.primary}
         >
-          <Text className="text-caption font-bold text-text">
+          <Text maxFontSizeMultiplier={1.3} className="text-caption font-bold text-text">
             {done}/{total}
           </Text>
         </CircularProgress>

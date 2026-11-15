@@ -1086,7 +1086,7 @@ function PlanningScreen() {
               trackColor="rgba(255,255,255,0.25)"
               progressColor={colors.textOnPrimary}
             >
-              <Text className="text-caption font-bold text-on-primary">
+              <Text maxFontSizeMultiplier={1.3} className="text-caption font-bold text-on-primary">
                 {weekDone}/{weekSessions.length}
               </Text>
             </CircularProgress>
