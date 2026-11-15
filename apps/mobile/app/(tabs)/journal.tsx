@@ -25,6 +25,7 @@ import { t } from "@/i18n";
 import { useToast } from "@/components/Toast";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { EmptyStateButton } from "@/components/EmptyStateButton";
+import { BackToHorseChip } from "@/horses/components/BackToHorseChip";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -143,6 +144,7 @@ function JournalScreen() {
     <>
     <Screen>
       <FadeInView>
+        <BackToHorseChip />
         <ScreenTitle
           title={t("Journal")}
           subtitle={t("Le carnet de souvenirs de tes chevaux")}

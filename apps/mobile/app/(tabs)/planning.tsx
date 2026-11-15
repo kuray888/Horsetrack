@@ -80,6 +80,7 @@ import { t } from "@/i18n";
 import { useToast } from "@/components/Toast";
 import { EmptyStateButton } from "@/components/EmptyStateButton";
 import { GroupLabel, SectionHeader } from "@/components/SectionHeader";
+import { BackToHorseChip } from "@/horses/components/BackToHorseChip";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -995,6 +996,7 @@ function PlanningScreen() {
     <>
     <Screen scrollRef={scrollRef}>
       <FadeInView>
+        <BackToHorseChip />
         <ScreenTitle
           title={t("Planning")}
           subtitle={

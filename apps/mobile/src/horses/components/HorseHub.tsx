@@ -49,6 +49,7 @@ import { activeSlots } from "@/planning/slots";
 import { featuredReviewYear } from "@/review/yearReview";
 import { healthTileTone } from "@/horses/healthTileTone";
 import { SectionHeader } from "@/components/SectionHeader";
+import { withFromHorse } from "@/horses/components/withFromHorse";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
@@ -233,6 +234,9 @@ export function HorseHub({ horseId, inTab = false }: { horseId: string | undefin
    * `dismissTo` n'aurait pas de cible. */
   function goToTab(href: Parameters<typeof router.dismissTo>[0]) {
     if (inTab) router.navigate(href);
+    // La fiche se ferme : l'onglet affiche « ‹ Nom du cheval » pour y revenir
+    // (cf. BackToHorseChip).
+    else if (horse) router.dismissTo(withFromHorse(href as string | { pathname: string; params?: Record<string, string> }, horse.id) as typeof href);
     else router.dismissTo(href);
   }
 

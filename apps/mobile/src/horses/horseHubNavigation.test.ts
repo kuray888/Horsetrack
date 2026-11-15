@@ -151,3 +151,15 @@ describe("écrans empilés : pas de push vers (tabs)", () => {
     });
   }
 });
+
+describe("retour vers la fiche depuis un onglet", () => {
+  it("withFromHorse ajoute le cheval d'origine sans toucher au reste", async () => {
+    const { withFromHorse } = await import("@/horses/components/withFromHorse");
+    expect(withFromHorse("/(tabs)/planning?filter=session", "h1")).toBe("/(tabs)/planning?filter=session&fromHorse=h1");
+    expect(withFromHorse("/(tabs)/journal", "h 2")).toBe("/(tabs)/journal?fromHorse=h%202");
+    expect(withFromHorse({ pathname: "/(tabs)/planning", params: { openForm: "session" } }, "h1")).toEqual({
+      pathname: "/(tabs)/planning",
+      params: { openForm: "session", fromHorse: "h1" },
+    });
+  });
+});

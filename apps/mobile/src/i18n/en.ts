@@ -2534,4 +2534,5 @@ export const EN: Record<string, string> = {
   "Séance {when} — {message}.": "Session {when} — {message}.",
   "Rendez-vous supprimé": "Appointment deleted",
   "Soin supprimé": "Care entry deleted",
+  "Retour à la fiche de {name}": "Back to {name}",
 };
