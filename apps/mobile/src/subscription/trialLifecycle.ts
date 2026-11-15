@@ -118,7 +118,7 @@ async function scheduleMissing(state: Persisted, s: Stored): Promise<Stored> {
     if (at) {
       next.nudgeId = await scheduleReminder(
         t("Premium : ton premier rappel santé"),
-        t("Ajoute un rappel à ton prochain rendez-vous véto ou maréchal : HorseTrack te préviendra à temps."),
+        t("Ajoute un rappel à ton prochain rendez-vous véto ou maréchal : Horsetrack te préviendra à temps."),
         at
       ).catch(() => null);
     }

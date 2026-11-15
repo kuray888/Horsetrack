@@ -52,7 +52,7 @@ import { healthTileTone } from "@/horses/healthTileTone";
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 
 /**
- * Fiche cheval — hub principal de HorseTrack : identité, modules (résumés
+ * Fiche cheval — hub principal de Horsetrack : identité, modules (résumés
  * réels, pas de données fictives) et activité récente. Toute création via
  * l'ajout rapide passe par les hooks déjà utilisés ailleurs
  * (useAppointmentForm/useExpenseForm/useJournalForm) — aucune logique métier

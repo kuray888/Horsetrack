@@ -40,7 +40,7 @@ export function buildBudgetReportLines(input: BudgetReportInput, today: Date): P
     { style: "title", text: t("Dépenses {year} — {name}", { year: input.year, name: input.horseName }) },
     {
       style: "muted",
-      text: t("Établi le {date} depuis HorseTrack", {
+      text: t("Établi le {date} depuis Horsetrack", {
         date: today.toLocaleDateString(LOCALE, { day: "2-digit", month: "2-digit", year: "numeric" }),
       }),
     },

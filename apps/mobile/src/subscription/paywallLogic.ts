@@ -139,7 +139,7 @@ export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = 
         icon: "bell-ring-outline",
         title: tr("Ne rate plus aucun soin de {first}.", { first: first }),
         subtitle:
-          tr("Vaccins, maréchal, véto : HorseTrack te prévient à temps et garde tous ses papiers au même endroit."),
+          tr("Vaccins, maréchal, véto : Horsetrack te prévient à temps et garde tous ses papiers au même endroit."),
       };
     case "horses":
       return {
@@ -150,7 +150,7 @@ export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = 
     case "reminders":
       return {
         icon: "bell-ring-outline",
-        title: tr("Laisse HorseTrack se souvenir du prochain rendez-vous."),
+        title: tr("Laisse Horsetrack se souvenir du prochain rendez-vous."),
         subtitle: tr("Une notification avant chaque véto, maréchal, vaccin ou dentiste."),
       };
     case "vault":
@@ -230,7 +230,7 @@ export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = 
     default:
       return {
         icon: "star-outline",
-        title: tr("Tout HorseTrack, pour toute ton écurie."),
+        title: tr("Tout Horsetrack, pour toute ton écurie."),
         subtitle: tr("Rappels, documents, partage et chevaux illimités."),
       };
   }

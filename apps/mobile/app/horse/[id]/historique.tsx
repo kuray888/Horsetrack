@@ -32,7 +32,7 @@ export default function HorseHistoriqueScreen() {
             <BackButton />
             <Text className="text-3xl font-display tracking-tight text-text">{t("Historique")}</Text>
           </View>
-          <Text className="text-base text-muted">{t("La vie de ")}{horse?.name ?? t("ce cheval")}{t(", en un coup d'œil")}</Text>
+          <Text className="text-base text-muted">{t("La vie de {name}, en un coup d'œil", { name: horse?.name ?? t("ce cheval") })}</Text>
         </View>
       </FadeInView>
 

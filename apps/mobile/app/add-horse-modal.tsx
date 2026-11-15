@@ -21,7 +21,9 @@ function HorseLimitReached({ limit }: { limit: number }) {
         </View>
         <Text className="text-center text-xl font-bold text-text">{t("Toute ton écurie, au même endroit")}</Text>
         <Text className="text-center text-sm text-muted">
-          {t("La version gratuite suit ")}{limit} {limit > 1 ? "chevaux" : "cheval"}{t(". Avec Premium, ajoute autant de chevaux que tu veux, chacun avec son planning, sa santé et son budget.")}
+          {limit > 1
+            ? t("La version gratuite suit {n} chevaux. Avec Premium, ajoute autant de chevaux que tu veux, chacun avec son planning, sa santé et son budget.", { n: limit })
+            : t("La version gratuite suit 1 cheval. Avec Premium, ajoute autant de chevaux que tu veux, chacun avec son planning, sa santé et son budget.")}
         </Text>
         <TouchableOpacity
           activeOpacity={0.85}

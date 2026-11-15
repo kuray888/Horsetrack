@@ -170,7 +170,7 @@ export default function SearchScreen() {
         <FadeInView delay={80}>
           <View className={`${CARD} items-center gap-2`}>
             <Text className="text-center text-sm text-muted">
-              {t("Rien ne correspond à « ")}{query.trim()} {t(" ». Essaie un mot plus court, ou le nom du professionnel.")}
+              {t("Rien ne correspond à « {query} ». Essaie un mot plus court, ou le nom du professionnel.", { query: query.trim() })}
             </Text>
           </View>
         </FadeInView>

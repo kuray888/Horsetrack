@@ -64,7 +64,7 @@ export function buildHealthRecordLines(
 ): PdfTextLine[] {
   const lines: PdfTextLine[] = [
     { style: "title", text: t("Carnet de santé — {name}", { name: horse.name }) },
-    { style: "muted", text: t("Établi le {formatDay} depuis HorseTrack", { formatDay: formatDay(today) }) },
+    { style: "muted", text: t("Établi le {formatDay} depuis Horsetrack", { formatDay: formatDay(today) }) },
     { style: "space" },
   ];
 
@@ -134,7 +134,7 @@ export function buildHealthRecordLines(
   lines.push({ style: "space" });
   lines.push({
     style: "muted",
-    text: t("Document généré à partir des informations saisies dans HorseTrack. Il ne remplace pas les documents officiels (carnet SIRE, certificats vétérinaires)."),
+    text: t("Document généré à partir des informations saisies dans Horsetrack. Il ne remplace pas les documents officiels (carnet SIRE, certificats vétérinaires)."),
   });
   return lines;
 }

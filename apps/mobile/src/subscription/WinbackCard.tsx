@@ -125,7 +125,9 @@ export function WinbackCard() {
         <Text className="text-base font-bold text-primary">{busy ? t("Vérification…") : t("En profiter")}</Text>
       </TouchableOpacity>
       <Text className="text-center text-xs text-on-primary/70">
-        {t("Le prix et la durée s'affichent sur ")}{Platform.OS === "android" ? t("Google Play") : t("l'App Store")} {t(" avant toute confirmation.")}
+        {Platform.OS === "android"
+          ? t("Le prix et la durée s'affichent sur Google Play avant toute confirmation.")
+          : t("Le prix et la durée s'affichent sur l'App Store avant toute confirmation.")}
       </Text>
     </View>
   );

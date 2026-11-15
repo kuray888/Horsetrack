@@ -686,7 +686,9 @@ export function PaywallView({
         {storeUnavailable ? (
           <TouchableOpacity onPress={retryOffer} hitSlop={8} className="py-1">
             <Text className="text-center text-sm font-semibold text-link">
-              {t("Les prix n'ont pas pu être chargés depuis ")}{Platform.OS === "ios" ? t("l'App Store") : t("Google Play")}{t(". Réessayer")}
+              {Platform.OS === "ios"
+                ? t("Les prix n'ont pas pu être chargés depuis l'App Store. Réessayer")
+                : t("Les prix n'ont pas pu être chargés depuis Google Play. Réessayer")}
             </Text>
           </TouchableOpacity>
         ) : (

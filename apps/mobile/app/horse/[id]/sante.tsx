@@ -275,7 +275,7 @@ export default function HorseSanteScreen() {
                 <MaterialCommunityIcons name="heart-pulse" size={24} color={colors.textMuted} />
               </View>
               <Text className="text-center text-[15px] text-muted">
-                {t("Rien à afficher pour l'instant : les soins de ")}{horse.name} {t(" apparaîtront ici.")}
+                {t("Rien à afficher pour l'instant : les soins de {name} apparaîtront ici.", { name: horse.name })}
               </Text>
             </View>
           </FadeInView>

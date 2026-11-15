@@ -204,7 +204,7 @@ export default function FirstAction() {
       step={3}
       total={TOTAL_STEPS}
       title={t("Que veux-tu noter pour {name} ?", { name })}
-      subtitle={t("Un premier rendez-vous, et HorseTrack s'occupe du reste.")}
+      subtitle={t("Un premier rendez-vous, et Horsetrack s'occupe du reste.")}
       ctaLabel={
         saving
           ? t("Un instant…")

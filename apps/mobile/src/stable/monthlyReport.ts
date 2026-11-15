@@ -76,7 +76,7 @@ export function buildMonthlyReportLines(input: MonthlyReportInput, today: Date):
   const monthLabel = input.month.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
   const lines: PdfTextLine[] = [
     { style: "title", text: t("Rapport de {month} — {name}", { month: monthLabel, name: input.horseName }) },
-    { style: "muted", text: t("Établi le {date} depuis HorseTrack", { date: today.toLocaleDateString(LOCALE, { day: "2-digit", month: "2-digit", year: "numeric" }) }) },
+    { style: "muted", text: t("Établi le {date} depuis Horsetrack", { date: today.toLocaleDateString(LOCALE, { day: "2-digit", month: "2-digit", year: "numeric" }) }) },
     { style: "space" },
   ];
 

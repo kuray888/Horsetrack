@@ -1260,7 +1260,7 @@ function PlanningScreen() {
                   activeOpacity={0.8}
                   className="mt-2 flex-row items-center justify-between"
                 >
-                  <Text className="text-xl font-bold text-text">{t("Événements passés (")}{done.length})</Text>
+                  <Text className="text-xl font-bold text-text">{t("Événements passés ({n})", { n: done.length })}</Text>
                   <MaterialCommunityIcons
                     name={showPast ? "chevron-up" : "chevron-down"}
                     size={22}

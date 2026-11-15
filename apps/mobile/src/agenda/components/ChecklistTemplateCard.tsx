@@ -68,7 +68,9 @@ export function ChecklistTemplateCard({
           <View className="flex-1 gap-0.5">
             <Text className="text-sm font-bold uppercase tracking-wide text-link">{t("Checklist des concours")}</Text>
             <Text className="text-sm text-muted">
-              {template.length} {t(" élément")}{template.length > 1 ? "s" : ""} {t(" · modèle appliqué à tous tes concours à venir")}
+              {template.length > 1
+                ? t("{n} éléments · modèle appliqué à tous tes concours à venir", { n: template.length })
+                : t("1 élément · modèle appliqué à tous tes concours à venir")}
             </Text>
           </View>
           <TouchableOpacity
@@ -138,7 +140,7 @@ export function ChecklistTemplateCard({
           </TouchableOpacity>
         </View>
       ) : (
-        <Text className="text-xs text-muted">{t("Maximum ")}{MAX_CHECKLIST_ITEMS} {t(" éléments.")}</Text>
+        <Text className="text-xs text-muted">{t("Maximum {n} éléments.", { n: MAX_CHECKLIST_ITEMS })}</Text>
       )}
 
       <TouchableOpacity onPress={() => setDraft([...DEFAULT_CHECKLIST_LABELS])} activeOpacity={0.7} className="self-start">

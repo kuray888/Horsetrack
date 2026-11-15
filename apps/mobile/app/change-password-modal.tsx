@@ -209,7 +209,7 @@ export default function ChangePasswordModal() {
                 autoComplete="new-password"
               />
               {passwordTooShort ? (
-                <Text className="-mt-3 text-xs text-danger">{t("Au moins ")}{MIN_PASSWORD_LENGTH} {t(" caractères.")}</Text>
+                <Text className="-mt-3 text-xs text-danger">{t("Au moins {n} caractères.", { n: MIN_PASSWORD_LENGTH })}</Text>
               ) : null}
 
               <PasswordField

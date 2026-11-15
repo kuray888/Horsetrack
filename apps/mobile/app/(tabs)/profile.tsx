@@ -281,7 +281,7 @@ function ProfileScreen() {
       [
         tr("Toutes tes données (profil, chevaux, séances, rendez-vous, documents) seront définitivement supprimées. Cette action est irréversible."),
         storeSubscription
-          ? tr("\nImportant : supprimer ton compte n'arrête pas {storeSubscription}. Pour ne plus être prélevé, résilie-le d'abord dans {v}.", { storeSubscription: storeSubscription, v: Platform.OS === "ios" ? "Réglages > Abonnements" : "Google Play > Abonnements" })
+          ? tr("\nImportant : supprimer ton compte n'arrête pas {storeSubscription}. Pour ne plus être prélevé, résilie-le d'abord dans {v}.", { storeSubscription: storeSubscription, v: Platform.OS === "ios" ? tr("Réglages > Abonnements") : tr("Google Play > Abonnements") })
           : "",
       ].join(""),
       [
@@ -407,9 +407,9 @@ function ProfileScreen() {
     offer?.MONTHLY && offer?.ANNUAL ? annualSavingsPercent(offer.MONTHLY.price, offer.ANNUAL.price) : null;
 
   function subscriptionLabel(): string {
-    if (subLoading) return "Chargement…";
+    if (subLoading) return tr("Chargement…");
     if (promotional && isActiveOrTrialing) return tr("Premium offert");
-    if (status === "active") return tr("Premium · {v}", { v: billingPeriod === "ANNUAL" ? "annuel" : "mensuel" });
+    if (status === "active") return billingPeriod === "ANNUAL" ? tr("Premium · annuel") : tr("Premium · mensuel");
     if (status === "trialing") {
       const days = daysUntil(trialEndsAt);
       return tr("Essai Premium · {days} jour{v} restant{v2}", { days: days, v: days !== 1 ? "s" : "", v2: days !== 1 ? "s" : "" });

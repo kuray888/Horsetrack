@@ -53,7 +53,7 @@ export function PlanningStatsCard({
                 </View>
                 <View className="items-center gap-0.5">
                   <Text className="text-lg font-display text-text">{stats.perWeek}</Text>
-                  <Text className="text-xs text-muted">{t("séance")}{stats.perWeek > 1 ? "s" : ""}{t("/sem.")}</Text>
+                  <Text className="text-xs text-muted">{stats.perWeek > 1 ? t("séances/sem.") : t("séance/sem.")}</Text>
                 </View>
                 <View className="items-center gap-0.5">
                   <Text className="text-lg font-display text-text">{stats.restDays}</Text>
