@@ -2535,4 +2535,5 @@ export const EN: Record<string, string> = {
   "Rendez-vous supprimé": "Appointment deleted",
   "Soin supprimé": "Care entry deleted",
   "Retour à la fiche de {name}": "Back to {name}",
+  "Cette semaine · toute l'écurie": "This week · whole stable",
 };

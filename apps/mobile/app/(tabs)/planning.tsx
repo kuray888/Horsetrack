@@ -1080,7 +1080,9 @@ function PlanningScreen() {
           toutes les séances et se répétait au-dessus d'une liste filtrée. */}
       {weekSessions.length > 0 && filter === "all" ? (
         <FadeInView delay={40}>
-          <View className="flex-row items-center gap-3 rounded-card bg-primary p-4">
+          {/* Une ligne au lieu de deux : le haut du Planning tient moins de
+              place avant le premier événement. */}
+          <View className="flex-row items-center gap-3 rounded-card bg-primary px-4 py-3">
             <CircularProgress
               progress={weekSessions.length > 0 ? weekDone / weekSessions.length : 0}
               size={44}
@@ -1092,11 +1094,12 @@ function PlanningScreen() {
                 {weekDone}/{weekSessions.length}
               </Text>
             </CircularProgress>
-            <View className="flex-1 gap-0.5">
-              <Text className="text-sm font-bold uppercase tracking-wide text-on-primary/80">
-                {t("Cette semaine")}{showingAllHorses ? t(" · toute l'écurie") : ""}
-              </Text>
-              <Text className="text-subhead leading-5 text-on-primary">
+            <View className="flex-1">
+              <Text className="text-subhead leading-5 text-on-primary" numberOfLines={2}>
+                <Text className="font-bold">
+                  {showingAllHorses ? t("Cette semaine · toute l'écurie") : t("Cette semaine")}
+                </Text>
+                {" · "}
                 {t("{n} séance{v} faite{v} · {duration} au programme", {
                   n: weekDone,
                   v: weekDone > 1 ? "s" : "",
