@@ -1,3 +1,5 @@
+import { removeJson } from "@/lib/localStore";
+import { SAFETY_LEGACY_KEY, safetyKeyForUser } from "@/rides/safetyStorage";
 import { translateAuthError } from "@/lib/authErrors";
 import { useEffect, useState } from "react";
 import { PRO_ENABLED } from "@/lib/features";
@@ -295,6 +297,10 @@ function ProfileScreen() {
   /** Ramène l'appareil à un état « installation fraîche » une fois les données
    * du compte effacées côté serveur. */
   async function wipeLocalAccountData() {
+    // Proches de la sécurité en balade (rangés par compte, cf.
+    // rides/safetyStorage.ts) : effacés avec le compte, ancien fichier compris.
+    if (user?.id) void removeJson(safetyKeyForUser(user.id));
+    void removeJson(SAFETY_LEGACY_KEY);
     // Le compte n'existe déjà plus côté serveur à ce stade : on ne demande
     // qu'une déconnexion locale (scope "local") pour ne pas dépendre d'un
     // appel réseau qui viserait un utilisateur déjà supprimé.

@@ -2,6 +2,8 @@ import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { readJsonChecked, writeJson } from "@/lib/localStore";
 import { track } from "@/lib/analytics";
+import { getLocalDataOwner } from "@/lib/deviceOwner";
+import { SAFETY_LEGACY_KEY, safetyKeyForUser, shouldAdoptLegacySafety } from "@/rides/safetyStorage";
 import { isImmobile } from "@/rides/rideMath";
 import { getRideDraft, isRidePaused, onRidePoint, setRideSafety, subscribeRide, type RideDraft } from "@/rides/recorder";
 import {
@@ -26,7 +28,6 @@ import { t } from "@/i18n";
  * en arrière-plan), que l'immobilité est évaluée et la position envoyée.
  */
 
-const SETTINGS_KEY = "ride_safety_v1";
 export const SAFETY_CATEGORY = "ride-safety-check";
 export const SAFETY_ACTION_OK = "ride-safety-ok";
 const CHECK_NOTIFICATION_ID = "ride-safety-check";
@@ -36,8 +37,18 @@ const CHECK_NOTIFICATION_ID = "ride-safety-check";
  * seulement au départ d'une balade suivie. */
 export type SafetySettings = { enabled: boolean; riderName: string; contacts: SafetyContact[] };
 
-export async function loadSafetySettings(): Promise<SafetySettings> {
-  const { value } = await readJsonChecked<SafetySettings | null>(SETTINGS_KEY, null);
+async function currentUserId(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const EMPTY_SETTINGS: SafetySettings = { enabled: false, riderName: "", contacts: [] };
+
+function cleaned(value: SafetySettings | null): SafetySettings {
   return {
     enabled: value?.enabled ?? false,
     riderName: value?.riderName ?? "",
@@ -45,8 +56,30 @@ export async function loadSafetySettings(): Promise<SafetySettings> {
   };
 }
 
+/** Réglages du COMPTE connecté (cf. rides/safetyStorage.ts) : un autre compte
+ * sur le même téléphone ne voit pas les proches de celui-ci. */
+export async function loadSafetySettings(): Promise<SafetySettings> {
+  const userId = await currentUserId();
+  if (!userId) return EMPTY_SETTINGS;
+  const own = await readJsonChecked<SafetySettings | null>(safetyKeyForUser(userId), null);
+  if (own.value) return cleaned(own.value);
+  // Réglages d'avant (fichier unique) : repris par le propriétaire des
+  // données de l'appareil, et rangés sous son compte.
+  if (shouldAdoptLegacySafety(userId, await getLocalDataOwner())) {
+    const legacy = await readJsonChecked<SafetySettings | null>(SAFETY_LEGACY_KEY, null);
+    if (legacy.value) {
+      const adopted = cleaned(legacy.value);
+      await saveSafetySettings(adopted).catch(() => {});
+      return adopted;
+    }
+  }
+  return EMPTY_SETTINGS;
+}
+
 export async function saveSafetySettings(settings: SafetySettings): Promise<void> {
-  await writeJson(SETTINGS_KEY, {
+  const userId = await currentUserId();
+  if (!userId) return;
+  await writeJson(safetyKeyForUser(userId), {
     enabled: settings.enabled,
     riderName: settings.riderName.trim().slice(0, 60),
     contacts: cleanContacts(settings.contacts),
