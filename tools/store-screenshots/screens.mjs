@@ -167,7 +167,7 @@ export const SETS = {
 };
 
 /** Note affichée dans la médaille (vraie : à mettre à jour avec l'App Store). */
-export const RATING = { score: { fr: "5,0", en: "5.0" }, count: { fr: "11 avis", en: "11 reviews" } };
+export const RATING = { score: { fr: "5,0", en: "5.0" }, count: { fr: "12 avis", en: "12 reviews" } };
 
 /** Pastille de la première image de chaque jeu : un fait vrai (palier gratuit). */
 export const PILL = { fr: "Gratuit pour 1 cheval", en: "Free for 1 horse" };

@@ -181,7 +181,7 @@ h1{color:${c.title};font-weight:800;font-size:122px;line-height:1.01;letter-spac
 p.sub{color:${c.sub};font-weight:500;font-size:46px;line-height:1.3;margin-top:50px;max-width:1000px}
 .chips{display:flex;flex-wrap:wrap;gap:16px;margin-top:40px}
 .chips span{color:${c.chipText};border:4px solid ${c.chip};border-radius:999px;padding:10px 30px;font-weight:800;font-size:38px;letter-spacing:.5px}
-.scene{position:absolute;inset:0;perspective:2600px;perspective-origin:50% 62%;transform-style:preserve-3d}
+.scene{position:absolute;inset:0;perspective:2600px;perspective-origin:50% 62%}
 .p3d{position:absolute;transform-style:preserve-3d}
 .edge{position:absolute;inset:0}
 .shadowlayer{background:#0b1522;box-shadow:0 120px 180px rgba(4,12,24,.5),0 30px 60px rgba(4,12,24,.35)}
