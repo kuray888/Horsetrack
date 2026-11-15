@@ -18,7 +18,7 @@ export function EmptyStateButton({ label, onPress, testID }: { label: string; on
       testID={testID}
       className="mt-1 min-h-[44px] items-center justify-center rounded-full bg-primary px-5"
     >
-      <Text className="text-[15px] font-semibold text-on-primary">{label}</Text>
+      <Text className="text-subhead font-semibold text-on-primary">{label}</Text>
     </TouchableOpacity>
   );
 }

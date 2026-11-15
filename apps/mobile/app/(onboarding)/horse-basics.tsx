@@ -57,7 +57,7 @@ export default function HorseBasics() {
             <MaterialCommunityIcons name="camera-plus-outline" size={28} color={colors.textMuted} />
           )}
         </TouchableOpacity>
-        <Text className="text-[13px] text-muted">
+        <Text className="text-footnote text-muted">
           {editingHorse.photoUrl ? t("Changer la photo") : t("Ajouter une photo (facultatif)")}
         </Text>
       </View>

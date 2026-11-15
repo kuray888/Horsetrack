@@ -73,7 +73,7 @@ export function HorseModuleTile({
         </View>
         <View className="gap-1">
           <Text className="text-base font-bold text-text">{title}</Text>
-          <Text className="text-[13px] leading-4 text-muted" numberOfLines={2}>
+          <Text className="text-footnote leading-4 text-muted" numberOfLines={2}>
             {value}
           </Text>
         </View>
@@ -126,8 +126,8 @@ export function HorseModuleRow({
         <MaterialCommunityIcons name={icon} size={16} color={iconColor} />
       </View>
       <View className="flex-1">
-        <Text className="text-[15px] font-semibold text-text">{title}</Text>
-        <Text className="text-[13px] text-muted" numberOfLines={1}>
+        <Text className="text-subhead font-semibold text-text">{title}</Text>
+        <Text className="text-footnote text-muted" numberOfLines={1}>
           {value}
         </Text>
       </View>

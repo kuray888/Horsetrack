@@ -29,7 +29,7 @@ export function SubScreenHeader({
         <Text className="text-2xl font-display tracking-tight text-text" accessibilityRole="header">
           {title}
         </Text>
-        {subtitle ? <Text className="text-[15px] text-muted">{subtitle}</Text> : null}
+        {subtitle ? <Text className="text-subhead text-muted">{subtitle}</Text> : null}
       </View>
       {right ?? null}
     </View>

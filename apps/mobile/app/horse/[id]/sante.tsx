@@ -209,13 +209,13 @@ export default function HorseSanteScreen() {
           <MaterialCommunityIcons name={meta.icon.name} size={20} color={meta.icon.color} />
         </View>
         <View className="flex-1 gap-1">
-          <Text className="text-[17px] font-bold text-text">{meta.label}</Text>
-          <Text className="text-[15px] text-muted">
+          <Text className="text-body font-bold text-text">{meta.label}</Text>
+          <Text className="text-subhead text-muted">
             {isTreatmentRange ? `${formatDate(appt.date)} → ${formatDate(appt.nextDueDate!)}` : formatDate(appt.date)}
             {appt.professional ? ` · ${appt.professional}` : ""}
           </Text>
           {!isTreatmentRange && appt.nextDueDate ? (
-            <Text className="text-[13px] text-link">
+            <Text className="text-footnote text-link">
               {t("Prochaine échéance : ")}
               {formatDate(appt.nextDueDate)}
             </Text>
@@ -223,7 +223,7 @@ export default function HorseSanteScreen() {
         </View>
         <View className="flex-row items-center gap-1">
           <MaterialCommunityIcons name={status.icon} size={16} color={status.color} />
-          <Text className="text-[13px] font-semibold" style={{ color: status.color }}>
+          <Text className="text-footnote font-semibold" style={{ color: status.color }}>
             {status.label}
           </Text>
         </View>
@@ -284,7 +284,7 @@ export default function HorseSanteScreen() {
               <View className="h-12 w-12 items-center justify-center rounded-full bg-border">
                 <MaterialCommunityIcons name="heart-pulse" size={24} color={colors.textMuted} />
               </View>
-              <Text className="text-center text-[15px] text-muted">
+              <Text className="text-center text-subhead text-muted">
                 {t("Rien à afficher pour l'instant : les soins de {name} apparaîtront ici.", { name: horse.name })}
               </Text>
             </View>
@@ -294,7 +294,7 @@ export default function HorseSanteScreen() {
         {!showApptForm && upcoming.length > 0 ? (
           <FadeInView delay={60}>
             <View className="gap-2">
-              <Text className="text-[13px] font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
+              <Text className="text-footnote font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
                 {t("À venir")}
               </Text>
               {upcoming.map(renderAppt)}
@@ -305,7 +305,7 @@ export default function HorseSanteScreen() {
         {!showApptForm && past.length > 0 ? (
           <FadeInView delay={80}>
             <View className="gap-2">
-              <Text className="text-[13px] font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
+              <Text className="text-footnote font-bold uppercase tracking-wide text-muted" accessibilityRole="header">
                 {t("Historique")}
               </Text>
               {past.slice(0, visibleCount).map(renderAppt)}
@@ -338,7 +338,7 @@ export default function HorseSanteScreen() {
               className="flex-row items-center justify-center gap-2 rounded-card border border-border p-4"
             >
               <MaterialCommunityIcons name="file-pdf-box" size={20} color={colors.primary} />
-              <Text className="text-[15px] font-semibold text-primary">{t("Exporter le carnet de santé (PDF)")}</Text>
+              <Text className="text-subhead font-semibold text-primary">{t("Exporter le carnet de santé (PDF)")}</Text>
             </TouchableOpacity>
           </FadeInView>
         ) : null}

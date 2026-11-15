@@ -92,7 +92,7 @@ export default function HorseProgressionScreen() {
         <FadeInView delay={40}>
           <View className={`${CARD} items-center gap-3`}>
             <MaterialCommunityIcons name="chart-line" size={28} color={colors.textMuted} />
-            <Text className="text-center text-[15px] text-muted">
+            <Text className="text-center text-subhead text-muted">
               {t("Rien à montrer pour l'instant. Note tes séances comme faites, et la courbe apparaît ici.")}
             </Text>
           </View>
@@ -101,10 +101,10 @@ export default function HorseProgressionScreen() {
         <>
           <FadeInView delay={40}>
             <View className={`${CARD} gap-3`} accessible accessibilityLabel={`${t("Régularité")} : ${regularityText}`}>
-              <Text className="text-[17px] font-semibold text-text">{t("Régularité")}</Text>
-              <Text className="text-[15px] text-muted">{regularityText}</Text>
+              <Text className="text-body font-semibold text-text">{t("Régularité")}</Text>
+              <Text className="text-subhead text-muted">{regularityText}</Text>
               {reg.currentStreak > 1 ? (
-                <Text className="text-[13px] font-semibold text-primary">
+                <Text className="text-footnote font-semibold text-primary">
                   {t("{n} semaines d'affilée", { n: reg.currentStreak })}
                 </Text>
               ) : null}
@@ -113,8 +113,8 @@ export default function HorseProgressionScreen() {
 
           <FadeInView delay={80}>
             <View className={`${CARD} gap-3`} accessible accessibilityLabel={`${t("Temps de travail par semaine")} : ${compareText}`}>
-              <Text className="text-[17px] font-semibold text-text">{t("Temps de travail par semaine")}</Text>
-              <Text className="text-[15px] text-muted">{compareText}</Text>
+              <Text className="text-body font-semibold text-text">{t("Temps de travail par semaine")}</Text>
+              <Text className="text-subhead text-muted">{compareText}</Text>
               <View onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))} style={{ height: CHART_H }}>
                 {width > 0 ? (
                   <Svg width={width} height={CHART_H} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -143,8 +143,8 @@ export default function HorseProgressionScreen() {
                 accessible
                 accessibilityLabel={t("Poids : {kg} kg, {d} kg en 3 mois", { kg: trend.lastKg, d: `${trend.deltaKg > 0 ? "+" : ""}${trend.deltaKg}` })}
               >
-                <Text className="text-[17px] font-semibold text-text">{t("Poids")}</Text>
-                <Text className="text-[15px] text-muted">
+                <Text className="text-body font-semibold text-text">{t("Poids")}</Text>
+                <Text className="text-subhead text-muted">
                   {t("{kg} kg, {d} kg en 3 mois", { kg: trend.lastKg, d: `${trend.deltaKg > 0 ? "+" : ""}${trend.deltaKg}` })}
                 </Text>
                 {line.length > 1 ? (

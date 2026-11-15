@@ -39,7 +39,7 @@ export default function RideShareScreen() {
         ) : (
           <View className="items-center gap-3 rounded-card bg-surface p-5 shadow-card">
             <MaterialCommunityIcons name="map-marker-off-outline" size={28} color={colors.textMuted} />
-            <Text className="text-center text-[15px] text-muted">{t("Cette séance n'a pas de parcours à partager.")}</Text>
+            <Text className="text-center text-subhead text-muted">{t("Cette séance n'a pas de parcours à partager.")}</Text>
           </View>
         )}
       </FadeInView>

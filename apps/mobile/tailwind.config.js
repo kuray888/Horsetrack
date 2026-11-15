@@ -50,6 +50,19 @@ module.exports = {
         display: ["BricolageGrotesque_800ExtraBold"],
         "display-bold": ["BricolageGrotesque_700Bold"],
       },
+      // Échelle typographique de l'app (CLAUDE.md § Design : 11 / 13 / 15 /
+      // 17 / 20 / 28 / 34, celle d'iOS). Les tailles par défaut de Tailwind
+      // (12, 14, 16, 18, 24, 30) restent disponibles le temps de migrer écran
+      // par écran ; leur nombre ne peut que baisser (cf. designRules.test.ts).
+      fontSize: {
+        caption: "11px",
+        footnote: "13px",
+        subhead: "15px",
+        body: "17px",
+        title3: "20px",
+        title1: "28px",
+        large: "34px",
+      },
       borderRadius: {
         card: "20px",
       },

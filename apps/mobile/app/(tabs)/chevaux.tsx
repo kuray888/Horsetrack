@@ -91,13 +91,13 @@ function HorseRow({
           {isActive ? (
             <View className="flex-row items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5">
               <View className="h-1.5 w-1.5 rounded-full bg-primary" />
-              <Text className="text-[11px] font-semibold text-primary">{t("Actif")}</Text>
+              <Text className="text-caption font-semibold text-primary">{t("Actif")}</Text>
             </View>
           ) : null}
           {horse.sharedRole ? (
             <View className="flex-row items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5">
               <MaterialCommunityIcons name="handshake-outline" size={11} color={colors.accent} />
-              <Text className="text-[11px] font-semibold text-link">{t("Partagé")}</Text>
+              <Text className="text-caption font-semibold text-link">{t("Partagé")}</Text>
             </View>
           ) : null}
         </View>
@@ -270,11 +270,11 @@ function ChevauxScreen() {
             </View>
             <View className="flex-1">
               <Text className="text-base font-bold text-text">{t("Vue écurie")}</Text>
-              <Text className="text-[13px] text-muted">{t("Soins en retard et semaine de chaque cheval")}</Text>
+              <Text className="text-footnote text-muted">{t("Soins en retard et semaine de chaque cheval")}</Text>
             </View>
             {subscription.isPro ? null : (
               <View className="rounded-full bg-primary px-2 py-0.5">
-                <Text className="text-[11px] font-bold text-on-primary">{t("Pro")}</Text>
+                <Text className="text-caption font-bold text-on-primary">{t("Pro")}</Text>
               </View>
             )}
             <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />

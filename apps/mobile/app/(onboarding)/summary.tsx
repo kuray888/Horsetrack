@@ -67,8 +67,8 @@ function ChecklistRow({ done, label, hint }: { done: boolean; label: string; hin
         color={done ? colors.success : colors.textMuted}
       />
       <View className="flex-1 gap-1">
-        <Text className={`text-[15px] font-semibold ${done ? "text-muted line-through" : "text-text"}`}>{label}</Text>
-        {hint ? <Text className="text-[13px] text-muted">{hint}</Text> : null}
+        <Text className={`text-subhead font-semibold ${done ? "text-muted line-through" : "text-text"}`}>{label}</Text>
+        {hint ? <Text className="text-footnote text-muted">{hint}</Text> : null}
       </View>
     </View>
   );
@@ -149,7 +149,7 @@ export default function Summary() {
                 <Text className="text-xl font-display-bold text-text" numberOfLines={1}>
                   {horseName}
                 </Text>
-                {disciplineLabel ? <Text className="text-[13px] text-muted">{disciplineLabel}</Text> : null}
+                {disciplineLabel ? <Text className="text-footnote text-muted">{disciplineLabel}</Text> : null}
               </View>
             </View>
 
@@ -157,13 +157,13 @@ export default function Summary() {
               <View className="flex-row items-center gap-3 rounded-card bg-highlight p-4" testID="summary-first-action">
                 <MaterialCommunityIcons name={action.icon} size={24} color={colors.primary} />
                 <View className="flex-1 gap-1">
-                  <Text className="text-[15px] font-bold text-text">{action.label}</Text>
-                  {action.date ? <Text className="text-[13px] text-muted">{formatDate(action.date)}</Text> : null}
+                  <Text className="text-subhead font-bold text-text">{action.label}</Text>
+                  {action.date ? <Text className="text-footnote text-muted">{formatDate(action.date)}</Text> : null}
                 </View>
                 {careWithReminder ? (
                   <View className="flex-row items-center gap-1 rounded-full bg-primary px-3 py-1">
                     <MaterialCommunityIcons name="bell-ring-outline" size={16} color={colors.textOnPrimary} />
-                    <Text className="text-[11px] font-bold text-on-primary">{t("Rappel la veille")}</Text>
+                    <Text className="text-caption font-bold text-on-primary">{t("Rappel la veille")}</Text>
                   </View>
                 ) : null}
               </View>
@@ -174,7 +174,7 @@ export default function Summary() {
         <FadeInView delay={280}>
           <View className="gap-4 rounded-card border border-border p-5">
             <View className="gap-2">
-              <Text className="text-[13px] font-bold uppercase tracking-wide text-link">
+              <Text className="text-footnote font-bold uppercase tracking-wide text-link">
                 {t("Ton écurie · {done} sur 3", { done: doneCount })}
               </Text>
               <ProgressBar step={doneCount} total={3} />

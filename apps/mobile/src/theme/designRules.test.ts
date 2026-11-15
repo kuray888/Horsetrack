@@ -137,7 +137,7 @@ describe("système de design", () => {
   it("grille 4/8 : les valeurs « entre-deux » ne peuvent que diminuer", () => {
     // gap-1.5, p-3.5, mt-2.5… : à corriger quand on retouche l'écran.
     // Baisser ce plafond à chaque correction ; ne jamais le monter.
-    const PLAFOND = 160;
+    const PLAFOND = 149;
     const total = [...count(/\b(?:gap|gap-x|gap-y|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr)-(?:0\.5|1\.5|2\.5|3\.5)\b/g).values()].reduce(
       (a, b) => a + b,
       0
@@ -148,11 +148,25 @@ describe("système de design", () => {
   it("icônes : 16, 20, 24 ou 28 pt — les autres tailles ne peuvent que diminuer", () => {
     // Quatorze tailles coexistaient (12 à 34 pt) : à ramener sur l'échelle
     // quand on retouche l'écran. Baisser ce plafond, ne jamais le monter.
-    const PLAFOND = 176;
+    const PLAFOND = 161;
     const total = [...count(/<MaterialCommunityIcons\b[^>]*\bsize=\{(?!16\}|20\}|24\}|28\})\d+\}/g).values()].reduce(
       (a, b) => a + b,
       0
     );
     expect(total).toBeLessThanOrEqual(PLAFOND);
+  });
+
+  it("typographie : les tailles hors échelle (12, 14, 16, 18, 24 px) ne peuvent que diminuer", () => {
+    // Échelle de l'app : text-caption 11, text-footnote 13, text-subhead 15,
+    // text-body 17, text-xl / text-title3 20, text-title1 28, text-large 34
+    // (cf. tailwind.config.js). Les tailles par défaut de Tailwind se
+    // migrent quand on retouche l'écran. Baisser ce plafond, ne jamais le monter.
+    const PLAFOND = 743;
+    const total = [...count(/\btext-(?:xs|sm|base|lg|2xl)\b/g).values()].reduce((a, b) => a + b, 0);
+    expect(total).toBeLessThanOrEqual(PLAFOND);
+  });
+
+  it("typographie : plus de tailles en pixels arbitraires (text-[15px]…), les jetons de l'échelle", () => {
+    expectWithin(count(/\btext-\[\d+px\]/g), {});
   });
 });

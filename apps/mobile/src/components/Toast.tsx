@@ -125,7 +125,7 @@ function ToastView({ entry, onHide, onUndo }: { entry: ToastEntry; onHide: (key:
           color={colors.surface}
           accessibilityElementsHidden
         />
-        <Text className="flex-1 text-[15px] text-surface" numberOfLines={2}>
+        <Text className="flex-1 text-subhead text-surface" numberOfLines={2}>
           {entry.message}
         </Text>
         {withUndo ? (
@@ -136,7 +136,7 @@ function ToastView({ entry, onHide, onUndo }: { entry: ToastEntry; onHide: (key:
             accessibilityLabel={tc("undo", "Annuler")}
             className="min-h-[44px] justify-center px-2"
           >
-            <Text className="text-[15px] font-bold text-surface underline">{tc("undo", "Annuler")}</Text>
+            <Text className="text-subhead font-bold text-surface underline">{tc("undo", "Annuler")}</Text>
           </TouchableOpacity>
         ) : null}
       </Animated.View>

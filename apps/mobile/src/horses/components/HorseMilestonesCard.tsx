@@ -77,7 +77,7 @@ export function HorseMilestonesCard({ horseName, ...input }: MilestoneInput & { 
               <View className="h-14 w-14 items-center justify-center rounded-full bg-highlight">
                 <MaterialCommunityIcons name={m.icon as IconName} size={28} color={colors.primary} accessibilityElementsHidden />
               </View>
-              <Text className="text-center text-[11px] font-semibold leading-[13px] text-text" numberOfLines={2}>
+              <Text className="text-center text-caption font-semibold leading-[13px] text-text" numberOfLines={2}>
                 {m.title}
               </Text>
             </TouchableOpacity>

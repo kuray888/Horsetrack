@@ -126,7 +126,7 @@ export function FirstStepsCard({
                 color={step.done ? colors.success : colors.primary}
               />
             </View>
-            <Text className={`flex-1 text-[15px] ${step.done ? "text-muted line-through" : "font-semibold text-text"}`}>
+            <Text className={`flex-1 text-subhead ${step.done ? "text-muted line-through" : "font-semibold text-text"}`}>
               {step.label}
             </Text>
             {!step.done ? <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} /> : null}
@@ -191,7 +191,7 @@ export function MonthlyRecapCard({
         </View>
         <View className="gap-1">
           {recapLines(recap).map((line) => (
-            <Text key={line} className="text-[15px] text-on-primary">
+            <Text key={line} className="text-subhead text-on-primary">
               • {line}
             </Text>
           ))}

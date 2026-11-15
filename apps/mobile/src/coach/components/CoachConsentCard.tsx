@@ -36,7 +36,7 @@ export function CoachConsentCard({ onDecline }: { onDecline?: () => void }) {
           {t("Autoriser le coach IA ?")}
         </Text>
       </View>
-      <Text className="text-[15px] leading-5 text-text">
+      <Text className="text-subhead leading-5 text-text">
         {t("Pour répondre, le coach envoie le carnet de ton cheval (séances, soins, dépenses, poids) et le texte de tes questions à Anthropic, notre prestataire d'intelligence artificielle, aux États-Unis.")}
       </Text>
       <Text className="text-sm leading-5 text-muted">

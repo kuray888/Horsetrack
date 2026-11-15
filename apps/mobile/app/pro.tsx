@@ -142,8 +142,8 @@ function ProPaywall() {
                   <MaterialCommunityIcons name={f.icon} size={20} color={colors.primary} />
                 </View>
                 <View className="flex-1 gap-1">
-                  <Text className="text-[15px] font-bold text-text">{f.title}</Text>
-                  <Text className="text-[13px] leading-5 text-muted">{f.text}</Text>
+                  <Text className="text-subhead font-bold text-text">{f.title}</Text>
+                  <Text className="text-footnote leading-5 text-muted">{f.text}</Text>
                 </View>
               </View>
             </FadeInView>

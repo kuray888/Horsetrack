@@ -95,7 +95,7 @@ export function BudgetExportCard({ horseName, expenses }: { horseName: string; e
           accessibilityState={{ disabled: busy !== null }}
           className="items-center rounded-card bg-border p-4"
         >
-          <Text className="text-[15px] font-semibold text-text">{busy === "csv" ? t("Un instant…") : t("Partager en tableur (CSV)")}</Text>
+          <Text className="text-subhead font-semibold text-text">{busy === "csv" ? t("Un instant…") : t("Partager en tableur (CSV)")}</Text>
         </TouchableOpacity>
       </View>
     </Locked>

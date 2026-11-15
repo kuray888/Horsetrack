@@ -216,9 +216,9 @@ export default function ContactsScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
-              {c.address ? <Text className="text-[13px] text-muted">{c.address}</Text> : null}
+              {c.address ? <Text className="text-footnote text-muted">{c.address}</Text> : null}
               {next ? (
-                <Text className={`text-[13px] ${next.overdue ? "font-semibold text-warning" : "text-muted"}`}>
+                <Text className={`text-footnote ${next.overdue ? "font-semibold text-warning" : "text-muted"}`}>
                   {next.overdue
                     ? t("Dernière visite le {d} : une visite est à prévoir.", { d: formatDate(next.last) })
                     : t("Dernière visite le {d} : la suivante est conseillée vers le {s}.", { d: formatDate(next.last), s: formatDate(next.suggested) })}

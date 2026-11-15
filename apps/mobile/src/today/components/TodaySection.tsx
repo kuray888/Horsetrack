@@ -64,7 +64,7 @@ export function TodaySection({
         {todayEvents.length === 0 ? (
           <View className={`${CARD} gap-3`}>
             <View className="gap-1.5">
-              <Text className="text-[15px] font-semibold text-text">{t("Rien de prévu aujourd'hui.")}</Text>
+              <Text className="text-subhead font-semibold text-text">{t("Rien de prévu aujourd'hui.")}</Text>
               {/* « Rien de prévu » n'est pas « tout est à jour » : on dit ce
                   qui attend quand même, plutôt que de laisser une carte vide
                   qui se lit comme un feu vert. */}
@@ -115,11 +115,11 @@ export function TodaySection({
                     </View>
                     <View className="flex-1 gap-1 py-1">
                       <Text
-                        className={`text-[15px] font-semibold ${session?.completed ? "text-muted line-through" : "text-text"}`}
+                        className={`text-subhead font-semibold ${session?.completed ? "text-muted line-through" : "text-text"}`}
                       >
                         {meta.title}
                       </Text>
-                      <Text className="text-[13px] text-muted">{time ? `${meta.label} · ${time}` : meta.label}</Text>
+                      <Text className="text-footnote text-muted">{time ? `${meta.label} · ${time}` : meta.label}</Text>
                     </View>
                   </TouchableOpacity>
                   {session && !session.completed ? (
@@ -144,7 +144,7 @@ export function TodaySection({
                       accessibilityLabel={sessionCheckboxLabel(session.completed)}
                     />
                   ) : (
-                    <Text className={`text-[13px] font-bold ${meta.tag}`}>{meta.label}</Text>
+                    <Text className={`text-footnote font-bold ${meta.tag}`}>{meta.label}</Text>
                   )}
                 </View>
               );
@@ -157,7 +157,7 @@ export function TodaySection({
               <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
                 <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
               </View>
-              <Text className="text-[15px] font-semibold text-primary">{t("Planifier une séance")}</Text>
+              <Text className="text-subhead font-semibold text-primary">{t("Planifier une séance")}</Text>
             </TouchableOpacity>
             {/* Une séance prévue a déjà son bouton lecture : la ligne
                 « Démarrer en direct » faisait doublon. Elle reste pour une
@@ -173,7 +173,7 @@ export function TodaySection({
                 <View className="h-9 w-9 items-center justify-center rounded-full bg-highlight">
                   <MaterialCommunityIcons name="play-circle-outline" size={18} color={colors.primary} />
                 </View>
-                <Text className="text-[15px] font-semibold text-primary">{t("Démarrer une séance en direct")}</Text>
+                <Text className="text-subhead font-semibold text-primary">{t("Démarrer une séance en direct")}</Text>
               </TouchableOpacity>
             )}
           </View>

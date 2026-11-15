@@ -191,7 +191,7 @@ export default function SearchScreen() {
                   <MaterialCommunityIcons name={meta.icon} size={18} color={colors.primary} />
                 </View>
                 <View className="flex-1 gap-0.5">
-                  <Text className="text-[15px] font-semibold text-text" numberOfLines={1}>
+                  <Text className="text-subhead font-semibold text-text" numberOfLines={1}>
                     {result.title}
                   </Text>
                   <Text className="text-sm text-muted" numberOfLines={1}>

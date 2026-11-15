@@ -16,7 +16,7 @@ export function TodayHeader({ horse, onAdd }: { horse: Horse | null; onAdd?: () 
       <View className="flex-row items-center justify-between">
         <View className="flex-1 gap-0.5 pr-3">
           <Text className="text-2xl font-display tracking-tight text-on-primary">{greeting()}</Text>
-          <Text className="text-[15px] text-on-primary/80">
+          <Text className="text-subhead text-on-primary/80">
             {t("Prêt pour une séance avec ")}{horse?.name ?? t("ton cheval")} ?
           </Text>
         </View>

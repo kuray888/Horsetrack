@@ -1065,7 +1065,7 @@ function PlanningScreen() {
               accessibilityState={{ selected: viewMode === mode }}
               className={`min-h-9 flex-1 items-center justify-center rounded-full ${viewMode === mode ? "bg-primary" : ""}`}
             >
-              <Text className={`text-[15px] font-semibold ${viewMode === mode ? "text-on-primary" : "text-muted"}`}>
+              <Text className={`text-subhead font-semibold ${viewMode === mode ? "text-on-primary" : "text-muted"}`}>
                 {mode === "list" ? t("Liste") : t("Mois")}
               </Text>
             </TouchableOpacity>
@@ -1085,7 +1085,7 @@ function PlanningScreen() {
               trackColor="rgba(255,255,255,0.25)"
               progressColor={colors.textOnPrimary}
             >
-              <Text className="text-[11px] font-bold text-on-primary">
+              <Text className="text-caption font-bold text-on-primary">
                 {weekDone}/{weekSessions.length}
               </Text>
             </CircularProgress>
@@ -1093,7 +1093,7 @@ function PlanningScreen() {
               <Text className="text-sm font-bold uppercase tracking-wide text-on-primary/80">
                 {t("Cette semaine")}{showingAllHorses ? t(" · toute l'écurie") : ""}
               </Text>
-              <Text className="text-[15px] leading-5 text-on-primary">
+              <Text className="text-subhead leading-5 text-on-primary">
                 {t("{n} séance{v} faite{v} · {duration} au programme", {
                   n: weekDone,
                   v: weekDone > 1 ? "s" : "",

@@ -59,7 +59,7 @@ export default function RideReplayScreen() {
       {header}
         <View className={`${CARD} items-center gap-3`}>
           <MaterialCommunityIcons name="map-marker-off-outline" size={28} color={colors.textMuted} />
-          <Text className="text-center text-[15px] text-muted">
+          <Text className="text-center text-subhead text-muted">
             {t("Le détail de cette séance n'est pas disponible : elle a été enregistrée avant la relecture.")}
           </Text>
         </View>
@@ -116,7 +116,7 @@ export default function RideReplayScreen() {
             {(["walk", "trot", "canter"] as const).map((g) => (
               <View key={g} className="flex-row items-center gap-2">
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: gaitColor[g] }} />
-                <Text className="text-[13px] text-muted">{GAIT_LABEL[g]}</Text>
+                <Text className="text-footnote text-muted">{GAIT_LABEL[g]}</Text>
               </View>
             ))}
           </View>
@@ -127,21 +127,21 @@ export default function RideReplayScreen() {
             accessibilityLabel={t("À {time} : {gait}, {speed}", { time: formatClock(trace.t[i]), gait: GAIT_LABEL[gait], speed: formatSpeed(speeds[i]) })}
           >
             <View>
-              <Text className="text-[11px] text-muted">{t("Temps")}</Text>
-              <Text className="text-[17px] font-semibold text-text">{formatClock(trace.t[i])}</Text>
+              <Text className="text-caption text-muted">{t("Temps")}</Text>
+              <Text className="text-body font-semibold text-text">{formatClock(trace.t[i])}</Text>
             </View>
             <View>
-              <Text className="text-[11px] text-muted">{t("Allure")}</Text>
-              <Text className="text-[17px] font-semibold text-text">{GAIT_LABEL[gait]}</Text>
+              <Text className="text-caption text-muted">{t("Allure")}</Text>
+              <Text className="text-body font-semibold text-text">{GAIT_LABEL[gait]}</Text>
             </View>
             <View>
-              <Text className="text-[11px] text-muted">{t("Vitesse")}</Text>
-              <Text className="text-[17px] font-semibold text-text">{formatSpeed(speeds[i])}</Text>
+              <Text className="text-caption text-muted">{t("Vitesse")}</Text>
+              <Text className="text-body font-semibold text-text">{formatSpeed(speeds[i])}</Text>
             </View>
             {alts ? (
               <View>
-                <Text className="text-[11px] text-muted">{t("Altitude")}</Text>
-                <Text className="text-[17px] font-semibold text-text">{t("{v} m", { v: Math.round(alts[i]) })}</Text>
+                <Text className="text-caption text-muted">{t("Altitude")}</Text>
+                <Text className="text-body font-semibold text-text">{t("{v} m", { v: Math.round(alts[i]) })}</Text>
               </View>
             ) : null}
           </View>
@@ -173,10 +173,10 @@ export default function RideReplayScreen() {
           <View className="flex-row justify-between">
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Plus tôt")} onPress={() => { hapticSelection(); move(i - step); }} hitSlop={8} className="flex-row items-center gap-1">
               <MaterialCommunityIcons name="chevron-left" size={20} color={colors.accent} />
-              <Text className="text-[15px] font-semibold text-link">{t("Plus tôt")}</Text>
+              <Text className="text-subhead font-semibold text-link">{t("Plus tôt")}</Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("Plus tard")} onPress={() => { hapticSelection(); move(i + step); }} hitSlop={8} className="flex-row items-center gap-1">
-              <Text className="text-[15px] font-semibold text-link">{t("Plus tard")}</Text>
+              <Text className="text-subhead font-semibold text-link">{t("Plus tard")}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color={colors.accent} />
             </TouchableOpacity>
           </View>
@@ -194,7 +194,7 @@ export default function RideReplayScreen() {
           className="min-h-[44px] flex-row items-center justify-center gap-2 self-center rounded-full border border-primary px-5 py-2"
         >
           <MaterialCommunityIcons name="share-variant-outline" size={18} color={colors.primary} />
-          <Text className="text-[15px] font-bold text-primary">{t("Partager ma séance")}</Text>
+          <Text className="text-subhead font-bold text-primary">{t("Partager ma séance")}</Text>
         </TouchableOpacity>
       </FadeInView>
 
@@ -205,15 +205,15 @@ export default function RideReplayScreen() {
             accessible
             accessibilityLabel={t("Dénivelé : {up} m de montée, {down} m de descente", { up: stats?.gain ?? 0, down: stats?.loss ?? 0 })}
           >
-            <Text className="text-[17px] font-semibold text-text">{t("Dénivelé")}</Text>
-            <Text className="text-[15px] text-muted">
+            <Text className="text-body font-semibold text-text">{t("Dénivelé")}</Text>
+            <Text className="text-subhead text-muted">
               {t("{up} m de montée, {down} m de descente", { up: stats?.gain ?? 0, down: stats?.loss ?? 0 })}
             </Text>
             <Svg width={width} height={CURVE_H}>
               <Polyline points={altLine.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke={colors.success} strokeWidth={2} strokeLinejoin="round" />
               <Line x1={altLine[i]?.x ?? 0} x2={altLine[i]?.x ?? 0} y1={0} y2={CURVE_H} stroke={colors.text} strokeWidth={2} />
             </Svg>
-            <Text className="text-[11px] text-muted">{t("Altitude du GPS, lissée : à quelques mètres près.")}</Text>
+            <Text className="text-caption text-muted">{t("Altitude du GPS, lissée : à quelques mètres près.")}</Text>
           </View>
         </FadeInView>
       ) : null}

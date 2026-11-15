@@ -175,7 +175,7 @@ export default function CommentsScreen() {
         accessibilityLabel={t("Ton commentaire")}
       />
       <View className="flex-row items-center justify-between">
-        <Text className="text-[11px] text-muted">{t("Visible par les personnes qui suivent ce cheval.")}</Text>
+        <Text className="text-caption text-muted">{t("Visible par les personnes qui suivent ce cheval.")}</Text>
         <TouchableOpacity
           accessibilityRole="button"
           disabled={!cleanCommentBody(text) || sending}
@@ -247,7 +247,7 @@ export default function CommentsScreen() {
               <Text className="text-xs font-bold text-primary">{authorLabel(c, me)}</Text>
               <Text className="text-xs text-muted">{relativeTime(c.createdAt)}</Text>
             </View>
-            <Text className="text-[15px] leading-5 text-text">{c.body}</Text>
+            <Text className="text-subhead leading-5 text-text">{c.body}</Text>
           </TouchableOpacity>
         ))
       )}

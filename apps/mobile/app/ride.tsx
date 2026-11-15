@@ -195,9 +195,9 @@ function RideSetupView({ sessionId, horseIdParam }: { sessionId: string | null; 
             accessibilityState={{ disabled: !horse || starting }}
           >
             <MaterialCommunityIcons name="play" size={24} color={colors.textOnPrimary} />
-            <Text className="text-[17px] font-bold text-on-primary">{starting ? t("Démarrage…") : t("Démarrer")}</Text>
+            <Text className="text-body font-bold text-on-primary">{starting ? t("Démarrage…") : t("Démarrer")}</Text>
           </TouchableOpacity>
-          {!horse ? <Text className="text-center text-[15px] text-muted">{t("Ajoute d'abord un cheval.")}</Text> : null}
+          {!horse ? <Text className="text-center text-subhead text-muted">{t("Ajoute d'abord un cheval.")}</Text> : null}
         </>
       }
     >
@@ -330,7 +330,7 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
             accessibilityRole="button"
           >
             <MaterialCommunityIcons name={paused ? "play" : "pause"} size={24} color={colors.text} />
-            <Text className="text-[17px] font-bold text-text">{paused ? t("Reprendre") : t("Pause")}</Text>
+            <Text className="text-body font-bold text-text">{paused ? t("Reprendre") : t("Pause")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             className="flex-1 flex-row items-center justify-center gap-2 rounded-card bg-primary p-5"
@@ -339,7 +339,7 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
             accessibilityRole="button"
           >
             <MaterialCommunityIcons name="stop" size={24} color={colors.textOnPrimary} />
-            <Text className="text-[17px] font-bold text-on-primary">{t("Terminer")}</Text>
+            <Text className="text-body font-bold text-on-primary">{t("Terminer")}</Text>
           </TouchableOpacity>
         </View>
       }
@@ -386,9 +386,9 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
               largeur fixe (ils ne sautent pas à chaque seconde), étiquette
               en couleur de texte plutôt qu'en gris. */}
           <View className={`${CARD} flex-1 items-center gap-1`}>
-            <Text className="text-[13px] font-bold uppercase tracking-wide text-text">{t("Distance")}</Text>
+            <Text className="text-footnote font-bold uppercase tracking-wide text-text">{t("Distance")}</Text>
             <Text
-              className="text-[34px] font-bold text-text"
+              className="text-large font-bold text-text"
               style={{ fontVariant: ["tabular-nums"] }}
               numberOfLines={1}
               adjustsFontSizeToFit
@@ -397,9 +397,9 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
             </Text>
           </View>
           <View className={`${CARD} flex-1 items-center gap-1`}>
-            <Text className="text-[13px] font-bold uppercase tracking-wide text-text">{t("Vitesse")}</Text>
+            <Text className="text-footnote font-bold uppercase tracking-wide text-text">{t("Vitesse")}</Text>
             <Text
-              className="text-[34px] font-bold text-text"
+              className="text-large font-bold text-text"
               style={{ fontVariant: ["tabular-nums"] }}
               numberOfLines={1}
               adjustsFontSizeToFit
@@ -428,7 +428,7 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
               hitSlop={8}
               onPress={() => void Share.share({ message: t("Suis ma séance à cheval en direct : {viewUrl}", { viewUrl: draft.safety!.viewUrl }) })}
             >
-              <Text className="text-[13px] font-semibold text-link">{t("Partager le lien par message")}</Text>
+              <Text className="text-footnote font-semibold text-link">{t("Partager le lien par message")}</Text>
             </TouchableOpacity>
           </View>
           {/* Le bouton de sécurité : plein, 44 pt minimum, trouvable sans
@@ -443,7 +443,7 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
             }}
           >
             <MaterialCommunityIcons name="alert-octagon-outline" size={20} color={colors.textOnStatus} />
-            <Text className="text-[15px] font-bold text-on-status">{t("Alerter")}</Text>
+            <Text className="text-subhead font-bold text-on-status">{t("Alerter")}</Text>
           </TouchableOpacity>
         </View>
       ) : null}

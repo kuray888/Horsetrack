@@ -32,7 +32,7 @@ export function YearReviewBanner({ horse, year }: { horse: Horse; year: number }
         <View className="h-10 w-10 items-center justify-center rounded-full bg-highlight">
           <MaterialCommunityIcons name="party-popper" size={20} color={colors.primary} />
         </View>
-        <Text className="flex-1 text-[15px] font-semibold text-text">
+        <Text className="flex-1 text-subhead font-semibold text-text">
           {t("Ton année {year} avec {name} est prête", { year, name: horse.name })}
         </Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
@@ -51,7 +51,7 @@ export function DailyTipCard({ discipline }: { discipline: Discipline | null }) 
         </View>
         <View className="flex-1 gap-0.5">
           <Text className="text-sm font-bold uppercase tracking-wide text-primary">{t("Conseil du jour")}</Text>
-          <Text className="text-[15px] leading-5 text-text">{dailyTip(new Date(), discipline)}</Text>
+          <Text className="text-subhead leading-5 text-text">{dailyTip(new Date(), discipline)}</Text>
         </View>
       </View>
     </FadeInView>
@@ -129,7 +129,7 @@ export function NotificationPrompt({
             <MaterialCommunityIcons name="bell-ring-outline" size={20} color={colors.primary} />
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="text-[15px] font-bold text-text">{t("Ne rate rien pour ")}{horseName ?? t("ton cheval")}</Text>
+            <Text className="text-subhead font-bold text-text">{t("Ne rate rien pour ")}{horseName ?? t("ton cheval")}</Text>
             <Text className="text-sm text-muted">{t("Ton bilan du dimanche et tes rappels avant chaque soin.")}</Text>
           </View>
           <TouchableOpacity accessibilityRole="button"
@@ -220,7 +220,7 @@ export function UpcomingCard({ events }: { events: UnifiedEvent[] }) {
                   <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
                 </View>
                 <View className="flex-1 gap-0.5">
-                  <Text className="text-[15px] font-semibold text-text">{meta.title}</Text>
+                  <Text className="text-subhead font-semibold text-text">{meta.title}</Text>
                   <Text className="text-sm text-muted">{when}</Text>
                 </View>
                 <Text className={`text-xs font-bold ${meta.tag}`}>{meta.label}</Text>
@@ -257,17 +257,17 @@ export function WeekRecapCard({
           trackColor={colors.border}
           progressColor={colors.primary}
         >
-          <Text className="text-[11px] font-bold text-text">
+          <Text className="text-caption font-bold text-text">
             {done}/{total}
           </Text>
         </CircularProgress>
         <View className="flex-1 gap-0.5">
           <Text className="text-xs font-bold uppercase tracking-wide text-muted">{t("Cette semaine")}</Text>
-          <Text className="text-[13px] leading-[17px] text-text">{weeklyRecapMessage(done, total)}</Text>
+          <Text className="text-footnote leading-[17px] text-text">{weeklyRecapMessage(done, total)}</Text>
           {streak >= 2 ? (
             <View className="flex-row items-center gap-1">
               <MaterialCommunityIcons name="fire" size={14} color={colors.primary} accessibilityElementsHidden />
-              <Text className="flex-1 text-[13px] font-semibold text-primary">
+              <Text className="flex-1 text-footnote font-semibold text-primary">
                 {streak} {t(" semaines d'affilée avec ")}{horseName ?? t("ton cheval")}
               </Text>
             </View>

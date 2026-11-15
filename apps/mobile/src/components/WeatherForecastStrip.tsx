@@ -56,8 +56,8 @@ export function WeatherForecastStrip() {
       >
         <MaterialCommunityIcons name="weather-partly-cloudy" size={24} color={colors.primary} accessibilityElementsHidden />
         <View className="flex-1 gap-1">
-          <Text className="text-[15px] font-semibold text-text">{t("Afficher la météo")}</Text>
-          <Text className="text-[13px] text-muted">{t("Prévisions et meilleur moment pour monter, là où tu es.")}</Text>
+          <Text className="text-subhead font-semibold text-text">{t("Afficher la météo")}</Text>
+          <Text className="text-footnote text-muted">{t("Prévisions et meilleur moment pour monter, là où tu es.")}</Text>
         </View>
         <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} accessibilityElementsHidden />
       </TouchableOpacity>
@@ -115,7 +115,7 @@ export function WeatherForecastStrip() {
       {rideWindow && isActiveOrTrialing ? (
         <View className="flex-row items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-card">
           <MaterialCommunityIcons name="horse-variant" size={20} color={colors.primary} accessibilityElementsHidden />
-          <Text className="flex-1 text-[15px] text-text">
+          <Text className="flex-1 text-subhead text-text">
             {t("Pour monter aujourd'hui : {from} – {to}, jusqu'à {temp}°", {
               from: hourLabel(rideWindow.start),
               to: hourLabel(rideWindow.end),
@@ -132,14 +132,14 @@ export function WeatherForecastStrip() {
           className="flex-row items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-card"
         >
           <MaterialCommunityIcons name="horse-variant" size={20} color={colors.primary} accessibilityElementsHidden />
-          <Text className="flex-1 text-[15px] text-text">{t("Le meilleur moment pour monter aujourd'hui")}</Text>
+          <Text className="flex-1 text-subhead text-text">{t("Le meilleur moment pour monter aujourd'hui")}</Text>
           <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} accessibilityElementsHidden />
         </TouchableOpacity>
       ) : null}
       {alerts.map((a) => (
         <View key={a} className="flex-row items-center gap-3 rounded-card bg-warning/15 px-4 py-3">
           <MaterialCommunityIcons name={ALERTS[a].icon} size={20} color={colors.warning} accessibilityElementsHidden />
-          <Text className="flex-1 text-[15px] text-text">{ALERTS[a].text}</Text>
+          <Text className="flex-1 text-subhead text-text">{ALERTS[a].text}</Text>
         </View>
       ))}
       {/* Attribution exigée par la licence des données (CC BY 4.0). */}
@@ -149,7 +149,7 @@ export function WeatherForecastStrip() {
         hitSlop={8}
         className="self-start"
       >
-        <Text className="text-[11px] text-muted">{t("Prévisions : MET Norway")}</Text>
+        <Text className="text-caption text-muted">{t("Prévisions : MET Norway")}</Text>
       </TouchableOpacity>
     </View>
   );

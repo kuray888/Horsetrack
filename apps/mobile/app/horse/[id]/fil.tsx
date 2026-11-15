@@ -127,7 +127,7 @@ export default function HorseFeedScreen() {
               </Text>
               <Text className="text-xs text-muted">{relativeTime(c.createdAt)}</Text>
             </View>
-            <Text className="text-[15px] leading-5 text-text" numberOfLines={3}>
+            <Text className="text-subhead leading-5 text-text" numberOfLines={3}>
               <Text className="font-semibold text-primary">{authorLabel(c, me)} · </Text>
               {c.body}
             </Text>

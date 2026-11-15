@@ -185,7 +185,7 @@ export function RideShareBlock({
               }}
               className={`min-h-[44px] items-center justify-center rounded-full border px-5 ${active ? "border-primary bg-primary" : "border-border"}`}
             >
-              <Text className={`text-[15px] font-semibold ${active ? "text-on-primary" : "text-text"}`}>{f.label}</Text>
+              <Text className={`text-subhead font-semibold ${active ? "text-on-primary" : "text-text"}`}>{f.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -195,8 +195,8 @@ export function RideShareBlock({
         {ride.gps && fullRoute.length > 1 ? (
           <View className="flex-row items-center justify-between gap-4">
             <View className="flex-1 gap-1">
-              <Text className="text-[15px] font-semibold text-text">{t("Masquer le départ et l'arrivée")}</Text>
-              <Text className="text-[13px] text-muted">{t("Retire les 200 premiers et derniers mètres du tracé, pour qu'on ne devine pas d'où tu pars.")}</Text>
+              <Text className="text-subhead font-semibold text-text">{t("Masquer le départ et l'arrivée")}</Text>
+              <Text className="text-footnote text-muted">{t("Retire les 200 premiers et derniers mètres du tracé, pour qu'on ne devine pas d'où tu pars.")}</Text>
             </View>
             <Switch value={hideEnds} onValueChange={(v) => { hapticSelection(); setHideEnds(v); }} accessibilityLabel={t("Masquer le départ et l'arrivée")} />
           </View>
@@ -204,8 +204,8 @@ export function RideShareBlock({
         {horseName ? (
           <View className="flex-row items-center justify-between gap-4">
             <View className="flex-1 gap-1">
-              <Text className="text-[15px] font-semibold text-text">{t("Afficher le nom du cheval sur le lien")}</Text>
-              <Text className="text-[13px] text-muted">{t("Par défaut, la page web du lien ne montre pas le nom de ton cheval.")}</Text>
+              <Text className="text-subhead font-semibold text-text">{t("Afficher le nom du cheval sur le lien")}</Text>
+              <Text className="text-footnote text-muted">{t("Par défaut, la page web du lien ne montre pas le nom de ton cheval.")}</Text>
             </View>
             <Switch value={showHorseName} onValueChange={(v) => { hapticSelection(); setShowHorseName(v); }} accessibilityLabel={t("Afficher le nom du cheval sur le lien")} />
           </View>
@@ -213,8 +213,8 @@ export function RideShareBlock({
         {code ? (
           <View className="flex-row items-center justify-between gap-4">
             <View className="flex-1 gap-1">
-              <Text className="text-[15px] font-semibold text-text">{t("Afficher mon code de parrainage")}</Text>
-              <Text className="text-[13px] text-muted">{t("Quand un ami l'utilise et s'abonne, tu gagnes un mois de Premium.")}</Text>
+              <Text className="text-subhead font-semibold text-text">{t("Afficher mon code de parrainage")}</Text>
+              <Text className="text-footnote text-muted">{t("Quand un ami l'utilise et s'abonne, tu gagnes un mois de Premium.")}</Text>
             </View>
             <Switch value={withCode} onValueChange={(v) => { hapticSelection(); setWithCode(v); }} accessibilityLabel={t("Afficher mon code de parrainage")} />
           </View>
@@ -229,13 +229,13 @@ export function RideShareBlock({
         className="min-h-[44px] flex-row items-center gap-2 rounded-full border border-primary px-5 py-2"
       >
         <MaterialCommunityIcons name="share-variant-outline" size={18} color={colors.primary} accessibilityElementsHidden />
-        <Text className="text-[15px] font-bold text-primary">{sharing ? t("Un instant…") : t("Partager ma séance")}</Text>
+        <Text className="text-subhead font-bold text-primary">{sharing ? t("Un instant…") : t("Partager ma séance")}</Text>
       </TouchableOpacity>
 
       {sessionId && ride.gps ? (
         <View className="gap-3 self-stretch rounded-card bg-surface p-5 shadow-card">
-          <Text className="text-[17px] font-semibold text-text">{t("Lien à partager")}</Text>
-          <Text className="text-[13px] text-muted">
+          <Text className="text-body font-semibold text-text">{t("Lien à partager")}</Text>
+          <Text className="text-footnote text-muted">
             {link
               ? t("Ton lien est actif : ceux qui l'ont voient ta balade sur une page Horsetrack.")
               : t("Une page web de ta balade (tracé, durée, distance), à envoyer par message. Tu choisis de la créer, et tu peux la supprimer.")}
@@ -247,7 +247,7 @@ export function RideShareBlock({
                 accessibilityRole="button"
                 className="min-h-[44px] flex-1 items-center justify-center rounded-full border border-primary"
               >
-                <Text className="text-[15px] font-bold text-primary">{t("Partager le lien")}</Text>
+                <Text className="text-subhead font-bold text-primary">{t("Partager le lien")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => void handleRevokeLink()}
@@ -256,7 +256,7 @@ export function RideShareBlock({
                 accessibilityState={{ disabled: linkBusy }}
                 className="min-h-[44px] flex-1 items-center justify-center rounded-full border border-border"
               >
-                <Text className="text-[15px] font-semibold text-danger">{linkBusy ? t("Un instant…") : t("Supprimer le lien")}</Text>
+                <Text className="text-subhead font-semibold text-danger">{linkBusy ? t("Un instant…") : t("Supprimer le lien")}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -267,7 +267,7 @@ export function RideShareBlock({
               accessibilityState={{ disabled: linkBusy }}
               className="min-h-[44px] items-center justify-center rounded-full border border-primary"
             >
-              <Text className="text-[15px] font-bold text-primary">{linkBusy ? t("Un instant…") : t("Créer un lien à partager")}</Text>
+              <Text className="text-subhead font-bold text-primary">{linkBusy ? t("Un instant…") : t("Créer un lien à partager")}</Text>
             </TouchableOpacity>
           )}
         </View>

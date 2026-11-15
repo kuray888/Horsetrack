@@ -123,7 +123,7 @@ export default function SessionNoteModal() {
               <MaterialCommunityIcons name={meta.icon} size={18} color={meta.tint} />
             </View>
             <View className="flex-1 gap-0.5">
-              <Text className="text-[15px] font-semibold text-text">{title}</Text>
+              <Text className="text-subhead font-semibold text-text">{title}</Text>
               <Text className="text-sm text-muted">
                 {formatDate(session.date)}
                 {session.time ? ` · ${session.time}` : ""}

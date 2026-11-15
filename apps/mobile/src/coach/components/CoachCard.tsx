@@ -140,7 +140,7 @@ export function CoachCard({ horse }: { horse: Horse }) {
           {isActiveOrTrialing && granted === false ? (
             <Text className="text-sm leading-5 text-muted">{t("Suggestion calculée d'après ses séances, sa santé et tes concours. Autorise le coach IA pour qu'il l'explique.")}</Text>
           ) : isActiveOrTrialing ? (
-            <Text className="text-[15px] leading-5 text-text">{s.reason}</Text>
+            <Text className="text-subhead leading-5 text-text">{s.reason}</Text>
           ) : (
             <Text className="text-sm leading-5 text-muted">{t("Suggestion calculée d'après ses séances, sa santé et tes concours.")}</Text>
           )}

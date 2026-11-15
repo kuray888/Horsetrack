@@ -413,7 +413,7 @@ export default function LoginScreen() {
               {GOOGLE_AUTH_ENABLED ? <GoogleSignInButton onPress={() => void handleGoogleSignIn()} disabled={loading} /> : null}
               <View className="flex-row items-center gap-3 pt-2">
                 <View className="h-px flex-1 bg-border" />
-                <Text className="text-[13px] text-muted">{tr("ou avec ton e-mail")}</Text>
+                <Text className="text-footnote text-muted">{tr("ou avec ton e-mail")}</Text>
                 <View className="h-px flex-1 bg-border" />
               </View>
             </View>

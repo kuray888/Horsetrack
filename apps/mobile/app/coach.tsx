@@ -236,7 +236,7 @@ export default function CoachScreen() {
                   <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("coach", { feature: "coach_free_used" })} />
                 </View>
               ) : null}
-              <Text className="text-[11px] leading-4 text-muted">
+              <Text className="text-caption leading-4 text-muted">
                 {t("Le coach ne remplace pas ton vétérinaire et ne donne aucun avis médical.")}
               </Text>
             </View>
@@ -246,7 +246,7 @@ export default function CoachScreen() {
             <FadeInView key={`${h.question}-${history.length - i}`}>
               <View className={`${CARD} gap-2 ${h.medical ? "border border-danger/40" : ""}`}>
                 <Text className="text-sm font-semibold text-muted">{h.question}</Text>
-                <Text className="text-[15px] leading-5 text-text">{h.answer}</Text>
+                <Text className="text-subhead leading-5 text-text">{h.answer}</Text>
                 {h.medical && vet ? (
                   <TouchableOpacity
                     accessibilityRole="button"
@@ -274,7 +274,7 @@ export default function CoachScreen() {
               ) : summary === null ? (
                 <ActivityIndicator size="small" color={colors.textMuted} />
               ) : summary.status === "DONE" && summary.text ? (
-                <Text className="text-[15px] leading-5 text-text">{summary.text}</Text>
+                <Text className="text-subhead leading-5 text-text">{summary.text}</Text>
               ) : summary.status === "PENDING" || summary.status === "SUBMITTED" ? (
                 <Text className="text-sm text-muted">{t("Ton résumé est en préparation. Il sera prêt d'ici quelques heures.")}</Text>
               ) : summary.status === "quota" ? (

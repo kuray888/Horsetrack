@@ -75,23 +75,23 @@ function ComparisonCard() {
   return (
     <View className="flex-row overflow-hidden rounded-card border border-border">
       <View className="flex-1 gap-3 bg-surface p-4">
-        <Text className="text-[11px] font-bold uppercase tracking-wide text-muted">{t("Gratuit")}</Text>
+        <Text className="text-caption font-bold uppercase tracking-wide text-muted">{t("Gratuit")}</Text>
         {FREE_BULLETS.map((b) => (
           <View key={b} className="flex-row items-start gap-2">
             <MaterialCommunityIcons name="check" size={14} color={colors.textMuted} style={{ marginTop: 2 }} />
-            <Text className="flex-1 text-[13px] leading-4 text-text">{b}</Text>
+            <Text className="flex-1 text-footnote leading-4 text-text">{b}</Text>
           </View>
         ))}
       </View>
       <View className="flex-1 gap-3 border-l border-primary/20 bg-highlight p-4">
         <View className="flex-row items-center gap-1">
           <MaterialCommunityIcons name="star" size={12} color={colors.primary} />
-          <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">{t("Premium, en plus")}</Text>
+          <Text className="text-caption font-bold uppercase tracking-wide text-primary">{t("Premium, en plus")}</Text>
         </View>
         {PREMIUM_BULLETS.map((b) => (
           <View key={b} className="flex-row items-start gap-2">
             <MaterialCommunityIcons name="check" size={14} color={colors.primary} style={{ marginTop: 2 }} />
-            <Text className="flex-1 text-[13px] leading-4 font-medium text-text">{b}</Text>
+            <Text className="flex-1 text-footnote leading-4 font-medium text-text">{b}</Text>
           </View>
         ))}
       </View>
@@ -281,7 +281,7 @@ export function PlanCard({
             <Text className="text-base font-bold text-text">{label}</Text>
             {badge ? (
               <View className="rounded-full bg-primary px-2 py-1">
-                <Text className="text-[11px] font-bold text-on-primary">{badge}</Text>
+                <Text className="text-caption font-bold text-on-primary">{badge}</Text>
               </View>
             ) : null}
           </View>
@@ -378,7 +378,7 @@ function PaywallPhotoHero({ icon, photoUrl, horseName }: { icon: IconName; photo
       <Image source={{ uri: photoUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" onError={() => setFailed(true)} />
       <View className="absolute bottom-3 left-3 flex-row items-center gap-2 rounded-full bg-primary px-3 py-1">
         <MaterialCommunityIcons name={icon} size={16} color={colors.textOnPrimary} />
-        <Text className="text-[13px] font-bold text-on-primary" numberOfLines={1}>
+        <Text className="text-footnote font-bold text-on-primary" numberOfLines={1}>
           {horseName ? t("{name} · Premium", { name: horseName }) : t("Premium")}
         </Text>
       </View>
@@ -575,7 +575,7 @@ export function PaywallView({
               <View className="h-8 w-8 items-center justify-center rounded-full bg-highlight">
                 <MaterialCommunityIcons name={BENEFITS[id].icon as IconName} size={17} color={colors.primary} />
               </View>
-              <Text className="flex-1 text-[15px] leading-5 text-text">{BENEFITS[id].text}</Text>
+              <Text className="flex-1 text-subhead leading-5 text-text">{BENEFITS[id].text}</Text>
             </View>
           </FadeInView>
         ))}

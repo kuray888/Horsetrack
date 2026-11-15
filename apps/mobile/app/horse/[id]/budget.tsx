@@ -229,12 +229,12 @@ export default function HorseBudgetScreen() {
                   <View className="flex-row items-center justify-between">
                     <View className="gap-1">
                       {/* Le chiffre qu'on vient chercher : en tête, en grand. */}
-                      <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Ce mois-ci")}</Text>
-                      <Text className="text-[28px] font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(monthTotal, "EUR")}</Text>
+                      <Text className="text-footnote font-semibold uppercase tracking-wide text-muted">{t("Ce mois-ci")}</Text>
+                      <Text className="text-title1 font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(monthTotal, "EUR")}</Text>
                     </View>
                     <View className="items-end gap-1">
-                      <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Cette année")}</Text>
-                      <Text className="text-[17px] font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(yearTotal, "EUR")}</Text>
+                      <Text className="text-footnote font-semibold uppercase tracking-wide text-muted">{t("Cette année")}</Text>
+                      <Text className="text-body font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(yearTotal, "EUR")}</Text>
                     </View>
                   </View>
                   {/* Demi-pension (cf. horse/[id]/demi-pension.tsx) : sa
@@ -307,17 +307,17 @@ export default function HorseBudgetScreen() {
               <Locked message={t("Vois d'un coup d'œil ce qui est payé et ce qui reste à régler")} placement="budget" feature="budget_paid_status">
                 <View className={`${CARD} flex-row items-center justify-between`}>
                   <View className="items-center gap-1">
-                    <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Total")}</Text>
-                    <Text className="text-[17px] font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(totalExpenses, "EUR")}</Text>
+                    <Text className="text-footnote font-semibold uppercase tracking-wide text-muted">{t("Total")}</Text>
+                    <Text className="text-body font-display text-text" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(totalExpenses, "EUR")}</Text>
                   </View>
                   <View className="items-center gap-1">
-                    <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("Payé")}</Text>
-                    <Text className="text-[17px] font-display text-success" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(paidExpenses, "EUR")}</Text>
+                    <Text className="text-footnote font-semibold uppercase tracking-wide text-muted">{t("Payé")}</Text>
+                    <Text className="text-body font-display text-success" style={{ fontVariant: ["tabular-nums"] }}>{formatAmount(paidExpenses, "EUR")}</Text>
                   </View>
                   <View className="items-center gap-1">
-                    <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("À payer")}</Text>
+                    <Text className="text-footnote font-semibold uppercase tracking-wide text-muted">{t("À payer")}</Text>
                     {/* Rouge seulement s'il reste vraiment quelque chose à régler. */}
-                    <Text className={`text-[17px] font-display ${pendingExpenses > 0 ? "text-danger" : "text-muted"}`} style={{ fontVariant: ["tabular-nums"] }}>
+                    <Text className={`text-body font-display ${pendingExpenses > 0 ? "text-danger" : "text-muted"}`} style={{ fontVariant: ["tabular-nums"] }}>
                       {formatAmount(pendingExpenses, "EUR")}
                     </Text>
                   </View>

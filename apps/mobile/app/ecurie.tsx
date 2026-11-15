@@ -161,15 +161,15 @@ function StableRow({ row }: { row: StableHorseRow }) {
       ))}
 
       <View className="flex-row flex-wrap gap-x-4 gap-y-1">
-        <Text className="text-[13px] text-muted">
+        <Text className="text-footnote text-muted">
           {next
             ? t("Prochain soin : {care} {when}", { care: APPT_META[next.type].label, when: daysUntilLabel(next.nextDueDate!) })
             : t("Aucune échéance à venir")}
         </Text>
-        <Text className="text-[13px] text-muted">
+        <Text className="text-footnote text-muted">
           {t("Séances : {done}/{total} cette semaine", { done: row.weekDone, total: row.weekTotal })}
         </Text>
-        <Text className="text-[13px] text-muted">
+        <Text className="text-footnote text-muted">
           {t("Dépenses du mois : {amount}", { amount: formatAmount(row.monthExpenses, "EUR") })}
         </Text>
       </View>

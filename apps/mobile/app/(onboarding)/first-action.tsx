@@ -79,8 +79,8 @@ function KindCard({
           <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
         </View>
         <View className="flex-1 gap-1">
-          <Text className="text-[17px] font-bold text-text">{title}</Text>
-          <Text className="text-[13px] leading-4 text-muted">{hint}</Text>
+          <Text className="text-body font-bold text-text">{title}</Text>
+          <Text className="text-footnote leading-4 text-muted">{hint}</Text>
         </View>
         <MaterialCommunityIcons
           name={selected ? "radiobox-marked" : "radiobox-blank"}
@@ -110,7 +110,7 @@ function Chips<T extends string>({
 }) {
   return (
     <View className="gap-2" accessibilityRole="radiogroup" accessibilityLabel={label}>
-      <Text className="text-[13px] font-semibold uppercase tracking-wide text-muted">{label}</Text>
+      <Text className="text-footnote font-semibold uppercase tracking-wide text-muted">{label}</Text>
       <View className="flex-row flex-wrap gap-2">
         {options.map((opt) => {
           const selected = value === opt;
@@ -129,7 +129,7 @@ function Chips<T extends string>({
                 selected ? "border-primary bg-primary" : "border-border bg-surface"
               }`}
             >
-              <Text className={`text-[15px] font-semibold ${selected ? "text-on-primary" : "text-text"}`}>{labelOf(opt)}</Text>
+              <Text className={`text-subhead font-semibold ${selected ? "text-on-primary" : "text-text"}`}>{labelOf(opt)}</Text>
             </TouchableOpacity>
           );
         })}

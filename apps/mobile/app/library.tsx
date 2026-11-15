@@ -168,7 +168,7 @@ export default function LibraryScreen() {
               <Text className="text-xs font-semibold uppercase tracking-wide text-muted">
                 {e.sessionTitle} · {PHASE_LABEL[e.phase]}
               </Text>
-              <Text className="text-[15px] font-semibold text-text">{e.title.replace(/\*\*/g, "")}</Text>
+              <Text className="text-subhead font-semibold text-text">{e.title.replace(/\*\*/g, "")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
@@ -261,7 +261,7 @@ export default function LibraryScreen() {
               className="flex-row items-center justify-between rounded-card border border-border px-4 py-3"
             >
               <View className="flex-1">
-                <Text className="text-[15px] font-semibold text-text">{t("Bases communes à toutes les disciplines")}</Text>
+                <Text className="text-subhead font-semibold text-text">{t("Bases communes à toutes les disciplines")}</Text>
                 <Text className="text-xs text-muted">
                   {t("{n} exercices de plat, longe, détente…", { n: common.length })}
                 </Text>

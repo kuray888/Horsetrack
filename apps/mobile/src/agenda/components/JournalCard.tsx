@@ -115,7 +115,7 @@ export function JournalCard({
       ) : null}
 
       {entry.notes ? (
-        <Text className="text-[15px] leading-5 text-text" numberOfLines={expanded ? undefined : 2}>
+        <Text className="text-subhead leading-5 text-text" numberOfLines={expanded ? undefined : 2}>
           {entry.notes}
         </Text>
       ) : null}
