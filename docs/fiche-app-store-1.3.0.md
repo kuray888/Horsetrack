@@ -37,7 +37,7 @@ l'ancien sous-titre ne couvrait pas. Mots-clés : « ostéo », « obstacle », 
 |---|---|---|
 | Name (unchanged) | Horsetrack: Horse Care Log | 26 / 30 |
 | Subtitle | Care, GPS rides & competitions | 30 / 30 |
-| Keywords | `equestrian,riding,stable,vet,farrier,osteopath,vaccine,dressage,jumping,gps,coach,rider,planner` | 97 / 100 |
+| Keywords | `equestrian,riding,stable,vet,farrier,osteopath,vaccine,dressage,jumping,gps,coach,rider,planner` | 95 / 100 |
 | Promotional text | New: a 1-minute start, Flatwork and Ground poles sessions, and your GPS route coloured by gait. Live rides are free. | 117 / 170 |
 
 ### What's New in 1.3.0
