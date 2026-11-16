@@ -5,10 +5,16 @@
  * idées de séance et le résumé du mois restent Premium. Testé dans
  * coachGate.test.ts.
  */
-export type CoachGate = "premium" | "free" | "locked" | "loading";
+export type CoachGate = "premium" | "free" | "locked" | "loading" | "offline";
 
-export function coachGate(isPremium: boolean, status: { freeQuestionsLeft?: number | null } | null): CoachGate {
+/** `statusFailed` : la lecture du statut a échoué (hors ligne, serveur muet) —
+ * sans lui, un compte gratuit restait sur le squelette de chargement. */
+export function coachGate(
+  isPremium: boolean,
+  status: { freeQuestionsLeft?: number | null } | null,
+  statusFailed = false
+): CoachGate {
   if (isPremium) return "premium";
-  if (!status) return "loading";
+  if (!status) return statusFailed ? "offline" : "loading";
   return (status.freeQuestionsLeft ?? 0) > 0 ? "free" : "locked";
 }

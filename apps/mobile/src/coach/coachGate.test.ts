@@ -29,4 +29,9 @@ describe("accès à l'écran du coach", () => {
     expect(coachGate(false, null)).toBe("loading");
   });
 
+  it("statut introuvable (hors ligne, serveur muet) : on le dit, au lieu d'un chargement sans fin", () => {
+    expect(coachGate(false, null, true)).toBe("offline");
+    expect(coachGate(true, null, true)).toBe("premium");
+  });
+
 });

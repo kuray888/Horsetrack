@@ -13,6 +13,7 @@ import { openPaywall } from "@/subscription/paywall";
 import { useContacts } from "@/extras/store";
 import { telUrl } from "@/extras/model";
 import { track } from "@/lib/analytics";
+import { hapticTap } from "@/lib/haptics";
 import { animateNextLayout } from "@/lib/motion";
 import { buildMonthFacts, buildRecordsFacts } from "@/coach/facts";
 import { coachGate } from "@/coach/coachGate";
@@ -73,12 +74,23 @@ export default function CoachScreen() {
 
   // Lu aussi pour un compte gratuit : il dit combien de questions offertes
   // il lui reste (/status n'envoie aucune donnée du cheval).
+  const [statusFailed, setStatusFailed] = useState(false);
+  function loadStatus() {
+    setStatusFailed(false);
+    fetchCoachStatus().then((s) => {
+      setStatus(s);
+      setStatusFailed(s === null);
+    });
+  }
   useEffect(() => {
-    fetchCoachStatus().then(setStatus);
+    fetchCoachStatus().then((s) => {
+      setStatus(s);
+      setStatusFailed(s === null);
+    });
   }, [isActiveOrTrialing]);
   // Une fois les questions offertes épuisées pendant la visite, on reste sur
   // l'écran de questions : les réponses reçues ne doivent pas disparaître.
-  const rawGate = coachGate(isActiveOrTrialing, status);
+  const rawGate = coachGate(isActiveOrTrialing, status, statusFailed);
   const gate = rawGate === "locked" && !isActiveOrTrialing && history.length > 0 ? "free" : rawGate;
   const freeExhausted = gate === "free" && status?.freeQuestionsLeft === 0;
 
@@ -151,6 +163,22 @@ export default function CoachScreen() {
           conversation, jamais un écran vide. */}
       {gate === "loading" ? (
         <ListSkeleton rows={2} />
+      ) : gate === "offline" ? (
+        <FadeInView delay={40}>
+          <View className={`${CARD} items-center gap-3`}>
+            <Text className="text-center text-body text-text">{t("Vérifie ta connexion et réessaie.")}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                hapticTap();
+                loadStatus();
+              }}
+              accessibilityRole="button"
+              className="min-h-[44px] items-center justify-center rounded-full border border-primary px-5"
+            >
+              <Text className="text-subhead font-bold text-primary">{t("Réessayer")}</Text>
+            </TouchableOpacity>
+          </View>
+        </FadeInView>
       ) : gate === "locked" ? (
         <FadeInView delay={40}>
           <View className={`${CARD} gap-3`}>
