@@ -119,7 +119,7 @@ export function SessionCard({
             </Text>
             <Text className="text-sm text-muted">
               {formatDate(session.date)} · {session.time || t("Heure libre")}
-              {session.durationMinutes ? t(" · {durationMinutes} min", { durationMinutes: session.durationMinutes }) : session.activityType === "repos" ? ` · ${t("Journée complète")}` : ""}
+              {session.durationMinutes ? t(" · {durationMinutes} min", { durationMinutes: session.durationMinutes }) : session.activityType === "repos" || session.activityType === "liberte" ? ` · ${t("Journée complète")}` : ""}
             </Text>
             {riderLine ? (
               <View className="flex-row items-center gap-1">

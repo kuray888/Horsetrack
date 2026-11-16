@@ -24,8 +24,19 @@ export function isFullDay(form: Pick<SessionForm, "activityType" | "typeSelectio
   return form.typeSelection !== OTHER_OPTION && form.activityType === "repos";
 }
 
-export function durationFor(form: Pick<SessionForm, "activityType" | "typeSelection" | "durationMinutes">): number | null {
-  return isFullDay(form) ? null : form.durationMinutes;
+/** Le paddock peut durer une heure ou toute la journée : « Journée complète »
+ * s'ajoute aux durées, et la séance est alors enregistrée sans durée, comme
+ * un jour de repos (elle ne gonfle pas le temps de travail des statistiques). */
+export function allowsFullDay(form: Pick<SessionForm, "activityType" | "typeSelection">): boolean {
+  return form.typeSelection !== OTHER_OPTION && form.activityType === "liberte";
+}
+
+export function durationFor(
+  form: Pick<SessionForm, "activityType" | "typeSelection" | "durationMinutes"> & { fullDay?: boolean }
+): number | null {
+  if (isFullDay(form)) return null;
+  if (form.fullDay && allowsFullDay(form)) return null;
+  return form.durationMinutes;
 }
 
 export type SessionTypeSelection = ActivityType | typeof OTHER_OPTION;
@@ -37,6 +48,8 @@ export type SessionForm = {
   date: Date | null;
   time: string;
   durationMinutes: number;
+  /** « Journée complète » choisie (paddock seulement, cf. allowsFullDay). */
+  fullDay: boolean;
   intensity: SessionIntensity;
   notes: string;
   recurrence: Recurrence;
@@ -67,6 +80,7 @@ export function emptyForm(): SessionForm {
     date: new Date(),
     time: "",
     durationMinutes: 45,
+    fullDay: false,
     intensity: "medium",
     notes: "",
     recurrence: NEVER_RECURRENCE,
@@ -86,6 +100,7 @@ export function formFromSession(session: TrainingSession): SessionForm {
     date: session.date,
     time: session.time,
     durationMinutes: session.durationMinutes ?? 45,
+    fullDay: session.activityType === "liberte" && session.durationMinutes == null,
     intensity: session.intensity ?? "medium",
     notes: session.notes,
     recurrence: NEVER_RECURRENCE,

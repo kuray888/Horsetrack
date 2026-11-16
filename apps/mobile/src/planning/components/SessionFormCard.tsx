@@ -15,11 +15,12 @@ import { ACTIVITY_META } from "@/agenda/store";
 import type { SessionIntensity } from "@/sessions/store";
 import { INTENSITY_META } from "@/sessions/components/SessionCard";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { DURATION_OPTIONS, isFullDay, type SessionForm, type SessionTypeSelection } from "@/planning/sessionForm";
+import { DURATION_OPTIONS, allowsFullDay, isFullDay, type SessionForm, type SessionTypeSelection } from "@/planning/sessionForm";
 import { RiderField } from "@/planning/components/RiderField";
 import type { TeamMember } from "@/planning/riders";
 import { t } from "@/i18n";
 
+const FULL_DAY = "full_day";
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const INPUT = "rounded-card border border-border bg-surface p-4 text-base text-text";
 
@@ -136,13 +137,21 @@ export function SessionFormCard({
       ) : (
       <Field label={t("Durée")}>
         <ChipSelect
-          options={DURATION_OPTIONS.map((min) => ({
-            value: String(min),
-            label: t("{min} min", { min: min }),
-            icon: { name: "timer-outline" as const, color: colors.textMuted },
-          }))}
-          value={String(form.durationMinutes)}
-          onChange={(v) => setForm((f) => ({ ...f, durationMinutes: Number(v) }))}
+          options={[
+            ...DURATION_OPTIONS.map((min) => ({
+              value: String(min),
+              label: t("{min} min", { min: min }),
+              icon: { name: "timer-outline" as const, color: colors.textMuted },
+            })),
+            // Paddock : une heure ou toute la journée (cf. allowsFullDay).
+            ...(allowsFullDay(form)
+              ? [{ value: FULL_DAY, label: t("Journée complète"), icon: { name: "weather-sunny" as const, color: colors.textMuted } }]
+              : []),
+          ]}
+          value={allowsFullDay(form) && form.fullDay ? FULL_DAY : String(form.durationMinutes)}
+          onChange={(v) =>
+            setForm((f) => (v === FULL_DAY ? { ...f, fullDay: true } : { ...f, fullDay: false, durationMinutes: Number(v) }))
+          }
         />
       </Field>
       )}
