@@ -24,6 +24,8 @@ import { QuickAddSheet, openQuickAddFromTab, type QuickAddOption } from "@/compo
 import { t } from "@/i18n";
 import { useToast } from "@/components/Toast";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
+import { useFreeTier } from "@/subscription/useFreeTier";
+import { OlderHistoryCard } from "@/subscription/OlderHistoryCard";
 import { EmptyStateButton } from "@/components/EmptyStateButton";
 import { BackToHorseChip } from "@/horses/components/BackToHorseChip";
 
@@ -95,10 +97,22 @@ function JournalScreen() {
     onEditStart: () => setExpandedId(null),
   });
 
-  const sortedJournal = useMemo(() => {
+  // Gratuit resserré (cf. subscription/freeTier.ts) : les souvenirs de ses
+  // propres chevaux plus anciens que 90 jours sont gardés mais masqués ;
+  // ceux d'un cheval partagé restent tous affichés.
+  const freeTier = useFreeTier();
+  const { sortedJournal, olderHiddenCount } = useMemo(() => {
     const filtered = filterHorseId ? journal.filter((j) => j.horseId === filterHorseId) : journal;
-    return [...filtered].sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [journal, filterHorseId]);
+    const cutoff = freeTier.historyCutoff;
+    const sharedIds = new Set(horses.filter((h) => h.sharedRole).map((h) => h.id));
+    const kept = cutoff
+      ? filtered.filter((j) => j.date.getTime() >= cutoff.getTime() || (!!j.horseId && sharedIds.has(j.horseId)))
+      : filtered;
+    return {
+      sortedJournal: [...kept].sort((a, b) => b.date.getTime() - a.date.getTime()),
+      olderHiddenCount: filtered.length - kept.length,
+    };
+  }, [journal, filterHorseId, freeTier.historyCutoff, horses]);
 
   // Repart d'une page à chaque changement de filtre (même pattern
   // « ajuster pendant le rendu » que syncedHorseParam ci-dessus).
@@ -248,6 +262,9 @@ function JournalScreen() {
           }
           onPress={() => setVisibleCount((n) => n + JOURNAL_PAGE_SIZE)}
         />
+      ) : null}
+      {hiddenCount === 0 && olderHiddenCount > 0 ? (
+        <OlderHistoryCard hiddenCount={olderHiddenCount} surface="journal" horseId={filterHorseId ?? undefined} />
       ) : null}
     </Screen>
     <PickerOverlaySlot />

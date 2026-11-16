@@ -11,6 +11,8 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { useHorses } from "@/horses/store";
 import { useSessions } from "@/sessions/store";
 import { useAgenda, ACTIVITY_META } from "@/agenda/store";
+import { Locked } from "@/components/Locked";
+import { useFreeTier } from "@/subscription/useFreeTier";
 import { monthName } from "@/lib/progress";
 import { DOWNLOAD_URL } from "@/lib/links";
 import { track } from "@/lib/analytics";
@@ -32,6 +34,7 @@ export default function YearReviewScreen() {
   const { appointments, journal } = useAgenda();
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
+  const freeTier = useFreeTier();
 
   const now = new Date();
   const year = Number(yearParam) || featuredReviewYear(now) || now.getFullYear();
@@ -99,48 +102,58 @@ export default function YearReviewScreen() {
       <SubScreenHeader title={t("Bilan {year}", { year })} />
 
       {hasYearReview(review) ? (
-        <>
-          <FadeInView>
-            {/* Carte capturée telle quelle pour le partage : tout ce qui doit
-                figurer sur l'image vit à l'intérieur. */}
-            <View ref={cardRef} collapsable={false} className="gap-5 rounded-card bg-primary p-6">
-              <View className="gap-1">
-                <Text className="text-sm font-semibold text-on-primary opacity-80">{t("Mon année {year} avec", { year })}</Text>
-                <Text className="text-3xl font-display-bold text-on-primary">{horse.name}</Text>
-              </View>
-              <View className="flex-row flex-wrap gap-3">
-                {tiles.map((x) => (
-                  <View key={x.label} className="min-w-[45%] flex-1 rounded-card bg-on-primary/10 p-4">
-                    <Text className="text-3xl font-display-bold text-on-primary">{x.value}</Text>
-                    <Text className="text-sm text-on-primary opacity-80">{x.label}</Text>
-                  </View>
-                ))}
-              </View>
-              {lines.length ? (
-                <View className="gap-1.5">
-                  {lines.map((l) => (
-                    <Text key={l} className="text-base font-semibold text-on-primary">
-                      {l}
-                    </Text>
+        // « Mon année » est Premium pour un nouveau compte gratuit (cf.
+        // subscription/freeTier.ts) ; un compte plus ancien la garde.
+        <Locked
+          message={t("Revis l'année de {name} en une carte à partager", { name: horse.name })}
+          placement="history"
+          feature="year_review"
+          horseId={horse.id}
+          unlocked={!freeTier.restricted || !!horse.sharedRole}
+        >
+          <View className="gap-4">
+            <FadeInView>
+              {/* Carte capturée telle quelle pour le partage : tout ce qui doit
+                  figurer sur l'image vit à l'intérieur. */}
+              <View ref={cardRef} collapsable={false} className="gap-5 rounded-card bg-primary p-6">
+                <View className="gap-1">
+                  <Text className="text-sm font-semibold text-on-primary opacity-80">{t("Mon année {year} avec", { year })}</Text>
+                  <Text className="text-3xl font-display-bold text-on-primary">{horse.name}</Text>
+                </View>
+                <View className="flex-row flex-wrap gap-3">
+                  {tiles.map((x) => (
+                    <View key={x.label} className="min-w-[45%] flex-1 rounded-card bg-on-primary/10 p-4">
+                      <Text className="text-3xl font-display-bold text-on-primary">{x.value}</Text>
+                      <Text className="text-sm text-on-primary opacity-80">{x.label}</Text>
+                    </View>
                   ))}
                 </View>
-              ) : null}
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs text-on-primary opacity-70">horsetrack.fr</Text>
-                <BrandMark size={22} style={{ tintColor: colors.textOnPrimary }} />
+                {lines.length ? (
+                  <View className="gap-1.5">
+                    {lines.map((l) => (
+                      <Text key={l} className="text-base font-semibold text-on-primary">
+                        {l}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-xs text-on-primary opacity-70">horsetrack.fr</Text>
+                  <BrandMark size={22} style={{ tintColor: colors.textOnPrimary }} />
+                </View>
               </View>
-            </View>
-          </FadeInView>
-          <TouchableOpacity
-            className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
-            accessibilityRole="button"
-            onPress={() => void handleShare()}
-            disabled={sharing}
-          >
-            <MaterialCommunityIcons name="share-variant" size={20} color={colors.textOnPrimary} />
-            <Text className="text-base font-bold text-on-primary">{sharing ? t("Préparation…") : t("Partager mon année")}</Text>
-          </TouchableOpacity>
-        </>
+            </FadeInView>
+            <TouchableOpacity
+              className="flex-row items-center justify-center gap-2 rounded-card bg-primary p-4"
+              accessibilityRole="button"
+              onPress={() => void handleShare()}
+              disabled={sharing}
+            >
+              <MaterialCommunityIcons name="share-variant" size={20} color={colors.textOnPrimary} />
+              <Text className="text-base font-bold text-on-primary">{sharing ? t("Préparation…") : t("Partager mon année")}</Text>
+            </TouchableOpacity>
+          </View>
+        </Locked>
       ) : (
         <View className="rounded-card bg-surface p-5 shadow-card">
           <Text className="text-sm text-muted">

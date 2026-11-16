@@ -43,6 +43,7 @@ import { useHorses } from "@/horses/store";
 import { useRiderProfile } from "@/rider/store";
 import { useAgenda } from "@/agenda/store";
 import { useGoals } from "@/goals/store";
+import { useFreeTier } from "@/subscription/useFreeTier";
 import { useWeight } from "@/horses/weightStore";
 import { useSessions } from "@/sessions/store";
 import { clearSyncQueue, ensureSyncQueueLoaded, pendingSyncCount } from "@/lib/syncQueue";
@@ -183,6 +184,7 @@ function ProfileScreen() {
   const { riderProfile, clearAll: clearRiderProfile } = useRiderProfile();
   const { appointments, journal, expenses, documents, clearAll: clearAgenda } = useAgenda();
   const { goals, clearAll: clearGoals } = useGoals();
+  const freeTier = useFreeTier();
   const { measurements, clearAll: clearWeight } = useWeight();
   const { sessions, clearAll: clearSessions } = useSessions();
   const [exporting, setExporting] = useState(false);
@@ -598,7 +600,16 @@ function ProfileScreen() {
 
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => router.push("/goal-modal")}
+            onPress={() => {
+              // Gratuit resserré : un objectif à la fois (cf. freeTier.ts,
+              // trigger goals_free_limit côté serveur).
+              if (!freeTier.canAddGoal(goals.length)) {
+                track("goal_limit_reached", { goals: goals.length });
+                openPaywall("goals", { feature: "goal_add" });
+                return;
+              }
+              router.push("/goal-modal");
+            }}
             accessibilityRole="button"
             className="flex-row items-center justify-center gap-2 rounded-card border border-dashed border-primary p-4"
           >

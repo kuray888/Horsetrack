@@ -11,6 +11,8 @@ import { OTHER_OPTION, RIDER_GOALS } from "@/onboarding/options";
 import type { RiderGoal } from "@/onboarding/store";
 import { useGoals } from "@/goals/store";
 import { useHorses } from "@/horses/store";
+import { useFreeTier } from "@/subscription/useFreeTier";
+import { openPaywall } from "@/subscription/paywall";
 import { t } from "@/i18n";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { ModalHeader } from "@/components/ModalHeader";
@@ -42,6 +44,10 @@ export default function GoalModal() {
   const { goals, addGoal, updateGoal, deleteGoal } = useGoals();
   const { horses } = useHorses();
   const editing = id ? goals.find((g) => g.id === id) : undefined;
+  // Gratuit resserré : un objectif à la fois (le Profil ouvre le paywall
+  // avant d'arriver ici ; garde-fou si l'écran est ouvert autrement).
+  const freeTier = useFreeTier();
+  const blocked = !editing && !freeTier.canAddGoal(goals.length);
 
   const [title, setTitle] = useState(editing?.title ?? "");
   // Un objectif édité avec un customType déjà renseigné (cf. sa persistance
@@ -67,6 +73,10 @@ export default function GoalModal() {
 
   function submit() {
     if (!canSave) return;
+    if (blocked) {
+      openPaywall("goals", { feature: "goal_modal" });
+      return;
+    }
     const payload = {
       title: title.trim(),
       type: type === OTHER_OPTION ? null : type,

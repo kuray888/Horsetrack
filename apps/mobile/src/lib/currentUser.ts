@@ -26,3 +26,31 @@ export function useCurrentUserId(): string | null {
   }, []);
   return userId;
 }
+
+/**
+ * Date de création du compte connecté, lue dans la session locale (hors
+ * ligne aussi). Null tant que la session n'est pas lue ou sans compte — le
+ * palier gratuit resserré n'est alors jamais appliqué (cf.
+ * subscription/freeTier.ts).
+ */
+export function useAccountCreatedAt(): Date | null {
+  const [createdAt, setCreatedAt] = useState<Date | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const read = (iso: string | undefined) => (iso ? new Date(iso) : null);
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (alive) setCreatedAt(read(data.session?.user.created_at));
+      })
+      .catch(() => {});
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCreatedAt(read(session?.user.created_at));
+    });
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+  return createdAt;
+}
