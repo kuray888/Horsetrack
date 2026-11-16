@@ -1,20 +1,22 @@
 import { ReactNode } from "react";
-import { Animated, View, Text, TouchableOpacity } from "react-native";
+import { Animated, StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { BlurView } from "expo-blur";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useSubscription } from "@/subscription/store";
 import { openPaywall, useTrialConfirmed } from "@/subscription/paywall";
 import type { PaywallPlacement } from "@/subscription/paywallLogic";
 import { usePressScale } from "@/hooks/usePressScale";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { useTheme, useThemeColors } from "@/theme/ThemeProvider";
 import { t } from "@/i18n";
 
 /**
  * Gating « soft » d'un visuel premium.
  *
  * - Abonné / en essai → affiche le contenu normalement.
- * - Sinon → affiche le contenu atténué (non interactif) avec un overlay
- *   verrouillé : cadenas + message + bouton qui ouvre le paywall dans le
- *   contexte de cette fonction (`placement`, cf. subscription/paywallLogic).
+ * - Sinon → affiche le contenu FLOUTÉ (non interactif, illisible : les
+ *   chiffres ne se devinent pas) avec un overlay verrouillé : cadenas +
+ *   message + bouton qui ouvre le paywall dans le contexte de cette fonction
+ *   (`placement`, cf. subscription/paywallLogic).
  *
  * Le message décrit ce que la fonction APPORTE (« Reçois une notification
  * avant le rendez-vous »), pas ce qui est interdit. Le bouton ne promet
@@ -22,7 +24,9 @@ import { t } from "@/i18n";
  * compte — sinon « Découvrir Premium ».
  *
  * L'app reste navigable ; seul le visuel est bloqué.
- * NOTE: flou réel possible plus tard avec expo-blur ; ici on atténue via opacité.
+ * Flou : expo-blur (UIVisualEffectView sur iOS), teinte suivant le mode clair
+ * ou sombre de l'app. Un aperçu simplement atténué restait lisible derrière
+ * le message.
  */
 export function Locked({
   children,
@@ -45,6 +49,7 @@ export function Locked({
   const { isActiveOrTrialing } = useSubscription();
   const trialConfirmed = useTrialConfirmed();
   const colors = useThemeColors();
+  const { scheme } = useTheme();
   const { scale, onPressIn, onPressOut } = usePressScale();
   const unlocked = isActiveOrTrialing || unlockedOverride;
 
@@ -52,13 +57,13 @@ export function Locked({
 
   return (
     <View className="relative overflow-hidden rounded-card">
-      {/* Contenu réel en aperçu, atténué et non interactif */}
+      {/* Contenu réel en aperçu, flouté par-dessus et non interactif */}
       {/* Masqué à VoiceOver : un aperçu atténué que l'on ne peut pas utiliser
           ne doit pas être lu comme un contrôle ; le cadenas ci-dessous dit
           ce que la fonction apporte. */}
       <View
         pointerEvents="none"
-        className="opacity-30"
+        className="opacity-60"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
@@ -66,7 +71,13 @@ export function Locked({
       </View>
 
       {/* Overlay de déverrouillage */}
-      <View className="absolute inset-0 items-center justify-center gap-3 bg-surface/40 p-4" accessible={false}>
+      <View className="absolute inset-0 items-center justify-center gap-3 p-4" accessible={false}>
+        <BlurView
+          intensity={45}
+          tint={scheme === "dark" ? "dark" : "light"}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
         <View
           className="h-11 w-11 items-center justify-center rounded-full bg-surface"
           accessible
