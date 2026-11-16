@@ -48,6 +48,7 @@ import {
 import { cleanContacts } from "@/rides/safetyLogic";
 import { useNow, useRideDraft, useSafetyState } from "@/rides/useRide";
 import { RouteTrace } from "@/rides/components/RouteTrace";
+import { RideMonthStatsCard } from "@/rides/components/RideMonthStatsCard";
 import { parseTrace, sampledForDisplay, traceSpeedsKmh } from "@/rides/trace";
 import { GAIT_LABEL, GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { SafetySetupCard } from "@/rides/components/SafetySetupCard";
@@ -471,6 +472,11 @@ function RideSummaryView({ draft, endedAt }: { draft: RideDraft; endedAt: number
   const horse = horses.find((h) => h.id === draft.horseId) ?? null;
   const route = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
   const routeSpeeds = useMemo(() => traceSpeedsKmh(parseTrace(ride.trace, route.length), route.length), [ride.trace, route.length]);
+  // Séance pas encore enregistrée : ajoutée au bilan du mois (cf. RideMonthStatsCard).
+  const currentRide = useMemo(
+    () => ({ id: draft.sessionId ?? "ride-draft", horseId: draft.horseId, date: ride.startedAt, ride }),
+    [draft.sessionId, draft.horseId, ride]
+  );
   async function handleSave() {
     if (saving) return;
     setSaving(true);
@@ -538,6 +544,10 @@ function RideSummaryView({ draft, endedAt }: { draft: RideDraft; endedAt: number
           <RouteTrace coords={route} speedsKmh={routeSpeeds} />
         </FadeInView>
       ) : null}
+
+      <FadeInView delay={90}>
+        <RideMonthStatsCard current={currentRide} source="ride_end" />
+      </FadeInView>
 
       <FadeInView delay={100}>
         <View className="items-center gap-3">

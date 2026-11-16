@@ -16,6 +16,7 @@ import { hapticSelection } from "@/lib/haptics";
 import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
 import { ModalHeader } from "@/components/ModalHeader";
+import { RideMonthStatsCard } from "@/rides/components/RideMonthStatsCard";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const MAP_H = 240;
@@ -28,7 +29,8 @@ export default function RideReplayScreen() {
   const colors = useThemeColors();
   const { sessionId } = useLocalSearchParams<{ sessionId?: string }>();
   const { sessions } = useSessions();
-  const ride = sessions.find((s) => s.id === sessionId)?.ride ?? null;
+  const session = sessions.find((s) => s.id === sessionId) ?? null;
+  const ride = session?.ride ?? null;
   const rideRoute = ride?.route ?? null;
   const rideTrace = ride?.trace ?? null;
   const route = useMemo(() => (rideRoute ? decodePolyline(rideRoute) : []), [rideRoute]);
@@ -215,6 +217,12 @@ export default function RideReplayScreen() {
             </Svg>
             <Text className="text-caption text-muted">{t("Altitude du GPS, lissée : à quelques mètres près.")}</Text>
           </View>
+        </FadeInView>
+      ) : null}
+
+      {session ? (
+        <FadeInView delay={100}>
+          <RideMonthStatsCard current={session} source="replay" />
         </FadeInView>
       ) : null}
     </Screen>
