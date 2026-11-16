@@ -6,7 +6,6 @@ import { readJsonChecked, removeJson, writeJson } from "@/lib/localStore";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import type { ActivityType } from "@/agenda/store";
 import {
-  acceptPoint,
   downsample,
   encodePolyline,
   summarizeRide,
@@ -14,6 +13,7 @@ import {
   type RidePoint,
 } from "@/rides/rideMath";
 import type { SessionRide } from "@/rides/types";
+import { appendPoints, MIN_POINT_INTERVAL_MS, type TaskLocation } from "@/rides/recorderLogic";
 import { t } from "@/i18n";
 
 /**
@@ -37,7 +37,6 @@ export const RIDE_TASK = "horsetrack-ride-location";
 const DRAFT_KEY = "ride_in_progress_v1";
 /** Un point toutes les 2 s suffit pour les allures et le tracé, et garde un
  * brouillon léger (une balade de 2 h ≈ 3 600 points). */
-const MIN_POINT_INTERVAL_MS = 2000;
 const PERSIST_EVERY_MS = 10_000;
 
 export type RideDraft = {
@@ -95,30 +94,12 @@ function persist(force = false) {
   else void removeJson(DRAFT_KEY);
 }
 
-type TaskLocation = { timestamp: number; coords: { latitude: number; longitude: number; accuracy: number | null; speed: number | null; altitude?: number | null } };
-
 export function appendLocations(locations: TaskLocation[]): void {
   if (!draft || draft.endedAt !== null || isRidePaused()) return;
-  let added = false;
-  for (const loc of locations) {
-    const p: RidePoint = {
-      t: loc.timestamp,
-      lat: loc.coords.latitude,
-      lng: loc.coords.longitude,
-      acc: loc.coords.accuracy ?? null,
-      speed: loc.coords.speed ?? null,
-      alt: loc.coords.altitude ?? null,
-    };
-    if (p.t < draft.startedAt) continue;
-    const prev = draft.points[draft.points.length - 1] ?? null;
-    if (prev && p.t - prev.t < MIN_POINT_INTERVAL_MS) continue;
-    if (!acceptPoint(prev, p)) continue;
-    draft.points.push(p);
-    added = true;
-  }
-  if (!added) return;
-  // Nouvel objet : les écrans abonnés comparent par identité.
-  draft = { ...draft };
+  const points = appendPoints(draft.points, locations, draft.startedAt);
+  if (!points) return;
+  // Nouvel objet ET nouveau tableau : les écrans abonnés comparent par identité.
+  draft = { ...draft, points };
   emit();
   for (const l of pointListeners) l(draft);
   persist();
