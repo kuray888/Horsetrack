@@ -437,7 +437,7 @@ create policy "horse_collaborators_owner_insert" on public.horse_collaborators
     -- (le WITH CHECK seul ne ferme pas la course, d'où le trigger).
     and (
       select count(*) from public.horse_collaborators hc2
-      where hc2."horseId" = "horseId"
+      where hc2."horseId" = horse_collaborators."horseId"
         and (hc2.status = 'ACCEPTED' or hc2."expiresAt" is null or hc2."expiresAt" > now())
     ) < public.horse_collaborator_limit("horseId")
   );

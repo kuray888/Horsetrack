@@ -44,7 +44,7 @@ create policy "horse_collaborators_owner_insert" on public.horse_collaborators
     and (public.horse_owner_is_active_or_trialing("horseId") or role::text = 'VIEWER')
     and (
       select count(*) from public.horse_collaborators hc2
-      where hc2."horseId" = "horseId"
+      where hc2."horseId" = horse_collaborators."horseId"
         and (hc2.status = 'ACCEPTED' or hc2."expiresAt" is null or hc2."expiresAt" > now())
     ) < public.horse_collaborator_limit("horseId")
   );

@@ -63,7 +63,7 @@ create policy "horse_collaborators_owner_insert" on public.horse_collaborators
     -- d'où le trigger, mais doit rester cohérent avec lui).
     and (
       select count(*) from public.horse_collaborators hc2
-      where hc2."horseId" = "horseId"
+      where hc2."horseId" = horse_collaborators."horseId"
         and (hc2.status = 'ACCEPTED' or hc2."expiresAt" is null or hc2."expiresAt" > now())
     ) < public.horse_collaborator_limit("horseId")
   );
