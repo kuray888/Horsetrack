@@ -4,13 +4,15 @@ Remplace `fiche-app-store-1.3.0.md`. Méthode : skill `aso`, app « challenger �
 Chaque texte respecte les limites d'Apple ; aucun avis, chiffre ou promesse inventé ; pas de nom de
 concurrent ; Écurie Pro n'apparaît nulle part.
 
-## 1. Ce que la fiche en ligne montre aujourd'hui (relevé du 15/11, version affichée 1.0.8)
+## 1. Ce que la fiche en ligne montre aujourd'hui (relevé du 16/11 : version publiée 1.0.8, 13 notes à 5,0)
+
+La version publiée s'appelle **1.0.8** dans App Store Connect (elle contient déjà : coach IA, séance GPS, créneaux, rapport PDF, widget, partage). Les « Nouveautés » de la 1.3.0 ne doivent donc lister que ce qui s'ajoute. Le build 1.3.0 doit être rattaché à une **nouvelle version nommée 1.3.0**, supérieure à 1.0.8.
 
 | Constat | Détail | Action |
 |---|---|---|
 | Sous-titre ancien | « Soins, planning et concours » | Remplacé (§2) : « séances GPS » est une requête que les cavaliers tapent |
 | Texte promotionnel ancien | Parle du coach IA et des créneaux (1.2) | Remplacé (§2) : il sert d'accroche en tête de description |
-| Captures | 6 emplacements utilisés sur 10 possibles | Passer à 10, avec légendes (§5) : les légendes sont indexées depuis juin 2025 |
+| Captures | 6 emplacements visibles dans la page (à confirmer dans App Store Connect) sur 10 possibles | Passer à 10, avec légendes (§5) : les légendes sont indexées depuis juin 2025 |
 | Catégorie | « Style de vie » | À garder ; voir test possible en §7 |
 | Achats intégrés visibles | « Grand Prix » (Premium), mais aussi « Paddock » (39,99 € / 4,99 €) et « Cheval supplémentaire » (14,99 € / 1,99 €) | **À vérifier dans App Store Connect** : Écurie Pro est en pause dans l'app ; des produits Pro ou anciens encore listés peuvent troubler un acheteur ou le relecteur. Les retirer de la vente s'ils ne sont plus proposés dans l'app |
 | Mots-clés | Le champ ne se voit pas en ligne | Doublon à éviter : « gps » ne doit être que dans le sous-titre (§2) |
@@ -49,6 +51,7 @@ indexé. Sans accent, sans espace après les virgules (Apple ignore accents et p
 >
 > **SÉANCE EN DIRECT, GRATUITE POUR TOUS**
 > • Chrono, distance, allures (pas, trot, galop) et tracé GPS, même écran verrouillé
+> • Sécurité en balade (Premium) : sans mouvement pendant 5 minutes, tes proches sont prévenus
 > • Tracé coloré par allure, relecture de la séance, vitesse et dénivelé
 > • Partage ta séance en story ou en carré, avec un lien web que tu peux supprimer
 > • Export GPX
@@ -57,7 +60,7 @@ indexé. Sans accent, sans espace après les virgules (Apple ignore accents et p
 > • Véto, maréchal, ostéo, dentiste, vaccins, vermifuges : tout est noté, avec les prochaines échéances
 > • Un rappel avant chaque rendez-vous (1 à la fois en gratuit, illimités avec Premium)
 > • Carnet de santé exportable en PDF, à envoyer au véto en un geste
-> • Un coach IA qui répond d'après le carnet de ton cheval : séances, soins, dépenses, poids (il ne remplace pas ton vétérinaire). 3 questions offertes
+> • Un coach IA qui répond d'après le carnet de ton cheval : séances, soins, dépenses, poids (il ne remplace pas ton vétérinaire). 3 questions offertes, puis 30 par mois avec Premium
 > • Contacts : véto, maréchal, coach, un toucher pour appeler, un autre pour l'itinéraire
 >
 > **PLANNING ET JOURNAL**
@@ -66,6 +69,7 @@ indexé. Sans accent, sans espace après les virgules (Apple ignore accents et p
 > • Journal d'entraînement avec la météo du jour, alertes gel, chaleur, vent et orage
 > • Progression de ton cheval : régularité, temps de travail, poids
 > • Bilan de la semaine, bilan du mois et rapport du mois en PDF à partager
+> • Un widget pour l'écran d'accueil
 >
 > **CONCOURS**
 > • Prépare tes concours, épreuve par épreuve (Premium)
@@ -104,6 +108,7 @@ lignes sont celles vues avant « plus » : elles disent le bénéfice, pas la li
 >
 > LIVE RIDES, FREE FOR EVERYONE
 > • Timer, distance, gaits (walk, trot, canter) and GPS route, even with the screen locked
+> • Ride safety (Premium): no movement for 5 minutes and your contacts are alerted
 > • Route coloured by gait, ride replay, speed and elevation
 > • Share a ride as a story or square card, with a web link you can delete
 > • GPX export
@@ -112,7 +117,7 @@ lignes sont celles vues avant « plus » : elles disent le bénéfice, pas la li
 > • Vet, farrier, osteopath, dentist, vaccines, deworming: everything logged, with upcoming due dates
 > • A reminder before each appointment (one at a time on the free plan, unlimited with Premium)
 > • Health record exportable as a PDF, ready to send to your vet
-> • An AI coach that answers from your horse's log: rides, care, expenses, weight (it does not replace your vet). 3 free questions
+> • An AI coach that answers from your horse's log: rides, care, expenses, weight (it does not replace your vet). 3 free questions, then 30 a month with Premium
 > • Contacts: vet, farrier, coach, one tap to call and one for directions
 >
 > PLANNING AND JOURNAL
@@ -121,6 +126,7 @@ lignes sont celles vues avant « plus » : elles disent le bénéfice, pas la li
 > • Training journal with the day's weather, plus frost, heat, wind and storm alerts
 > • Your horse's progress: consistency, work time, weight
 > • Weekly and monthly summaries, and a monthly report as a PDF to share
+> • A home-screen widget
 >
 > COMPETITIONS
 > • Prepare each competition, class by class (Premium)
