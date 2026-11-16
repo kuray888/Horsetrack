@@ -2575,4 +2575,6 @@ export const EN: Record<string, string> = {
   "Tracé seul": "Route only",
   "La carte montre les environs de ta balade. Le départ et l'arrivée restent masqués.": "The map shows the area around your ride. The start and finish stay hidden.",
   "La carte montre les environs de ta balade, départ et arrivée compris : on peut deviner d'où tu pars.": "The map shows the area around your ride, start and finish included: people could guess where you set off from.",
+  "Agrandir la carte": "Expand map",
+  "Fermer la carte": "Close map",
 };

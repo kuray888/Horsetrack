@@ -146,6 +146,8 @@ export type AnalyticsEvent =
   | "ride_replay_opened"
   // Fond de carte choisi sous le tracé (relecture ou carte partagée, cf. mapViewLogic.ts).
   | "ride_map_style_changed"
+  // Carte de la relecture ouverte en plein écran (cf. RideMapFullScreen).
+  | "ride_map_expanded"
   // Écran Progression de la fiche d'un cheval.
   | "horse_progress_viewed"
   | "referral_nudge_viewed"

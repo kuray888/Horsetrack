@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { Platform, Pressable, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Svg, { Circle, Line, Polyline } from "react-native-svg";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -19,6 +19,7 @@ import { ModalHeader } from "@/components/ModalHeader";
 import { RideMonthStatsCard } from "@/rides/components/RideMonthStatsCard";
 import { RideMap } from "@/rides/components/RideMap";
 import { MapStylePicker } from "@/rides/components/MapStylePicker";
+import { RideMapFullScreen } from "@/rides/components/RideMapFullScreen";
 import { mapAvailable, REPLAY_MAP_STYLE_KEY, REPLAY_MAP_STYLES, reviveMapStyle, type MapStyle } from "@/rides/mapViewLogic";
 import { readJson, writeJson } from "@/lib/localStore";
 
@@ -46,6 +47,7 @@ export default function RideReplayScreen() {
   const [width, setWidth] = useState(0);
   const [cursor, setCursor] = useState(0);
   const [mapStyle, setMapStyle] = useState<MapStyle>(HAS_MAP ? "standard" : "trace");
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   useEffect(() => {
     if (!HAS_MAP) return;
@@ -119,13 +121,21 @@ export default function RideReplayScreen() {
           {HAS_MAP ? (
             <MapStylePicker styles={REPLAY_MAP_STYLES} value={mapStyle} onChange={chooseMapStyle} noneLabel={t("Tracé seul")} />
           ) : null}
-          <View
+          {/* Avec un fond de carte : aperçu fixe (la page défile, comme sur
+              Strava) ; un toucher ouvre la carte en plein écran. */}
+          <Pressable
             className="overflow-hidden rounded-card bg-highlight/40"
             style={{ height: mapStyle === "trace" ? MAP_H : MAP_H + 80 }}
             onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
+            disabled={mapStyle === "trace"}
+            onPress={() => {
+              hapticSelection();
+              setMapExpanded(true);
+              track("ride_map_expanded", { style: mapStyle });
+            }}
             accessible
-            accessibilityRole="image"
-            accessibilityLabel={t("Tracé du parcours coloré par allure")}
+            accessibilityRole={mapStyle === "trace" ? "image" : "button"}
+            accessibilityLabel={mapStyle === "trace" ? t("Tracé du parcours coloré par allure") : t("Agrandir la carte")}
           >
             {mapStyle !== "trace" ? (
               <RideMap
@@ -138,6 +148,7 @@ export default function RideReplayScreen() {
                 endColor={colors.primary}
                 cursorIndex={i}
                 cursorColor={colors.text}
+                interactive={false}
               />
             ) : pts.length > 1 ? (
               <Svg width={width} height={MAP_H}>
@@ -155,7 +166,28 @@ export default function RideReplayScreen() {
                 {cur ? <Circle cx={cur.x} cy={cur.y} r={8} fill={colors.text} stroke={colors.surface} strokeWidth={3} /> : null}
               </Svg>
             ) : null}
-          </View>
+            {mapStyle !== "trace" ? (
+              <View
+                className="absolute bottom-3 right-3 h-9 w-9 items-center justify-center rounded-full bg-surface shadow-card"
+                pointerEvents="none"
+              >
+                <MaterialCommunityIcons name="arrow-expand" size={20} color={colors.text} />
+              </View>
+            ) : null}
+          </Pressable>
+
+          {mapStyle !== "trace" ? (
+            <RideMapFullScreen
+              visible={mapExpanded}
+              onClose={() => setMapExpanded(false)}
+              coords={route}
+              speedsKmh={speeds}
+              mapStyle={mapStyle}
+              styles={REPLAY_MAP_STYLES.filter((s) => s !== "trace")}
+              onStyleChange={chooseMapStyle}
+              cursorIndex={i}
+            />
+          ) : null}
 
           <View className="flex-row flex-wrap gap-3">
             {(["walk", "trot", "canter"] as const).map((g) => (
