@@ -1,7 +1,6 @@
 import { NEVER_RECURRENCE, type Recurrence } from "@/lib/recurrence";
 import { OTHER_OPTION } from "@/onboarding/options";
 import type { ActivityType } from "@/agenda/store";
-import { isRestActivity } from "@/agenda/activityKinds";
 import type { SessionIntensity, TrainingSession } from "@/sessions/store";
 
 /** État du formulaire de séance du Planning — sorti de
@@ -15,12 +14,14 @@ export const DURATION_OPTIONS = [30, 45, 60, 90];
  * saisie libre"). Décorrélée de `activityType` lui-même : ce dernier garde
  * toujours une valeur technique valide (jamais "Autre"), nécessaire tant que
  * l'enum existant n'est pas étendu — cf. son commentaire sur TrainingSession. */
-/** Un jour de repos (ou de pansage) occupe la journée : pas de durée à choisir,
- * la séance est enregistrée sans durée (null, déjà géré partout). */
+/** Un jour de repos occupe la journée : pas de durée à choisir, la séance est
+ * enregistrée sans durée (null, déjà géré partout). Le pansage, lui, a une
+ * heure et une durée comme les autres séances (retour du 16/11) ; il ne compte
+ * simplement pas comme du travail dans les statistiques (cf. isRestActivity). */
 export function isFullDay(form: Pick<SessionForm, "activityType" | "typeSelection">): boolean {
   // « Autre » garde l'ancien type technique en coulisse : une séance libre
   // (« Séance à la plage ») n'est jamais une journée de repos.
-  return form.typeSelection !== OTHER_OPTION && isRestActivity(form.activityType);
+  return form.typeSelection !== OTHER_OPTION && form.activityType === "repos";
 }
 
 export function durationFor(form: Pick<SessionForm, "activityType" | "typeSelection" | "durationMinutes">): number | null {

@@ -3,9 +3,11 @@ import { OTHER_OPTION } from "@/onboarding/options";
 import { durationFor } from "@/planning/sessionForm";
 
 describe("durationFor", () => {
-  it("un jour de repos ou de pansage n'a pas de durée : il occupe la journée", () => {
+  it("un jour de repos n'a pas de durée : il occupe la journée", () => {
     expect(durationFor({ activityType: "repos", typeSelection: "repos", durationMinutes: 45 })).toBeNull();
-    expect(durationFor({ activityType: "pansage", typeSelection: "pansage", durationMinutes: 45 })).toBeNull();
+  });
+  it("le pansage a une heure et une durée comme les autres séances (retour du 16/11)", () => {
+    expect(durationFor({ activityType: "pansage", typeSelection: "pansage", durationMinutes: 45 })).toBe(45);
   });
   it("une séance de travail garde la durée choisie", () => {
     expect(durationFor({ activityType: "plat", typeSelection: "plat", durationMinutes: 60 })).toBe(60);

@@ -8,7 +8,6 @@ import { colors as staticColors } from "@/theme/colors";
 import { usePressScale } from "@/hooks/usePressScale";
 import { formatDate } from "@/lib/dateFormat";
 import { ACTIVITY_META } from "@/agenda/store";
-import { isRestActivity } from "@/agenda/activityKinds";
 import type { IconSpec } from "@/components/FormChips";
 import type { SessionIntensity, TrainingSession } from "@/sessions/store";
 import type { SessionRide } from "@/rides/types";
@@ -120,7 +119,7 @@ export function SessionCard({
             </Text>
             <Text className="text-sm text-muted">
               {formatDate(session.date)} · {session.time || t("Heure libre")}
-              {session.durationMinutes ? t(" · {durationMinutes} min", { durationMinutes: session.durationMinutes }) : isRestActivity(session.activityType) ? ` · ${t("Journée complète")}` : ""}
+              {session.durationMinutes ? t(" · {durationMinutes} min", { durationMinutes: session.durationMinutes }) : session.activityType === "repos" ? ` · ${t("Journée complète")}` : ""}
             </Text>
             {riderLine ? (
               <View className="flex-row items-center gap-1">
