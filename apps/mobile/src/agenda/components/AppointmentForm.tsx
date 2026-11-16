@@ -28,6 +28,7 @@ import type { ReminderOption } from "@/lib/notifications";
 import type { AppointmentType, CompetitionEntry, CompetitionLevel } from "@/agenda/store";
 import { defaultInternationalEnd } from "@/planning/eventSpan";
 import { APPT_META, HEALTH_APPT_TYPES, REMINDER_META, DISCIPLINE_META } from "@/agenda/meta";
+import { creatableAppointmentTypes } from "@/agenda/appointmentTypes";
 import type { AppointmentFormValue } from "@/agenda/hooks/useAppointmentForm";
 import type { Discipline } from "@/onboarding/store";
 import { animateNextLayout } from "@/lib/motion";
@@ -156,10 +157,10 @@ export function AppointmentForm({
       {offerHorseChoice ? null : <HorseTargetNotice horseName={targetHorseName} />}
       <Field label={t("Type de rendez-vous")}>
         <ChipSelect
-          options={Object.entries(APPT_META).map(([value, meta]) => ({
+          options={creatableAppointmentTypes(editingApptId ? form.type : null).map((value) => ({
             value: value as AppointmentType,
-            label: meta.label,
-            icon: meta.icon,
+            label: APPT_META[value].label,
+            icon: APPT_META[value].icon,
           }))}
           value={form.type}
           onChange={(type) => setForm((f) => ({ ...f, type }))}

@@ -24,3 +24,16 @@ export function appointmentTypeFromServer(value: unknown): KnownAppointmentType 
   const lower = String(value ?? "").toLowerCase();
   return (APPOINTMENT_TYPES as readonly string[]).includes(lower) ? (lower as KnownAppointmentType) : "autre";
 }
+
+/**
+ * Types masqués à la CRÉATION dans cette version (décision du 2026-11-16) :
+ * une app 1.2.0 qui partage le cheval planterait en lisant « masseur »
+ * (`APPT_META[type].label` introuvable). À ouvrir en 1.4.0, quand la 1.2.0
+ * ne circulera plus. La lecture reste prise en charge partout.
+ */
+const HIDDEN_AT_CREATION: readonly KnownAppointmentType[] = ["masseur"];
+
+/** Types proposés dans le formulaire ; `current` : type du rendez-vous modifié. */
+export function creatableAppointmentTypes(current: string | null): KnownAppointmentType[] {
+  return APPOINTMENT_TYPES.filter((type) => !HIDDEN_AT_CREATION.includes(type) || type === current);
+}
