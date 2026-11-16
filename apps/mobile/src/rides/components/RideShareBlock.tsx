@@ -190,7 +190,11 @@ export function RideShareBlock({
   ];
 
   return (
-    <View className="items-center gap-4">
+    // Largeur pleine d'office : enveloppé dans un conteneur centré (écran de fin
+    // de séance), le bloc se dimensionnait sur son contenu, le texte des
+    // réglages passait à la ligne après avoir été mesuré plus large, et le
+    // bouton « Partager » recouvrait la dernière ligne.
+    <View className="w-full items-center gap-4">
       <RideShareCard
         ref={shareRef}
         ride={ride}

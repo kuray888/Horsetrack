@@ -188,7 +188,7 @@ export const RideShareCard = forwardRef<View, {
 function Big({ label, value, small = false }: { label: string; value: string; small?: boolean }) {
   return (
     <View style={{ flex: 1, minWidth: 0 }}>
-      <Text style={{ color: LIGHT_BLUE, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }} numberOfLines={1}>
+      <Text style={{ color: LIGHT_BLUE, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {label}
       </Text>
       <Text
