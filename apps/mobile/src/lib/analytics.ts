@@ -110,6 +110,12 @@ export type AnalyticsEvent =
   | "ride_started"
   | "ride_saved"
   | "ride_discarded"
+  /** Bilan du mois des sorties vu (Premium, masqué en gratuit), cf. RideMonthStatsCard. */
+  | "ride_stats_viewed"
+  // Gratuit resserré (1.3.0, cf. subscription/freeTier.ts)
+  | "history_limit_reached"
+  | "goal_limit_reached"
+  | "monthly_report_previewed"
   | "ride_safety_started"
   | "ride_safety_check"
   | "ride_safety_alert_sent"

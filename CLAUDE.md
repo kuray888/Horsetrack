@@ -68,6 +68,16 @@ Avant toute modification du paywall, de l'achat ou du compte, vérifier :
   seule (rôle `VIEWER`) ; les rôles qui écrivent restent Premium, et passer un
   VIEWER à un autre rôle demande Premium (`lib/shareRoles.ts`, rls.sql
   section invitation-gratuite).
+- **Gratuit resserré (décision du 2026-11-16, 1.3.0)** : pour les seuls
+  comptes GRATUITS créés à partir du 2026-11-20 (`FREE_TIER_V2_SINCE`,
+  `subscription/freeTier.ts`, même date dans `rider_free_tier_restricted`,
+  rls.sql section objectifs-gratuits) : historique et journal affichés sur
+  90 jours (limite d'affichage seulement : masquer côté serveur ferait
+  supprimer les lignes des appareils par la synchro), « Mon année »
+  Premium, un objectif à la fois (aussi refusé côté serveur). Les comptes
+  plus anciens et les chevaux partagés ne sont jamais concernés. Nouveautés
+  Premium pour tous : bilan du mois des sorties (`RideMonthStatsCard`, la
+  séance en direct reste gratuite), rapport du mois en aperçu gratuit.
 - **Rétrocompatibilité des droits (règle absolue)** : un abonné existant ne
   perd jamais une fonctionnalité. Les partages existants gardent leurs droits
   d'avant (`horse_collaborators.fullAccess`, rôle `LEGACY` dans rls.sql) ; les
@@ -104,6 +114,11 @@ ajouter une sans la placer dans ce tableau :
 - Fin d'essai : rappel programmé à l'achat (`trialLifecycle.ts`).
 - Retour d'inactivité (`comebackReminderLogic.ts`) : J+4 et J+11, repoussés
   à chaque ouverture, seulement si les notifications sont déjà autorisées.
+- Bilan du mois (`monthlyReportReminderLogic.ts`) : notification le 1er à
+  10 h, une par mois, cheval possédé, seulement si les notifications sont
+  déjà autorisées ; ouvre le rapport (aperçu en gratuit).
+- Verrous du gratuit resserré (`OlderHistoryCard`, `RideMonthStatsCard`,
+  2e objectif) : affichés là où la limite est atteinte, jamais en relance.
 - Avis App Store (`reviewPromptLogic.ts`) : ≥ 7 jours, après 3 moments
   positifs, 120 j entre deux.
 - Parrainage (`referralNudgeLogic.ts`, carte de l'Accueil) : ≥ 10 jours,

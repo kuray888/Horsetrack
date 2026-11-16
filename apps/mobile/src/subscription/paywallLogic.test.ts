@@ -104,7 +104,11 @@ describe("textes du paywall", () => {
     expect(parsePlacement("weather")).toBe("weather");
     expect(orderedBenefits("live_ride")[0]).toBe("ride");
     expect(orderedBenefits("weather")[0]).toBe("weather");
-    expect(paywallCopy("live_ride", ["Tornado"]).title).toBe("Chaque sortie avec Tornado, enregistrée.");
+    expect(paywallCopy("live_ride", ["Tornado"]).title).toBe("Chaque mois de sorties avec Tornado, en chiffres.");
+    expect(parsePlacement("history")).toBe("history");
+    expect(parsePlacement("goals")).toBe("goals");
+    expect(orderedBenefits("history")[0]).toBe("history");
+    expect(orderedBenefits("goals")[0]).toBe("history");
     expect(paywallCopy("weather").title).toBe("Le bon moment pour monter, chaque jour.");
   });
 

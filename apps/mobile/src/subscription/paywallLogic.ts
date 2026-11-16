@@ -28,7 +28,11 @@ export type PaywallPlacement =
   /** Séance en direct (GPS) au-delà de la séance offerte (nouveaux comptes, 1.3.0). */
   | "live_ride"
   /** Meilleur créneau pour monter, sur la météo de l'Accueil (1.3.0). */
-  | "weather";
+  | "weather"
+  /** Historique au-delà de 90 jours et « Mon année » (gratuit resserré, 1.3.0). */
+  | "history"
+  /** Deuxième objectif (gratuit resserré, 1.3.0). */
+  | "goals";
 
 export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "onboarding",
@@ -47,6 +51,8 @@ export const PAYWALL_PLACEMENTS: readonly PaywallPlacement[] = [
   "annual_upgrade",
   "live_ride",
   "weather",
+  "history",
+  "goals",
 ];
 
 export function parsePlacement(value: unknown): PaywallPlacement {
@@ -66,7 +72,8 @@ export type BenefitId =
   | "coach"
   | "planning"
   | "ride"
-  | "weather";
+  | "weather"
+  | "history";
 
 export const BENEFITS: Record<BenefitId, { icon: string; text: string }> = {
   horses: { icon: "horse-variant", text: tr("Tous tes chevaux, sans limite") },
@@ -78,8 +85,11 @@ export const BENEFITS: Record<BenefitId, { icon: string; text: string }> = {
   safety: { icon: "shield-account-outline", text: tr("Sécurité en balade : tes proches suivent ta position et sont prévenus si tu ne bouges plus") },
   planning: { icon: "calendar-sync-outline", text: tr("Créneaux réguliers chaque semaine et rapport du mois en PDF") },
   coach: { icon: "lightbulb-on-outline", text: tr("Ton coach : la prochaine séance expliquée, tes questions sur ton cheval, le résumé du mois") },
-  ride: { icon: "map-marker-path", text: tr("Séance en direct : chrono, distance, allures et tracé GPS de chaque sortie") },
+  // La séance en direct est gratuite (décision du 2026-11-13) : Premium
+  // n'apporte que son bilan du mois.
+  ride: { icon: "map-marker-path", text: tr("Le bilan de tes sorties : kilomètres du mois, allures comparées, records") },
   weather: { icon: "weather-partly-cloudy", text: tr("Le meilleur moment pour monter, chaque jour, d'après la météo") },
+  history: { icon: "history", text: tr("Tout l'historique de tes chevaux, et le bilan de l'année à partager") },
 };
 
 const DEFAULT_BENEFIT_ORDER: BenefitId[] = [
@@ -94,6 +104,7 @@ const DEFAULT_BENEFIT_ORDER: BenefitId[] = [
   "planning",
   "safety",
   "weather",
+  "history",
 ];
 
 /** Bénéfice à remonter en tête selon le contexte d'ouverture. */
@@ -109,6 +120,8 @@ const LEAD_BENEFIT: Partial<Record<PaywallPlacement, BenefitId>> = {
   coach: "coach",
   live_ride: "ride",
   weather: "weather",
+  history: "history",
+  goals: "history",
 };
 
 /** Bénéfices affichés, celui du contexte en premier. `count` limite la liste
@@ -211,8 +224,20 @@ export function paywallCopy(placement: PaywallPlacement, horseNames: string[] = 
     case "live_ride":
       return {
         icon: "map-marker-path",
-        title: tr("Chaque sortie avec {first}, enregistrée.", { first: first }),
-        subtitle: tr("Chrono, distance, vitesse, allures et tracé GPS, même téléphone en poche. Ta première séance était offerte."),
+        title: tr("Chaque mois de sorties avec {first}, en chiffres.", { first: first }),
+        subtitle: tr("Kilomètres et heures en selle du mois, temps au galop comparé au mois précédent, records. La séance en direct reste gratuite."),
+      };
+    case "history":
+      return {
+        icon: "history",
+        title: tr("Garde toute l'histoire de {first}.", { first: first }),
+        subtitle: tr("Séances, soins et souvenirs de tous les mois, et le bilan de l'année à partager. Rien n'est effacé : tout réapparaît avec Premium."),
+      };
+    case "goals":
+      return {
+        icon: "target",
+        title: tr("Fixe-toi tous les objectifs que tu veux."),
+        subtitle: tr("La version gratuite suit un objectif à la fois. Premium les suit tous, avec tout l'historique de tes chevaux."),
       };
     case "weather":
       return {

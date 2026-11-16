@@ -84,7 +84,7 @@ indexé. Sans accent, sans espace après les virgules (Apple ignore accents et p
 > • Avec Premium, chacun ses droits : ta DP note ses séances, ton groom les soins courants, ton budget reste à toi
 >
 > **GRATUIT POUR COMMENCER**
-> La version gratuite suit 1 cheval avec le planning, l'agenda, le journal, les dépenses, la séance en direct et un rappel à la fois. Horsetrack Premium ajoute les chevaux illimités, les rappels illimités, le coffre-fort de papiers, les concours détaillés, les créneaux réguliers, le rapport du mois, l'export des dépenses et le partage avec droits d'écriture.
+> La version gratuite suit 1 cheval avec le planning, l'agenda, les 90 derniers jours d'historique, les dépenses, la séance en direct, un objectif et un rappel à la fois. Horsetrack Premium ajoute les chevaux illimités, les rappels illimités, tout l'historique et le bilan de l'année, le bilan du mois de tes sorties, le coffre-fort de papiers, les concours détaillés, les créneaux réguliers, le rapport du mois, l'export des dépenses et le partage avec droits d'écriture.
 >
 > ABONNEMENT PREMIUM : essai gratuit d'1 mois, puis 3,99 €/mois ou 39,99 €/an. Le paiement est débité sur ton compte Apple à la fin de l'essai. L'abonnement se renouvelle automatiquement, sauf si tu l'annules au moins 24 h avant la fin de la période en cours. Tu le gères et l'annules à tout moment dans Réglages > [ton nom] > Abonnements.
 >

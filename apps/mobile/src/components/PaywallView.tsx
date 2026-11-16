@@ -8,6 +8,7 @@ import { Image } from "@/components/AppImage";
 import { Skeleton } from "@/components/Skeleton";
 import { usePressScale } from "@/hooks/usePressScale";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { useFreeTier } from "@/subscription/useFreeTier";
 import type { BillingPeriod, PromoRedeemResult } from "@/subscription/store";
 import { usePaywallOfferState } from "@/subscription/paywall";
 import { track } from "@/lib/analytics";
@@ -54,6 +55,13 @@ const FREE_BULLETS: string[] = [
   t("Objectifs"),
 ];
 
+/** Gratuit resserré (comptes créés à partir de FREE_TIER_V2_SINCE, cf.
+ * subscription/freeTier.ts) : historique et objectifs limités. Un compte plus
+ * ancien voit le comparatif d'avant, qui reste vrai pour lui. */
+const FREE_BULLETS_RESTRICTED: string[] = FREE_BULLETS.map((b) =>
+  b === t("Objectifs") ? t("1 objectif à la fois") : b === t("Journal d'entraînement") ? t("Journal des 90 derniers jours") : b
+);
+
 /** Palier Premium — n'inclut QUE ce qui n'est pas déjà dans le palier
  * gratuit ci-dessus. */
 const PREMIUM_BULLETS: string[] = [
@@ -65,6 +73,13 @@ const PREMIUM_BULLETS: string[] = [
   t("Budget détaillé"),
   t("Sécurité en balade : position partagée, alerte si tu ne bouges plus"),
   t("Coach : séance du jour expliquée, questions sur ton cheval, résumé du mois"),
+  t("Bilan du mois de tes sorties : kilomètres, allures comparées, records"),
+];
+
+const PREMIUM_BULLETS_RESTRICTED: string[] = [
+  ...PREMIUM_BULLETS,
+  t("Tout l'historique et le bilan de l'année"),
+  t("Objectifs illimités"),
 ];
 
 /** Comparatif gratuit/Premium — replié par défaut sous les bénéfices : il
@@ -72,11 +87,14 @@ const PREMIUM_BULLETS: string[] = [
  * que la colonne gratuite ne concurrence visuellement l'offre à l'ouverture. */
 function ComparisonCard() {
   const colors = useThemeColors();
+  const { restricted } = useFreeTier();
+  const freeBullets = restricted ? FREE_BULLETS_RESTRICTED : FREE_BULLETS;
+  const premiumBullets = restricted ? PREMIUM_BULLETS_RESTRICTED : PREMIUM_BULLETS;
   return (
     <View className="flex-row overflow-hidden rounded-card border border-border">
       <View className="flex-1 gap-3 bg-surface p-4">
         <Text className="text-caption font-bold uppercase tracking-wide text-muted">{t("Gratuit")}</Text>
-        {FREE_BULLETS.map((b) => (
+        {freeBullets.map((b) => (
           <View key={b} className="flex-row items-start gap-2">
             <MaterialCommunityIcons name="check" size={14} color={colors.textMuted} style={{ marginTop: 2 }} />
             <Text className="flex-1 text-footnote leading-4 text-text">{b}</Text>
@@ -88,7 +106,7 @@ function ComparisonCard() {
           <MaterialCommunityIcons name="star" size={12} color={colors.primary} />
           <Text className="text-caption font-bold uppercase tracking-wide text-primary">{t("Premium, en plus")}</Text>
         </View>
-        {PREMIUM_BULLETS.map((b) => (
+        {premiumBullets.map((b) => (
           <View key={b} className="flex-row items-start gap-2">
             <MaterialCommunityIcons name="check" size={14} color={colors.primary} style={{ marginTop: 2 }} />
             <Text className="flex-1 text-footnote leading-4 font-medium text-text">{b}</Text>
