@@ -3,21 +3,33 @@ import { Text, View } from "react-native";
 import { BrandMark } from "@/components/BrandMark";
 import Svg, { Circle, Polyline } from "react-native-svg";
 import { Image } from "@/components/AppImage";
-import { formatClock, formatDistance, formatSpeed, projectRoute } from "@/rides/rideMath";
+import { formatClock, formatDistance, formatSpeed, projectRoute, type Gait } from "@/rides/rideMath";
+import { gaitRuns } from "@/rides/trace";
 import { GAIT_LABEL } from "@/rides/components/GaitBreakdown";
 import type { SessionRide } from "@/rides/types";
 import { formatDate } from "@/lib/dateFormat";
-import { cardSize, shareLabel, type ShareFormat } from "@/rides/shareCardLogic";
+import { cardSize, gaitShares, shareLabel, type ShareFormat } from "@/rides/shareCardLogic";
 import { t } from "@/i18n";
 
 /** Largeur affichée ; la capture est agrandie à 1080 px (story Instagram 9:16). */
 export const SHARE_CARD_WIDTH = 300;
 const ROUTE_H = 170;
 const WHITE = "#ffffff";
+/** Allures sur le fond bleu de la carte : vert, ambre, corail, lisibles sur
+ * #274c77 et distinctes même en petit (story vue sur un téléphone). Fixes,
+ * comme le reste de la carte : l'image est la même pour tout le monde. */
+const SHARE_GAIT_COLOR: Record<Gait, string> = {
+  walk: "#7fe0a8",
+  trot: "#ffd166",
+  canter: "#ff8a65",
+  halt: "rgba(255,255,255,0.4)",
+};
 
 /**
  * Carte d'une séance en direct à partager en story (« le modèle Strava ») :
  * cheval, chiffres clés, allures et tracé, aux couleurs de la marque.
+ * Le tracé est coloré par allure quand la séance a sa trace détaillée
+ * (`speedsKmh`, 1.3.0 et après), sinon blanc.
  * Le tracé est dessiné SANS fond de carte : on voit la forme du parcours,
  * jamais l'endroit (aucune adresse d'écurie ne se devine). Couleurs fixes de
  * la marque, pas du thème : l'image doit être la même pour tout le monde.
@@ -25,24 +37,26 @@ const WHITE = "#ffffff";
 export const RideShareCard = forwardRef<View, {
   ride: SessionRide;
   route: { lat: number; lng: number }[];
+  /** Vitesse de chaque point de `route` (même ordre) ; null : tracé blanc. */
+  speedsKmh?: number[] | null;
   horseName: string | null;
   horsePhoto: string | null;
   activity: string;
   format?: ShareFormat;
   /** Code de parrainage affiché au pied de la carte ; omis sans code. */
   code?: string | null;
-}>(function RideShareCard({ ride, route, horseName, horsePhoto, activity, format = "story", code = null }, ref) {
+}>(function RideShareCard({ ride, route, speedsKmh = null, horseName, horsePhoto, activity, format = "story", code = null }, ref) {
   const size = cardSize(format, SHARE_CARD_WIDTH);
   const square = format === "square";
   const codeLine = shareLabel(code);
   const inner = SHARE_CARD_WIDTH - 40;
   const routeH = square ? 110 : ROUTE_H;
   const points = useMemo(() => (route.length > 1 ? projectRoute(route, inner, routeH, 10) : []), [route, inner, routeH]);
-  const gaits = (["walk", "trot", "canter"] as const)
-    .map((g) => ({ g, s: g === "walk" ? ride.walkSeconds : g === "trot" ? ride.trotSeconds : ride.canterSeconds }))
-    .filter((x) => x.s > 0);
-  const gaitTotal = gaits.reduce((a, x) => a + x.s, 0);
-  const shades = { walk: "rgba(255,255,255,0.45)", trot: "rgba(255,255,255,0.7)", canter: WHITE };
+  const runs = useMemo(
+    () => (speedsKmh && speedsKmh.length === points.length ? gaitRuns(speedsKmh) : null),
+    [speedsKmh, points.length]
+  );
+  const gaits = gaitShares(ride);
 
   return (
     <View
@@ -65,40 +79,71 @@ export const RideShareCard = forwardRef<View, {
         </View>
       </View>
 
-      <View style={{ marginTop: square ? 12 : 22, gap: 14, flexDirection: square ? "row" : "column", flexWrap: "wrap" }}>
-        <Big label={t("Durée")} value={formatClock(ride.durationSeconds)} small={square} />
-        {ride.gps ? (
-          <View style={{ flexDirection: "row", gap: square ? 14 : 18 }}>
-            <Big label={t("Distance")} value={formatDistance(ride.distanceMeters)} small={square} />
-            <Big label={t("Vitesse moy.")} value={formatSpeed(ride.avgSpeedKmh)} small={square} />
+      {/* Chaque chiffre a sa colonne et rétrécit au besoin : « 12,40 km » ou
+          « 10,5 km/h » ne sortent jamais de la carte (story comme carré). */}
+      {square ? (
+        <View style={{ marginTop: 12, flexDirection: "row", gap: 12 }}>
+          <Big label={t("Durée")} value={formatClock(ride.durationSeconds)} small />
+          {ride.gps ? <Big label={t("Distance")} value={formatDistance(ride.distanceMeters)} small /> : null}
+          {ride.gps ? <Big label={t("Vitesse moy.")} value={formatSpeed(ride.avgSpeedKmh)} small /> : null}
+        </View>
+      ) : (
+        <View style={{ marginTop: 22, gap: 14 }}>
+          <View style={{ flexDirection: "row" }}>
+            <Big label={t("Durée")} value={formatClock(ride.durationSeconds)} />
           </View>
-        ) : null}
-      </View>
+          {ride.gps ? (
+            <View style={{ flexDirection: "row", gap: 16 }}>
+              <Big label={t("Distance")} value={formatDistance(ride.distanceMeters)} />
+              <Big label={t("Vitesse moy.")} value={formatSpeed(ride.avgSpeedKmh)} />
+            </View>
+          ) : null}
+        </View>
+      )}
 
-      {gaitTotal > 0 && !square ? (
-        <View style={{ marginTop: 18, gap: 6 }}>
+      {gaits.length > 0 && !square ? (
+        <View style={{ marginTop: 18, gap: 8 }}>
           <View style={{ flexDirection: "row", height: 8, borderRadius: 4, overflow: "hidden", gap: 2 }}>
             {gaits.map((x) => (
-              <View key={x.g} style={{ flex: x.s / gaitTotal, backgroundColor: shades[x.g] }} />
+              <View key={x.gait} style={{ flex: x.percent, backgroundColor: SHARE_GAIT_COLOR[x.gait] }} />
             ))}
           </View>
-          <Text style={{ color: "#d5e5f3", fontSize: 12 }}>
-            {gaits.map((x) => `${GAIT_LABEL[x.g]} ${Math.round((x.s / gaitTotal) * 100)} %`).join(" · ")}
-          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 4 }}>
+            {gaits.map((x) => (
+              <View key={x.gait} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: SHARE_GAIT_COLOR[x.gait] }} />
+                <Text style={{ color: "#d5e5f3", fontSize: 12 }}>{`${GAIT_LABEL[x.gait]} ${x.percent} %`}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       ) : null}
 
       <View style={{ flex: 1, justifyContent: "center" }}>
         {points.length > 1 ? (
           <Svg width={inner} height={routeH}>
-            <Polyline
-              points={points.map((p) => `${p.x},${p.y}`).join(" ")}
-              fill="none"
-              stroke={WHITE}
-              strokeWidth={4}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
+            {runs ? (
+              runs.map((r) => (
+                <Polyline
+                  key={`${r.from}-${r.to}`}
+                  points={points.slice(r.from, r.to + 1).map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none"
+                  stroke={SHARE_GAIT_COLOR[r.gait]}
+                  strokeWidth={4}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              ))
+            ) : (
+              <Polyline
+                points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+                fill="none"
+                stroke={WHITE}
+                strokeWidth={4}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            )}
             <Circle cx={points[0].x} cy={points[0].y} r={5} fill="#a3cef1" />
             <Circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r={6} fill={WHITE} />
           </Svg>
@@ -116,9 +161,18 @@ export const RideShareCard = forwardRef<View, {
 
 function Big({ label, value, small = false }: { label: string; value: string; small?: boolean }) {
   return (
-    <View>
-      <Text style={{ color: "#a3cef1", fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }}>{label}</Text>
-      <Text style={{ color: WHITE, fontSize: small ? 22 : 34, fontFamily: "BricolageGrotesque_800ExtraBold" }}>{value}</Text>
+    <View style={{ flex: 1, minWidth: 0 }}>
+      <Text style={{ color: "#a3cef1", fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text
+        style={{ color: WHITE, fontSize: small ? 22 : 34, fontFamily: "BricolageGrotesque_800ExtraBold" }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.5}
+      >
+        {value}
+      </Text>
     </View>
   );
 }

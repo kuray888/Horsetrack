@@ -5,7 +5,8 @@ import { captureRef } from "react-native-view-shot";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { RideShareCard } from "@/rides/components/RideShareCard";
-import { maskRouteEnds, type ShareFormat } from "@/rides/shareCardLogic";
+import { shareRoute, type ShareFormat } from "@/rides/shareCardLogic";
+import { parseTrace, traceSpeedsKmh } from "@/rides/trace";
 import { decodePolyline } from "@/rides/rideMath";
 import type { SessionRide } from "@/rides/types";
 import { fetchReferral } from "@/lib/referral";
@@ -78,7 +79,11 @@ export function RideShareBlock({
   }, [sessionId]);
 
   const fullRoute = useMemo(() => (ride.route ? decodePolyline(ride.route) : []), [ride.route]);
-  const route = useMemo(() => (hideEnds ? maskRouteEnds(fullRoute, 200) : fullRoute), [fullRoute, hideEnds]);
+  const fullSpeeds = useMemo(
+    () => traceSpeedsKmh(parseTrace(ride.trace, fullRoute.length), fullRoute.length),
+    [ride.trace, fullRoute.length]
+  );
+  const { route, speeds } = useMemo(() => shareRoute(fullRoute, fullSpeeds, hideEnds), [fullRoute, fullSpeeds, hideEnds]);
 
   async function handleShare() {
     if (sharing) return;
@@ -164,6 +169,7 @@ export function RideShareBlock({
         ref={shareRef}
         ride={ride}
         route={route}
+        speedsKmh={speeds}
         horseName={horseName}
         horsePhoto={horsePhoto}
         activity={activity}
