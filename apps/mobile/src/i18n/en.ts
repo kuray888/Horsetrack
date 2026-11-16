@@ -2577,4 +2577,5 @@ export const EN: Record<string, string> = {
   "La carte montre les environs de ta balade, départ et arrivée compris : on peut deviner d'où tu pars.": "The map shows the area around your ride, start and finish included: people could guess where you set off from.",
   "Agrandir la carte": "Expand map",
   "Fermer la carte": "Close map",
+  "Toute personne qui a le lien verra la date, la durée, la distance et le tracé{ends}. Ni ton nom ni celui de ton cheval. Tu peux supprimer le lien quand tu veux.": "Anyone with the link will see the date, duration, distance and route{ends}. Not your name or your horse's. You can delete the link at any time.",
 };

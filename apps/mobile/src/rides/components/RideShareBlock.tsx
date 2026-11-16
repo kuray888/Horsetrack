@@ -139,9 +139,15 @@ export function RideShareBlock({
     if (!sessionId || linkBusy) return;
     Alert.alert(
       t("Créer un lien public ?"),
-      t("Toute personne qui a le lien verra le nom du cheval, la date, la durée, la distance et le tracé{ends}. Pas ton nom. Tu peux supprimer le lien quand tu veux.", {
-        ends: hideEnds ? t(" (sans le départ ni l'arrivée)") : "",
-      }),
+      // Le nom du cheval n'est publié que si l'option est activée (cf.
+      // buildPublicRidePayload) : le texte doit dire ce qui part vraiment.
+      showHorseName
+        ? t("Toute personne qui a le lien verra le nom du cheval, la date, la durée, la distance et le tracé{ends}. Pas ton nom. Tu peux supprimer le lien quand tu veux.", {
+            ends: hideEnds ? t(" (sans le départ ni l'arrivée)") : "",
+          })
+        : t("Toute personne qui a le lien verra la date, la durée, la distance et le tracé{ends}. Ni ton nom ni celui de ton cheval. Tu peux supprimer le lien quand tu veux.", {
+            ends: hideEnds ? t(" (sans le départ ni l'arrivée)") : "",
+          }),
       [
         { text: t("Annuler"), style: "cancel" },
         {

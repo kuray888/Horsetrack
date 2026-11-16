@@ -39,9 +39,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const keyRef = useRef(0);
 
   // App en arrière-plan : les suppressions en attente partent maintenant.
+  // Pas sur « inactive » (Centre de contrôle, notifications, Face ID) : le
+  // toast et son « Annuler » sont encore à l'écran au retour.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
-      if (state !== "active") queue.flush();
+      if (state === "background") queue.flush();
     });
     return () => {
       sub.remove();
