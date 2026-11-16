@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTrace, parseTrace, smoothAltitudes, elevationChange, gaitRuns, traceSpeedsKmh, traceStats } from "./trace";
+import { buildTrace, parseTrace, smoothAltitudes, elevationChange, gaitRuns, traceSpeedsKmh, traceStats, pointSpeedsKmh, sampledForDisplay } from "./trace";
 import { gaitColorsFor } from "./gaitColors";
 import type { RidePoint } from "./rideMath";
 
@@ -107,5 +107,33 @@ describe("gaitColorsFor", () => {
   it("donne une couleur différente à chaque allure", () => {
     const c = gaitColorsFor({ border: "#111", success: "#222", accent: "#333", primary: "#444" });
     expect(c).toEqual({ halt: "#111", walk: "#222", trot: "#333", canter: "#444" });
+  });
+});
+
+describe("tracé en direct coloré par allure (retour du 16/11)", () => {
+  it("pointSpeedsKmh : une vitesse par point, la première reprise de la deuxième sans vitesse GPS", () => {
+    const pts = [P(0, 48, null), P(10, 48.0001, 2), P(20, 48.0002, 4)];
+    const v = pointSpeedsKmh(pts);
+    expect(v).toHaveLength(3);
+    expect(v[1]).toBeCloseTo(7.2, 5);
+    expect(v[2]).toBeCloseTo(14.4, 5);
+    expect(v[0]).toBeCloseTo(v[1], 5);
+  });
+  it("une sortie pas puis trot donne deux couleurs différentes", () => {
+    const pts = [P(0, 48, 1.4), P(10, 48.0001, 1.4), P(20, 48.0002, 3.5), P(30, 48.0003, 3.5)];
+    const { speeds } = sampledForDisplay(pts, 600);
+    const gaits = gaitRuns(speeds).map((r) => r.gait);
+    expect(new Set(gaits).size).toBeGreaterThan(1);
+  });
+  it("sampledForDisplay garde tracé et vitesses alignés et plafonne le nombre de points", () => {
+    const pts = Array.from({ length: 5000 }, (_, i) => P(i, 48 + i * 1e-5, 2));
+    const { coords, speeds } = sampledForDisplay(pts, 600);
+    expect(coords).toHaveLength(600);
+    expect(speeds).toHaveLength(600);
+    expect(coords[0].lat).toBe(48);
+    expect(coords[599].lat).toBeCloseTo(48 + 4999e-5, 8);
+  });
+  it("moins de deux points : rien à colorer", () => {
+    expect(sampledForDisplay([], 600)).toEqual({ coords: [], speeds: [] });
   });
 });

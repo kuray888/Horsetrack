@@ -22,10 +22,32 @@ function sampleIndices(length: number, max: number): number[] {
   return Array.from({ length: max }, (_, i) => Math.round(i * step));
 }
 
+/** Vitesse (km/h) de chaque point : celle du segment qui y mène ; le premier
+ * point prend sa vitesse GPS, sinon celle du deuxième. Sert à la trace
+ * enregistrée ET au tracé coloré de la séance en direct. */
+export function pointSpeedsKmh(points: RidePoint[]): number[] {
+  if (points.length === 0) return [];
+  const speeds = points.map((p, i) => (i === 0 ? -1 : segmentSpeedKmh(points[i - 1], p)));
+  speeds[0] = points[0].speed !== null && points[0].speed >= 0 ? points[0].speed * 3.6 : (speeds[1] ?? 0);
+  return speeds;
+}
+
+/** Tracé et vitesses alignés, ramenés à `max` points (mêmes indices que
+ * `downsample`) : le direct redessine le tracé à chaque point GPS, un
+ * parcours de 3 h ne doit pas produire des milliers de segments. */
+export function sampledForDisplay(
+  points: RidePoint[],
+  max = 600
+): { coords: { lat: number; lng: number }[]; speeds: number[] } {
+  if (points.length < 2) return { coords: [], speeds: [] };
+  const speeds = pointSpeedsKmh(points);
+  const idx = sampleIndices(points.length, max);
+  return { coords: idx.map((i) => ({ lat: points[i].lat, lng: points[i].lng })), speeds: idx.map((i) => speeds[i]) };
+}
+
 export function buildTrace(points: RidePoint[], startedAt: number, max = 600): string | null {
   if (points.length < 2) return null;
-  const speeds = points.map((p, i) => (i === 0 ? -1 : segmentSpeedKmh(points[i - 1], p)));
-  speeds[0] = points[0].speed !== null && points[0].speed >= 0 ? points[0].speed * 3.6 : speeds[1];
+  const speeds = pointSpeedsKmh(points);
   const idx = sampleIndices(points.length, max);
   const t = idx.map((i) => Math.max(0, Math.round((points[i].t - startedAt) / 1000)));
   const s = idx.map((i) => Math.round(speeds[i] * 10));

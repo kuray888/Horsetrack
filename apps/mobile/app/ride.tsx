@@ -48,7 +48,7 @@ import {
 import { cleanContacts } from "@/rides/safetyLogic";
 import { useNow, useRideDraft, useSafetyState } from "@/rides/useRide";
 import { RouteTrace } from "@/rides/components/RouteTrace";
-import { parseTrace, traceSpeedsKmh } from "@/rides/trace";
+import { parseTrace, sampledForDisplay, traceSpeedsKmh } from "@/rides/trace";
 import { GAIT_LABEL, GaitBreakdown } from "@/rides/components/GaitBreakdown";
 import { SafetySetupCard } from "@/rides/components/SafetySetupCard";
 import { t } from "@/i18n";
@@ -277,6 +277,12 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
   const lastPointAge = draft.points.length ? now - draft.points[draft.points.length - 1].t : Infinity;
   const gpsLive = lastPointAge < 15_000;
   const gait = gpsLive ? classifyGait(speed) : null;
+  // Tracé du direct coloré par allure, comme dans le bilan et la relecture :
+  // il restait d'une seule couleur pendant toute la balade.
+  const live = useMemo(
+    () => (draft.gps ? sampledForDisplay(draft.points, 600) : { coords: [], speeds: [] }),
+    [draft.gps, draft.points]
+  );
 
   async function handleFinish() {
     Alert.alert(t("Terminer la séance ?"), undefined, [
@@ -410,7 +416,7 @@ function RideLiveView({ draft }: { draft: RideDraft }) {
         </View>
       ) : null}
 
-      {draft.gps && draft.points.length > 1 ? <RouteTrace coords={draft.points} height={160} /> : null}
+      {live.coords.length > 1 ? <RouteTrace coords={live.coords} speedsKmh={live.speeds} height={160} /> : null}
 
       {draft.safety ? (
         <View className={`${CARD} flex-row items-center gap-3`}>
