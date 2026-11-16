@@ -2568,4 +2568,11 @@ export const EN: Record<string, string> = {
   "Séances, soins et souvenirs de tous les mois, et le bilan de l'année à partager. Rien n'est effacé : tout réapparaît avec Premium.": "Sessions, care and memories from every month, plus a year in review to share. Nothing is deleted: it all comes back with Premium.",
   "Fixe-toi tous les objectifs que tu veux.": "Set as many goals as you like.",
   "La version gratuite suit un objectif à la fois. Premium les suit tous, avec tout l'historique de tes chevaux.": "The free version tracks one goal at a time. Premium tracks them all, with your horses' full history.",
+  "Plan": "Map",
+  "Satellite": "Satellite",
+  "3D": "3D",
+  "Fond de carte": "Map background",
+  "Tracé seul": "Route only",
+  "La carte montre les environs de ta balade. Le départ et l'arrivée restent masqués.": "The map shows the area around your ride. The start and finish stay hidden.",
+  "La carte montre les environs de ta balade, départ et arrivée compris : on peut deviner d'où tu pars.": "The map shows the area around your ride, start and finish included: people could guess where you set off from.",
 };

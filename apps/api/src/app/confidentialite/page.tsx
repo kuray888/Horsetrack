@@ -271,6 +271,14 @@ export default function ConfidentialitePage() {
             <td>Jeton de notification, titre et début du commentaire notifié, nom du cheval</td>
           </tr>
           <tr>
+            <td><strong>Apple (Plans)</strong></td>
+            <td>
+              Fond de carte sous le tracé d&apos;une séance (relecture, et carte à partager si vous choisissez d&apos;y
+              ajouter une carte), sur iPhone uniquement ; les cartes sont demandées directement par votre iPhone
+            </td>
+            <td>La zone de carte affichée, sans identifiant ni donnée de compte</td>
+          </tr>
+          <tr>
             <td><strong>MET Norway</strong> (institut météorologique norvégien)</td>
             <td>Prévisions météo, interrogées uniquement par nos serveurs</td>
             <td>

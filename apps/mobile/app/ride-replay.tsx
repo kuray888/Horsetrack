@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Svg, { Circle, Line, Polyline } from "react-native-svg";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -17,14 +17,22 @@ import { track } from "@/lib/analytics";
 import { t } from "@/i18n";
 import { ModalHeader } from "@/components/ModalHeader";
 import { RideMonthStatsCard } from "@/rides/components/RideMonthStatsCard";
+import { RideMap } from "@/rides/components/RideMap";
+import { MapStylePicker } from "@/rides/components/MapStylePicker";
+import { mapAvailable, REPLAY_MAP_STYLE_KEY, REPLAY_MAP_STYLES, reviveMapStyle, type MapStyle } from "@/rides/mapViewLogic";
+import { readJson, writeJson } from "@/lib/localStore";
 
 const CARD = "rounded-card bg-surface p-5 shadow-card";
 const MAP_H = 240;
 const CURVE_H = 72;
 
-/** Relecture 2D d'une séance en direct : tracé coloré par allure, curseur dans
+const HAS_MAP = mapAvailable(Platform.OS);
+
+/** Relecture d'une séance en direct : tracé coloré par allure, curseur dans
  * le temps, courbes de vitesse et d'altitude (cf. docs/seance-gps-relue.md, J1).
- * Sans fond de carte : aucun lieu n'est envoyé à un tiers. */
+ * Sur iPhone, le tracé peut se poser sur un fond Apple Plans (plan, satellite,
+ * 3D ; choix mémorisé) — cf. mapViewLogic.ts ; « Tracé seul » garde le dessin
+ * d'avant, sans réseau. Android : tracé seul. */
 export default function RideReplayScreen() {
   const colors = useThemeColors();
   const { sessionId } = useLocalSearchParams<{ sessionId?: string }>();
@@ -37,6 +45,26 @@ export default function RideReplayScreen() {
   const trace = useMemo(() => parseTrace(rideTrace, route.length), [rideTrace, route.length]);
   const [width, setWidth] = useState(0);
   const [cursor, setCursor] = useState(0);
+  const [mapStyle, setMapStyle] = useState<MapStyle>(HAS_MAP ? "standard" : "trace");
+
+  useEffect(() => {
+    if (!HAS_MAP) return;
+    let cancelled = false;
+    readJson<unknown>(REPLAY_MAP_STYLE_KEY, null)
+      .then((raw) => {
+        if (!cancelled && raw !== null) setMapStyle(reviveMapStyle(raw, "standard"));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function chooseMapStyle(next: MapStyle) {
+    setMapStyle(next);
+    void writeJson(REPLAY_MAP_STYLE_KEY, next);
+    track("ride_map_style_changed", { style: next, source: "replay" });
+  }
 
   useEffect(() => {
     track("ride_replay_opened");
@@ -88,15 +116,30 @@ export default function RideReplayScreen() {
 
       <FadeInView delay={40}>
         <View className={`${CARD} gap-4`}>
+          {HAS_MAP ? (
+            <MapStylePicker styles={REPLAY_MAP_STYLES} value={mapStyle} onChange={chooseMapStyle} noneLabel={t("Tracé seul")} />
+          ) : null}
           <View
             className="overflow-hidden rounded-card bg-highlight/40"
-            style={{ height: MAP_H }}
+            style={{ height: mapStyle === "trace" ? MAP_H : MAP_H + 80 }}
             onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
             accessible
             accessibilityRole="image"
             accessibilityLabel={t("Tracé du parcours coloré par allure")}
           >
-            {pts.length > 1 ? (
+            {mapStyle !== "trace" ? (
+              <RideMap
+                coords={route}
+                speedsKmh={speeds}
+                mapStyle={mapStyle}
+                gaitColor={gaitColor}
+                lineColor={colors.primary}
+                startColor={colors.success}
+                endColor={colors.primary}
+                cursorIndex={i}
+                cursorColor={colors.text}
+              />
+            ) : pts.length > 1 ? (
               <Svg width={width} height={MAP_H}>
                 {runs.map((r) => (
                   <Polyline

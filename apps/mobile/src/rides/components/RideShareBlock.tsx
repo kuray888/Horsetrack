@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Share, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, Share, Switch, Text, TouchableOpacity, View } from "react-native";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -7,6 +7,8 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { RideShareCard } from "@/rides/components/RideShareCard";
 import { shareRoute, type ShareFormat } from "@/rides/shareCardLogic";
 import { parseTrace, traceSpeedsKmh } from "@/rides/trace";
+import { mapAvailable, SHARE_MAP_STYLES, type MapStyle } from "@/rides/mapViewLogic";
+import { MapStylePicker } from "@/rides/components/MapStylePicker";
 import { decodePolyline } from "@/rides/rideMath";
 import type { SessionRide } from "@/rides/types";
 import { fetchReferral } from "@/lib/referral";
@@ -19,11 +21,14 @@ import { t } from "@/i18n";
 
 export type ShareSource = "ride_end" | "saved_ride" | "replay";
 
+const HAS_MAP = mapAvailable(Platform.OS);
+
 /**
  * Carte de séance à partager (story ou carré) avec ses choix : masquer le
  * départ et l'arrivée (200 m, activé d'office : l'écurie ou le domicile ne se
  * devinent pas) et afficher son code de parrainage. Chaque partage montre
- * l'app à d'autres cavaliers. Le tracé n'a pas de fond de carte.
+ * l'app à d'autres cavaliers. Le tracé n'a pas de fond de carte, sauf si on
+ * en choisit un (iPhone : Apple Plans, plan ou satellite) — jamais d'office.
  */
 export function RideShareBlock({
   ride,
@@ -51,6 +56,8 @@ export function RideShareBlock({
   const [sharing, setSharing] = useState(false);
   const [link, setLink] = useState<PublicLink | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
+  const [mapStyle, setMapStyle] = useState<MapStyle>("trace");
+  const [mapReady, setMapReady] = useState(false);
 
   // Le code vient du serveur : sans réseau (ou hors connexion), la carte n'en a simplement pas.
   useEffect(() => {
@@ -85,8 +92,26 @@ export function RideShareBlock({
   );
   const { route, speeds } = useMemo(() => shareRoute(fullRoute, fullSpeeds, hideEnds), [fullRoute, fullSpeeds, hideEnds]);
 
+  function chooseMapStyle(next: MapStyle) {
+    setMapReady(false);
+    setMapStyle(next);
+    track("ride_map_style_changed", { style: next, source: "share" });
+  }
+
+  const withMap = mapStyle !== "trace" && route.length > 1;
+  // Fond de carte pas encore chargé : la capture serait une carte grise.
+  const waitingMap = withMap && !mapReady;
+
+  // Hors ligne, le fond ne se charge jamais : on n'attend pas plus de 6 s
+  // (la carte partagée garde alors le tracé sur un fond uni).
+  useEffect(() => {
+    if (!waitingMap) return;
+    const timer = setTimeout(() => setMapReady(true), 6000);
+    return () => clearTimeout(timer);
+  }, [waitingMap]);
+
   async function handleShare() {
-    if (sharing) return;
+    if (sharing || waitingMap) return;
     setSharing(true);
     try {
       const uri = await captureRef(shareRef, { format: "png", quality: 1, result: "tmpfile", width: 1080 });
@@ -99,6 +124,7 @@ export function RideShareBlock({
           format,
           with_code: withCode && !!code,
           ends_hidden: hideEnds,
+          map_style: withMap ? mapStyle : "trace",
         });
       }
     } catch {
@@ -175,6 +201,8 @@ export function RideShareBlock({
         activity={activity}
         format={format}
         code={withCode ? code : null}
+        mapStyle={withMap ? mapStyle : "trace"}
+        onMapReady={() => setMapReady(true)}
       />
 
       <View className="flex-row gap-2" accessibilityRole="radiogroup">
@@ -198,6 +226,19 @@ export function RideShareBlock({
       </View>
 
       <View className="gap-3 self-stretch">
+        {HAS_MAP && ride.gps && fullRoute.length > 1 ? (
+          <View className="gap-2">
+            <Text className="text-subhead font-semibold text-text">{t("Fond de carte")}</Text>
+            <MapStylePicker styles={SHARE_MAP_STYLES} value={mapStyle} onChange={chooseMapStyle} noneLabel={t("Aucun")} />
+            {mapStyle !== "trace" ? (
+              <Text className="text-footnote text-muted">
+                {hideEnds
+                  ? t("La carte montre les environs de ta balade. Le départ et l'arrivée restent masqués.")
+                  : t("La carte montre les environs de ta balade, départ et arrivée compris : on peut deviner d'où tu pars.")}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         {ride.gps && fullRoute.length > 1 ? (
           <View className="flex-row items-center justify-between gap-4">
             <View className="flex-1 gap-1">
@@ -229,13 +270,13 @@ export function RideShareBlock({
 
       <TouchableOpacity
         onPress={() => void handleShare()}
-        disabled={sharing}
+        disabled={sharing || waitingMap}
         accessibilityRole="button"
-        accessibilityState={{ disabled: sharing }}
+        accessibilityState={{ disabled: sharing || waitingMap }}
         className="min-h-[44px] flex-row items-center gap-2 rounded-full border border-primary px-5 py-2"
       >
         <MaterialCommunityIcons name="share-variant-outline" size={18} color={colors.primary} accessibilityElementsHidden />
-        <Text className="text-subhead font-bold text-primary">{sharing ? t("Un instant…") : t("Partager ma séance")}</Text>
+        <Text className="text-subhead font-bold text-primary">{sharing || waitingMap ? t("Un instant…") : t("Partager ma séance")}</Text>
       </TouchableOpacity>
 
       {sessionId && ride.gps ? (

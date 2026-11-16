@@ -144,6 +144,8 @@ export type AnalyticsEvent =
   | "contact_route_opened"
   // Relecture d'une séance en direct (cf. app/ride-replay.tsx).
   | "ride_replay_opened"
+  // Fond de carte choisi sous le tracé (relecture ou carte partagée, cf. mapViewLogic.ts).
+  | "ride_map_style_changed"
   // Écran Progression de la fiche d'un cheval.
   | "horse_progress_viewed"
   | "referral_nudge_viewed"

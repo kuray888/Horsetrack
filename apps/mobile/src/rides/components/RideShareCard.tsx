@@ -8,6 +8,8 @@ import { gaitRuns } from "@/rides/trace";
 import { GAIT_LABEL } from "@/rides/components/GaitBreakdown";
 import type { SessionRide } from "@/rides/types";
 import { formatDate } from "@/lib/dateFormat";
+import { RideMap } from "@/rides/components/RideMap";
+import type { MapStyle } from "@/rides/mapViewLogic";
 import { cardSize, gaitShares, shareLabel, type ShareFormat } from "@/rides/shareCardLogic";
 import { t } from "@/i18n";
 
@@ -15,6 +17,9 @@ import { t } from "@/i18n";
 export const SHARE_CARD_WIDTH = 300;
 const ROUTE_H = 170;
 const WHITE = "#ffffff";
+const BRAND_BLUE = "#274c77";
+const LIGHT_BLUE = "#a3cef1";
+const PALE_BLUE = "#d5e5f3";
 /** Allures sur le fond bleu de la carte : vert, ambre, corail, lisibles sur
  * #274c77 et distinctes même en petit (story vue sur un téléphone). Fixes,
  * comme le reste de la carte : l'image est la même pour tout le monde. */
@@ -30,8 +35,9 @@ const SHARE_GAIT_COLOR: Record<Gait, string> = {
  * cheval, chiffres clés, allures et tracé, aux couleurs de la marque.
  * Le tracé est coloré par allure quand la séance a sa trace détaillée
  * (`speedsKmh`, 1.3.0 et après), sinon blanc.
- * Le tracé est dessiné SANS fond de carte : on voit la forme du parcours,
- * jamais l'endroit (aucune adresse d'écurie ne se devine). Couleurs fixes de
+ * Par défaut, le tracé est dessiné SANS fond de carte : on voit la forme du
+ * parcours, jamais l'endroit ; un fond Apple Plans s'ajoute seulement si on
+ * le choisit (cf. RideShareBlock), départ et arrivée toujours masquables (aucune adresse d'écurie ne se devine). Couleurs fixes de
  * la marque, pas du thème : l'image doit être la même pour tout le monde.
  */
 export const RideShareCard = forwardRef<View, {
@@ -43,9 +49,13 @@ export const RideShareCard = forwardRef<View, {
   horsePhoto: string | null;
   activity: string;
   format?: ShareFormat;
+  /** Fond Apple Plans sous le tracé (iPhone, choix explicite) ; « trace » : aucun. */
+  mapStyle?: MapStyle;
+  /** Fond de carte chargé : la capture peut se faire. */
+  onMapReady?: () => void;
   /** Code de parrainage affiché au pied de la carte ; omis sans code. */
   code?: string | null;
-}>(function RideShareCard({ ride, route, speedsKmh = null, horseName, horsePhoto, activity, format = "story", code = null }, ref) {
+}>(function RideShareCard({ ride, route, speedsKmh = null, horseName, horsePhoto, activity, format = "story", code = null, mapStyle = "trace", onMapReady }, ref) {
   const size = cardSize(format, SHARE_CARD_WIDTH);
   const square = format === "square";
   const codeLine = shareLabel(code);
@@ -62,7 +72,7 @@ export const RideShareCard = forwardRef<View, {
     <View
       ref={ref}
       collapsable={false}
-      style={{ width: size.width, height: size.height, backgroundColor: "#274c77", borderRadius: 20, padding: 20, overflow: "hidden" }}
+      style={{ width: size.width, height: size.height, backgroundColor: BRAND_BLUE, borderRadius: 20, padding: 20, overflow: "hidden" }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         {horsePhoto ? (
@@ -72,7 +82,7 @@ export const RideShareCard = forwardRef<View, {
           <Text style={{ color: WHITE, fontSize: 22, fontFamily: "BricolageGrotesque_800ExtraBold" }} numberOfLines={1}>
             {horseName ?? activity}
           </Text>
-          <Text style={{ color: "#d5e5f3", fontSize: 13 }} numberOfLines={1}>
+          <Text style={{ color: PALE_BLUE, fontSize: 13 }} numberOfLines={1}>
             {horseName ? `${activity} · ` : ""}
             {formatDate(ride.startedAt)}
           </Text>
@@ -112,13 +122,28 @@ export const RideShareCard = forwardRef<View, {
             {gaits.map((x) => (
               <View key={x.gait} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: SHARE_GAIT_COLOR[x.gait] }} />
-                <Text style={{ color: "#d5e5f3", fontSize: 12 }}>{`${GAIT_LABEL[x.gait]} ${x.percent} %`}</Text>
+                <Text style={{ color: PALE_BLUE, fontSize: 12 }}>{`${GAIT_LABEL[x.gait]} ${x.percent} %`}</Text>
               </View>
             ))}
           </View>
         </View>
       ) : null}
 
+      {mapStyle !== "trace" && route.length > 1 ? (
+        <View style={{ flex: 1, marginVertical: 14, borderRadius: 14, overflow: "hidden" }}>
+          <RideMap
+            coords={route}
+            speedsKmh={speedsKmh}
+            mapStyle={mapStyle}
+            gaitColor={SHARE_GAIT_COLOR}
+            lineColor={WHITE}
+            startColor={LIGHT_BLUE}
+            endColor={BRAND_BLUE}
+            interactive={false}
+            onReady={onMapReady}
+          />
+        </View>
+      ) : (
       <View style={{ flex: 1, justifyContent: "center" }}>
         {points.length > 1 ? (
           <Svg width={inner} height={routeH}>
@@ -144,16 +169,17 @@ export const RideShareCard = forwardRef<View, {
                 strokeLinecap="round"
               />
             )}
-            <Circle cx={points[0].x} cy={points[0].y} r={5} fill="#a3cef1" />
+            <Circle cx={points[0].x} cy={points[0].y} r={5} fill={LIGHT_BLUE} />
             <Circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r={6} fill={WHITE} />
           </Svg>
         ) : null}
       </View>
+      )}
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <BrandMark size={22} style={{ tintColor: WHITE }} />
         <Text style={{ color: WHITE, fontSize: 15, fontFamily: "BricolageGrotesque_800ExtraBold" }}>Horsetrack</Text>
-        <Text style={{ color: "#a3cef1", fontSize: 12, marginLeft: "auto" }}>{codeLine ?? "horsetrack.fr"}</Text>
+        <Text style={{ color: LIGHT_BLUE, fontSize: 12, marginLeft: "auto" }}>{codeLine ?? "horsetrack.fr"}</Text>
       </View>
     </View>
   );
@@ -162,7 +188,7 @@ export const RideShareCard = forwardRef<View, {
 function Big({ label, value, small = false }: { label: string; value: string; small?: boolean }) {
   return (
     <View style={{ flex: 1, minWidth: 0 }}>
-      <Text style={{ color: "#a3cef1", fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }} numberOfLines={1}>
+      <Text style={{ color: LIGHT_BLUE, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }} numberOfLines={1}>
         {label}
       </Text>
       <Text

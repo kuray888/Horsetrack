@@ -69,6 +69,8 @@ describe("système de design", () => {
       // Image partagée en story : couleurs de la marque et des allures du tracé,
       // identiques quel que soit le thème choisi.
       "src/rides/components/RideShareCard.tsx": 11,
+      // Liseré clair sous le tracé : se lit sur un plan comme sur un satellite, quel que soit le thème.
+      "src/rides/components/RideMap.tsx": 1,
     });
   });
 
