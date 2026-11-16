@@ -29,6 +29,13 @@ type Props = {
 export function Screen({ children, scroll = true, edges = ["top"], className, refreshControl, scrollRef, header, footer }: Props) {
   const insets = useSafeAreaInsets();
   const content = `p-5 gap-4 ${header ? "pt-3" : ""} ${className ?? ""}`;
+  // Sous la barre d'onglets native d'iOS, l'écran s'étend jusqu'en bas et la
+  // zone de sécurité du bas inclut la barre elle-même (cf. app/(tabs)/_layout) :
+  // sans cette marge, la dernière carte (ex. le dernier événement passé du
+  // Planning) restait coincée DERRIÈRE la barre, impossible à faire remonter.
+  // Rien à ajouter quand le conteneur gère déjà le bas (edges "bottom") ou
+  // qu'une barre fixe (footer) occupe cet espace.
+  const bottomInset = edges.includes("bottom") || footer ? 0 : insets.bottom;
   return (
     <SafeAreaView className="flex-1 bg-background" edges={edges}>
       {header ? <View className="border-b border-border px-5 pb-3 pt-2">{header}</View> : null}
@@ -37,6 +44,7 @@ export function Screen({ children, scroll = true, edges = ["top"], className, re
         <ScrollView
           ref={scrollRef}
           contentContainerClassName={content}
+          contentContainerStyle={bottomInset > 0 ? { paddingBottom: 20 + bottomInset } : undefined}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           // iOS décale le contenu quand le clavier s'ouvre : les champs du bas
