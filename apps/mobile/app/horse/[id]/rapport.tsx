@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -24,7 +24,7 @@ import { exportMonthlyReport } from "@/stable/exportMonthlyReport";
 import { hapticSelection, hapticSuccess } from "@/lib/haptics";
 import { recordPositiveMoment } from "@/lib/reviewPrompt";
 import { track } from "@/lib/analytics";
-import { openPaywall } from "@/subscription/paywall";
+import { Locked } from "@/components/Locked";
 import { LOCALE, t } from "@/i18n";
 import { SubScreenHeader } from "@/components/SubScreenHeader";
 
@@ -55,6 +55,10 @@ export default function MonthlyReportScreen() {
   const [busy, setBusy] = useState(false);
 
   const isOwner = !!horse && !horse.sharedRole;
+  const previewOnly = isOwner && !isActiveOrTrialing;
+  useEffect(() => {
+    if (previewOnly) track("monthly_report_previewed", {});
+  }, [previewOnly]);
   if (!horse) {
     return (
       <Screen>
@@ -130,15 +134,9 @@ export default function MonthlyReportScreen() {
         <SubScreenHeader title={t("Rapport du mois")} subtitle={horse.name} />
       </FadeInView>
 
-      {locked ? (
-        <View className={`${CARD} gap-3`}>
-          <Text className="text-base font-semibold text-text">{t("Un bilan à envoyer, chaque mois")}</Text>
-          <Text className="text-sm text-muted">
-            {t("Séances et cavaliers, soins, pesées et tâches du mois en un PDF, à remettre au propriétaire, à la demi-pension ou au coach. Avec Premium.")}
-          </Text>
-          <PrimaryButton label={t("Découvrir Premium")} onPress={() => openPaywall("profile", { feature: "monthly_report" })} />
-        </View>
-      ) : (
+      {/* Compte gratuit : aperçu du mois dernier (séances), le PDF complet
+          et les autres mois sont Premium. */}
+      {!locked ? (
         <>
           <View className="flex-row items-center justify-between">
             <TouchableOpacity
@@ -167,22 +165,42 @@ export default function MonthlyReportScreen() {
               <MaterialCommunityIcons name="chevron-right" size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
+        </>
+      ) : (
+        <Text className="text-center text-base font-semibold capitalize text-text">{monthLabel}</Text>
+      )}
 
-          <FadeInView delay={40}>
-            <View className={`${CARD} gap-2`}>
-              <Text className="text-sm text-muted">{t("Séances faites")}</Text>
-              <Text className="font-display text-3xl tracking-tight text-text">{monthSessions.length}</Text>
-              {minutes > 0 ? <Text className="text-sm text-muted">{hoursLabel(minutes)}</Text> : null}
-              {riders.map((r) => (
-                <Text key={r.name ?? "?"} className="text-sm text-text">
-                  {r.name ?? t("Cavalier non précisé")} · {t("{count} séance(s)", { count: r.sessions })}
-                  {r.minutes > 0 ? ` · ${hoursLabel(r.minutes)}` : ""}
-                </Text>
-              ))}
-              {monthSessions.length === 0 ? <Text className="text-sm text-muted">{t("Aucune séance ce mois-ci.")}</Text> : null}
-            </View>
-          </FadeInView>
+      <FadeInView delay={40}>
+        <View className={`${CARD} gap-2`}>
+          <Text className="text-sm text-muted">{t("Séances faites")}</Text>
+          <Text className="font-display text-3xl tracking-tight text-text">{monthSessions.length}</Text>
+          {minutes > 0 ? <Text className="text-sm text-muted">{hoursLabel(minutes)}</Text> : null}
+          {riders.map((r) => (
+            <Text key={r.name ?? "?"} className="text-sm text-text">
+              {r.name ?? t("Cavalier non précisé")} · {t("{count} séance(s)", { count: r.sessions })}
+              {r.minutes > 0 ? ` · ${hoursLabel(r.minutes)}` : ""}
+            </Text>
+          ))}
+          {monthSessions.length === 0 ? <Text className="text-sm text-muted">{t("Aucune séance ce mois-ci.")}</Text> : null}
+        </View>
+      </FadeInView>
 
+      {locked ? (
+        <Locked
+          message={t("Soins, pesées, tâches et dépenses du mois en un PDF à partager")}
+          placement="profile"
+          feature="monthly_report"
+          horseId={horse.id}
+        >
+          <View className={`${CARD} gap-3`}>
+            <Text className="text-base font-semibold text-text">{t("Un bilan à envoyer, chaque mois")}</Text>
+            <Text className="text-sm text-muted">
+              {t("Séances et cavaliers, soins, pesées et tâches du mois en un PDF, à remettre au propriétaire, à la demi-pension ou au coach. Avec Premium.")}
+            </Text>
+          </View>
+        </Locked>
+      ) : (
+        <>
           <Text className="text-center text-sm text-muted">
             {canMoney
               ? t("Le rapport comprend les dépenses : ne l'envoie qu'à quelqu'un de confiance.")

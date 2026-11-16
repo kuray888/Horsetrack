@@ -8,6 +8,9 @@ import { TimePickerField } from "@/components/TimePickerField";
 import { PrimaryButton } from "@/components/onboarding";
 import { ChipSelect, AddToggle } from "@/components/FormChips";
 import { Locked } from "@/components/Locked";
+import { openPaywall } from "@/subscription/paywall";
+import { MaterialCommunityIcons } from "@/components/ThemedIcon";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { useSubscription } from "@/subscription/store";
 import { RecurrenceField } from "@/components/RecurrenceField";
 import { FormDetails } from "@/components/FormDetails";
@@ -86,6 +89,7 @@ export function AppointmentForm({
   onRemoveEntry: (id: string) => void;
 }) {
   const { isActiveOrTrialing } = useSubscription();
+  const themeColors = useThemeColors();
   // Détails dépliés d'office en édition : replier des champs déjà renseignés
   // les ferait passer pour perdus. À la création, ce qui suffit à enregistrer
   // tient au-dessus (type, cheval, titre, date).
@@ -311,6 +315,25 @@ export function AppointmentForm({
                 );
               })}
             </View>
+          ) : null}
+          {/* Le rappel de prochaine échéance est Premium (cf.
+              scheduleNextDueReminder) : un compte gratuit qui remplit la date
+              ne recevait rien, sans le savoir. */}
+          {form.nextDueDate ? (
+            isActiveOrTrialing ? (
+              <Text className="-mt-1 text-xs text-muted">{t("On te préviendra 3 jours avant cette échéance.")}</Text>
+            ) : (
+              <TouchableOpacity
+                onPress={() => openPaywall("reminders", { feature: "next_due_reminder" })}
+                accessibilityRole="button"
+                className="-mt-1 flex-row items-center gap-1"
+              >
+                <MaterialCommunityIcons name="bell-ring-outline" size={16} color={themeColors.primary} />
+                <Text className="flex-1 text-xs font-semibold text-link">
+                  {t("Date notée. Avec Premium, on te prévient 3 jours avant.")}
+                </Text>
+              </TouchableOpacity>
+            )
           ) : null}
         </>
       ) : null}

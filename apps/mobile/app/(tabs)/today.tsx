@@ -6,6 +6,7 @@ import {
   getNotificationPermissionState,
   scheduleWeeklySummary,
   scheduleComebackReminders,
+  scheduleMonthlyReportReminder,
   type NotificationPermissionState,
 } from "@/lib/notifications";
 import { FadeInView } from "@/components/FadeInView";
@@ -175,6 +176,15 @@ function TodayScreen() {
     if (!horse || !notifPermission) return;
     scheduleWeeklySummary(horse.name, weekDoneCount, weekSessions.length);
   }, [horse?.id, horse?.name, weekDoneCount, weekSessions.length, notifPermission]);
+
+  // Bilan du mois, le 1er à 10 h (cf. lib/monthlyReportReminderLogic.ts) :
+  // seulement pour un cheval dont on est propriétaire.
+  const reportHorseId = horse && !horse.sharedRole ? horse.id : null;
+  const reportHorseName = horse?.name ?? null;
+  useEffect(() => {
+    if (!reportHorseId || !reportHorseName || !notifPermission) return;
+    void scheduleMonthlyReportReminder(reportHorseId, reportHorseName);
+  }, [reportHorseId, reportHorseName, notifPermission]);
 
   // Relance d'inactivité (cf. lib/comebackReminderLogic.ts) : repoussée à
   // chaque affichage et à chaque retour au premier plan, elle ne part que si

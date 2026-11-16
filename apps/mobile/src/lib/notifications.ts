@@ -4,10 +4,12 @@ import { Platform } from "react-native";
 import { runNativeInteraction } from "@/lib/nativeInteraction";
 import { WEEKLY_SUMMARY_URL } from "@/lib/notificationLinks";
 import { comebackMessage, comebackTriggers } from "@/lib/comebackReminderLogic";
+import { monthlyReportMessage, monthlyReportUrl, nextMonthlyReportTrigger } from "@/lib/monthlyReportReminderLogic";
 import { t } from "@/i18n";
 
 const WEEKLY_SUMMARY_KEY = "weekly_summary_notif_v1";
 const COMEBACK_KEY = "comeback_notif_v1";
+const MONTHLY_REPORT_KEY = "monthly_report_notif_v1";
 
 export type ReminderOption = "none" | "1h" | "1d" | "1w";
 
@@ -249,6 +251,7 @@ export async function cancelAllReminders(): Promise<void> {
     await Notifications.cancelAllScheduledNotificationsAsync();
     await SecureStore.deleteItemAsync(WEEKLY_SUMMARY_KEY);
     await SecureStore.deleteItemAsync(COMEBACK_KEY);
+    await SecureStore.deleteItemAsync(MONTHLY_REPORT_KEY);
   } catch {
     // Best-effort : voir cancelReminder ci-dessus.
   }
@@ -331,5 +334,28 @@ export async function scheduleSessionReminderNotification(reminder: {
     });
   } catch {
     return null;
+  }
+}
+
+/** Bilan du mois, le 1er à 10 h (cf. lib/monthlyReportReminderLogic.ts).
+ * Reprogrammé seulement si le mois ou le cheval change ; jamais de demande
+ * de permission ici. Best-effort. */
+export async function scheduleMonthlyReportReminder(horseId: string, horseName: string): Promise<void> {
+  try {
+    if (!(await getNotificationStatus())) return;
+    const trigger = nextMonthlyReportTrigger(new Date());
+    const raw = await SecureStore.getItemAsync(MONTHLY_REPORT_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw) as { id: string; at: string; horseId: string; horseName: string };
+      if (saved.at === trigger.toISOString() && saved.horseId === horseId && saved.horseName === horseName) return;
+      await cancelReminder(saved.id);
+    }
+    const { title, body } = monthlyReportMessage(trigger, horseName);
+    const id = await scheduleReminder(title, body, trigger, monthlyReportUrl(horseId));
+    if (id) {
+      await SecureStore.setItemAsync(MONTHLY_REPORT_KEY, JSON.stringify({ id, at: trigger.toISOString(), horseId, horseName }));
+    }
+  } catch {
+    // Best-effort : voir cancelReminder ci-dessus.
   }
 }
