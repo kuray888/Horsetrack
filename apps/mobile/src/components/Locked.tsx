@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Animated, StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { Animated, Platform, StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { BlurView } from "expo-blur";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { useSubscription } from "@/subscription/store";
@@ -35,6 +35,7 @@ export function Locked({
   feature,
   horseId,
   unlocked: unlockedOverride = false,
+  preview = "blur",
 }: {
   children: ReactNode;
   message: string;
@@ -45,6 +46,9 @@ export function Locked({
   horseId?: string;
   /** Ouvre le contenu malgré un compte gratuit (ex. le rappel offert). */
   unlocked?: boolean;
+  /** « blur » (défaut) : contenu illisible. « dim » : contenu reconnaissable,
+   * atténué — quand il faut savoir CE qui est verrouillé (un cheval). */
+  preview?: "blur" | "dim";
 }) {
   const { isActiveOrTrialing } = useSubscription();
   const trialConfirmed = useTrialConfirmed();
@@ -54,6 +58,9 @@ export function Locked({
   const unlocked = isActiveOrTrialing || unlockedOverride;
 
   if (unlocked) return <>{children}</>;
+  // Android : expo-blur n'y floute pas sans réglage expérimental, le contenu
+  // resterait lisible derrière un voile ; on garde l'aperçu atténué d'avant.
+  const blur = preview === "blur" && Platform.OS === "ios";
 
   return (
     <View className="relative overflow-hidden rounded-card">
@@ -63,7 +70,7 @@ export function Locked({
           ce que la fonction apporte. */}
       <View
         pointerEvents="none"
-        className="opacity-60"
+        className={blur ? "opacity-60" : "opacity-30"}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
@@ -71,13 +78,15 @@ export function Locked({
       </View>
 
       {/* Overlay de déverrouillage */}
-      <View className="absolute inset-0 items-center justify-center gap-3 p-4" accessible={false}>
-        <BlurView
-          intensity={45}
-          tint={scheme === "dark" ? "dark" : "light"}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
+      <View className={`absolute inset-0 items-center justify-center gap-3 p-4 ${blur ? "" : "bg-surface/40"}`} accessible={false}>
+        {blur ? (
+          <BlurView
+            intensity={45}
+            tint={scheme === "dark" ? "dark" : "light"}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        ) : null}
         <View
           className="h-11 w-11 items-center justify-center rounded-full bg-surface"
           accessible

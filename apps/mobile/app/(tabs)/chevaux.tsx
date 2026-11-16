@@ -113,7 +113,7 @@ function HorseRow({
   );
   if (locked) {
     return (
-      <Locked message={t("Retrouve ce cheval avec Premium : ses données sont conservées")} placement="horses" feature="locked_horse" horseId={horse.id}>
+      <Locked message={t("Retrouve ce cheval avec Premium : ses données sont conservées")} placement="horses" feature="locked_horse" horseId={horse.id} preview="dim">
         {/* Pas de Link ici : le verrou rend la ligne inerte, mais la laisse
             telle quelle si l'abonnement se confirme entre-temps — elle doit
             alors ouvrir la fiche par elle-même. */}

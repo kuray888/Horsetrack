@@ -132,6 +132,7 @@ export const RideShareCard = forwardRef<View, {
       {mapStyle !== "trace" && route.length > 1 ? (
         <View style={{ flex: 1, marginVertical: 14, borderRadius: 14, overflow: "hidden" }}>
           <RideMap
+            key={format}
             coords={route}
             speedsKmh={speedsKmh}
             mapStyle={mapStyle}

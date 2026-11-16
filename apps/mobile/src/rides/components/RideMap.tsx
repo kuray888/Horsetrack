@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -58,11 +58,33 @@ function RideMapInner({
     [speedsKmh, coords.length]
   );
   const camera = useMemo(() => cameraFor(coords, mapStyle), [coords, mapStyle]);
+  const mapRef = useRef<MapView>(null);
+  const size = useRef({ width: 0, height: 0 });
+
+  // Cadrage sur la taille RÉELLE de la carte (la caméra initiale ne la connaît
+  // pas : dans le petit cadre du format Carré, le tracé débordait). Marge
+  // proportionnelle, plus grande en bas pour l'attribution « Plans ». La 3D
+  // garde sa caméra inclinée.
+  function fitRoute() {
+    if (mapStyle === "3d") return;
+    const { width, height } = size.current;
+    const pad = Math.round(Math.max(8, Math.min(24, Math.min(width, height) * 0.12)));
+    mapRef.current?.fitToCoordinates(latLngs, {
+      edgePadding: { top: pad, right: pad, bottom: pad + 18, left: pad },
+      animated: false,
+    });
+  }
+
   if (latLngs.length < 2 || !camera) return null;
   const cursor = cursorIndex !== null ? latLngs[cursorIndex] : null;
 
   return (
     <MapView
+      ref={mapRef}
+      onLayout={(e) => {
+        size.current = { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height };
+      }}
+      onMapReady={fitRoute}
       style={[{ flex: 1 }, style]}
       initialCamera={camera}
       mapType={mapTypeFor(mapStyle)}

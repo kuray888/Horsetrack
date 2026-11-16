@@ -219,6 +219,8 @@ export function RideShareBlock({
               accessibilityState={{ selected: active }}
               onPress={() => {
                 hapticSelection();
+                // Carte redessinée au nouveau format : on attend son fond.
+                setMapReady(false);
                 setFormat(f.value);
               }}
               className={`min-h-[44px] items-center justify-center rounded-full border px-5 ${active ? "border-primary bg-primary" : "border-border"}`}
@@ -249,7 +251,7 @@ export function RideShareBlock({
               <Text className="text-subhead font-semibold text-text">{t("Masquer le départ et l'arrivée")}</Text>
               <Text className="text-footnote text-muted">{t("Retire les 200 premiers et derniers mètres du tracé, pour qu'on ne devine pas d'où tu pars.")}</Text>
             </View>
-            <Switch value={hideEnds} onValueChange={(v) => { hapticSelection(); setHideEnds(v); }} accessibilityLabel={t("Masquer le départ et l'arrivée")} />
+            <Switch value={hideEnds} onValueChange={(v) => { hapticSelection(); setMapReady(false); setHideEnds(v); }} accessibilityLabel={t("Masquer le départ et l'arrivée")} />
           </View>
         ) : null}
         {horseName ? (
