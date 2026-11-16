@@ -5,6 +5,16 @@ import { t } from "@/i18n";
 const BIOMETRIC_LOCK_KEY = "biometric_lock_enabled_v1";
 
 /** Préférence utilisateur (activée depuis Profil) — distincte de la dispo matérielle. */
+/** Réglage du verrou, ou null s'il n'a pas pu être lu (trousseau fermé :
+ * iOS relance l'app en arrière-plan pendant que le téléphone est verrouillé). */
+export async function readBiometricLock(): Promise<boolean | null> {
+  try {
+    return (await SecureStore.getItemAsync(BIOMETRIC_LOCK_KEY)) === "true";
+  } catch {
+    return null;
+  }
+}
+
 export async function isBiometricLockEnabled(): Promise<boolean> {
   try {
     return (await SecureStore.getItemAsync(BIOMETRIC_LOCK_KEY)) === "true";

@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from "@/components/ThemedIcon";
 import { supabase } from "@/lib/supabase";
 import { unregisterPushToken } from "@/lib/pushRegistration";
 import { resolveGateStatus } from "@/components/biometricGateLogic";
-import { authenticateWithBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from "@/lib/biometrics";
+import { authenticateWithBiometrics, readBiometricLock, setBiometricLockEnabled } from "@/lib/biometrics";
 import { isNativeInteractionActive } from "@/lib/nativeInteraction";
 import { colors } from "@/theme/colors";
 import { t } from "@/i18n";
@@ -46,12 +46,10 @@ export function BiometricGate() {
   async function evaluate() {
     // Chaque lecture est isolée : une erreur de l'une ne doit jamais ouvrir
     // l'app quand le verrou est actif (cf. biometricGateLogic.ts).
-    let lockEnabled = false;
-    try {
-      lockEnabled = await isBiometricLockEnabled();
-    } catch (e) {
-      console.warn("[biometric-gate] lecture du réglage échouée", e);
-    }
+    // isBiometricLockEnabled() avalait l'erreur et répondait « pas de verrou » :
+    // l'app s'ouvrait sans Face ID quand le trousseau était encore fermé.
+    const read = await readBiometricLock();
+    const lockEnabled: boolean | "unknown" = read === null ? "unknown" : read;
     let session: "present" | "absent" | "unknown" = "unknown";
     try {
       const { data } = await supabase.auth.getSession();
@@ -59,14 +57,20 @@ export function BiometricGate() {
     } catch (e) {
       console.warn("[biometric-gate] lecture de la session échouée", e);
     }
-    lockEnabledRef.current = lockEnabled;
-    setStatus(resolveGateStatus({ lockEnabled, session }));
+    lockEnabledRef.current = lockEnabled !== false;
+    const next = resolveGateStatus({ lockEnabled, session });
+    setStatus(next);
+    if (next === "checking") {
+      // Relire au prochain retour au premier plan, ou dans un instant si
+      // l'app y est déjà (trousseau qui se rouvre au déverrouillage).
+      pendingReEval.current = true;
+      if (AppState.currentState === "active") setTimeout(() => void evaluate(), 1500);
+    }
   }
 
   useEffect(() => {
     // evaluate() est async et ne fait setStatus qu'après ses deux awaits :
     // pas un setState synchrone dans l'effet, juste un lancement de vérification.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     evaluate();
 
     const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
@@ -95,6 +99,8 @@ export function BiometricGate() {
     });
 
     return () => sub.remove();
+    // Au montage seulement : evaluate ne lit que des refs et des setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function tryUnlock() {

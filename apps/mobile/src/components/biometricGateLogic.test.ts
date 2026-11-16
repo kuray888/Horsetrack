@@ -12,4 +12,11 @@ describe("resolveGateStatus", () => {
     expect(resolveGateStatus({ lockEnabled: false, session: "unknown" })).toBe("unlocked");
     expect(resolveGateStatus({ lockEnabled: true, session: "absent" })).toBe("unlocked");
   });
+  it("réglage du verrou illisible (trousseau fermé, app relancée écran verrouillé) : on revérifie, on n'ouvre pas", () => {
+    expect(resolveGateStatus({ lockEnabled: "unknown", session: "present" })).toBe("checking");
+    expect(resolveGateStatus({ lockEnabled: "unknown", session: "unknown" })).toBe("checking");
+  });
+  it("réglage illisible mais aucune session : rien à protéger, l'app s'ouvre", () => {
+    expect(resolveGateStatus({ lockEnabled: "unknown", session: "absent" })).toBe("unlocked");
+  });
 });
