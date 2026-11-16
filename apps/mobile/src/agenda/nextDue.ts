@@ -25,6 +25,8 @@ export function nextDueShortcuts(type: AppointmentType): NextDueShortcut[] {
       return [M(6), M(12)];
     case "osteo":
       return [M(3), M(6), M(12)];
+    case "masseur":
+      return [M(1), M(3), M(6)];
     case "veto":
     case "traitement":
       return [W(2), M(1), M(3)];

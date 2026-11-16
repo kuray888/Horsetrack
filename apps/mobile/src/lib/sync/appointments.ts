@@ -3,6 +3,7 @@ import { confirmWrite } from "@/lib/remoteIndex";
 import { parseServerDate, parseServerDateOrNull } from "@/lib/serverDate";
 import type { Appointment, CompetitionEntry } from "@/agenda/store";
 import { settleWrite } from "./shared";
+import { appointmentTypeFromServer } from "@/agenda/appointmentTypes";
 
 /** Rendez-vous, concours et épreuves.
  * Extrait de lib/cloudSync.ts (façade) sans changement de comportement. */
@@ -11,7 +12,7 @@ function appointmentTypeToDb(type: Appointment["type"]): string {
   return type.toUpperCase();
 }
 function appointmentTypeFromDb(type: string): Appointment["type"] {
-  return type.toLowerCase() as Appointment["type"];
+  return appointmentTypeFromServer(type);
 }
 /** Pas de push si l'entrée n'est pas encore rattachée à un cheval (cf.
  * agenda/store.tsx, backfill au chargement) — rien à synchroniser tant

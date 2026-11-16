@@ -25,6 +25,7 @@ export const DISCIPLINE_META: Record<Discipline, { label: string; icon: IconSpec
 export const APPT_META: Record<AppointmentType, { label: string; icon: IconSpec; chip: string; tag: string }> = {
   veto: { label: t("Vétérinaire"), icon: { name: "needle", color: colors.warning }, chip: "bg-warning/15", tag: "text-warning" },
   osteo: { label: t("Ostéopathe"), icon: { name: "bone", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
+  masseur: { label: t("Masseur équin"), icon: { name: "hand-heart-outline", color: colors.accent }, chip: "bg-accent/15", tag: "text-link" },
   marechal: { label: t("Maréchal-ferrant"), icon: { name: "hammer", color: colors.primary }, chip: "bg-primary/15", tag: "text-primary" },
   dentiste: { label: t("Dentiste équin"), icon: { name: "tooth-outline", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
   vaccination: { label: t("Vaccination"), icon: { name: "needle", color: colors.success }, chip: "bg-success/15", tag: "text-success" },
@@ -40,6 +41,7 @@ export const APPT_META: Record<AppointmentType, { label: string; icon: IconSpec;
 export const HEALTH_APPT_TYPES: readonly AppointmentType[] = [
   "veto",
   "osteo",
+  "masseur",
   "marechal",
   "dentiste",
   "vaccination",

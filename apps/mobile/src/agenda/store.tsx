@@ -61,6 +61,7 @@ import type { ActivityType } from "@/agenda/activityKinds";
 export type AppointmentType =
   | "veto"
   | "osteo"
+  | "masseur"
   | "marechal"
   | "dentiste"
   | "vaccination"
@@ -119,7 +120,7 @@ export const ACTIVITY_META: Record<
   longe: { label: t("Longe"), icon: "sync", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
   repos: { label: t("Repos"), icon: "sleep", tint: colors.textMuted, chip: "bg-border", tag: "text-muted" },
   travail_a_pied: { label: t("Travail à pied"), icon: "foot-print", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
-  liberte: { label: t("Liberté"), icon: "horse", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
+  liberte: { label: t("Paddock / liberté"), icon: "horse", tint: colors.warning, chip: "bg-warning/15", tag: "text-warning" },
   cross: { label: t("Cross / complet"), icon: "pine-tree", tint: colors.accent, chip: "bg-accent/15", tag: "text-link" },
   endurance: { label: t("Endurance"), icon: "map-marker-distance", tint: colors.success, chip: "bg-success/15", tag: "text-success" },
   trec: { label: "TREC", icon: "compass-outline", tint: colors.success, chip: "bg-success/15", tag: "text-success" },

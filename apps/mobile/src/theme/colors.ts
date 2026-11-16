@@ -16,6 +16,7 @@ export const colors = {
     seance: tokenColors.primary,
     veto: tokenColors.warning,
     osteo: tokenColors.accent,
+    masseur: tokenColors.accent,
     marechal: tokenColors.primary,
     dentiste: tokenColors.success,
     vaccination: tokenColors.success,

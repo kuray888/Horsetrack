@@ -939,6 +939,7 @@ enum DocumentCategory {
 enum AppointmentType {
   VETO
   OSTEO
+  MASSEUR
   MARECHAL
   DENTISTE
   VACCINATION

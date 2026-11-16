@@ -11,6 +11,7 @@ import { t } from "@/i18n";
 export const HEALTH_APPOINTMENT_TYPES: ReadonlySet<string> = new Set([
   "veto",
   "osteo",
+  "masseur",
   "marechal",
   "dentiste",
   "vaccination",

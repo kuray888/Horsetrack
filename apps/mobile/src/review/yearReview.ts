@@ -36,7 +36,7 @@ export type YearReview = {
   photos: number;
 };
 
-const CARE_TYPES = new Set(["veto", "osteo", "marechal", "dentiste", "vaccination", "vermifuge", "traitement"]);
+const CARE_TYPES = new Set(["veto", "osteo", "masseur", "marechal", "dentiste", "vaccination", "vermifuge", "traitement"]);
 
 export function computeYearReview(
   input: { horseId: string; sessions: SessionLike[]; appointments: AppointmentLike[]; journal: JournalLike[] },

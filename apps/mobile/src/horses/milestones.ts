@@ -60,7 +60,7 @@ export function bestWeeklyStreak(sessions: SessionLike[], horseId: string, now: 
   return best;
 }
 
-const HEALTH_TYPES = new Set(["veto", "osteo", "marechal", "dentiste", "vaccination", "vermifuge", "traitement"]);
+const HEALTH_TYPES = new Set(["veto", "osteo", "masseur", "marechal", "dentiste", "vaccination", "vermifuge", "traitement"]);
 
 export function computeMilestones({ horseId, sessions, appointments = [], journal = [], now = new Date() }: MilestoneInput): Milestone[] {
   const done = sessions.filter((s) => s.horseId === horseId && s.completed && s.date.getTime() <= now.getTime());

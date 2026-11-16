@@ -1,0 +1,13 @@
+-- Rendez-vous « masseur équin » (2026-11-16) — à exécuter SEUL dans l'éditeur
+-- SQL Supabase (prod), AVANT de mettre le build qui l'utilise en circulation.
+-- Idempotent, sans effet sur les données existantes.
+--
+-- Postgres refuse d'utiliser une valeur d'énumération dans la transaction qui
+-- l'ajoute : ne rien exécuter d'autre dans la même fenêtre.
+--
+-- Rétrocompatibilité : une ancienne version de l'app qui relirait un rendez-vous
+-- « MASSEUR » ne sait pas l'afficher. La 1.3.0 range tout type inconnu dans
+-- « autre » (cf. src/agenda/appointmentTypes.ts) ; les builds antérieurs
+-- (≤ 31) ne le font pas, ils ne doivent donc plus être en circulation chez une
+-- personne qui partage un cheval avec un compte qui en crée un.
+alter type public.appointment_type add value if not exists 'MASSEUR' after 'OSTEO';
