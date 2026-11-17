@@ -179,8 +179,9 @@ ne jamais y montrer un vrai client, et mettre à jour la médaille « 5,0 · 12 
 
 • Séance en direct gratuite pour tous : chrono, GPS, allures, export GPX
 • Démarre en 1 minute : ton cheval, puis son premier soin ou sa première séance
-• Tracé GPS coloré par allure (pas, trot, galop), et relecture de la séance
-• Partage une séance en story ou en carré, avec un lien web que tu peux supprimer
+• Tracé GPS coloré par allure (pas, trot, galop), et relecture de la séance sur une carte : Plan, Satellite ou 3D
+• Partage une séance en story ou en carré, tracé coloré et légende des allures ; fond de carte désactivé par défaut, départ et arrivée masquables
+• Langue au choix : Profil → Langue (Automatique, Français, English)
 • Nouvelles séances : Plat, Barres au sol / cavaletti
 • Météo plus fiable, alertes gel, chaleur, vent et orage
 • Progression de ton cheval : régularité, temps de travail, poids
@@ -192,8 +193,9 @@ ne jamais y montrer un vrai client, et mettre à jour la médaille « 5,0 · 12 
 
 • Live rides are free for everyone: timer, GPS, gaits, GPX export
 • Start in 1 minute: your horse, then its first care or ride
-• GPS route coloured by gait (walk, trot, canter), and ride replay
-• Share a ride as a story or square card, with a web link you can delete
+• GPS route coloured by gait (walk, trot, canter), and ride replay on a map: Standard, Satellite or 3D
+• Share a ride as a story or square card with a coloured route and gait legend; map background off by default, start and end can be hidden
+• Choose your language: Profile → Language (Automatic, French, English)
 • New sessions: Flatwork, Ground poles / cavaletti
 • More reliable weather, with frost, heat, wind and storm alerts
 • Your horse's progress: consistency, work time, weight

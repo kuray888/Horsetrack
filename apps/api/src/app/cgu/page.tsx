@@ -7,7 +7,7 @@ import { LegalPage } from "@/components/LegalPage";
  * applicable — cf. /legal/cgu.md). */
 export default function CguPage() {
   return (
-    <LegalPage title="Conditions Générales d'Utilisation — Horsetrack" updated="28 septembre 2026">
+    <LegalPage title="Conditions Générales d'Utilisation — Horsetrack" updated="17 novembre 2026">
       <h2>1. Objet</h2>
       <p>
         Les présentes Conditions Générales d&apos;Utilisation (« CGU ») régissent l&apos;accès et l&apos;utilisation de
@@ -31,13 +31,21 @@ export default function CguPage() {
         <li>planifier manuellement ses séances d&apos;entraînement et suivre leur réalisation ;</li>
         <li>gérer un agenda de rendez-vous (vétérinaire, ostéopathe, maréchal, dentiste, concours) ;</li>
         <li>tenir un journal d&apos;entraînement (humeur, activité, météo) ;</li>
-        <li>suivre les dépenses liées à son cheval et se fixer des objectifs.</li>
+        <li>suivre les dépenses liées à son cheval et se fixer des objectifs ;</li>
+        <li>
+          enregistrer une séance en direct (chrono, distance, allures, tracé GPS), la relire sur une carte et la
+          partager, gratuitement ; seule la sécurité en balade (alerte à des proches) relève de Premium.
+        </li>
       </ul>
       <p>
         L&apos;abonnement Premium (cf. article 5) débloque en plus : plusieurs chevaux, le coffre-fort numérique de
         documents (factures, ordonnances, rapports), le partage de l&apos;accès à un cheval avec une personne
         (demi-pension, coach ou groom), le suivi détaillé de plusieurs épreuves par concours, et les rappels
-        illimités (notification et email) — la version gratuite permet un rappel par notification à la fois.
+        illimités (notification et email), plusieurs objectifs en même temps, tout l'historique et le bilan de
+        l'année — la version gratuite permet un rappel par notification à la fois et un objectif à la fois. Pour les
+        comptes gratuits créés à partir du 20 novembre 2026, l'historique et le journal s'affichent sur les 90
+        derniers jours ; les données ne sont pas supprimées et réapparaissent avec Premium. Les comptes créés avant
+        cette date ne sont pas concernés.
       </p>
 
       <h2>3. Avertissement important</h2>

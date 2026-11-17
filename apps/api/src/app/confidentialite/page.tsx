@@ -7,7 +7,7 @@ import { LegalPage } from "@/components/LegalPage";
  * cf. /legal/politique-confidentialite.md). */
 export default function ConfidentialitePage() {
   return (
-    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="28 octobre 2026">
+    <LegalPage title="Politique de Confidentialité — Horsetrack" updated="17 novembre 2026">
       <h2>1. Qui sommes-nous</h2>
       <p>
         Léa Lilou VERCASSON, Entrepreneur individuel (micro-entreprise), 14 Rue Robert Esnault-Pelterie, 78117
