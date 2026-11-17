@@ -17,7 +17,7 @@ export const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "route",
     title: "Séance en direct",
-    text: "Lancez le chrono en selle : distance, vitesse, allures et tracé GPS s'enregistrent, même écran verrouillé.",
+    text: "Lancez le chrono en selle : distance, vitesse, allures et tracé GPS s'enregistrent, même écran verrouillé. Le tracé se colore selon l'allure, pas, trot ou galop. Gratuit pour tous.",
   },
   {
     icon: "bulb",
@@ -67,12 +67,15 @@ export const STORIES: Story[] = [
     eyebrow: "Séance en direct",
     tone: "blue",
     title: ["Montez.", "L'app compte pour vous."],
-    text: "Choisissez le cheval et l'activité, touchez « Démarrer » : chrono, distance, vitesse et allures s'enregistrent pendant que vous montez, même téléphone en poche. À la fin, la séance rejoint votre planning avec son tracé.",
+    text: "Choisissez le cheval et l'activité, touchez « Démarrer » : chrono, distance, vitesse et allures s'enregistrent pendant que vous montez, même téléphone en poche. À la fin, la séance rejoint votre planning avec son tracé, coloré selon l'allure. La séance en direct est gratuite.",
     bullets: [
       "Chrono, distance, vitesse et allures estimées",
-      "Le tracé GPS de votre parcours",
+      "Le tracé GPS coloré par allure : pas, trot, galop",
+      "Relecture sur carte : plan, satellite ou 3D (iPhone)",
+      "Carte à partager en Story ou en Carré, fond de carte désactivé par défaut, départ et arrivée masquables",
       "Fonctionne écran verrouillé, et sans GPS en manège",
       "En balade, « Prévenir mes proches » : une alerte si vous ne bougez plus (Premium)",
+      "Le bilan du mois de vos sorties : kilomètres, galop, records (Premium)",
     ],
     screens: ["seanceDirectDepart", "seanceDirect"],
   },
@@ -224,13 +227,14 @@ export const PLANS = {
       "1 cheval",
       "Planning, séances et agenda des soins",
       "Séances en direct : chrono, GPS, allures",
-      "Relecture de la séance et carte à partager",
+      "Relecture de la séance sur carte, et carte à partager en Story ou Carré",
       "Partage d'un cheval en lecture seule",
       "3 questions offertes au coach IA",
       "Journal avec météo",
       "Suivi des dépenses",
-      "Objectifs",
+      "Un objectif à la fois",
       "1 rappel à la fois",
+      "Historique des 90 derniers jours (comptes créés à partir du 20 novembre 2026)",
     ],
   },
   premium: {
@@ -242,6 +246,8 @@ export const PLANS = {
     audience: "Pour tout suivre, à plusieurs et sans limite.",
     items: [
       "Chevaux illimités",
+      "Tout l'historique, le bilan de l'année et le bilan du mois de vos sorties",
+      "Plusieurs objectifs en même temps",
       "Coach IA : 30 questions par mois, idée de séance, résumé du mois",
       "Le meilleur moment pour monter, chaque jour, d'après la météo",
       "Rappels illimités, par notification et email",
@@ -258,15 +264,19 @@ export const PLANS = {
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Horsetrack est-il gratuit ?",
-    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, le journal, les dépenses, un rappel à la fois, les séances en direct avec GPS et 3 questions au coach IA offertes. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
+    a: `Oui. La version gratuite suit 1 cheval, sans limite de durée, avec le planning, l'agenda des soins, le journal, les dépenses, un objectif et un rappel à la fois, les séances en direct avec GPS et 3 questions au coach IA offertes. Pour les comptes gratuits créés à partir du 20 novembre 2026, l'historique et le journal s'affichent sur les 90 derniers jours ; les comptes créés avant cette date ne sont pas concernés. Horsetrack Premium ajoute le reste, avec ${PRICING.trial} d'essai gratuit.`,
   },
   {
     q: "Que contient Horsetrack Premium ?",
-    a: `Le coach IA, le meilleur moment pour monter selon la météo, les chevaux et les rappels illimités (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), la sécurité en balade, le détail des concours épreuve par épreuve, le budget détaillé, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
+    a: `Le coach IA, le meilleur moment pour monter selon la météo, les chevaux et les rappels illimités, tout l'historique, le bilan de l'année et le bilan du mois de vos sorties, plusieurs objectifs en même temps (notification et email), le coffre-fort pour vos ordonnances et factures, le partage d'un cheval avec une personne (demi-pension, coach ou groom), la sécurité en balade, le détail des concours épreuve par épreuve, le budget détaillé, les créneaux réguliers de la semaine, le rapport du mois en PDF et l'export des dépenses en PDF ou tableur. ${PRICING.monthly} par mois ou ${PRICING.yearly} par an, après ${PRICING.trial} d'essai.`,
   },
   {
     q: "Sur quels appareils fonctionne Horsetrack ?",
     a: "Horsetrack est une application iPhone, à télécharger gratuitement sur l'App Store.",
+  },
+  {
+    q: "Horsetrack existe-t-il en anglais ?",
+    a: "Oui. L'app est disponible en français et en anglais : Profil → Langue permet de choisir Automatique (la langue de votre iPhone), Français ou English, appliqué à la prochaine ouverture de l'app. Ce site est en français uniquement.",
   },
   {
     q: "Puis-je partager mon cheval avec ma demi-pension ou mon coach ?",
@@ -278,7 +288,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "La séance en direct consomme-t-elle ma batterie ?",
-    a: "Le GPS ne fonctionne que pendant la séance que vous avez lancée, et s'arrête dès que vous la terminez. En manège couvert, coupez le suivi du parcours : le chrono fonctionne sans GPS.",
+    a: "Le GPS ne fonctionne que pendant la séance que vous avez lancée, et s'arrête dès que vous la terminez. Le fond de carte (plan, satellite, 3D) est fourni par Apple Plans sur iPhone, et vos séances ne sont partagées que si vous créez une carte ou un lien. En manège couvert, coupez le suivi du parcours : le chrono fonctionne sans GPS.",
   },
   {
     q: "Comment fonctionnent les rappels ?",
