@@ -1,11 +1,11 @@
 import { removeJson } from "@/lib/localStore";
 import { SAFETY_LEGACY_KEY, safetyKeyForUser } from "@/rides/safetyStorage";
 import { translateAuthError } from "@/lib/authErrors";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PRO_ENABLED } from "@/lib/features";
 import { clearExtras } from "@/extras/store";
 import { Alert, Linking, Platform, Share, Switch, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 import type { User } from "@supabase/supabase-js";
 import { MaterialCommunityIcons } from "@/components/ThemedIcon";
@@ -55,7 +55,9 @@ import { clearTasks } from "@/tasks/tasksStore";
 import { DISCIPLINES, RIDER_LEVELS, RIDER_GOALS, RIDE_FREQUENCIES } from "@/onboarding/options";
 import { lazyTab } from "@/components/LazyTab";
 import { exportAllData } from "@/export/exportAllData";
-import { t as tr } from "@/i18n";
+import { LANG, t as tr } from "@/i18n";
+import * as SecureStore from "expo-secure-store";
+import { LANG_PREF_KEY, languageSummary, parseLangPreference, resolveLang, type LangPreference } from "@/i18n/langs";
 import { hapticSelection } from "@/lib/haptics";
 import { Skeleton } from "@/components/Skeleton";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -208,6 +210,19 @@ function ProfileScreen() {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
+  // Choix de langue, relu au retour de l'écran Langue (app/language.tsx).
+  const [langPref, setLangPref] = useState<LangPreference>("auto");
+  useFocusEffect(
+    useCallback(() => {
+      try {
+        setLangPref(parseLangPreference(SecureStore.getItem(LANG_PREF_KEY)));
+      } catch {
+        setLangPref("auto");
+      }
+    }, [])
+  );
+  const deviceLocale = Intl.DateTimeFormat().resolvedOptions().locale ?? "fr";
+  const langSummary = languageSummary(langPref, LANG, { auto: tr("Automatique"), pending: tr("à la réouverture") }, resolveLang(langPref, deviceLocale));
   const [sessionRemindersOn, setSessionRemindersOn] = useState(true);
   const [bioLabel, setBioLabel] = useState(tr("Biométrie"));
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -735,6 +750,18 @@ function ProfileScreen() {
             value={bioEnabled}
             disabled={!bioAvailable}
             onValueChange={handleToggleBiometrics}
+          />
+          <View className="border-t border-border" />
+          {/* Langue : Automatique (celle de l'iPhone) ou une langue précise,
+              cf. app/language.tsx. Nom de la langue écrit dans sa langue. */}
+          <LinkRow
+            icon="translate"
+            label={tr("Langue")}
+            description={langSummary}
+            onPress={() => {
+              hapticSelection();
+              router.push("/language" as never);
+            }}
           />
         </View>
       </FadeInView>

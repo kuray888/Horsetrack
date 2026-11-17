@@ -242,6 +242,7 @@ function AppStack() {
       <Stack.Screen name="ride-share" options={{ presentation: "modal" }} />
       <Stack.Screen name="contacts" options={{ presentation: "modal" }} />
       <Stack.Screen name="referral" options={{ presentation: "modal" }} />
+      <Stack.Screen name="language" options={{ presentation: "modal" }} />
       <Stack.Screen name="coach" options={{ presentation: "modal" }} />
       <Stack.Screen name="comments" options={{ presentation: "modal" }} />
       <Stack.Screen name="library" options={{ presentation: "modal" }} />

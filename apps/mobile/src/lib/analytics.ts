@@ -144,6 +144,8 @@ export type AnalyticsEvent =
   | "contact_route_opened"
   // Relecture d'une séance en direct (cf. app/ride-replay.tsx).
   | "ride_replay_opened"
+  // Langue de l'app choisie dans le Profil (cf. app/language.tsx) : choix et langue obtenue.
+  | "language_changed"
   // Fond de carte choisi sous le tracé (relecture ou carte partagée, cf. mapViewLogic.ts).
   | "ride_map_style_changed"
   // Carte de la relecture ouverte en plein écran (cf. RideMapFullScreen).

@@ -1,4 +1,7 @@
 import { EN } from "@/i18n/en";
+import { LANG_PREF_KEY, localeFor, parseLangPreference, resolveLang, type Lang } from "@/i18n/langs";
+
+export type { Lang } from "@/i18n/langs";
 
 /**
  * Traduction de l'app : le texte français reste écrit tel quel dans le code,
@@ -7,9 +10,11 @@ import { EN } from "@/i18n/en";
  * dans le dictionnaire s'affiche en français plutôt qu'en clé illisible.
  * i18n.test.ts vérifie que chaque `t("…")` du code a sa traduction.
  *
- * Langue : celle du téléphone (ou celle choisie pour l'app dans Réglages →
- * Horsetrack → Langue sur iOS), fixée au démarrage — changer de langue
- * relance l'app sur iOS. Français si le téléphone est en français, anglais
+ * Langue : celle choisie dans Profil → Langue (i18n/langs.ts), sinon celle du
+ * téléphone (ou celle choisie pour l'app dans Réglages → Horsetrack → Langue
+ * sur iOS). Fixée au démarrage : le choix s'applique à la réouverture de l'app
+ * (des textes sont construits à l'import, un changement à chaud en laisserait
+ * dans l'ancienne langue). Français si le téléphone est en français, anglais
  * pour toutes les autres langues.
  *
  * Paramètres : `t("{n} séances", { n: 3 })`. Les pluriels se choisissent dans
@@ -17,14 +22,23 @@ import { EN } from "@/i18n/en";
  * toujours au même endroit).
  */
 
-export type Lang = "fr" | "en";
+/** Choix mémorisé dans le trousseau, lu de façon synchrone : le module
+ * expo-secure-store n'est chargé qu'ici, après la garde des tests. */
+function storedPreference(): unknown {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("expo-secure-store") as typeof import("expo-secure-store")).getItem(LANG_PREF_KEY);
+  } catch {
+    return null;
+  }
+}
 
 function detectLang(): Lang {
   // Tests : le français, langue de référence des attentes.
   if (typeof process !== "undefined" && process.env?.VITEST) return "fr";
   try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? "fr";
-    return locale.toLowerCase().startsWith("fr") ? "fr" : "en";
+    const device = Intl.DateTimeFormat().resolvedOptions().locale ?? "fr";
+    return resolveLang(parseLangPreference(storedPreference()), device);
   } catch {
     return "fr";
   }
@@ -32,9 +46,8 @@ function detectLang(): Lang {
 
 export const LANG: Lang = detectLang();
 
-/** Pour Intl et toLocaleDateString : anglais britannique (jour avant le mois,
- * comme en français). */
-export const LOCALE = LANG === "fr" ? "fr-FR" : "en-GB";
+/** Pour Intl et toLocaleDateString (cf. langs.ts). */
+export const LOCALE = localeFor(LANG);
 
 /** « 12.5 » → « 12,5 » en français, inchangé en anglais. */
 export function localDecimal(text: string): string {

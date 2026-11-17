@@ -19,7 +19,7 @@ import { codeSuggestion, plannedSessionFromSuggestion, suggestionRequestBody, ty
 import { fetchCoachStatus, requestSuggestion, type SuggestionResponse } from "@/coach/coachApi";
 import { useCoachContext } from "@/coach/useCoachContext";
 import { useCoachConsent } from "@/coach/useCoachConsent";
-import { LANG, t } from "@/i18n";
+import { LANG, LOCALE, t } from "@/i18n";
 
 const INTENSITY_LABEL = { LOW: t("légère"), MEDIUM: t("modérée"), HIGH: t("soutenue") } as const;
 
@@ -33,7 +33,7 @@ function dayLabel(targetDate: string): string {
   const diff = dayDiff(new Date(), new Date(y, m - 1, d));
   if (diff <= 0) return t("Aujourd'hui");
   if (diff === 1) return t("Demain");
-  return new Date(y, m - 1, d).toLocaleDateString(LANG === "fr" ? "fr-FR" : "en-GB", { weekday: "long" });
+  return new Date(y, m - 1, d).toLocaleDateString(LOCALE, { weekday: "long" });
 }
 
 /**

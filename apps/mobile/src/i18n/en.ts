@@ -2578,4 +2578,11 @@ export const EN: Record<string, string> = {
   "Agrandir la carte": "Expand map",
   "Fermer la carte": "Close map",
   "Toute personne qui a le lien verra la date, la durée, la distance et le tracé{ends}. Ni ton nom ni celui de ton cheval. Tu peux supprimer le lien quand tu veux.": "Anyone with the link will see the date, duration, distance and route{ends}. Not your name or your horse's. You can delete the link at any time.",
+  "Langue": "Language",
+  "Langue enregistrée": "Language saved",
+  "Langue non enregistrée": "Language not saved",
+  "Le choix n'a pas pu être enregistré. Réessaie dans un instant.": "Your choice couldn't be saved. Try again in a moment.",
+  "Ferme complètement Horsetrack puis rouvre-la pour appliquer {language}.": "Fully close Horsetrack and reopen it to apply {language}.",
+  "Automatique suit la langue de ton iPhone. Le changement s'applique quand tu rouvres l'app.": "Automatic follows your iPhone's language. The change applies when you reopen the app.",
+  "à la réouverture": "when you reopen the app",
 };
